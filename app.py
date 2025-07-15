@@ -79,18 +79,30 @@ def score_fit(rjs: dict, jd_txt: str) -> int:
         return 1
 
 def make_questions(rjs: dict, jd_txt: str) -> list[str]:
+    """Return exactly four questions as a Python list of strings."""
     raw = chat_raw(
         "You are an interviewer crafting questions.",
         "Write exactly FOUR technical interview questions tailored to this "
-        "candidate and job description. Return them as a JSON array of strings.\n\n"
+        "candidate and job description. Return them as JSON — either a bare "
+        "array of strings or an object with the key 'questions'.\n\n"
         f"Résumé:\n{json.dumps(rjs)}\n\nJob Description:\n{jd_txt}",
         json_mode=True,
     )
+
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        # Accept either form: [ ... ]  or  { "questions": [ ... ] }
+        if isinstance(parsed, list):
+            return parsed[:4]
+        if isinstance(parsed, dict) and "questions" in parsed:
+            return parsed["questions"][:4]
+        logging.warning("Unexpected JSON shape for questions: %s", raw[:120])
     except JSONDecodeError:
-        logging.warning("Questions not JSON; falling back. RAW=%s", raw[:120])
-        return [ln.lstrip("-• ").strip() for ln in raw.splitlines() if ln.strip()][:4]
+        logging.warning("Questions not JSON; fallback to line split. RAW=%s", raw[:120])
+
+    # Fallback: take up to four non‑empty lines
+    return [ln.lstrip("-• ").strip() for ln in raw.splitlines() if ln.strip()][:4]
+
 
 # ─────────────────── Flask setup ─────────────────────────
 app = Flask(__name__)
