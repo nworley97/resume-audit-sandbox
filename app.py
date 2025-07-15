@@ -1,8 +1,8 @@
-# app.py ― Demo Sandbox (Résumé → JSON → Fit Score & Questions)
+# app.py ― Demo Sandbox (OpenAI ≥ 1.0 syntax)
 import os, json, logging, tempfile
 import PyPDF2
 from flask import Flask, render_template_string, request, flash
-import openai
+from openai import OpenAI          # <‑‑ NEW import style
 
 # ---------- CONFIG & LOGGING ----------
 logging.basicConfig(
@@ -10,13 +10,13 @@ logging.basicConfig(
 )
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-...")
-MODEL          = "gpt-4o"          # change if you use gpt-4o-mini, gpt-4-turbo, etc.
-openai.api_key = OPENAI_API_KEY
+MODEL          = "gpt-4o"
+client         = OpenAI(api_key=OPENAI_API_KEY)   # <‑‑ instantiate once
 
 # ---------- LLM HELPER ----------
 def chat(system_prompt: str, user_prompt: str) -> str:
-    """ Consistent, low‑temperature wrapper around OpenAI ChatCompletion. """
-    resp = openai.ChatCompletion.create(
+    """Consistent, low‑temperature wrapper around OpenAI ChatCompletion (v1.x)."""
+    resp = client.chat.completions.create(
         model       = MODEL,
         temperature = 0,
         top_p       = 0.1,
@@ -29,14 +29,11 @@ def chat(system_prompt: str, user_prompt: str) -> str:
 
 # ---------- PDF → TEXT ----------
 def pdf_to_text(path: str) -> str:
-    parts = []
     with open(path, "rb") as f:
-        for page in PyPDF2.PdfReader(f).pages:
-            if (txt := page.extract_text()):
-                parts.append(txt)
-    return "\n".join(parts)
+        reader = PyPDF2.PdfReader(f)
+        return "\n".join(p.extract_text() or "" for p in reader.pages)
 
-# ---------- Resume processing ----------
+# ---------- Résumé processing ----------
 def resume_json(resume_txt: str) -> dict:
     prompt = (
         "Convert the résumé below into a JSON object containing: "
@@ -78,7 +75,6 @@ def make_questions(rjs: dict, jd_txt: str) -> list[str]:
     try:
         return json.loads(raw.strip("`"))
     except Exception:
-        # fallback: split by lines
         return [ln.lstrip("-• ").strip() for ln in raw.splitlines() if ln.strip()][:4]
 
 # ---------- Flask setup ----------
@@ -145,7 +141,6 @@ def index():
         if not jd_file or jd_file.filename == "":
             flash("Please upload a job description PDF."); return render_template_string(HTML_FORM)
 
-        # save uploads temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f1, \
              tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f2:
             resume_file.save(f1.name); pdf_resume = f1.name
@@ -174,4 +169,5 @@ def index():
 
 # ---------- Entrypoint ----------
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Bind to all interfaces so Render/Fly/Heroku proxies can reach it
+    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
