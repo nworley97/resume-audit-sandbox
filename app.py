@@ -108,11 +108,14 @@ def score_answers(rjs: dict, questions: List[str], answers: List[str]) -> List[i
         "qa": [{"q": q, "a": a} for q, a in zip(questions, answers)]
     }
     raw = chat(
-        "You are a meticulous interviewer.",
-        "For each Q/A pair below, score how consistent the answer is with "
-        "the résumé and typical expectations for the role. 1 = very dubious/"
-        "inconsistent, 5 = fully consistent and knowledgeable. "
-        "Return only a JSON array of four integers.\n\n"
+    "You are a meticulous interviewer.",
+    "For each Q/A pair below, assign an integer score **1–5**:\n"
+    "5  = Answer is specific, technically sound, and fully consistent with the résumé.\n"
+    "4  = Mostly specific and consistent, but minor details are vague.\n"
+    "3  = Generic but not contradictory (could apply to anyone).\n"
+    "2  = Vague or partially inconsistent with résumé or common knowledge.\n"
+    "1  = Empty, off‑topic, or clearly contradicts the résumé.\n\n"
+    "Return ONLY a JSON array of four integers in the same order as the questions.\n\n"
         + json.dumps(payload, indent=2),
         json_mode=True,
     )
