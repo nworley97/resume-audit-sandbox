@@ -1,4 +1,4 @@
-# app.py – Demo Sandbox (candidate hides score, questions resume‑only)
+# app.py – Demo Sandbox (resume‑only questions, recruiter Q&A table, no JSON dump)
 import os, json, uuid, logging, tempfile
 from json import JSONDecodeError
 from typing import List, Dict
@@ -11,7 +11,7 @@ from openai import OpenAI, APIError, BadRequestError
 
 # ─────────── CONFIG ───────────
 logging.basicConfig(level=logging.INFO)
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "sk-...")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-...")
 MODEL          = "gpt-4o"
 client         = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -106,15 +106,13 @@ def make_questions(rjs: dict) -> List[str]:
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "demo‑key")
 
-# ─────────── Templates ─────────
+# ─────────── Base template ─────
 BASE = """
 <!doctype html><html lang=en><head>
 <meta charset=utf-8>
 <title>{{ title }}</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel=stylesheet>
-<style>
-  .centered { text-align:center; }
-</style>
+<style>.centered { text-align:center; }</style>
 </head><body class="bg-light">
 <nav class="navbar navbar-light bg-white border-bottom mb-4">
   <div class="container-fluid">
@@ -235,20 +233,26 @@ def candidate_detail(cid):
     c = next((x for x in CANDIDATES if x["id"] == cid), None)
     if not c:
         flash("Not found."); return redirect(url_for('recruiter'))
-    answers_html = (
-        "<ol>" + "".join(f"<li>{a or '<em>no answer</em>'}</li>"
-                         for a in c['answers']) + "</ol>"
-        if c["answers"] else "<em>Awaiting answers…</em>"
+
+    qa_rows = "".join(
+        f"<tr><td><strong>{q}</strong></td><td>{c['answers'][i] or '<em>no answer</em>'}</td></tr>"
+        for i, q in enumerate(c["questions"])
     )
+
     body = f"""
 <a class="btn btn-link mb-3" href="{url_for('recruiter')}">← back</a>
 <h4>{c['name']} — Score {c['score']}/5</h4>
 <p><strong>Résumé realism:</strong> {'Looks Real' if c['real'] else 'Possibly Fake'}</p>
-<a class="btn btn-sm btn-outline-secondary mb-3" href="{url_for('download_resume', cid=cid)}">Download PDF</a>
-<h5>Résumé JSON</h5>
-<pre class="bg-light p-2">{json.dumps(c['resume_json'], indent=2)}</pre>
-<h5 class="mt-4">Answers</h5>
-{answers_html}
+
+<a class="btn btn-sm btn-outline-secondary mb-4" href="{url_for('download_resume', cid=cid)}">
+  Download résumé PDF
+</a>
+
+<h5>Interview Q&amp;A</h5>
+<table class="table table-sm">
+  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <tbody>{qa_rows}</tbody>
+</table>
 """
     return render_page(f"Candidate {c['name']}", "recruiter", body)
 
