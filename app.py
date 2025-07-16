@@ -1,3 +1,4 @@
+# app.py – Demo Sandbox (candidate hides score, questions resume‑only)
 import os, json, uuid, logging, tempfile
 from json import JSONDecodeError
 from typing import List, Dict
@@ -14,7 +15,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "sk-...")
 MODEL          = "gpt-4o"
 client         = OpenAI(api_key=OPENAI_API_KEY)
 
-# store data in memory (replace with DB later)
+# in‑memory storage (swap for DB later)
 CANDIDATES: List[Dict] = []
 
 JOB_DESCRIPTION = """
@@ -78,12 +79,17 @@ def fit_score(rjs: dict, jd: str) -> int:
     try: return int(score_txt.strip())
     except ValueError: return 1
 
-def make_questions(rjs: dict, jd: str) -> List[str]:
+def make_questions(rjs: dict) -> List[str]:
+    """
+    Generate four verification questions based ONLY on résumé JSON.
+    """
     raw = chat(
-        "You are an interviewer crafting questions.",
-        "Write FOUR technical interview questions tailored to the résumé & JD. "
-        "Return as JSON array; or object {'questions':[...]}.\n\n"
-        f"Résumé:\n{json.dumps(rjs)}\n\nJD:\n{jd}",
+        "You are an interviewer verifying a résumé.",
+        "Write exactly FOUR probing technical or experience‑based questions "
+        "that would confirm whether the candidate genuinely possesses the "
+        "skills and achievements listed below. Return as JSON array; or "
+        "object {'questions':[...]}.\n\n"
+        f"{json.dumps(rjs)}",
         json_mode=True,
     )
     try:
@@ -94,8 +100,7 @@ def make_questions(rjs: dict, jd: str) -> List[str]:
             return parsed["questions"][:4]
     except JSONDecodeError:
         pass
-    # fallback
-    return [ln.lstrip("-• ").strip() for ln in raw.splitlines() if ln.strip()][:4]
+    return [l.lstrip('-• ').strip() for l in raw.splitlines() if l.strip()][:4]
 
 # ─────────── Flask setup ───────
 app = Flask(__name__)
@@ -141,14 +146,13 @@ def render_page(title, role, body_html):
 @app.route("/", methods=["GET", "POST"])
 def home():
     if request.method == "POST":
-        name   = request.form.get("name","").strip()
-        rf     = request.files.get("resume_pdf")
+        name = request.form.get("name", "").strip()
+        rf   = request.files.get("resume_pdf")
         if not name:
             flash("Name required."); return redirect(url_for('home'))
-        if not rf or rf.filename=="":
+        if not rf or rf.filename == "":
             flash("Please upload a résumé PDF."); return redirect(url_for('home'))
 
-        # save PDF temp.
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             rf.save(tmp.name); pdf_path = tmp.name
 
@@ -157,17 +161,14 @@ def home():
             rjs   = resume_json(txt)
             real  = realism_check(rjs)
             score = fit_score(rjs, JOB_DESCRIPTION)
-            qs    = make_questions(rjs, JOB_DESCRIPTION)
+            qs    = make_questions(rjs)
             cid   = str(uuid.uuid4())[:8]
             CANDIDATES.append({
                 "id": cid, "name": name, "resume_json": rjs, "resume_path": pdf_path,
                 "real": real, "score": score, "questions": qs, "answers": []
             })
-            # show question form
             body = f"""
 <h4>Hi {name}, thanks for applying!</h4>
-<p><strong>Résumé Realism:</strong> {'Looks Real' if real else 'Possibly Fake'}</p>
-<p><strong>Fit Score:</strong> {score} / 5</p>
 <h5 class='mt-4 centered'>Interview Questions</h5>
 <form method="post" action="{ url_for('submit_answers', cid=cid) }">
   <ol class="list-group list-group-numbered mb-3">
@@ -183,7 +184,7 @@ def home():
         except RuntimeError as e:
             flash(str(e)); return redirect(url_for('home'))
 
-    # GET: upload form
+    # GET upload form
     body = f"""
 <div class="card p-4 shadow-sm mb-4">
   {JOB_DESCRIPTION}
@@ -204,10 +205,10 @@ def home():
 
 @app.route("/answers/<cid>", methods=["POST"])
 def submit_answers(cid):
-    cand = next((c for c in CANDIDATES if c["id"]==cid), None)
+    cand = next((c for c in CANDIDATES if c["id"] == cid), None)
     if not cand:
         flash("Candidate not found."); return redirect(url_for('home'))
-    cand["answers"] = [request.form.get(f"a{i}","").strip() for i in range(4)]
+    cand["answers"] = [request.form.get(f"a{i}", "").strip() for i in range(4)]
     flash("Answers submitted!"); return redirect(url_for('home'))
 
 # ─────────── Recruiter routes ──
@@ -231,8 +232,9 @@ def recruiter():
 
 @app.route("/recruiter/<cid>")
 def candidate_detail(cid):
-    c = next((x for x in CANDIDATES if x["id"]==cid), None)
-    if not c: flash("Not found."); return redirect(url_for('recruiter'))
+    c = next((x for x in CANDIDATES if x["id"] == cid), None)
+    if not c:
+        flash("Not found."); return redirect(url_for('recruiter'))
     answers_html = (
         "<ol>" + "".join(f"<li>{a or '<em>no answer</em>'}</li>"
                          for a in c['answers']) + "</ol>"
@@ -252,11 +254,12 @@ def candidate_detail(cid):
 
 @app.route("/resume/<cid>")
 def download_resume(cid):
-    c = next((x for x in CANDIDATES if x["id"]==cid), None)
-    if not c: return "Not found", 404
+    c = next((x for x in CANDIDATES if x["id"] == cid), None)
+    if not c:
+        return "Not found", 404
     return send_file(c["resume_path"], as_attachment=True,
                      download_name=f"{c['name']}.pdf")
 
-# ─────────── Main ───────────────
+# ─────────── Entrypoint ────────
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
