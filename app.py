@@ -1,4 +1,3 @@
-# app.py – Demo Sandbox (resume‑only questions, recruiter Q&A table, no JSON dump)
 import os, json, uuid, logging, tempfile
 from json import JSONDecodeError
 from typing import List, Dict
@@ -15,7 +14,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-...")
 MODEL          = "gpt-4o"
 client         = OpenAI(api_key=OPENAI_API_KEY)
 
-# in‑memory storage (swap for DB later)
+# in‑memory store (swap for DB later)
 CANDIDATES: List[Dict] = []
 
 JOB_DESCRIPTION = """
@@ -39,6 +38,7 @@ def chat(system_prompt: str, user_prompt: str, *, json_mode=False) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_prompt},
             ],
+            timeout=60,          # per‑call safeguard
         )
         return resp.choices[0].message.content.strip()
     except APIError as e:
@@ -80,9 +80,6 @@ def fit_score(rjs: dict, jd: str) -> int:
     except ValueError: return 1
 
 def make_questions(rjs: dict) -> List[str]:
-    """
-    Generate four verification questions based ONLY on résumé JSON.
-    """
     raw = chat(
         "You are an interviewer verifying a résumé.",
         "Write exactly FOUR probing technical or experience‑based questions "
@@ -102,11 +99,35 @@ def make_questions(rjs: dict) -> List[str]:
         pass
     return [l.lstrip('-• ').strip() for l in raw.splitlines() if l.strip()][:4]
 
+def score_answers(rjs: dict, questions: List[str], answers: List[str]) -> List[int]:
+    """
+    Return a list of integers (1‑5) rating each answer's validity.
+    """
+    payload = {
+        "résumé": rjs,
+        "qa": [{"q": q, "a": a} for q, a in zip(questions, answers)]
+    }
+    raw = chat(
+        "You are a meticulous interviewer.",
+        "For each Q/A pair below, score how consistent the answer is with "
+        "the résumé and typical expectations for the role. 1 = very dubious/"
+        "inconsistent, 5 = fully consistent and knowledgeable. "
+        "Return only a JSON array of four integers.\n\n"
+        + json.dumps(payload, indent=2),
+        json_mode=True,
+    )
+    try:
+        scores = json.loads(raw)
+        if isinstance(scores, list) and len(scores) == 4:
+            return [int(max(1, min(5, s))) for s in scores]
+    except Exception:
+        pass
+    return [3, 3, 3, 3]  # neutral fallback
+
 # ─────────── Flask setup ───────
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "demo‑key")
 
-# ─────────── Base template ─────
 BASE = """
 <!doctype html><html lang=en><head>
 <meta charset=utf-8>
@@ -163,7 +184,8 @@ def home():
             cid   = str(uuid.uuid4())[:8]
             CANDIDATES.append({
                 "id": cid, "name": name, "resume_json": rjs, "resume_path": pdf_path,
-                "real": real, "score": score, "questions": qs, "answers": []
+                "real": real, "score": score, "questions": qs,
+                "answers": [], "answer_scores": []
             })
             body = f"""
 <h4>Hi {name}, thanks for applying!</h4>
@@ -206,7 +228,9 @@ def submit_answers(cid):
     cand = next((c for c in CANDIDATES if c["id"] == cid), None)
     if not cand:
         flash("Candidate not found."); return redirect(url_for('home'))
-    cand["answers"] = [request.form.get(f"a{i}", "").strip() for i in range(4)]
+    answers = [request.form.get(f"a{i}", "").strip() for i in range(4)]
+    cand["answers"] = answers
+    cand["answer_scores"] = score_answers(cand["resume_json"], cand["questions"], answers)
     flash("Answers submitted!"); return redirect(url_for('home'))
 
 # ─────────── Recruiter routes ──
@@ -235,7 +259,9 @@ def candidate_detail(cid):
         flash("Not found."); return redirect(url_for('recruiter'))
 
     qa_rows = "".join(
-        f"<tr><td><strong>{q}</strong></td><td>{c['answers'][i] or '<em>no answer</em>'}</td></tr>"
+        f"<tr><td><strong>{q}</strong></td>"
+        f"<td>{c['answers'][i] or '<em>no answer</em>'}</td>"
+        f"<td>{c['answer_scores'][i] if c['answer_scores'] else '-'}</td></tr>"
         for i, q in enumerate(c["questions"])
     )
 
@@ -250,7 +276,7 @@ def candidate_detail(cid):
 
 <h5>Interview Q&amp;A</h5>
 <table class="table table-sm">
-  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <thead><tr><th>Question</th><th>Answer</th><th>Validity (1‑5)</th></tr></thead>
   <tbody>{qa_rows}</tbody>
 </table>
 """
@@ -261,8 +287,12 @@ def download_resume(cid):
     c = next((x for x in CANDIDATES if x["id"] == cid), None)
     if not c:
         return "Not found", 404
-    return send_file(c["resume_path"], as_attachment=True,
-                     download_name=f"{c['name']}.pdf")
+    return send_file(
+        c["resume_path"],
+        as_attachment=True,
+        download_name=f"{c['name']}.pdf",
+        max_age=0,
+    )
 
 # ─────────── Entrypoint ────────
 if __name__ == "__main__":
