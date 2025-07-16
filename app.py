@@ -1,4 +1,4 @@
-import os, json, uuid, logging, tempfile
+import os, json, uuid, logging, tempfile, re
 from json import JSONDecodeError
 from typing import List, Dict
 from flask import (
@@ -14,7 +14,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-...")
 MODEL          = "gpt-4o"
 client         = OpenAI(api_key=OPENAI_API_KEY)
 
-# in‑memory store (swap for DB later)
+# in‑memory storage (swap for DB later)
 CANDIDATES: List[Dict] = []
 
 JOB_DESCRIPTION = """
@@ -26,8 +26,8 @@ JOB_DESCRIPTION = """
 </ul>
 """
 
-# ─────────── LLM helper ────────
-def chat(system_prompt: str, user_prompt: str, *, json_mode=False) -> str:
+# ─────────── OPENAI WRAPPER ───────────
+def chat(system: str, user: str, *, json_mode=False, timeout=60) -> str:
     try:
         resp = client.chat.completions.create(
             model       = MODEL,
@@ -35,10 +35,10 @@ def chat(system_prompt: str, user_prompt: str, *, json_mode=False) -> str:
             top_p       = 0.1,
             response_format = ({"type": "json_object"} if json_mode else None),
             messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt},
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
             ],
-            timeout=60,          # per‑call safeguard
+            timeout=timeout,
         )
         return resp.choices[0].message.content.strip()
     except APIError as e:
@@ -46,9 +46,9 @@ def chat(system_prompt: str, user_prompt: str, *, json_mode=False) -> str:
             raise RuntimeError("OpenAI quota exhausted.") from e
         raise RuntimeError(f"OpenAI error: {e}") from e
     except BadRequestError as e:
-        raise RuntimeError(f"Bad request to OpenAI: {e}") from e
+        raise RuntimeError(f"OpenAI bad request: {e}") from e
 
-# ─────────── Resume helpers ────
+# ─────────── Helper functions ───────────
 def pdf_to_text(path: str) -> str:
     with open(path, "rb") as f:
         reader = PyPDF2.PdfReader(f)
@@ -57,8 +57,9 @@ def pdf_to_text(path: str) -> str:
 def resume_json(text: str) -> dict:
     raw = chat(
         "You are a résumé JSON extractor.",
-        "Convert to JSON with name, contact, education, work_experience, "
-        "skills, certifications.\n\n" + text,
+        "Convert this résumé text into JSON with fields: "
+        "name, contact, education, work_experience, skills, certifications.\n\n"
+        + text,
         json_mode=True,
     )
     return json.loads(raw)
@@ -73,87 +74,85 @@ def realism_check(rjs: dict) -> bool:
 def fit_score(rjs: dict, jd: str) -> int:
     score_txt = chat(
         "You are a technical recruiter.",
-        f"Résumé:\n{json.dumps(rjs,indent=2)}\n\nJD:\n{jd}\n\n"
-        "Rate 1‑5 integer only."
+        f"Résumé:\n{json.dumps(rjs, indent=2)}\n\nJob Description:\n{jd}\n\n"
+        "Rate résumé–JD fit on a 1‑5 integer scale. Return only the number."
     )
-    try: return int(score_txt.strip())
-    except ValueError: return 1
+    try:
+        return int(score_txt.strip())
+    except ValueError:
+        return 1
 
 def make_questions(rjs: dict) -> List[str]:
     raw = chat(
         "You are an interviewer verifying a résumé.",
         "Write exactly FOUR probing technical or experience‑based questions "
-        "that would confirm whether the candidate genuinely possesses the "
-        "skills and achievements listed below. Return as JSON array; or "
-        "object {'questions':[...]}.\n\n"
-        f"{json.dumps(rjs)}",
+        "that confirm the candidate really has the skills and achievements "
+        "listed below. Return a JSON array of strings (no extra metadata).\n\n"
+        + json.dumps(rjs),
         json_mode=True,
     )
     try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            return parsed[:4]
-        if isinstance(parsed, dict) and "questions" in parsed:
-            return parsed["questions"][:4]
+        return json.loads(raw)[:4]
     except JSONDecodeError:
-        pass
-    return [l.lstrip('-• ').strip() for l in raw.splitlines() if l.strip()][:4]
+        return [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()][:4]
 
-def score_answers(rjs: dict, questions: List[str], answers: List[str]) -> List[int]:
+def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
     """
-    Return a list of integers (1‑5) rating each answer's validity.
+    Return four integers (1‑5) rating each answer's validity.
+    Answers with <5 words auto‑score 1. Others are scored by GPT.
     """
+    short = [i for i,a in enumerate(ans) if len(re.findall(r"\w+", a)) < 5]
+    prelim = [1 if i in short else None for i in range(4)]
+
     payload = {
         "résumé": rjs,
-        "qa": [{"q": q, "a": a} for q, a in zip(questions, answers)]
+        "qa": [{"q": q, "a": a} for q, a in zip(qs, ans)]
     }
-    raw = chat(
-    "You are a meticulous interviewer.",
-    "For each Q/A pair below, assign an integer score **1–5**:\n"
-    "5  = Answer is specific, technically sound, and fully consistent with the résumé.\n"
-    "4  = Mostly specific and consistent, but minor details are vague.\n"
-    "3  = Generic but not contradictory (could apply to anyone).\n"
-    "2  = Vague or partially inconsistent with résumé or common knowledge.\n"
-    "1  = Empty, off‑topic, or clearly contradicts the résumé.\n\n"
-    "Return ONLY a JSON array of four integers in the same order as the questions.\n\n"
-        + json.dumps(payload, indent=2),
-        json_mode=True,
+    rubric = (
+        "Score each answer 1‑5 with this rubric:\n"
+        "5 = Precise, technically sound, fully consistent with résumé\n"
+        "4 = Mostly specific/consistent, minor vagueness\n"
+        "3 = Generic but not contradictory\n"
+        "2 = Partially inconsistent or vague\n"
+        "1 = Empty, gibberish, or contradicts résumé\n"
+        "Return only a JSON array of four integers."
     )
     try:
-        scores = json.loads(raw)
-        if isinstance(scores, list) and len(scores) == 4:
-            return [int(max(1, min(5, s))) for s in scores]
+        raw = chat("You are a strict interviewer.", rubric+"\n\n"+json.dumps(payload,indent=2),
+                   json_mode=True)
+        scores = [int(max(1,min(5,s))) for s in json.loads(raw)]
     except Exception:
-        pass
-    return [3, 3, 3, 3]  # neutral fallback
+        scores = [3,3,3,3]
 
-# ─────────── Flask setup ───────
+    # override with prelim 1s
+    return [p or s for p,s in zip(prelim, scores)]
+
+# ─────────── Flask setup ───────────
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "demo‑key")
 
-BASE = """
+BASE_HTML = """
 <!doctype html><html lang=en><head>
-<meta charset=utf-8>
-<title>{{ title }}</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel=stylesheet>
-<style>.centered { text-align:center; }</style>
+  <meta charset=utf-8><title>{{ title }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel=stylesheet>
+  <style>.centered { text-align:center; }</style>
 </head><body class="bg-light">
 <nav class="navbar navbar-light bg-white border-bottom mb-4">
   <div class="container-fluid">
     <span class="navbar-brand mb-0 h4">Demo Sandbox</span>
     <div>
-      {% if role=='candidate' %}
-        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('recruiter') }}">Recruiter view</a>
+      {% if role == 'candidate' %}
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('recruiter') }}">Recruiter view</a>
       {% else %}
-        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('home') }}">Candidate view</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('home') }}">Candidate view</a>
       {% endif %}
     </div>
   </div>
 </nav>
 <div class="container" style="max-width:720px;">
-  {% with msgs = get_flashed_messages() %}
-    {% if msgs %}
-      <div class="alert alert-danger">{{ msgs[0] }}</div>
+  {% with m = get_flashed_messages() %}
+    {% if m %}
+      <div class="alert alert-danger">{{ m[0] }}</div>
     {% endif %}
   {% endwith %}
   {{ body|safe }}
@@ -161,19 +160,18 @@ BASE = """
 </body></html>
 """
 
-def render_page(title, role, body_html):
-    return render_template_string(BASE, title=title, role=role, body=body_html)
+def page(title, role, body_html):
+    return render_template_string(BASE_HTML, title=title, role=role, body=body_html)
 
-# ─────────── Candidate routes ───
+# ─────────── Candidate routes ───────────
 @app.route("/", methods=["GET", "POST"])
 def home():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         rf   = request.files.get("resume_pdf")
-        if not name:
-            flash("Name required."); return redirect(url_for('home'))
-        if not rf or rf.filename == "":
-            flash("Please upload a résumé PDF."); return redirect(url_for('home'))
+
+        if not name or not rf or rf.filename == "":
+            flash("Name and résumé PDF are required."); return redirect(url_for('home'))
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             rf.save(tmp.name); pdf_path = tmp.name
@@ -185,58 +183,72 @@ def home():
             score = fit_score(rjs, JOB_DESCRIPTION)
             qs    = make_questions(rjs)
             cid   = str(uuid.uuid4())[:8]
+
             CANDIDATES.append({
-                "id": cid, "name": name, "resume_json": rjs, "resume_path": pdf_path,
-                "real": real, "score": score, "questions": qs,
-                "answers": [], "answer_scores": []
+                "id": cid,
+                "name": name,
+                "resume_json": rjs,
+                "resume_path": pdf_path,
+                "real": real,
+                "score": score,
+                "questions": qs,
+                "answers": [],
+                "answer_scores": []
             })
+
+            q_inputs = "".join(
+                f"<li class='list-group-item centered'><strong>{q}</strong><br>"
+                f"<textarea class='form-control mt-2' name='a{i}' rows='2' required></textarea></li>"
+                for i, q in enumerate(qs)
+            )
+
             body = f"""
-<h4>Hi {name}, thanks for applying!</h4>
+<h4>Hi {name}, thanks for applying!</h4>
 <h5 class='mt-4 centered'>Interview Questions</h5>
 <form method="post" action="{ url_for('submit_answers', cid=cid) }">
   <ol class="list-group list-group-numbered mb-3">
-    {''.join(f'<li class="list-group-item centered"><strong>{q}</strong><br>'
-             f'<textarea class="form-control mt-2" name="a{i}" rows="2" required></textarea></li>'
-             for i,q in enumerate(qs))}
+    {q_inputs}
   </ol>
   <button class="btn btn-primary w-100">Submit answers</button>
 </form>
 """
-            return render_page("Answer Questions", "candidate", body)
+            return page("Answer Questions", "candidate", body)
 
         except RuntimeError as e:
             flash(str(e)); return redirect(url_for('home'))
 
-    # GET upload form
+    # GET form
     body = f"""
 <div class="card p-4 shadow-sm mb-4">
   {JOB_DESCRIPTION}
 </div>
 <form method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
   <div class="mb-3">
-    <label class="form-label">Your Name</label>
-    <input type="text" class="form-control" name="name" required>
+    <label class="form-label">Your Name</label>
+    <input class="form-control" name="name" required>
   </div>
   <div class="mb-3">
-    <label class="form-label">Upload Résumé (PDF)</label>
+    <label class="form-label">Upload Résumé (PDF)</label>
     <input type="file" class="form-control" name="resume_pdf" accept=".pdf" required>
   </div>
-  <button class="btn btn-primary w-100">Analyze & Get Questions</button>
+  <button class="btn btn-primary w-100">Analyze & Get Questions</button>
 </form>
 """
-    return render_page("Apply – Candidate", "candidate", body)
+    return page("Apply – Candidate", "candidate", body)
 
 @app.route("/answers/<cid>", methods=["POST"])
 def submit_answers(cid):
     cand = next((c for c in CANDIDATES if c["id"] == cid), None)
     if not cand:
         flash("Candidate not found."); return redirect(url_for('home'))
+
     answers = [request.form.get(f"a{i}", "").strip() for i in range(4)]
     cand["answers"] = answers
     cand["answer_scores"] = score_answers(cand["resume_json"], cand["questions"], answers)
+
     flash("Answers submitted!"); return redirect(url_for('home'))
 
-# ─────────── Recruiter routes ──
+# ─────────── Recruiter routes ───────────
 @app.route("/recruiter")
 def recruiter():
     rows = "".join(
@@ -244,6 +256,7 @@ def recruiter():
         f"<td><a href='{url_for('candidate_detail', cid=c['id'])}'>view</a></td></tr>"
         for c in CANDIDATES
     ) or "<tr><td colspan=3 class='text-center'>No candidates yet</td></tr>"
+
     body = f"""
 <h4>Job Listing</h4>{JOB_DESCRIPTION}
 <hr>
@@ -253,7 +266,7 @@ def recruiter():
   <tbody>{rows}</tbody>
 </table>
 """
-    return render_page("Recruiter Dashboard", "recruiter", body)
+    return page("Recruiter Dashboard", "recruiter", body)
 
 @app.route("/recruiter/<cid>")
 def candidate_detail(cid):
@@ -269,9 +282,9 @@ def candidate_detail(cid):
     )
 
     body = f"""
-<a class="btn btn-link mb-3" href="{url_for('recruiter')}">← back</a>
-<h4>{c['name']} — Score {c['score']}/5</h4>
-<p><strong>Résumé realism:</strong> {'Looks Real' if c['real'] else 'Possibly Fake'}</p>
+<a class="btn btn-link mb-3" href="{url_for('recruiter')}">← back</a>
+<h4>{c['name']} — Score {c['score']}/5</h4>
+<p><strong>Résumé realism:</strong> {'Looks Real' if c['real'] else 'Possibly Fake'}</p>
 
 <a class="btn btn-sm btn-outline-secondary mb-4" href="{url_for('download_resume', cid=cid)}">
   Download résumé PDF
@@ -279,11 +292,11 @@ def candidate_detail(cid):
 
 <h5>Interview Q&amp;A</h5>
 <table class="table table-sm">
-  <thead><tr><th>Question</th><th>Answer</th><th>Validity (1‑5)</th></tr></thead>
+  <thead><tr><th>Question</th><th>Answer</th><th>Validity (1‑5)</th></tr></thead>
   <tbody>{qa_rows}</tbody>
 </table>
 """
-    return render_page(f"Candidate {c['name']}", "recruiter", body)
+    return page(f"Candidate {c['name']}", "recruiter", body)
 
 @app.route("/resume/<cid>")
 def download_resume(cid):
@@ -297,6 +310,6 @@ def download_resume(cid):
         max_age=0,
     )
 
-# ─────────── Entrypoint ────────
+# ─────────── Entrypoint ───────────
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
