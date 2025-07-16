@@ -107,7 +107,9 @@ BASE = """
 <meta charset=utf-8>
 <title>{{ title }}</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel=stylesheet>
-<style> .centered {{text-align:center;}} </style>
+<style>
+  .centered { text-align:center; }
+</style>
 </head><body class="bg-light">
 <nav class="navbar navbar-light bg-white border-bottom mb-4">
   <div class="container-fluid">
