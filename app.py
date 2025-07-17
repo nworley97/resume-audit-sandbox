@@ -125,7 +125,8 @@ def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
                    json_mode=True)
         gpt_scores = [int(max(1,min(5,s))) for s in json.loads(raw)]
     except Exception:
-        gpt_scores = [3,3,3,3]
+        logging.exception("Answer‑scoring failed: %s", e)
+        gpt_scores = ["ERR", "ERR", "ERR", "ERR"]   # visible flag
 
     return [p or s for p,s in zip(prelim, gpt_scores)]
 
