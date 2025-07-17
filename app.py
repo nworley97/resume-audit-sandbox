@@ -105,30 +105,53 @@ def make_questions(rjs: dict) -> List[str]:
 def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
     """
     Return four integers (1‑5) rating each answer's validity.
-    Answers with <5 words auto‑score 1. Others are scored by GPT.
+    • <5 words  → 1
+    • 5‑9 words → max 2
+    • Otherwise GPT scores with a strict rubric.
+    If scoring fails, returns ["ERR", ...] and logs the exception.
     """
-    short_idx = [i for i,a in enumerate(ans) if len(re.findall(r"\w+", a)) < 5]
-    prelim = [1 if i in short_idx else None for i in range(4)]
+    # Hard caps for very short answers
+    word_counts = [len(re.findall(r"\w+", a)) for a in ans]
+    prelim_caps = [1 if n < 5 else (2 if n < 10 else None) for n in word_counts]
 
-    payload = {"résumé": rjs, "qa": [{"q": q, "a": a} for q,a in zip(qs, ans)]}
+    payload = {
+        "resume": rjs,
+        "qa": [{"q": q, "a": a} for q, a in zip(qs, ans)]
+    }
+
     rubric = (
-        "Score each answer 1‑5:\n"
-        "5 = Precise, technically sound, fully consistent with résumé\n"
+        "Score each answer 1‑5 (round DOWN if unsure):\n"
+        "5 = Precise, technically sound, matches resume\n"
         "4 = Mostly specific/consistent, minor vagueness\n"
-        "3 = Generic but not contradictory\n"
+        "3 = Generic but not wrong\n"
         "2 = Partially inconsistent or vague\n"
-        "1 = Empty, gibberish, or contradicts résumé\n"
-        "Return only a JSON array of four integers."
+        "1 = Empty, gibberish, or contradicts resume\n"
+        "Return ONLY a JSON array of four integers."
     )
-    try:
-        raw = chat("You are a strict interviewer.", rubric+"\n\n"+json.dumps(payload,indent=2),
-                   json_mode=True)
-        gpt_scores = [int(max(1,min(5,s))) for s in json.loads(raw)]
-    except Exception:
-        logging.exception("Answer‑scoring failed: %s", e)
-        gpt_scores = ["ERR", "ERR", "ERR", "ERR"]   # visible flag
 
-    return [p or s for p,s in zip(prelim, gpt_scores)]
+    try:
+        raw = chat("You are a strict interviewer.",
+                   rubric + "\n\n" + json.dumps(payload, indent=2),
+                   json_mode=True)
+        parsed = json.loads(raw)
+        gpt_scores = []
+        for s in parsed:
+            try:
+                gpt_scores.append(int(max(1, min(5, int(s)))))
+            except Exception:
+                gpt_scores.append(2)   # non‑numeric fallback
+    except Exception as exc:
+        logging.exception("Answer‑scoring failed: %s", exc)
+        gpt_scores = ["ERR"] * 4
+
+    # Apply prelim caps
+    final = []
+    for cap, score in zip(prelim_caps, gpt_scores):
+        if cap is not None and isinstance(score, int):
+            final.append(min(cap, score))
+        else:
+            final.append(score)
+    return final
 
 # ─────────── Flask setup ───────────
 app = Flask(__name__)
