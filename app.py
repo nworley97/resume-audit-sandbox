@@ -98,7 +98,6 @@ def make_questions(rjs: dict) -> List[str]:
     return [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()][:4]
 
 def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
-    """Return 4 validity scores (1‑5) with strict caps and fallback ERR."""
     wc = [len(re.findall(r"\w+", a)) for a in ans]
     prelim = [1 if n < 5 else (2 if n < 10 else None) for n in wc]
 
@@ -241,7 +240,10 @@ def detail(cid):
     if not c:
         flash("Not found"); return redirect("/recruiter")
 
-    # Build table with index checks to avoid IndexError
+    # average numeric answer score
+    numeric = [s for s in c["answer_scores"] if isinstance(s, int)]
+    avg_q = round(sum(numeric)/len(numeric),2) if numeric else "-"
+
     qa_rows=""
     for i,q in enumerate(c["questions"]):
         answer = c["answers"][i] if i < len(c["answers"]) and c["answers"][i] else "<em>no answer</em>"
@@ -252,7 +254,8 @@ def detail(cid):
         )
 
     body=(f"<a class='btn btn-link mb-3' href='{url_for('recruiter')}'>← back</a>"
-          f"<h4>{c['name']} — Score {c['score']}/5</h4>"
+          f"<h4>{c['name']} — Fit Score {c['score']}/5 "
+          f"<span class='text-muted' style='font-size:0.9em'>(Avg Q: {avg_q})</span></h4>"
           f"<p><strong>Résumé realism:</strong> {'Looks Real' if c['real'] else 'Possibly Fake'}</p>"
           f"<a class='btn btn-sm btn-outline-secondary mb-4' href='{url_for('download_resume',cid=cid)}'>"
           "Download résumé PDF</a>"
