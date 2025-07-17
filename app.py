@@ -80,10 +80,6 @@ def fit_score(rjs: dict, jd: str) -> int:
         return 1
 
 def make_questions(rjs: dict) -> List[str]:
-    """
-    Generate four résumé‑verification questions.
-    Accepts model replies as a JSON array OR an object {'questions':[...]}.
-    """
     raw = chat(
         "You are an interviewer verifying a résumé.",
         "Write exactly FOUR probing questions (strings only) that confirm the "
@@ -99,36 +95,21 @@ def make_questions(rjs: dict) -> List[str]:
             return [str(q) for q in data["questions"]][:4]
     except JSONDecodeError:
         pass
-    # Plain‑text fallback
     return [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()][:4]
 
 def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
-    """
-    Return four integers (1‑5) rating each answer's validity.
-    • <5 words  → 1
-    • 5‑9 words → max 2
-    • Otherwise GPT scores with a strict rubric.
-    If scoring fails, returns ["ERR", ...] and logs the exception.
-    """
-    # Hard caps for very short answers
-    word_counts = [len(re.findall(r"\w+", a)) for a in ans]
-    prelim_caps = [1 if n < 5 else (2 if n < 10 else None) for n in word_counts]
+    """Return 4 validity scores (1‑5) with strict caps and fallback ERR."""
+    wc = [len(re.findall(r"\w+", a)) for a in ans]
+    prelim = [1 if n < 5 else (2 if n < 10 else None) for n in wc]
 
-    payload = {
-        "resume": rjs,
-        "qa": [{"q": q, "a": a} for q, a in zip(qs, ans)]
-    }
-
+    payload = {"resume": rjs,
+               "qa": [{"q": q, "a": a} for q, a in zip(qs, ans)]}
     rubric = (
         "Score each answer 1‑5 (round DOWN if unsure):\n"
-        "5 = Precise, technically sound, matches resume\n"
-        "4 = Mostly specific/consistent, minor vagueness\n"
-        "3 = Generic but not wrong\n"
-        "2 = Partially inconsistent or vague\n"
-        "1 = Empty, gibberish, or contradicts resume\n"
-        "Return ONLY a JSON array of four integers."
+        "5 Precise & matches resume\n4 Mostly specific\n3 Generic\n"
+        "2 Vague/inconsistent\n1 Empty/gibberish\n"
+        "Return JSON array of four integers."
     )
-
     try:
         raw = chat("You are a strict interviewer.",
                    rubric + "\n\n" + json.dumps(payload, indent=2),
@@ -139,19 +120,15 @@ def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
             try:
                 gpt_scores.append(int(max(1, min(5, int(s)))))
             except Exception:
-                gpt_scores.append(2)   # non‑numeric fallback
+                gpt_scores.append(2)
     except Exception as exc:
         logging.exception("Answer‑scoring failed: %s", exc)
         gpt_scores = ["ERR"] * 4
 
-    # Apply prelim caps
-    final = []
-    for cap, score in zip(prelim_caps, gpt_scores):
-        if cap is not None and isinstance(score, int):
-            final.append(min(cap, score))
-        else:
-            final.append(score)
-    return final
+    return [
+        min(cap, score) if cap is not None and isinstance(score, int) else score
+        for cap, score in zip(prelim, gpt_scores)
+    ]
 
 # ─────────── Flask setup ───────────
 app = Flask(__name__)
@@ -263,11 +240,17 @@ def detail(cid):
     c=next((x for x in CANDIDATES if x["id"]==cid),None)
     if not c:
         flash("Not found"); return redirect("/recruiter")
-    qa="".join(
-        f"<tr><td><strong>{q}</strong></td>"
-        f"<td>{c['answers'][i] or '<em>no answer</em>'}</td>"
-        f"<td>{c['answer_scores'][i] if c['answer_scores'] else '-'}</td></tr>"
-        for i,q in enumerate(c["questions"]))
+
+    # Build table with index checks to avoid IndexError
+    qa_rows=""
+    for i,q in enumerate(c["questions"]):
+        answer = c["answers"][i] if i < len(c["answers"]) and c["answers"][i] else "<em>no answer</em>"
+        score  = c["answer_scores"][i] if i < len(c["answer_scores"]) else "-"
+        qa_rows += (
+            f"<tr><td><strong>{q}</strong></td>"
+            f"<td>{answer}</td><td>{score}</td></tr>"
+        )
+
     body=(f"<a class='btn btn-link mb-3' href='{url_for('recruiter')}'>← back</a>"
           f"<h4>{c['name']} — Score {c['score']}/5</h4>"
           f"<p><strong>Résumé realism:</strong> {'Looks Real' if c['real'] else 'Possibly Fake'}</p>"
@@ -275,7 +258,7 @@ def detail(cid):
           "Download résumé PDF</a>"
           "<h5>Interview Q&amp;A</h5>"
           "<table class='table table-sm'><thead><tr><th>Question</th><th>Answer</th>"
-          "<th>Validity (1‑5)</th></tr></thead><tbody>"+qa+"</tbody></table>")
+          "<th>Validity (1‑5)</th></tr></thead><tbody>"+qa_rows+"</tbody></table>")
     return page(f"Candidate {c['name']}","recruiter",body)
 
 @app.route("/resume/<cid>")
