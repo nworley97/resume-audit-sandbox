@@ -98,6 +98,7 @@ def make_questions(rjs: dict) -> List[str]:
     return [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()][:4]
 
 def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
+    """Return 4 validity scores (1‑5). Pads with 'ERR' if fewer than four."""
     wc = [len(re.findall(r"\w+", a)) for a in ans]
     prelim = [1 if n < 5 else (2 if n < 10 else None) for n in wc]
 
@@ -122,7 +123,11 @@ def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
                 gpt_scores.append(2)
     except Exception as exc:
         logging.exception("Answer‑scoring failed: %s", exc)
-        gpt_scores = ["ERR"] * 4
+        gpt_scores = []
+
+    # ensure 4 positions
+    while len(gpt_scores) < 4:
+        gpt_scores.append("ERR")
 
     return [
         min(cap, score) if cap is not None and isinstance(score, int) else score
@@ -240,7 +245,6 @@ def detail(cid):
     if not c:
         flash("Not found"); return redirect("/recruiter")
 
-    # average numeric answer score
     numeric = [s for s in c["answer_scores"] if isinstance(s, int)]
     avg_q = round(sum(numeric)/len(numeric),2) if numeric else "-"
 
