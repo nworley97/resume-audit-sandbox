@@ -98,41 +98,56 @@ def make_questions(rjs: dict) -> List[str]:
     return [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()][:4]
 
 def score_answers(rjs: dict, qs: List[str], ans: List[str]) -> List[int]:
-    """Return 4 validity scores (1‑5). Pads with 'ERR' if fewer than four."""
-    wc = [len(re.findall(r"\w+", a)) for a in ans]
-    prelim = [1 if n < 5 else (2 if n < 10 else None) for n in wc]
+    """
+    Score each answer independently to avoid partial‑array failures.
+    <5 words  -> 1
+    5‑9 words -> max 2
+    Otherwise GPT returns 1‑5. On any error → 'ERR'.
+    """
+    scores: List[int | str] = []
 
-    payload = {"resume": rjs,
-               "qa": [{"q": q, "a": a} for q, a in zip(qs, ans)]}
-    rubric = (
-        "Score each answer 1‑5 (round DOWN if unsure):\n"
-        "5 Precise & matches resume\n4 Mostly specific\n3 Generic\n"
-        "2 Vague/inconsistent\n1 Empty/gibberish\n"
-        "Return JSON array of four integers."
-    )
-    try:
-        raw = chat("You are a strict interviewer.",
-                   rubric + "\n\n" + json.dumps(payload, indent=2),
-                   json_mode=True)
-        parsed = json.loads(raw)
-        gpt_scores = []
-        for s in parsed:
-            try:
-                gpt_scores.append(int(max(1, min(5, int(s)))))
-            except Exception:
-                gpt_scores.append(2)
-    except Exception as exc:
-        logging.exception("Answer‑scoring failed: %s", exc)
-        gpt_scores = []
+    for q, a in zip(qs, ans):
+        # Hard caps for very short answers
+        wc = len(re.findall(r"\w+", a))
+        if wc < 5:
+            scores.append(1)
+            continue
+        if wc < 10:
+            provisional_cap = 2
+        else:
+            provisional_cap = None
 
-    # ensure 4 positions
-    while len(gpt_scores) < 4:
-        gpt_scores.append("ERR")
+        prompt = (
+            "You are a strict interviewer.\n"
+            "Question: {q}\n"
+            "Candidate answer: {a}\n"
+            "Résumé snippet (for context):\n{resume}\n\n"
+            "Score this answer 1‑5:\n"
+            "5 Precise, technically sound, matches resume\n"
+            "4 Mostly specific with minor vagueness\n"
+            "3 Generic but not wrong\n"
+            "2 Vague or partially inconsistent\n"
+            "1 Empty, gibberish, or contradicts resume\n"
+            "Return only the integer."
+        ).format(q=q, a=a, resume=json.dumps(rjs)[:1500])  # truncate context
 
-    return [
-        min(cap, score) if cap is not None and isinstance(score, int) else score
-        for cap, score in zip(prelim, gpt_scores)
-    ]
+        try:
+            raw = chat("Grade the answer.", prompt)
+            score = int(raw.strip())
+            score = max(1, min(5, score))
+            if provisional_cap:
+                score = min(score, provisional_cap)
+            scores.append(score)
+        except Exception as exc:
+            logging.exception("Per‑answer scoring failed: %s", exc)
+            scores.append("ERR")
+
+    # Ensure exactly 4 entries
+    while len(scores) < 4:
+        scores.append("ERR")
+
+    return scores
+
 
 # ─────────── Flask setup ───────────
 app = Flask(__name__)
