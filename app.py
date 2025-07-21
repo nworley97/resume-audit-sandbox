@@ -1,11 +1,10 @@
-# app.py  –  login → edit JD (plain text) → upload résumé (pdf/docx) → score only
 import os, json, uuid, logging, tempfile, mimetypes
 from typing import List
 from flask import (
     Flask, request, redirect, url_for, render_template_string,
     flash
 )
-import PyPDF2, docx  # python-docx
+import PyPDF2, docx
 from openai import OpenAI
 from flask_login import (
     LoginManager, login_user, login_required,
@@ -45,16 +44,11 @@ def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     )
     return resp.choices[0].message.content.strip()
 
-# ─── Résumé text extraction ───────────────────────────────────────
-def pdf_to_text(path: str) -> str:
-    with open(path,"rb") as f:
-        return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(f).pages)
+# ─── Résumé extraction helpers ────────────────────────────────────
+def pdf_to_text(path):  return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(path).pages)
+def docx_to_text(path): return "\n".join(p.text for p in docx.Document(path).paragraphs)
 
-def docx_to_text(path: str) -> str:
-    d = docx.Document(path)
-    return "\n".join(p.text for p in d.paragraphs)
-
-def file_to_text(path: str, mime: str) -> str:
+def file_to_text(path, mime):
     if mime == "application/pdf":   return pdf_to_text(path)
     if mime in ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 "application/msword"):
@@ -62,26 +56,15 @@ def file_to_text(path: str, mime: str) -> str:
     raise ValueError("Unsupported file type")
 
 # ─── AI scoring helpers ───────────────────────────────────────────
-def resume_json(text: str) -> dict:
+def resume_json(text):
     raw = chat("Extract résumé to JSON.", text, structured=True)
-    try:
-        return json.loads(raw)
+    try: return json.loads(raw)
     except json.JSONDecodeError:
-        # one retry
-        raw2 = chat("Return ONLY valid JSON of the résumé.", text, structured=True)
+        raw2 = chat("Return ONLY valid JSON résumé.", text, structured=True)
         return json.loads(raw2)
 
-def realism_check(rjs: dict) -> bool:
-    verdict = chat("You check realism.",
-                   f"Is this résumé realistic? yes/no\n\n{json.dumps(rjs)}")
-    return verdict.lower().startswith("y")
-
-def fit_score(rjs: dict, jd_text: str) -> int:
-    raw = chat("You score résumé vs JD.",
-               f"Résumé:\n{json.dumps(rjs,indent=2)}\n\nJob:\n{jd_text}\n\n"
-               "Give integer 1‑5 only.")
-    try: return int(raw.strip())
-    except ValueError: return 1
+def realism_check(rjs): return chat("Realism?","Is this résumé realistic? yes/no\n\n"+json.dumps(rjs)).lower().startswith("y")
+def fit_score(rjs, jd): return int(chat("Score résumé vs JD.", f"{json.dumps(rjs,indent=2)}\n\nJob:\n{jd}\n\n1‑5").strip() or 1)
 
 # ─── HTML template ────────────────────────────────────────────────
 BASE = """
@@ -94,6 +77,7 @@ BASE = """
     <span class="navbar-brand">Demo Sandbox</span>
     <div>
       {% if current_user.is_authenticated %}
+        <a class="btn btn-outline-secondary btn-sm me-2" href="{{ url_for('recruiter') }}">Recruiter</a>
         <span class="me-2 text-secondary">{{ current_user.username }}</span>
         <a class="btn btn-outline-danger btn-sm" href="{{ url_for('logout') }}">Logout</a>
       {% endif %}
@@ -115,8 +99,7 @@ def login():
         u,p=request.form["username"],request.form["password"]
         db=SessionLocal(); usr=db.query(User).filter_by(username=u).first(); db.close()
         if usr and usr.check_pw(p):
-            login_user(usr)
-            return redirect(url_for("edit_jd"))
+            login_user(usr); return redirect(url_for("edit_jd"))
         flash("Bad credentials")
     form=("""<h4>Login</h4><form method=post>
             <input name=username class='form-control mb-2' placeholder='Username' required>
@@ -135,18 +118,15 @@ def logout():
 def edit_jd():
     db = SessionLocal(); jd=db.get(JobDescription,1) or JobDescription(id=1,html="")
     if request.method=="POST":
-        jd.html=request.form["jd_text"]
-        db.merge(jd); db.commit(); db.close()
+        jd.html=request.form["jd_text"]; db.merge(jd); db.commit(); db.close()
         flash("Job description saved"); return redirect(url_for("home"))
-    cur=jd.html
     form=(f"<h4>Edit Job Description</h4><form method=post>"
-          f"<textarea name=jd_text rows=8 class='form-control' required>{cur}</textarea>"
+          f"<textarea name=jd_text rows=8 class='form-control' required>{jd.html}</textarea>"
           "<button class='btn btn-primary mt-2'>Save</button></form>")
-    return page("Edit Job Description",form)
+    db.close(); return page("Edit Job Description",form)
 
-def current_jd() -> str:
-    db=SessionLocal(); jd=db.get(JobDescription,1); db.close()
-    return jd.html if jd else "(no JD set)"
+def current_jd():
+    db=SessionLocal(); jd=db.get(JobDescription,1); db.close(); return jd.html if jd else "(no JD set)"
 
 # ─── Upload résumé & show score ───────────────────────────────────
 @app.route("/", methods=["GET","POST"])
@@ -157,23 +137,18 @@ def home():
         name=request.form["name"].strip(); f=request.files["resume_file"]
         if not name or not f or f.filename=="": flash("Name & file required"); return redirect("/")
         mime=mimetypes.guess_type(f.filename)[0] or f.mimetype
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            f.save(tmp.name); path=tmp.name
-        try:
-            txt=file_to_text(path,mime)
-        except ValueError:
-            flash("Upload PDF or DOCX only"); return redirect("/")
-        rjs=resume_json(txt); score=fit_score(rjs,jd_text); real=realism_check(rjs)
+        with tempfile.NamedTemporaryFile(delete=False) as tmp: f.save(tmp.name); path=tmp.name
+        try: text=file_to_text(path,mime)
+        except ValueError: flash("Upload PDF or DOCX"); return redirect("/")
+        rjs=resume_json(text); score=fit_score(rjs,jd_text); real=realism_check(rjs)
         cid=str(uuid.uuid4())[:8]; s3=upload_pdf(path)
         with SessionLocal() as db:
             db.add(Candidate(id=cid,name=name,resume_url=s3,
                              resume_json=rjs,realism=real,fit_score=score,
                              questions=[],answers=[],answer_scores=[]))
             db.commit()
-        body=(f"<h4>Thanks, {name}!</h4>"
-              f"<p>Your résumé relevance score is <strong>{score}/5</strong>.</p>")
+        body=f"<h4>Thanks, {name}!</h4><p>Relevance score: <strong>{score}/5</strong>.</p>"
         return page("Result",body)
-
     form=(f"<h4>Current Job Description</h4><pre class='p-3 bg-white border'>{jd_text}</pre>"
           "<form method=post enctype=multipart/form-data class='card p-4 shadow-sm'>"
           "<div class='mb-3'><label>Your Name</label>"
@@ -189,11 +164,12 @@ def home():
 def recruiter():
     with SessionLocal() as db:
         rows=db.query(Candidate).order_by(Candidate.created_at.desc()).all()
-    table="".join(f"<tr><td>{c.name}</td><td>{c.fit_score}</td>"
+    table="".join(f"<tr><td>{c.id}</td><td>{c.name}</td><td>{c.fit_score}</td>"
                   f"<td><a href='{url_for('detail',cid=c.id)}'>view</a></td></tr>"
-                  for c in rows) or "<tr><td colspan=3>No candidates yet</td></tr>"
+                  for c in rows) or "<tr><td colspan=4>No candidates</td></tr>"
     body=("""<h4>Candidates</h4>
-          <table class='table'><thead><tr><th>Name</th><th>Score</th><th></th></tr></thead>
+          <table class='table table-sm'>
+          <thead><tr><th>ID</th><th>Name</th><th>Score</th><th></th></tr></thead>
           <tbody>"""+table+"</tbody></table>")
     return page("Recruiter",body)
 
@@ -203,10 +179,9 @@ def detail(cid):
     with SessionLocal() as db: c=db.get(Candidate,cid)
     if not c: flash("Not found"); return redirect(url_for("recruiter"))
     body=(f"<a href='{url_for('recruiter')}'>&larr; back</a>"
-          f"<h4>{c.name}</h4><p>Score: <strong>{c.fit_score}/5</strong><br>"
+          f"<h4>{c.name}</h4><p>ID: {c.id}<br>Score: <strong>{c.fit_score}/5</strong><br>"
           f"Realism: {'Looks real' if c.realism else 'Possibly fake'}</p>"
-          f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>"
-          "Download résumé</a>")
+          f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>Download résumé</a>")
     return page("Candidate",body)
 
 @app.route("/resume/<cid>")
@@ -219,3 +194,4 @@ def download_resume(cid):
 # ─── Entrypoint ───────────────────────────────────────────────────
 if __name__=="__main__":
     app.run(debug=True,host="0.0.0.0",port=int(os.getenv("PORT",5000)))
+
