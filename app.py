@@ -47,10 +47,13 @@ def pdf_to_text(path: str) -> str:
         return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(f).pages)
 
 def resume_json(text: str) -> dict:
-    raw = chat("You extract résumés to JSON.",
-               "Return JSON of name, contact, education, work_experience, skills "
-               f"from this résumé:\n\n{text}")
-    return json.loads(raw)
+    raw = chat("You are a résumé JSON extractor.", ..., json_mode=True)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Fallback: ask again in JSON mode or return minimal dict
+        raw2 = chat("Return ONLY valid JSON.", text, json_mode=True)
+    return json.loads(raw2)
 
 def realism_check(rjs: dict) -> bool:
     verdict = chat("You check realism.","Is this résumé realistic?\n\n"+json.dumps(rjs))
