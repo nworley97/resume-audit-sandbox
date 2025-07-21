@@ -1,10 +1,9 @@
-import os, json, uuid, logging, tempfile, mimetypes
-from typing import List
+import os, json, uuid, logging, tempfile, mimetypes, re
 from flask import (
     Flask, request, redirect, url_for, render_template_string,
     flash
 )
-import PyPDF2, docx
+import PyPDF2, docx                       # needs python-docx in requirements
 from openai import OpenAI
 from flask_login import (
     LoginManager, login_user, login_required,
@@ -15,7 +14,7 @@ from db import SessionLocal
 from models import Candidate, JobDescription, User
 from s3util import upload_pdf, presign
 
-# ─── Config ───────────────────────────────────────────────────────
+# ─── Configuration ───────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL  = "gpt-4o"
@@ -23,7 +22,7 @@ MODEL  = "gpt-4o"
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change‑me")
 
-# ─── Flask‑Login ──────────────────────────────────────────────────
+# ─── Flask‑Login setup ────────────────────────────────────────────
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
@@ -31,7 +30,7 @@ login_manager.login_view = "login"
 def load_user(uid: str):
     db = SessionLocal(); u = db.get(User, int(uid)); db.close(); return u
 
-# ─── OpenAI helper ────────────────────────────────────────────────
+# ─── OpenAI chat helper ───────────────────────────────────────────
 def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     resp = client.chat.completions.create(
         model=MODEL,
@@ -44,29 +43,46 @@ def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     )
     return resp.choices[0].message.content.strip()
 
-# ─── Résumé extraction helpers ────────────────────────────────────
+# ─── File‑to‑text helpers ─────────────────────────────────────────
 def pdf_to_text(path):  return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(path).pages)
 def docx_to_text(path): return "\n".join(p.text for p in docx.Document(path).paragraphs)
-
 def file_to_text(path, mime):
-    if mime == "application/pdf":   return pdf_to_text(path)
+    if mime == "application/pdf": return pdf_to_text(path)
     if mime in ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 "application/msword"):
         return docx_to_text(path)
     raise ValueError("Unsupported file type")
 
-# ─── AI scoring helpers ───────────────────────────────────────────
-def resume_json(text):
+# ─── AI processing helpers ───────────────────────────────────────
+def resume_json(text: str) -> dict:
     raw = chat("Extract résumé to JSON.", text, structured=True)
     try: return json.loads(raw)
     except json.JSONDecodeError:
         raw2 = chat("Return ONLY valid JSON résumé.", text, structured=True)
         return json.loads(raw2)
 
-def realism_check(rjs): return chat("Realism?","Is this résumé realistic? yes/no\n\n"+json.dumps(rjs)).lower().startswith("y")
-def fit_score(rjs, jd): return int(chat("Score résumé vs JD.", f"{json.dumps(rjs,indent=2)}\n\nJob:\n{jd}\n\n1‑5").strip() or 1)
+def realism_check(rjs: dict) -> bool:
+    verdict = chat("Realism check", f"Is this résumé realistic? yes/no\n\n{json.dumps(rjs)}")
+    return verdict.lower().startswith("y")
 
-# ─── HTML template ────────────────────────────────────────────────
+def fit_score(rjs: dict, jd_text: str) -> int:
+    prompt = (
+        f"Résumé JSON:\n{json.dumps(rjs, indent=2)}\n\n"
+        f"Job description:\n{jd_text}\n\n"
+        "Score how well the résumé matches the job on a 1‑5 scale.\n"
+        "Return ONLY the single integer (1‑5)."
+    )
+    reply = chat("Score résumé vs JD.", prompt).strip()
+
+    # Try direct parse
+    try:
+        return int(reply)
+    except ValueError:
+        # Fallback: use first digit 1‑5 in reply, else 1
+        m = re.search(r"[1-5]", reply)
+        return int(m.group()) if m else 1
+
+# ─── HTML base template ──────────────────────────────────────────
 BASE = """
 <!doctype html><html lang=en><head>
  <meta charset=utf-8><title>{{ title }}</title>
@@ -92,11 +108,11 @@ BASE = """
 </div></body></html>"""
 def page(t,b): return render_template_string(BASE,title=t,body=b)
 
-# ─── Auth routes ──────────────────────────────────────────────────
+# ─── Auth routes ─────────────────────────────────────────────────
 @app.route("/login", methods=["GET","POST"])
 def login():
     if request.method=="POST":
-        u,p=request.form["username"],request.form["password"]
+        u,p = request.form["username"], request.form["password"]
         db=SessionLocal(); usr=db.query(User).filter_by(username=u).first(); db.close()
         if usr and usr.check_pw(p):
             login_user(usr); return redirect(url_for("edit_jd"))
@@ -112,7 +128,7 @@ def login():
 def logout():
     logout_user(); return redirect(url_for("login"))
 
-# ─── Edit Job Description (plain text) ────────────────────────────
+# ─── Job description editing ─────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
 def edit_jd():
@@ -123,12 +139,13 @@ def edit_jd():
     form=(f"<h4>Edit Job Description</h4><form method=post>"
           f"<textarea name=jd_text rows=8 class='form-control' required>{jd.html}</textarea>"
           "<button class='btn btn-primary mt-2'>Save</button></form>")
-    db.close(); return page("Edit Job Description",form)
+    db.close(); return page("Edit JD",form)
 
 def current_jd():
-    db=SessionLocal(); jd=db.get(JobDescription,1); db.close(); return jd.html if jd else "(no JD set)"
+    db=SessionLocal(); jd=db.get(JobDescription,1); db.close()
+    return jd.html if jd else "(no JD set)"
 
-# ─── Upload résumé & show score ───────────────────────────────────
+# ─── Upload résumé & show score ──────────────────────────────────
 @app.route("/", methods=["GET","POST"])
 @login_required
 def home():
@@ -147,8 +164,8 @@ def home():
                              resume_json=rjs,realism=real,fit_score=score,
                              questions=[],answers=[],answer_scores=[]))
             db.commit()
-        body=f"<h4>Thanks, {name}!</h4><p>Relevance score: <strong>{score}/5</strong>.</p>"
-        return page("Result",body)
+        return page("Result", f"<h4>Thanks, {name}!</h4><p>Relevance score: <strong>{score}/5</strong>.</p>")
+
     form=(f"<h4>Current Job Description</h4><pre class='p-3 bg-white border'>{jd_text}</pre>"
           "<form method=post enctype=multipart/form-data class='card p-4 shadow-sm'>"
           "<div class='mb-3'><label>Your Name</label>"
@@ -158,7 +175,7 @@ def home():
           "<button class='btn btn-primary w-100'>Upload & Score</button></form>")
     return page("Upload Résumé",form)
 
-# ─── Recruiter list / detail ──────────────────────────────────────
+# ─── Recruiter list / detail ─────────────────────────────────────
 @app.route("/recruiter")
 @login_required
 def recruiter():
@@ -181,7 +198,8 @@ def detail(cid):
     body=(f"<a href='{url_for('recruiter')}'>&larr; back</a>"
           f"<h4>{c.name}</h4><p>ID: {c.id}<br>Score: <strong>{c.fit_score}/5</strong><br>"
           f"Realism: {'Looks real' if c.realism else 'Possibly fake'}</p>"
-          f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>Download résumé</a>")
+          f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>"
+          "Download résumé</a>")
     return page("Candidate",body)
 
 @app.route("/resume/<cid>")
@@ -191,7 +209,6 @@ def download_resume(cid):
     if not c: return "Not found",404
     return redirect(presign(c.resume_url))
 
-# ─── Entrypoint ───────────────────────────────────────────────────
+# ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":
     app.run(debug=True,host="0.0.0.0",port=int(os.getenv("PORT",5000)))
-
