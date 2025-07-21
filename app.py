@@ -1,9 +1,10 @@
+# app.py  –  JD code + fixed resume download + JD shown in candidate detail
 import os, json, uuid, logging, tempfile, mimetypes, re
 from flask import (
     Flask, request, redirect, url_for, render_template_string,
-    flash
+    flash, send_file
 )
-import PyPDF2, docx                       # needs python-docx in requirements
+import PyPDF2, docx
 from openai import OpenAI
 from flask_login import (
     LoginManager, login_user, login_required,
@@ -12,9 +13,9 @@ from flask_login import (
 
 from db import SessionLocal
 from models import Candidate, JobDescription, User
-from s3util import upload_pdf, presign
+from s3util import upload_pdf, presign, S3_ENABLED        # ← now returns bool
 
-# ─── Configuration ───────────────────────────────────────────────
+# ─── Config ───────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL  = "gpt-4o"
@@ -30,7 +31,7 @@ login_manager.login_view = "login"
 def load_user(uid: str):
     db = SessionLocal(); u = db.get(User, int(uid)); db.close(); return u
 
-# ─── OpenAI chat helper ───────────────────────────────────────────
+# ─── OpenAI helper ────────────────────────────────────────────────
 def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     resp = client.chat.completions.create(
         model=MODEL,
@@ -73,14 +74,9 @@ def fit_score(rjs: dict, jd_text: str) -> int:
         "Return ONLY the single integer (1‑5)."
     )
     reply = chat("Score résumé vs JD.", prompt).strip()
-
-    # Try direct parse
-    try:
-        return int(reply)
+    try: return int(reply)
     except ValueError:
-        # Fallback: use first digit 1‑5 in reply, else 1
-        m = re.search(r"[1-5]", reply)
-        return int(m.group()) if m else 1
+        m = re.search(r"[1-5]", reply); return int(m.group()) if m else 1
 
 # ─── HTML base template ──────────────────────────────────────────
 BASE = """
@@ -112,7 +108,7 @@ def page(t,b): return render_template_string(BASE,title=t,body=b)
 @app.route("/login", methods=["GET","POST"])
 def login():
     if request.method=="POST":
-        u,p = request.form["username"], request.form["password"]
+        u,p=request.form["username"],request.form["password"]
         db=SessionLocal(); usr=db.query(User).filter_by(username=u).first(); db.close()
         if usr and usr.check_pw(p):
             login_user(usr); return redirect(url_for("edit_jd"))
@@ -132,24 +128,30 @@ def logout():
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
 def edit_jd():
-    db = SessionLocal(); jd=db.get(JobDescription,1) or JobDescription(id=1,html="")
+    db = SessionLocal()
+    jd = db.get(JobDescription,1) or JobDescription(id=1,code="",html="")
     if request.method=="POST":
-        jd.html=request.form["jd_text"]; db.merge(jd); db.commit(); db.close()
+        jd.code  = request.form["jd_code"].strip() or "JD01"
+        jd.html  = request.form["jd_text"]
+        db.merge(jd); db.commit(); db.close()
         flash("Job description saved"); return redirect(url_for("home"))
     form=(f"<h4>Edit Job Description</h4><form method=post>"
+          f"<label>Job Code</label><input name=jd_code value='{jd.code}' class='form-control mb-2' required>"
+          f"<label>Description</label>"
           f"<textarea name=jd_text rows=8 class='form-control' required>{jd.html}</textarea>"
           "<button class='btn btn-primary mt-2'>Save</button></form>")
     db.close(); return page("Edit JD",form)
 
 def current_jd():
     db=SessionLocal(); jd=db.get(JobDescription,1); db.close()
-    return jd.html if jd else "(no JD set)"
+    return jd
 
 # ─── Upload résumé & show score ──────────────────────────────────
 @app.route("/", methods=["GET","POST"])
 @login_required
 def home():
-    jd_text = current_jd()
+    jd = current_jd()
+    jd_text = jd.html if jd else "(no JD set)"
     if request.method=="POST":
         name=request.form["name"].strip(); f=request.files["resume_file"]
         if not name or not f or f.filename=="": flash("Name & file required"); return redirect("/")
@@ -158,15 +160,17 @@ def home():
         try: text=file_to_text(path,mime)
         except ValueError: flash("Upload PDF or DOCX"); return redirect("/")
         rjs=resume_json(text); score=fit_score(rjs,jd_text); real=realism_check(rjs)
-        cid=str(uuid.uuid4())[:8]; s3=upload_pdf(path)
+        cid=str(uuid.uuid4())[:8]; s3=upload_pdf(path)   # returns local path if S3 disabled
         with SessionLocal() as db:
             db.add(Candidate(id=cid,name=name,resume_url=s3,
                              resume_json=rjs,realism=real,fit_score=score,
+                             jd_code=jd.code if jd else "",
                              questions=[],answers=[],answer_scores=[]))
             db.commit()
         return page("Result", f"<h4>Thanks, {name}!</h4><p>Relevance score: <strong>{score}/5</strong>.</p>")
 
-    form=(f"<h4>Current Job Description</h4><pre class='p-3 bg-white border'>{jd_text}</pre>"
+    form=(f"<h4>Current Job Description ({jd.code if jd else 'N/A'})</h4>"
+          f"<pre class='p-3 bg-white border'>{jd_text}</pre>"
           "<form method=post enctype=multipart/form-data class='card p-4 shadow-sm'>"
           "<div class='mb-3'><label>Your Name</label>"
           "<input name=name class='form-control' required></div>"
@@ -181,25 +185,29 @@ def home():
 def recruiter():
     with SessionLocal() as db:
         rows=db.query(Candidate).order_by(Candidate.created_at.desc()).all()
-    table="".join(f"<tr><td>{c.id}</td><td>{c.name}</td><td>{c.fit_score}</td>"
+    table="".join(f"<tr><td>{c.jd_code}</td><td>{c.name}</td><td>{c.fit_score}</td>"
                   f"<td><a href='{url_for('detail',cid=c.id)}'>view</a></td></tr>"
                   for c in rows) or "<tr><td colspan=4>No candidates</td></tr>"
     body=("""<h4>Candidates</h4>
           <table class='table table-sm'>
-          <thead><tr><th>ID</th><th>Name</th><th>Score</th><th></th></tr></thead>
+          <thead><tr><th>Job Code</th><th>Name</th><th>Score</th><th></th></tr></thead>
           <tbody>"""+table+"</tbody></table>")
     return page("Recruiter",body)
 
 @app.route("/recruiter/<cid>")
 @login_required
 def detail(cid):
-    with SessionLocal() as db: c=db.get(Candidate,cid)
+    with SessionLocal() as db: c=db.get(Candidate,cid); jd=db.query(JobDescription).filter_by(code=c.jd_code).first()
     if not c: flash("Not found"); return redirect(url_for("recruiter"))
+    jd_html = jd.html if jd else "(job description not found)"
     body=(f"<a href='{url_for('recruiter')}'>&larr; back</a>"
-          f"<h4>{c.name}</h4><p>ID: {c.id}<br>Score: <strong>{c.fit_score}/5</strong><br>"
+          f"<h4>{c.name}</h4><p>ID: {c.id}<br>"
+          f"Job Code: {c.jd_code}<br>"
+          f"Score: <strong>{c.fit_score}/5</strong><br>"
           f"Realism: {'Looks real' if c.realism else 'Possibly fake'}</p>"
-          f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>"
-          "Download résumé</a>")
+          f"<details class='mb-3'><summary>View Job Description</summary><pre>{jd_html}</pre></details>"
+          f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>Download résumé</a>"
+          )
     return page("Candidate",body)
 
 @app.route("/resume/<cid>")
@@ -207,7 +215,10 @@ def detail(cid):
 def download_resume(cid):
     with SessionLocal() as db: c=db.get(Candidate,cid)
     if not c: return "Not found",404
-    return redirect(presign(c.resume_url))
+    if S3_ENABLED and c.resume_url.startswith("s3://"):
+        return redirect(presign(c.resume_url))
+    # local fallback (demo)
+    return send_file(c.resume_url, as_attachment=True, download_name=f"{c.name}.pdf")
 
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":
