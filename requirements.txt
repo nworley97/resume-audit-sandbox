@@ -9,4 +9,5 @@ boto3
 flask-login
 bcrypt
 psycopg2-binary>=2.9
+python-docx
        
