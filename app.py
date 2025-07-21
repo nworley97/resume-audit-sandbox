@@ -1,4 +1,3 @@
-# app.py  –  JD code + fixed resume download + JD shown in candidate detail
 import os, json, uuid, logging, tempfile, mimetypes, re
 from flask import (
     Flask, request, redirect, url_for, render_template_string,
@@ -13,7 +12,7 @@ from flask_login import (
 
 from db import SessionLocal
 from models import Candidate, JobDescription, User
-from s3util import upload_pdf, presign, S3_ENABLED        # ← now returns bool
+from s3util import upload_pdf, presign, S3_ENABLED, s3, BUCKET
 
 # ─── Config ───────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +22,7 @@ MODEL  = "gpt-4o"
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change‑me")
 
-# ─── Flask‑Login setup ────────────────────────────────────────────
+# ─── Flask‑Login ──────────────────────────────────────────────────
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
@@ -34,9 +33,7 @@ def load_user(uid: str):
 # ─── OpenAI helper ────────────────────────────────────────────────
 def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     resp = client.chat.completions.create(
-        model=MODEL,
-        temperature=0,
-        top_p=0.1,
+        model=MODEL, temperature=0, top_p=0.1,
         response_format={"type":"json_object"} if structured else None,
         messages=[{"role":"system","content":system},
                   {"role":"user","content":user}],
@@ -54,7 +51,7 @@ def file_to_text(path, mime):
         return docx_to_text(path)
     raise ValueError("Unsupported file type")
 
-# ─── AI processing helpers ───────────────────────────────────────
+# ─── AI helpers (fit score only) ──────────────────────────────────
 def resume_json(text: str) -> dict:
     raw = chat("Extract résumé to JSON.", text, structured=True)
     try: return json.loads(raw)
@@ -62,16 +59,11 @@ def resume_json(text: str) -> dict:
         raw2 = chat("Return ONLY valid JSON résumé.", text, structured=True)
         return json.loads(raw2)
 
-def realism_check(rjs: dict) -> bool:
-    verdict = chat("Realism check", f"Is this résumé realistic? yes/no\n\n{json.dumps(rjs)}")
-    return verdict.lower().startswith("y")
-
 def fit_score(rjs: dict, jd_text: str) -> int:
     prompt = (
         f"Résumé JSON:\n{json.dumps(rjs, indent=2)}\n\n"
         f"Job description:\n{jd_text}\n\n"
-        "Score how well the résumé matches the job on a 1‑5 scale.\n"
-        "Return ONLY the single integer (1‑5)."
+        "Score 1‑5 (5 best). Return ONLY the integer."
     )
     reply = chat("Score résumé vs JD.", prompt).strip()
     try: return int(reply)
@@ -86,7 +78,7 @@ BASE = """
 </head><body class="bg-light">
 <nav class="navbar navbar-light bg-white border-bottom mb-4">
   <div class="container-fluid">
-    <span class="navbar-brand">Demo Sandbox</span>
+    <span class="navbar-brand">Blackboxstrategiesalpha</span>
     <div>
       {% if current_user.is_authenticated %}
         <a class="btn btn-outline-secondary btn-sm me-2" href="{{ url_for('recruiter') }}">Recruiter</a>
@@ -124,15 +116,15 @@ def login():
 def logout():
     logout_user(); return redirect(url_for("login"))
 
-# ─── Job description editing ─────────────────────────────────────
+# ─── Job Description edit ────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
 def edit_jd():
     db = SessionLocal()
     jd = db.get(JobDescription,1) or JobDescription(id=1,code="",html="")
     if request.method=="POST":
-        jd.code  = request.form["jd_code"].strip() or "JD01"
-        jd.html  = request.form["jd_text"]
+        jd.code = request.form["jd_code"].strip() or "JD01"
+        jd.html = request.form["jd_text"]
         db.merge(jd); db.commit(); db.close()
         flash("Job description saved"); return redirect(url_for("home"))
     form=(f"<h4>Edit Job Description</h4><form method=post>"
@@ -143,10 +135,9 @@ def edit_jd():
     db.close(); return page("Edit JD",form)
 
 def current_jd():
-    db=SessionLocal(); jd=db.get(JobDescription,1); db.close()
-    return jd
+    db=SessionLocal(); jd=db.get(JobDescription,1); db.close(); return jd
 
-# ─── Upload résumé & show score ──────────────────────────────────
+# ─── Upload résumé & score ───────────────────────────────────────
 @app.route("/", methods=["GET","POST"])
 @login_required
 def home():
@@ -159,15 +150,16 @@ def home():
         with tempfile.NamedTemporaryFile(delete=False) as tmp: f.save(tmp.name); path=tmp.name
         try: text=file_to_text(path,mime)
         except ValueError: flash("Upload PDF or DOCX"); return redirect("/")
-        rjs=resume_json(text); score=fit_score(rjs,jd_text); real=realism_check(rjs)
-        cid=str(uuid.uuid4())[:8]; s3=upload_pdf(path)   # returns local path if S3 disabled
+        rjs=resume_json(text); score=fit_score(rjs,jd_text)
+        cid=str(uuid.uuid4())[:8]; storage_path=upload_pdf(path)
         with SessionLocal() as db:
-            db.add(Candidate(id=cid,name=name,resume_url=s3,
-                             resume_json=rjs,realism=real,fit_score=score,
-                             jd_code=jd.code if jd else "",
-                             questions=[],answers=[],answer_scores=[]))
+            db.add(Candidate(id=cid,name=name,resume_url=storage_path,
+                             resume_json=rjs,fit_score=score,jd_code=jd.code if jd else ""))
             db.commit()
-        return page("Result", f"<h4>Thanks, {name}!</h4><p>Relevance score: <strong>{score}/5</strong>.</p>")
+        body=(f"<h4>Thanks, {name}!</h4>"
+              f"<p>Relevance score: <strong>{score}/5</strong>.</p>"
+              f"<a class='btn btn-secondary mt-3' href='{url_for('home')}'>Upload another résumé</a>")
+        return page("Result",body)
 
     form=(f"<h4>Current Job Description ({jd.code if jd else 'N/A'})</h4>"
           f"<pre class='p-3 bg-white border'>{jd_text}</pre>"
@@ -179,37 +171,41 @@ def home():
           "<button class='btn btn-primary w-100'>Upload & Score</button></form>")
     return page("Upload Résumé",form)
 
-# ─── Recruiter list / detail ─────────────────────────────────────
+# ─── Recruiter dashboard ─────────────────────────────────────────
 @app.route("/recruiter")
 @login_required
 def recruiter():
     with SessionLocal() as db:
         rows=db.query(Candidate).order_by(Candidate.created_at.desc()).all()
-    table="".join(f"<tr><td>{c.jd_code}</td><td>{c.name}</td><td>{c.fit_score}</td>"
-                  f"<td><a href='{url_for('detail',cid=c.id)}'>view</a></td></tr>"
-                  for c in rows) or "<tr><td colspan=4>No candidates</td></tr>"
+    table="".join(
+        f"<tr><td>{c.jd_code}</td><td>{c.name}</td><td>{c.fit_score}</td>"
+        f"<td><a href='{url_for('detail',cid=c.id)}'>view</a></td>"
+        f"<td><a class='text-danger' href='{url_for('delete_candidate',cid=c.id)}' "
+        f"onclick=\"return confirm('Delete this candidate?');\">✖</a></td></tr>"
+        for c in rows) or "<tr><td colspan=5>No candidates</td></tr>"
     body=("""<h4>Candidates</h4>
           <table class='table table-sm'>
-          <thead><tr><th>Job Code</th><th>Name</th><th>Score</th><th></th></tr></thead>
+          <thead><tr><th>Job Code</th><th>Name</th><th>Score</th><th></th><th></th></tr></thead>
           <tbody>"""+table+"</tbody></table>")
     return page("Recruiter",body)
 
+# ─── Candidate detail ────────────────────────────────────────────
 @app.route("/recruiter/<cid>")
 @login_required
 def detail(cid):
-    with SessionLocal() as db: c=db.get(Candidate,cid); jd=db.query(JobDescription).filter_by(code=c.jd_code).first()
+    with SessionLocal() as db:
+        c=db.get(Candidate,cid); jd=db.query(JobDescription).filter_by(code=c.jd_code).first()
     if not c: flash("Not found"); return redirect(url_for("recruiter"))
-    jd_html = jd.html if jd else "(job description not found)"
+    jd_html=jd.html if jd else "(job description not found)"
     body=(f"<a href='{url_for('recruiter')}'>&larr; back</a>"
-          f"<h4>{c.name}</h4><p>ID: {c.id}<br>"
-          f"Job Code: {c.jd_code}<br>"
-          f"Score: <strong>{c.fit_score}/5</strong><br>"
-          f"Realism: {'Looks real' if c.realism else 'Possibly fake'}</p>"
+          f"<h4>{c.name}</h4>"
+          f"<p>ID: {c.id}<br>Job Code: {c.jd_code}<br>"
+          f"Score: <strong>{c.fit_score}/5</strong></p>"
           f"<details class='mb-3'><summary>View Job Description</summary><pre>{jd_html}</pre></details>"
-          f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>Download résumé</a>"
-          )
+          f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>Download résumé</a>")
     return page("Candidate",body)
 
+# ─── Download or delete résumé ───────────────────────────────────
 @app.route("/resume/<cid>")
 @login_required
 def download_resume(cid):
@@ -217,9 +213,30 @@ def download_resume(cid):
     if not c: return "Not found",404
     if S3_ENABLED and c.resume_url.startswith("s3://"):
         return redirect(presign(c.resume_url))
-    # local fallback (demo)
     return send_file(c.resume_url, as_attachment=True, download_name=f"{c.name}.pdf")
+
+@app.route("/delete/<cid>")
+@login_required
+def delete_candidate(cid):
+    with SessionLocal() as db:
+        c=db.get(Candidate,cid)
+        if not c:
+            flash("Not found")
+        else:
+            # delete S3 object if applicable
+            if S3_ENABLED and c.resume_url.startswith("s3://"):
+                b,k=c.resume_url.split("/",3)[2], c.resume_url.split("/",3)[3]
+                try: s3.delete_object(Bucket=b, Key=k)
+                except Exception as e: logging.warning("S3 delete failed: %s", e)
+            # local file cleanup best‑effort
+            elif os.path.exists(c.resume_url):
+                try: os.remove(c.resume_url)
+                except Exception: pass
+            db.delete(c); db.commit()
+            flash("Candidate deleted")
+    return redirect(url_for("recruiter"))
 
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":
     app.run(debug=True,host="0.0.0.0",port=int(os.getenv("PORT",5000)))
+
