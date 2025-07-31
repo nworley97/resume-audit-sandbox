@@ -31,7 +31,7 @@ class User(Base, PWMixin, UserMixin):
 
 class JobDescription(Base):
     __tablename__ = "job_description"
-    id    = Column(Integer, primary_key=True)
+    id    = Column(Integer, primary_key=True, autoincrement=True)
     code  = Column(String, unique=True, index=True)    # internal ID
     slug  = Column(String, unique=True, index=True)    # public URL slug
     title = Column(String, default="")
