@@ -138,12 +138,12 @@ def logout(): logout_user(); return redirect(url_for("login"))
 def recruiter():
     with SessionLocal() as db:
         jds=db.query(JobDescription).order_by(JobDescription.id.desc()).all()
-    rows="".join(
-        f"<tr><td>{jd.code}</td><td>{jd.title}</td>"
-        f"<td><a href='{url_for('jd_detail',slug=jd.slug)}'>open</a></td>"
-        f"<td><a class='text-danger' href='{url_for('delete_jd',slug=jd.slug)}'"
-        f" onclick=\"return confirm('Delete JD?');\">✖</a></td></tr>"
-        for jd in jds) or "<tr><td colspan=4>No postings</td></tr>"
+    rows = "".join(
+    f"<tr><td>{jd.code}</td><td>{jd.title}</td>"
+    f"<td><a href='{url_for('jd_detail', slug=jd.slug)}'>open</a></td>"
+    f"<td><a class='text-danger' href='{url_for('delete_jd', slug=jd.slug)}'"
+    f" onclick=\"return confirm('Delete JD?');\">✖</a></td></tr>"
+    for jd in jds) or "<tr><td colspan=4>No postings</td></tr>"
     body = ("""<h4>Job Postings</h4><table class='table table-sm'>
     <thead><tr><th>Code</th><th>Title</th><th></th><th></th></tr></thead>
     <tbody>"""+rows+"</tbody></table>" +
@@ -172,6 +172,34 @@ def new_jd():
     <textarea name=html rows=8 class='form-control mb-3' placeholder='Description (HTML or text)' required></textarea>
     <button class='btn btn-primary w-100'>Create</button></form>"""
     return page("New JD",body)
+
+# AFTER your /new-jd route add:
+@app.route("/jd/<slug>")
+@login_required
+def jd_detail(slug):
+    with SessionLocal() as db:
+        jd = db.query(JobDescription).filter_by(slug=slug).first()
+        if not jd:
+            flash("Job description not found")
+            return redirect(url_for("recruiter"))
+
+        cands = db.query(Candidate).filter_by(jd_code=jd.code).all()
+
+    rows = "".join(
+        f"<tr><td>{c.name}</td><td>{c.fit_score}</td>"
+        f"<td><a href='{url_for('candidate_detail', cid=c.id)}'>view</a></td></tr>"
+        for c in cands
+    ) or "<tr><td colspan=3>No applicants yet</td></tr>"
+
+    body = (
+        f"<h4>{jd.title} ({jd.code})</h4>"
+        f"<pre class='p-3 bg-light'>{jd.html}</pre>"
+        "<h5 class='mt-4'>Applicants</h5>"
+        "<table class='table table-sm'><thead><tr><th>Name</th><th>Score</th><th></th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+        f"<a class='btn btn-secondary mt-3' href='{url_for('recruiter')}'>← back</a>"
+    )
+    return page("Job Detail", body)
 
 @app.route("/delete-jd/<slug>")
 @login_required
