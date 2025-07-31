@@ -93,14 +93,44 @@ def realism_check(rjs: dict) -> bool:
     )
     return verdict.lower().startswith("y")
 
-def generate_questions(rjs: dict, jd_text: str) -> list[str]:
-    raw = chat(
-        "Write exactly FOUR probing questions to verify the candidate's "
-        "skills/experience for this job. Return JSON array of strings.",
-        f"Résumé:\n{json.dumps(rjs)}\n\nJob:\n{jd_text}",
-        structured=True,
+# ─── Question generation ─────────────────────────────────────────
+def generate_questions(resume_json: dict, jd_html: str) -> list[str]:
+    """
+    Ask GPT-4o for exactly four probing questions.
+    Accept either a JSON array **or** {"questions":[...]}.
+    Fallback: pull the first 4 non-empty lines.
+    Always returns a list of 4 strings.
+    """
+    system = "You are an interviewer verifying a résumé against the job."
+    user   = (
+        "Job description:\n"
+        f"{jd_html}\n\n"
+        "Résumé JSON:\n"
+        f"{json.dumps(resume_json, indent=2)}\n\n"
+        "Return ONLY the four questions."
     )
-    return json.loads(raw)[:4]
+
+    raw = chat(system, user, structured=True)
+
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            qs = [str(q) for q in data][:4]
+        elif isinstance(data, dict) and "questions" in data:
+            qs = [str(q) for q in data["questions"]][:4]
+        else:
+            qs = []
+    except json.JSONDecodeError:
+        qs = []
+
+    if not qs:  # plain-text fallback
+        qs = [l.strip("-• ").strip() 
+              for l in raw.splitlines() if l.strip()][:4]
+
+    # pad / trim to exactly four
+    while len(qs) < 4: qs.append("???")
+    return qs[:4]
+
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
