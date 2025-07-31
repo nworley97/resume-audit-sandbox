@@ -8,7 +8,7 @@ openai==1.30.0
 httpx<0.27              # openai-python pins to <0.27 for now
 
 # --- ORM / database ----------------------------------------------
-SQLAlchemy==2.0.30
+SQLAlchemy>=2.0.34
 psycopg[binary]==3.2.9  # Postgres driver (works with SQLAlchemy 2)
 
 # --- File parsing -------------------------------------------------
