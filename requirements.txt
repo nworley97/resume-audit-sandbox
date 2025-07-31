@@ -1,13 +1,23 @@
-Flask==3.0.2
-PyPDF2==3.0.1
-openai==1.30.0
-httpx<0.27           
+# --- Web stack ----------------------------------------------------
+Flask==3.0.2            # 3.x is fine; Flask-Login ≥0.6 supports it
+Flask-Login==0.6.3
 gunicorn==21.2.0
-sqlalchemy>=2.0
-psycopg[binary]
-boto3
-flask-login
-bcrypt
-psycopg2-binary>=2.9
-python-docx
-       
+
+# --- OpenAI + HTTP client ----------------------------------------
+openai==1.30.0
+httpx<0.27              # openai-python pins to <0.27 for now
+
+# --- ORM / database ----------------------------------------------
+SQLAlchemy==2.0.30
+psycopg[binary]==3.2.9  # Postgres driver (works with SQLAlchemy 2)
+
+# --- File parsing -------------------------------------------------
+PyPDF2==3.0.1
+python-docx==0.8.11
+
+# --- Security -----------------------------------------------------
+bcrypt==4.1.2           # for password hashing
+
+# --- Optional S3 support -----------------------------------------
+boto3==1.34.122         # include only if you’ve set AWS_S3_BUCKET
+botocore==1.34.122      # boto3’s lower-level dependency
