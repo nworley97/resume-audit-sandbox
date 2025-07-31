@@ -1,52 +1,59 @@
-# models.py  –  SQLAlchemy ORM definitions
-# ---------------------------------------------------
-import bcrypt, json
-from datetime import datetime
-from sqlalchemy import (
-    Column, Integer, String, Text, Boolean, DateTime, JSON
-)
-from sqlalchemy.orm import declarative_base
+import datetime, json, bcrypt
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey
+from sqlalchemy.orm import declarative_base, relationship, Session
+from sqlalchemy.ext.mutable import MutableDict
 
 Base = declarative_base()
 
-# ─────────────── Helper mixin for password hashing ──────────────
-class PWMixin:
-    pw_hash = Column(String)
-
-    def set_pw(self, raw: str):
-        self.pw_hash = bcrypt.hashpw(raw.encode(), bcrypt.gensalt()).decode()
-
-    def check_pw(self, raw: str) -> bool:
-        if not self.pw_hash:
-            return False
-        return bcrypt.checkpw(raw.encode(), self.pw_hash.encode())
-
-# ─────────────────────────  Tables  ─────────────────────────────
-from flask_login import UserMixin
-
-class User(Base, PWMixin, UserMixin):
-    __tablename__ = "user"
-    id       = Column(Integer, primary_key=True)
-    username = Column(String, unique=True, index=True)
-
 class JobDescription(Base):
     __tablename__ = "job_description"
-    id    = Column(Integer, primary_key=True, autoincrement=True)
-    code  = Column(String, unique=True, index=True)    # internal ID
-    slug  = Column(String, unique=True, index=True)    # public URL slug
-    title = Column(String, default="")
-    html  = Column(Text)
+    id    = Column(Integer, primary_key=True)         # now SERIAL
+    code  = Column(String(20), unique=True, nullable=False)
+    slug  = Column(String(50), unique=True, nullable=False)
+    title = Column(String(120))
+    html  = Column(Text,   nullable=False)
 
 class Candidate(Base):
-    __tablename__ = "candidate"
-    id            = Column(String, primary_key=True)   # 8-char uuid
-    jd_code       = Column(String, index=True)         # ties back to JobDescription.code
-    name          = Column(String)
-    resume_url    = Column(String)
-    resume_json   = Column(JSON)
-    fit_score     = Column(Integer)
-    realism       = Column(Boolean)
-    questions     = Column(JSON)                       # list[str]
-    answers       = Column(JSON)                       # list[str]
-    answer_scores = Column(JSON)                       # list[int]
-    created_at    = Column(DateTime, default=datetime.utcnow)
+    __tablename__ ="candidate"
+    id          = Column(String(8), primary_key=True)
+    name        = Column(String(80))
+    resume_url  = Column(Text)
+    resume_json = Column(MutableDict.as_mutable(JSON))
+    fit_score   = Column(Integer)
+    answer_scores = Column(MutableDict.as_mutable(JSON))   # list[int] | list["ERR"]
+    jd_code     = Column(String(20), ForeignKey("job_description.code"))
+    created_at  = Column(DateTime, default=datetime.datetime.utcnow)
+
+    jd = relationship(JobDescription, lazy="joined")
+
+    # handy property for dashboard
+    @property
+    def avg_validity(self) -> str:
+        if not self.answer_scores:
+            return "-"
+        nums = [s for s in self.answer_scores if isinstance(s, int)]
+        return f"{sum(nums)/len(nums):.1f}" if nums else "-"
+
+class User(Base):
+    __tablename__ = "user"
+    id       = Column(Integer, primary_key=True)
+    username = Column(String(120), unique=True, nullable=False)
+    pw_hash  = Column(String(128), nullable=False)
+
+    # ── auth helpers ───────────────────────────
+    @staticmethod
+    def create(db: Session, username: str, password: str):
+        h = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        u = User(username=username, pw_hash=h)
+        db.add(u); db.commit(); return u
+    def check_pw(self, pw:str)->bool:
+        return bcrypt.checkpw(pw.encode(), self.pw_hash.encode())
+
+    # flask-login required attrs
+    @property
+    def is_authenticated(self): return True
+    @property
+    def is_active(self): return True
+    @property
+    def is_anonymous(self): return False
+    def get_id(self): return str(self.id)
