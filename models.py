@@ -22,7 +22,9 @@ class PWMixin:
         return bcrypt.checkpw(raw.encode(), self.pw_hash.encode())
 
 # ─────────────────────────  Tables  ─────────────────────────────
-class User(Base, PWMixin):
+from flask_login import UserMixin
+
+class User(Base, PWMixin, UserMixin):
     __tablename__ = "user"
     id       = Column(Integer, primary_key=True)
     username = Column(String, unique=True, index=True)
