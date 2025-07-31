@@ -129,7 +129,7 @@ BASE = """
     <span class="navbar-brand">Blackboxstrategiesalpha</span>
     <div>
       {% if current_user.is_authenticated %}
-        <a class="btn btn-outline-secondary btn-sm me-2" href="{{ url_for('home') }}">Upload</a>
+        <a class="btn btn-outline-secondary btn-sm me-2" href="{{ url_for('recruiter') }}">Dashboard</a>
         <a class="btn btn-outline-secondary btn-sm me-2" href="{{ url_for('new_jd') }}">New JD</a>
         <a class="btn btn-outline-secondary btn-sm me-2" href="{{ url_for('recruiter') }}">Recruiter</a>
         <span class="me-2 text-secondary">{{ current_user.username }}</span>
