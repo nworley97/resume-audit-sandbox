@@ -95,41 +95,47 @@ def realism_check(rjs: dict) -> bool:
 
 # ─── Question generation ─────────────────────────────────────────
 def generate_questions(resume_json: dict, jd_html: str) -> list[str]:
-    """
-    Ask GPT-4o for exactly four probing questions.
-    Accept either a JSON array **or** {"questions":[...]}.
-    Fallback: pull the first 4 non-empty lines.
-    Always returns a list of 4 strings.
-    """
+    """Return exactly four clean question strings."""
     system = "You are an interviewer verifying a résumé against the job."
-    user   = (
-        "Job description:\n"
-        f"{jd_html}\n\n"
-        "Résumé JSON:\n"
-        f"{json.dumps(resume_json, indent=2)}\n\n"
-        "Return ONLY the four questions."
+    user = (
+        f"Job description:\n{jd_html}\n\n"
+        f"Résumé JSON:\n{json.dumps(resume_json, indent=2)}\n\n"
+        "Give *exactly* four probing questions. "
+        "Return either a JSON array or "
+        '{"questions":[...] } or {"question1": "...", ...}.'
     )
-
     raw = chat(system, user, structured=True)
 
+    qs: list[str] = []
     try:
         data = json.loads(raw)
+
+        # ① plain list  -------------------------------
         if isinstance(data, list):
-            qs = [str(q) for q in data][:4]
+            qs = [str(q) for q in data]
+
+        # ② {"questions":[...]}  ----------------------
         elif isinstance(data, dict) and "questions" in data:
-            qs = [str(q) for q in data["questions"]][:4]
-        else:
-            qs = []
+            qs = [str(q) for q in data["questions"]]
+
+        # ③ {"question1": "...", "question2": "..."} --
+        elif isinstance(data, dict):
+            # sort keys so we keep 1-4 order even if GPT labels them
+            for k in sorted(data.keys()):
+                if k.lower().startswith("question"):
+                    qs.append(str(data[k]))
     except json.JSONDecodeError:
-        qs = []
+        pass
 
-    if not qs:  # plain-text fallback
-        qs = [l.strip("-• ").strip() 
-              for l in raw.splitlines() if l.strip()][:4]
+    # ④ fallback: first 4 non-empty lines -----------
+    if not qs:
+        qs = [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()]
 
-    # pad / trim to exactly four
-    while len(qs) < 4: qs.append("???")
-    return qs[:4]
+    # normalise to exactly four items
+    qs = [q for q in qs if q][:4]
+    while len(qs) < 4:
+        qs.append("???")
+    return qs
 
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
