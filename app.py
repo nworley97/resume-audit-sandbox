@@ -99,12 +99,26 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
         )
         parsed = json.loads(raw)
         if isinstance(parsed, list):
-            return [str(q).strip().strip('"').strip(',') for q in parsed if isinstance(q, str)]
+            return [q.strip().strip('"').strip(',') for q in parsed if isinstance(q, str) and len(q.strip()) > 10]
     except Exception as e:
         logging.warning("Fallback triggered in question generation: %s", e)
 
-    lines = [l.strip("-• ").strip().strip('"').rstrip(",") for l in raw.splitlines()]
-    return [q for q in lines if q and not q.lower().startswith("json") and not q.startswith("[")][:4]
+    # Fallback: extract only clean lines
+    lines = raw.splitlines()
+    cleaned = []
+    for line in lines:
+        line = line.strip().strip("-• ").strip('"').strip(',')
+        if (
+            line and
+            not line.lower().startswith("json") and
+            not line.startswith("[") and
+            not line.startswith("]") and
+            not line.startswith("```") and
+            len(line) > 10
+        ):
+            cleaned.append(line)
+    return cleaned[:4]
+
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
