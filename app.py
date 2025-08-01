@@ -187,6 +187,22 @@ def create_admin():
     db.close()
     return "Admin user created."
 
+@app.route("/reset-admin")
+def reset_admin():
+    db = SessionLocal()
+    user = db.query(User).filter_by(username="james@blackboxstrategies.ai").first()
+    if user:
+        db.delete(user)
+        db.commit()
+
+    admin = User(username="james@blackboxstrategies.ai")
+    admin.set_pw("2025@gv70!")  # 🔐 hashes correctly
+    db.add(admin)
+    db.commit()
+    db.close()
+    return "Admin reset complete."
+
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
