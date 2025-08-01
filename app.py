@@ -350,12 +350,13 @@ def apply(code):
         )
         db.add(c); db.commit(); db.close()
 
+        import html
+
         items = "".join(f"""
-          <li class='list-group-item'>
-            <strong>{q}</strong>
-            <textarea name='a{i}' class='form-control mt-2' rows=2 required>
-            </textarea>
-          </li>"""
+            <li class='list-group-item'>
+            <strong>{html.escape(q).strip('"')}</strong>
+            <textarea name='a{i}' class='form-control mt-2' rows=2 required></textarea>
+            </li>""" 
         for i,q in enumerate(qs))
         form = (
           f"<h4>{name}, answer these:</h4>"
