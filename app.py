@@ -13,6 +13,7 @@ from openai import OpenAI
 from db import SessionLocal
 from models import User, JobDescription, Candidate
 from s3util import upload_pdf, presign, S3_ENABLED
+from sqlalchemy.exc import IntegrityError
 
 # ─── Config ───────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
@@ -48,19 +49,16 @@ def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
 
 # ─── File-to-text helpers ─────────────────────────────────────────
 def pdf_to_text(path):
-    return "\n".join(
-        p.extract_text() or "" for p in PyPDF2.PdfReader(path).pages
-    )
+    return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(path).pages)
 
 def docx_to_text(path):
     return "\n".join(p.text for p in docx.Document(path).paragraphs)
 
 def file_to_text(path, mime):
-    if mime=="application/pdf":
+    if mime == "application/pdf":
         return pdf_to_text(path)
     if mime in (
-        "application/vnd.openxmlformats-officedocument"
-        ".wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword"
     ):
         return docx_to_text(path)
@@ -93,19 +91,18 @@ def realism_check(rjs: dict) -> bool:
     return reply.lower().startswith("y")
 
 def generate_questions(rjs: dict, jd_text: str) -> list[str]:
-    raw = chat(
-        "You are an interviewer.",
-        f"Résumé:\n{json.dumps(rjs)}\n\nJD:\n{jd_text}"
-        "\n\nWrite EXACTLY FOUR questions as a JSON array."
-    )
     try:
+        raw = chat(
+            "You are an interviewer.",
+            f"Résumé:\n{json.dumps(rjs)}\n\nJD:\n{jd_text}"
+            "\n\nWrite EXACTLY FOUR questions as a JSON array."
+        )
         arr = json.loads(raw)
-        if isinstance(arr,list): return arr[:4]
-    except:
-        pass
-    # fallback: take lines
-    qs = [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()]
-    return qs[:4]
+        if isinstance(arr, list): return arr[:4]
+    except Exception as e:
+        logging.warning("Fallback triggered in question generation: %s", e)
+
+    return [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()][:4]
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
@@ -120,7 +117,6 @@ def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
         raw = chat("Grade answer.", prompt)
         m   = re.search(r"[1-5]", raw)
         s   = int(m.group()) if m else 1
-        # cap brief answers
         if wc<10: s = min(s,2)
         scores.append(s)
     return scores + [1]*max(0,4-len(scores))
@@ -157,17 +153,36 @@ def page(title,body):
     return render_template_string(BASE, title=title, body=body)
 
 # ─── Auth ────────────────────────────────────────────────────────
-@app.route("/login", methods=["GET","POST"])
+@app.route("/create-admin")
+def create_admin():
+    db = SessionLocal()
+    if db.query(User).filter_by(username="admin").first():
+        db.close()
+        return "Admin already exists."
+    admin = User(username="admin")
+    admin.set_pw("2025@gv70")
+    try:
+        db.add(admin)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return "Error creating admin. Possibly duplicate."
+    finally:
+        db.close()
+    return "Admin user created. You can now log in at /login"
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method=="POST":
-        u,p = request.form["username"],request.form["password"]
+    if request.method == "POST":
+        u, p = request.form["username"], request.form["password"]
         db = SessionLocal()
         usr = db.query(User).filter_by(username=u).first()
         db.close()
-        if usr and usr.check_pw(p):
+        if not usr or not usr.check_pw(p):
+            flash("Bad credentials")
+        else:
             login_user(usr)
             return redirect(url_for("recruiter"))
-        flash("Bad credentials")
     form = """
       <h4>Login</h4>
       <form method=post>
@@ -178,14 +193,13 @@ def login():
         <button class='btn btn-primary w-100'>Login</button>
       </form>
     """
-    return page("Login",form)
+    return page("Login", form)
 
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("login"))
-
 # ─── JD Management ──────────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
@@ -321,7 +335,6 @@ def apply(code):
         cid = str(uuid.uuid4())[:8]
         storage = upload_pdf(path)
 
-        # store
         db = SessionLocal()
         c  = Candidate(
             id            = cid,
@@ -337,7 +350,6 @@ def apply(code):
         )
         db.add(c); db.commit(); db.close()
 
-        # render Q&A form
         items = "".join(f"""
           <li class='list-group-item'>
             <strong>{q}</strong>
@@ -354,7 +366,6 @@ def apply(code):
         )
         return page("Questions", form)
 
-    # GET: upload form
     form = (
       f"<h4>Apply – {jd.code} / {jd.title}</h4>"
       f"<pre class='p-3 bg-white border'>{jd.html}</pre>"
