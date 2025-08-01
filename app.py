@@ -97,12 +97,14 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
             f"Résumé:\n{json.dumps(rjs)}\n\nJD:\n{jd_text}"
             "\n\nWrite EXACTLY FOUR questions as a JSON array."
         )
-        arr = json.loads(raw)
-        if isinstance(arr, list): return arr[:4]
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return [str(q).strip().strip('"').strip(',') for q in parsed if isinstance(q, str)]
     except Exception as e:
         logging.warning("Fallback triggered in question generation: %s", e)
 
-    return [l.strip("-• ").strip() for l in raw.splitlines() if l.strip()][:4]
+    lines = [l.strip("-• ").strip().strip('"').rstrip(",") for l in raw.splitlines()]
+    return [q for q in lines if q and not q.lower().startswith("json") and not q.startswith("[")][:4]
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
@@ -205,8 +207,7 @@ def logout():
 @login_required
 def edit_jd():
     db = SessionLocal()
-    jd = db.get(JobDescription, request.args.get("code")) \
-         or JobDescription(code="JD01", title="", html="")
+    jd = db.get(JobDescription, request.args.get("code")) or JobDescription(code="JD01", title="", html="")
     if request.method=="POST":
         jd.code  = request.form["jd_code"].strip()
         jd.title = request.form["jd_title"].strip()
@@ -248,19 +249,13 @@ def recruiter():
     rows = "".join(f"""
       <tr>
         <td>{jd.code}</td><td>{jd.title}</td>
-        <td><a href="{url_for('view_candidates',code=jd.code)}">
-            View Apps</a></td>
-        <td><a class="text-danger"
-               href="{url_for('delete_jd',code=jd.code)}"
-               onclick="return confirm('Delete JD?');">✖</a></td>
-      </tr>"""
-    for jd in jds)
+        <td><a href="{url_for('view_candidates',code=jd.code)}">View Apps</a></td>
+        <td><a class="text-danger" href="{url_for('delete_jd',code=jd.code)}" onclick="return confirm('Delete JD?');">✖</a></td>
+      </tr>""" for jd in jds)
     body = (
       "<h4>Job Postings</h4><table class='table table-sm'>"
-      "<thead><tr><th>Code</th><th>Title</th>"
-      "<th></th><th></th></tr></thead>"
-      "<tbody>" + (rows or "<tr><td colspan=4>No postings</td></tr>") +
-      "</tbody></table>"
+      "<thead><tr><th>Code</th><th>Title</th><th></th><th></th></tr></thead>"
+      "<tbody>" + (rows or "<tr><td colspan=4>No postings</td></tr>") + "</tbody></table>"
       f"<a class='btn btn-primary' href='{url_for('edit_jd')}'>New / Edit</a>"
     )
     return page("Recruiter", body)
@@ -269,32 +264,24 @@ def recruiter():
 @login_required
 def view_candidates(code):
     db = SessionLocal()
-    apps = db.query(Candidate)\
-             .filter_by(jd_code=code)\
-             .order_by(Candidate.created_at.desc())\
-             .all()
+    apps = db.query(Candidate).filter_by(jd_code=code).order_by(Candidate.created_at.desc()).all()
     db.close()
     rows = ""
     for c in apps:
-        avg = round(sum(c.answer_scores)/len(c.answer_scores),2) \
-              if c.answer_scores else "-"
+        avg = round(sum(c.answer_scores)/len(c.answer_scores),2) if c.answer_scores else "-"
         real = "✔️" if c.realism else "❌"
         rows += f"""
         <tr>
           <td>{c.id}</td><td>{c.name}</td>
           <td>{c.fit_score}</td><td>{real}</td><td>{avg}</td>
           <td><a href="{url_for('detail',cid=c.id)}">View</a></td>
-          <td><a class="text-danger"
-                 href="{url_for('delete_candidate',cid=c.id)}"
-                 onclick="return confirm('Delete this app?');">✖</a></td>
+          <td><a class="text-danger" href="{url_for('delete_candidate',cid=c.id)}" onclick="return confirm('Delete this app?');">✖</a></td>
         </tr>"""
     body = (
       f"<h4>Apps for {code}</h4>"
       "<table class='table table-sm'><thead>"
-      "<tr><th>ID</th><th>Name</th><th>Fit</th>"
-      "<th>Real</th><th>Avg Q</th><th></th><th></th></tr>"
-      "</thead><tbody>" + (rows or "<tr><td colspan=7>No apps</td></tr>") +
-      "</tbody></table>"
+      "<tr><th>ID</th><th>Name</th><th>Fit</th><th>Real</th><th>Avg Q</th><th></th><th></th></tr>"
+      "</thead><tbody>" + (rows or "<tr><td colspan=7>No apps</td></tr>") + "</tbody></table>"
       f"<a class='btn btn-secondary' href='{url_for('recruiter')}'>← Back</a>"
     )
     return page(f"Candidates – {code}", body)
@@ -320,10 +307,7 @@ def apply(code):
             path = tmp.name
 
         try:
-            text = file_to_text(
-                path,
-                mimetypes.guess_type(f.filename)[0] or f.mimetype
-            )
+            text = file_to_text(path, mimetypes.guess_type(f.filename)[0] or f.mimetype)
         except ValueError:
             flash("PDF or DOCX only"); return redirect(request.url)
 
@@ -351,13 +335,12 @@ def apply(code):
         db.add(c); db.commit(); db.close()
 
         import html
-
         items = "".join(f"""
-            <li class='list-group-item'>
-            <strong>{html.escape(q).strip('"')}</strong>
+          <li class='list-group-item'>
+            <strong>{html.escape(q).strip('"').strip(',')}</strong>
             <textarea name='a{i}' class='form-control mt-2' rows=2 required></textarea>
-            </li>""" 
-        for i,q in enumerate(qs))
+          </li>""" for i, q in enumerate(qs))
+
         form = (
           f"<h4>{name}, answer these:</h4>"
           f"<form method='post' action='{url_for('submit_answers',code=code,cid=cid)}'>"
@@ -374,8 +357,7 @@ def apply(code):
       "<div class='mb-3'><label>Your Name</label>"
       "<input name=name class='form-control' required></div>"
       "<div class='mb-3'><label>Résumé</label>"
-      "<input type=file name=resume_file accept='.pdf,.docx' "
-      "class='form-control' required></div>"
+      "<input type=file name=resume_file accept='.pdf,.docx' class='form-control' required></div>"
       "<button class='btn btn-primary w-100'>Upload & Get Questions</button>"
       "</form>"
     )
@@ -404,17 +386,15 @@ def submit_answers(code, cid):
         <td><strong>{q}</strong></td>
         <td>{a or '<em>(no answer)</em>'}</td>
         <td>{s}</td>
-      </tr>"""
-    for q,a,s in zip(c.questions, c.answers, c.answer_scores))
+      </tr>""" for q,a,s in zip(c.questions, c.answers, c.answer_scores))
 
     body = (
       f"<h4>Thanks, {c.name}!</h4>"
       f"<p>Fit: <strong>{c.fit_score}/5</strong><br>"
       f"{real}<br>Avg Q-score: <strong>{avg}</strong></p>"
       "<h5>Your Answers</h5>"
-      "<table class='table'><thead>"
-        "<tr><th>Q</th><th>A</th><th>Score</th></tr>"
-      "</thead><tbody>" + rows + "</tbody></table>"
+      "<table class='table'><thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead><tbody>"
+      + rows + "</tbody></table>"
       f"<a class='btn btn-secondary' href='{url_for('apply',code=code)}'>Re-apply</a> "
       f"<a class='btn btn-primary' href='{url_for('recruiter')}'>Dashboard</a>"
     )
@@ -426,10 +406,12 @@ def submit_answers(code, cid):
 def download_resume(cid):
     db = SessionLocal(); c = db.get(Candidate,cid); db.close()
     if not c: abort(404)
+    fn = os.path.basename(c.resume_url)
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
+        if fn.lower().endswith(".docx") else "application/pdf"
     if S3_ENABLED and c.resume_url.startswith("s3://"):
         return redirect(presign(c.resume_url))
-    fn = os.path.basename(c.resume_url)
-    return send_file(c.resume_url, as_attachment=True, download_name=fn)
+    return send_file(c.resume_url, as_attachment=True, download_name=fn, mimetype=mime)
 
 @app.route("/delete/<cid>")
 @login_required
@@ -454,36 +436,29 @@ def delete_candidate(cid):
 def detail(cid):
     db = SessionLocal()
     c  = db.get(Candidate, cid)
-    jd = db.query(JobDescription)\
-           .filter_by(code=c.jd_code).first() if c else None
+    jd = db.query(JobDescription).filter_by(code=c.jd_code).first() if c else None
     db.close()
     if not c:
         flash("Not found"); return redirect(url_for("recruiter"))
 
-    avg  = round(sum(c.answer_scores)/len(c.answer_scores),2) \
-            if c.answer_scores else "-"
+    avg  = round(sum(c.answer_scores)/len(c.answer_scores),2) if c.answer_scores else "-"
     real = "✔️ Realistic" if c.realism else "❌ Possibly Fake"
     rows = "".join(f"""
       <tr>
         <td><strong>{q}</strong></td>
         <td>{a or '<em>(no answer)</em>'}</td>
         <td>{s}</td>
-      </tr>"""
-    for q,a,s in zip(c.questions, c.answers, c.answer_scores))
+      </tr>""" for q,a,s in zip(c.questions, c.answers, c.answer_scores))
 
     body = (
       f"<a href='{url_for('view_candidates',code=c.jd_code)}'>← Back</a>"
       f"<h4>{c.name}</h4>"
-      f"<p>ID: {c.id}<br>"
-      f"JD: {c.jd_code} — {jd.title if jd else ''}<br>"
-      f"Fit: <strong>{c.fit_score}/5</strong><br>"
-      f"{real}<br>Avg Q: <strong>{avg}</strong></p>"
+      f"<p>ID: {c.id}<br>JD: {c.jd_code} — {jd.title if jd else ''}<br>"
+      f"Fit: <strong>{c.fit_score}/5</strong><br>{real}<br>Avg Q: <strong>{avg}</strong></p>"
       "<h5>Q&A</h5>"
-      "<table class='table'><thead>"
-      "<tr><th>Q</th><th>A</th><th>Score</th></tr>"
-      "</thead><tbody>" + rows + "</tbody></table>"
-      f"<a class='btn btn-outline-secondary' "
-      f"href='{url_for('download_resume',cid=cid)}'>Download résumé</a>"
+      "<table class='table'><thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead><tbody>"
+      + rows + "</tbody></table>"
+      f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>Download résumé</a>"
     )
     return page(f"Candidate – {c.name}", body)
 
