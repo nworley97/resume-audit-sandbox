@@ -172,20 +172,21 @@ def page(title,body):
 @app.route("/create-admin")
 def create_admin():
     db = SessionLocal()
+
+    # Check if already exists
     if db.query(User).filter_by(username="james@blackboxstrategies.ai").first():
         db.close()
         return "Admin already exists."
+
+    # ✅ This is important: use set_pw()
     admin = User(username="james@blackboxstrategies.ai")
-    admin.set_pw("2025@gv70!")
-    try:
-        db.add(admin)
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        return "Error creating admin. Possibly duplicate."
-    finally:
-        db.close()
-    return "Admin user created. You can now log in at /login"
+    admin.set_pw("2025@gv70!")  # this will call generate_password_hash
+
+    db.add(admin)
+    db.commit()
+    db.close()
+    return "Admin user created."
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
