@@ -172,11 +172,11 @@ def page(title,body):
 @app.route("/create-admin")
 def create_admin():
     db = SessionLocal()
-    if db.query(User).filter_by(username="admin").first():
+    if db.query(User).filter_by(username="james@blackboxstrategies.ai").first():
         db.close()
         return "Admin already exists."
-    admin = User(username="admin")
-    admin.set_pw("2025@gv70")
+    admin = User(username="james@blackboxstrategies.ai")
+    admin.set_pw("2025@gv70!")
     try:
         db.add(admin)
         db.commit()
@@ -293,8 +293,11 @@ def view_candidates(code):
         </tr>"""
     body = (
       f"<h4>Apps for {code}</h4>"
+      f"<p><strong>Public Apply Link:</strong> "
+      f"<a href='{url_for('apply', code=code)}' target='_blank'>"
+      f"{request.host_url.rstrip('/')}{url_for('apply', code=code)}</a></p>"
       "<table class='table table-sm'><thead>"
-      "<tr><th>ID</th><th>Name</th><th>Fit</th><th>Real</th><th>Avg Q</th><th></th><th></th></tr>"
+      "<tr><th>ID</th><th>Name</th><th>Fit</th><th>Real</th><th>Claim Avg</th><th></th><th></th></tr>"
       "</thead><tbody>" + (rows or "<tr><td colspan=7>No apps</td></tr>") + "</tbody></table>"
       f"<a class='btn btn-secondary' href='{url_for('recruiter')}'>← Back</a>"
     )
