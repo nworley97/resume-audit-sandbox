@@ -94,8 +94,8 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
     try:
         raw = chat(
             "You are an interviewer.",
-            f"Résumé:\n{json.dumps(rjs)}\n\nJD:\n{jd_text}"
-            "\n\nWrite EXACTLY FOUR questions as a JSON array."
+            f"Résumé:\n{json.dumps(rjs)}\n\n"
+            "Write EXACTLY FOUR interview questions as a JSON array."
         )
         parsed = json.loads(raw)
         if isinstance(parsed, list):
@@ -413,6 +413,11 @@ def submit_answers(code, cid):
     c.created_at    = c.created_at or datetime.utcnow()
     db.merge(c); db.commit(); db.close()
 
+    # 🚫 If not logged in, just show thank you message
+    if not current_user.is_authenticated:
+        return page("Thanks", f"<h4>Thank you for applying, {c.name}!</h4><p>Your answers have been submitted.</p>")
+
+    # ✅ Admin view
     avg  = round(sum(scores)/len(scores),2)
     real = "✔️ Realistic" if c.realism else "❌ Possibly Fake"
     rows = "".join(f"""
