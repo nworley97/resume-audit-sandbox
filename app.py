@@ -304,7 +304,7 @@ def view_candidates(code):
         rows += f"""
         <tr>
           <td>{c.id}</td><td>{c.name}</td>
-          <td>{c.fit_score}</td><td>{real}</td><td>{avg}</td>
+          <td>{c.fit_score}</td><td>{avg}</td>
           <td><a href="{url_for('detail',cid=c.id)}">View</a></td>
           <td><a class="text-danger" href="{url_for('delete_candidate',cid=c.id)}" onclick="return confirm('Delete this app?');">✖</a></td>
         </tr>"""
@@ -314,7 +314,7 @@ def view_candidates(code):
       f"<a href='{url_for('apply', code=code)}' target='_blank'>"
       f"{request.host_url.rstrip('/')}{url_for('apply', code=code)}</a></p>"
       "<table class='table table-sm'><thead>"
-      "<tr><th>ID</th><th>Name</th><th>Fit</th><th>Real</th><th>Claim Avg</th><th></th><th></th></tr>"
+      "<tr><th>ID</th><th>Name</th><th>Fit</th><th>Claim Avg</th><th></th><th></th></tr>"
       "</thead><tbody>" + (rows or "<tr><td colspan=7>No apps</td></tr>") + "</tbody></table>"
       f"<a class='btn btn-secondary' href='{url_for('recruiter')}'>← Back</a>"
     )
@@ -419,7 +419,6 @@ def submit_answers(code, cid):
 
     # ✅ Admin view
     avg  = round(sum(scores)/len(scores),2)
-    real = "✔️ Realistic" if c.realism else "❌ Possibly Fake"
     rows = "".join(f"""
       <tr>
         <td><strong>{q}</strong></td>
@@ -429,8 +428,8 @@ def submit_answers(code, cid):
 
     body = (
       f"<h4>Thanks, {c.name}!</h4>"
-      f"<p>Fit: <strong>{c.fit_score}/5</strong><br>"
-      f"{real}<br>Avg Q-score: <strong>{avg}</strong></p>"
+      f"Fit: <strong>{c.fit_score}/5</strong><br>"
+      f"Avg Q-score: <strong>{avg}</strong></p>"
       "<h5>Your Answers</h5>"
       "<table class='table'><thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead><tbody>"
       + rows + "</tbody></table>"
@@ -481,7 +480,6 @@ def detail(cid):
         flash("Not found"); return redirect(url_for("recruiter"))
 
     avg  = round(sum(c.answer_scores)/len(c.answer_scores),2) if c.answer_scores else "-"
-    real = "✔️ Realistic" if c.realism else "❌ Possibly Fake"
     rows = "".join(f"""
       <tr>
         <td><strong>{q}</strong></td>
@@ -493,7 +491,7 @@ def detail(cid):
       f"<a href='{url_for('view_candidates',code=c.jd_code)}'>← Back</a>"
       f"<h4>{c.name}</h4>"
       f"<p>ID: {c.id}<br>JD: {c.jd_code} — {jd.title if jd else ''}<br>"
-      f"Fit: <strong>{c.fit_score}/5</strong><br>{real}<br>Avg Q: <strong>{avg}</strong></p>"
+      f"Fit: <strong>{c.fit_score}/5</strong><br>Avg Q: <strong>{avg}</strong></p>"
       "<h5>Q&A</h5>"
       "<table class='table'><thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead><tbody>"
       + rows + "</tbody></table>"
