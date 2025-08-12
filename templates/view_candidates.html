@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-1">Candidates — {{ code }}</h3>
+<p class="mb-3">
+  <strong>Public Apply Link:</strong>
+  <a target="_blank" href="{{ url_for('apply', code=code) }}">
+    {{ request.host_url.rstrip('/') }}{{ url_for('apply', code=code) }}
+  </a>
+</p>
+
+<div class="mb-2 small text-muted">
+  <strong>Legend:</strong>
+  <span class="badge badge-score badge-green">≥ 4</span> Good
+  <span class="badge badge-score badge-yellow">≥ 3</span> Medium
+  <span class="badge badge-score badge-red">&lt; 3</span> Low
+</div>
+
+<table class="table table-hover align-middle">
+  <thead>
+    <tr><th>ID</th><th>Name</th><th>Fit</th><th>Claim Avg</th><th class="text-end">Actions</th></tr>
+  </thead>
+  <tbody>
+  {% if apps %}
+    {% for c in apps %}
+    {% set fit_class = 'badge-green' if c.fit_score>=4 else ('badge-yellow' if c.fit_score>=3 else 'badge-red') %}
+    {% set avgv = (c.answer_scores|sum / c.answer_scores|length)|round(2) if c.answer_scores and c.answer_scores|length>0 else None %}
+    {% set avg_class = 'badge-green' if avgv and avgv>=4 else ('badge-yellow' if avgv and avgv>=3 else 'badge-red') %}
+    <tr>
+      <td>{{ c.id }}</td>
+      <td>{{ c.name }}</td>
+      <td><span class="badge badge-score {{ fit_class }}">{{ c.fit_score }}</span></td>
+      <td>
+        {% if avgv is not none %}
+          <span class="badge badge-score {{ avg_class }}">{{ avgv }}</span>
+        {% else %}-{% endif %}
+      </td>
+      <td class="text-end">
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('detail', cid=c.id) }}">View</a>
+        <a class="btn btn-sm btn-outline-danger" href="{{ url_for('delete_candidate', cid=c.id) }}" onclick="return confirm('Delete this app?');">Delete</a>
+      </td>
+    </tr>
+    {% endfor %}
+  {% else %}
+    <tr><td colspan="5" class="text-muted">No applicants yet</td></tr>
+  {% endif %}
+  </tbody>
+</table>
+
+<a class="btn btn-secondary" href="{{ url_for('recruiter') }}">← Back</a>
+{% endblock %}

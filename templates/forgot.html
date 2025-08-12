@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Need help signing in?</h4>
+<div class="card p-4">
+  <p>If you’ve forgotten your password, please contact support and we’ll help you regain access.</p>
+  <ul>
+    <li>Email: <a href="mailto:support@yourdomain.com">support@yourdomain.com</a></li>
+  </ul>
+  <a class="btn btn-secondary" href="{{ url_for('login') }}">← Back to login</a>
+</div>
+{% endblock %}

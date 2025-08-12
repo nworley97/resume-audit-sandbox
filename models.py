@@ -32,10 +32,22 @@ class User(Base):
 
 class JobDescription(Base):
     __tablename__ = "job_description"
-    code       = Column(String(20), primary_key=True)
-    title      = Column(String(256), nullable=False)
-    html       = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    code            = Column(String(20), primary_key=True)
+    title           = Column(String(256), nullable=False)
+    html            = Column(Text, nullable=False)
+
+    # structured fields
+    status          = Column(String(16), nullable=False, default="draft")   # 'draft' or 'published'
+    department      = Column(String(128), nullable=True)
+    team            = Column(String(128), nullable=True)
+    location        = Column(String(128), nullable=True)
+    employment_type = Column(String(64),  nullable=True)
+    salary_range    = Column(String(128), nullable=True)
+    start_date      = Column(DateTime(timezone=True), nullable=True)
+    end_date        = Column(DateTime(timezone=True), nullable=True)
+
+    created_at      = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at      = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Candidate(Base):
     __tablename__ = "candidate"
@@ -52,5 +64,5 @@ class Candidate(Base):
     created_at    = Column(DateTime(timezone=True), default=datetime.utcnow)
     job           = relationship("JobDescription", backref="candidates")
 
-# Create tables (if running locally)
+# Create tables (if running locally first time)
 Base.metadata.create_all(engine)

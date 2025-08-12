@@ -1,8 +1,8 @@
-import os, json, uuid, logging, tempfile, mimetypes, re
+import os, json, uuid, logging, tempfile, mimetypes, re, io
 from datetime import datetime
 from flask import (
     Flask, request, redirect, url_for,
-    render_template_string, flash, send_file, abort
+    render_template, flash, send_file, abort, make_response
 )
 from flask_login import (
     LoginManager, login_user, login_required,
@@ -10,21 +10,46 @@ from flask_login import (
 )
 import PyPDF2, docx
 from openai import OpenAI
+from sqlalchemy import or_, text, inspect
+from dateutil import parser as dtparse
+
 from db import SessionLocal
-from models import User, JobDescription, Candidate
-from s3util import upload_pdf, presign, S3_ENABLED
-from sqlalchemy.exc import IntegrityError
+from models import User, JobDescription, Candidate, engine as models_engine
+from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
 
 # ─── Config ───────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
 
+# PDF text: 2MB limit — enforce it
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB
+
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL  = "gpt-4o"
+
+# ─── One-time schema upgrade (adds columns if they don't exist) ───
+def ensure_schema():
+    insp = inspect(models_engine)
+    cols = {c["name"] for c in insp.get_columns("job_description")}
+    adds = []
+    if "status" not in cols:          adds.append("ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'draft'")
+    if "department" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS department TEXT")
+    if "team" not in cols:            adds.append("ADD COLUMN IF NOT EXISTS team TEXT")
+    if "location" not in cols:        adds.append("ADD COLUMN IF NOT EXISTS location TEXT")
+    if "employment_type" not in cols: adds.append("ADD COLUMN IF NOT EXISTS employment_type TEXT")
+    if "salary_range" not in cols:    adds.append("ADD COLUMN IF NOT EXISTS salary_range TEXT")
+    if "updated_at" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ")
+    if "start_date" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ")
+    if "end_date" not in cols:        adds.append("ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ")
+    if adds:
+        ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
+        with models_engine.begin() as conn:
+            conn.execute(text(ddl))
+ensure_schema()
 
 # ─── Flask-Login ──────────────────────────────────────────────────
 @login_manager.user_loader
@@ -91,11 +116,11 @@ def realism_check(rjs: dict) -> bool:
     return reply.lower().startswith("y")
 
 def generate_questions(rjs: dict, jd_text: str) -> list[str]:
+    # Per requirement: base questions ONLY on résumé, ignore JD.
     try:
         raw = chat(
             "You are an interviewer.",
-            f"Résumé:\n{json.dumps(rjs)}\n\n"
-            "Write EXACTLY FOUR interview questions as a JSON array."
+            f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY FOUR interview questions as a JSON array."
         )
         parsed = json.loads(raw)
         if isinstance(parsed, list):
@@ -103,7 +128,6 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
     except Exception as e:
         logging.warning("Fallback triggered in question generation: %s", e)
 
-    # Fallback: extract only clean lines
     lines = raw.splitlines()
     cleaned = []
     for line in lines:
@@ -118,7 +142,6 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
         ):
             cleaned.append(line)
     return cleaned[:4]
-
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
@@ -137,54 +160,28 @@ def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
         scores.append(s)
     return scores + [1]*max(0,4-len(scores))
 
-# ─── Base template ────────────────────────────────────────────────
-BASE = """
-<!doctype html><html lang=en><head><meta charset=utf-8>
-  <title>{{ title }}</title>
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    rel="stylesheet">
-</head><body class="bg-light">
-<nav class="navbar navbar-light bg-white border-bottom mb-4">
-  <div class="container-fluid">
-    <span class="navbar-brand">Blackboxstrategiesalpha</span>
-    {% if current_user.is_authenticated %}
-      <a class="btn btn-outline-secondary btn-sm me-2"
-         href="{{ url_for('recruiter') }}">Recruiter</a>
-      <span class="text-secondary me-2">{{ current_user.username }}</span>
-      <a class="btn btn-outline-danger btn-sm"
-         href="{{ url_for('logout') }}">Logout</a>
-    {% endif %}
-  </div>
-</nav>
-<div class="container" style="max-width:720px;">
-  {% for m in get_flashed_messages() %}
-    <div class="alert alert-danger">{{ m }}</div>
-  {% endfor %}
-  {{ body|safe }}
-</div>
-</body></html>
-"""
-def page(title,body):
-    return render_template_string(BASE, title=title, body=body)
+# ─── Helpers ─────────────────────────────────────────────────────
+def _parse_dt(val: str):
+    try:
+        return dtparse.parse(val) if val else None
+    except Exception:
+        return None
+
+# ─── Home ─────────────────────────────────────────────────────────
+@app.route("/")
+def home():
+    return redirect(url_for("login")) if not current_user.is_authenticated else redirect(url_for("recruiter"))
 
 # ─── Auth ────────────────────────────────────────────────────────
 @app.route("/create-admin")
 def create_admin():
     db = SessionLocal()
-
-    # Check if already exists
     if db.query(User).filter_by(username="james@blackboxstrategies.ai").first():
         db.close()
         return "Admin already exists."
-
-    # ✅ This is important: use set_pw()
     admin = User(username="james@blackboxstrategies.ai")
-    admin.set_pw("2025@gv70!")  # this will call generate_password_hash
-
-    db.add(admin)
-    db.commit()
-    db.close()
+    admin.set_pw("2025@gv70!")  # hashes correctly
+    db.add(admin); db.commit(); db.close()
     return "Admin user created."
 
 @app.route("/reset-admin")
@@ -192,17 +189,11 @@ def reset_admin():
     db = SessionLocal()
     user = db.query(User).filter_by(username="james@blackboxstrategies.ai").first()
     if user:
-        db.delete(user)
-        db.commit()
-
+        db.delete(user); db.commit()
     admin = User(username="james@blackboxstrategies.ai")
-    admin.set_pw("2025@gv70!")  # 🔐 hashes correctly
-    db.add(admin)
-    db.commit()
-    db.close()
+    admin.set_pw("2025@gv70!")
+    db.add(admin); db.commit(); db.close()
     return "Admin reset complete."
-
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -216,49 +207,43 @@ def login():
         else:
             login_user(usr)
             return redirect(url_for("recruiter"))
-    form = """
-      <h4>Login</h4>
-      <form method=post>
-        <input name=username class='form-control mb-2'
-               placeholder='Username' required>
-        <input name=password type=password class='form-control mb-2'
-               placeholder='Password' required>
-        <button class='btn btn-primary w-100'>Login</button>
-      </form>
-    """
-    return page("Login", form)
+    return render_template("login.html", title="Login")
+
+@app.route("/forgot")
+def forgot():
+    return render_template("forgot.html", title="Support")
 
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("login"))
+
 # ─── JD Management ──────────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
 def edit_jd():
     db = SessionLocal()
-    jd = db.get(JobDescription, request.args.get("code")) or JobDescription(code="JD01", title="", html="")
+    jd = db.get(JobDescription, request.args.get("code")) or JobDescription(code="JD01", title="", html="", status="draft")
     if request.method=="POST":
-        jd.code  = request.form["jd_code"].strip()
-        jd.title = request.form["jd_title"].strip()
-        jd.html  = request.form["jd_text"]
+        jd.code            = request.form["jd_code"].strip()
+        jd.title           = request.form["jd_title"].strip()
+        jd.html            = request.form["jd_text"]
+        jd.status          = request.form.get("jd_status","draft")
+        jd.department      = request.form.get("jd_department","").strip() or None
+        jd.team            = request.form.get("jd_team","").strip() or None
+        jd.location        = request.form.get("jd_location","").strip() or None
+        jd.employment_type = request.form.get("jd_employment_type","").strip() or None
+        jd.salary_range    = request.form.get("jd_salary_range","").strip() or None
+        jd.start_date      = _parse_dt(request.form.get("jd_start",""))
+        jd.end_date        = _parse_dt(request.form.get("jd_end",""))
+        jd.updated_at      = datetime.utcnow()
         db.merge(jd); db.commit(); db.close()
         flash("JD saved")
         return redirect(url_for("recruiter"))
-    form = (
-      "<h4>Edit Job</h4><form method=post>"
-      "<label>Code</label>"
-      f"<input name=jd_code value='{jd.code}' class='form-control mb-2' required>"
-      "<label>Title</label>"
-      f"<input name=jd_title value='{jd.title}' class='form-control mb-2' required>"
-      "<label>Description (HTML)</label>"
-      f"<textarea name=jd_text rows=6 class='form-control'>{jd.html}</textarea>"
-      "<button class='btn btn-primary mt-2'>Save</button>"
-      "</form>"
-    )
+    out = render_template("edit_jd.html", title="Edit Job", jd=jd)
     db.close()
-    return page("Edit JD", form)
+    return out
 
 @app.route("/delete-jd/<code>")
 @login_required
@@ -276,51 +261,76 @@ def delete_jd(code):
 def recruiter():
     db = SessionLocal()
     jds = db.query(JobDescription).order_by(JobDescription.created_at.desc()).all()
+    counts = { jd.code: len(jd.candidates) for jd in jds }
     db.close()
-    rows = "".join(f"""
-      <tr>
-        <td>{jd.code}</td><td>{jd.title}</td>
-        <td><a href="{url_for('view_candidates',code=jd.code)}">View Apps</a></td>
-        <td><a class="text-danger" href="{url_for('delete_jd',code=jd.code)}" onclick="return confirm('Delete JD?');">✖</a></td>
-      </tr>""" for jd in jds)
-    body = (
-      "<h4>Job Postings</h4><table class='table table-sm'>"
-      "<thead><tr><th>Code</th><th>Title</th><th></th><th></th></tr></thead>"
-      "<tbody>" + (rows or "<tr><td colspan=4>No postings</td></tr>") + "</tbody></table>"
-      f"<a class='btn btn-primary' href='{url_for('edit_jd')}'>New / Edit</a>"
-    )
-    return page("Recruiter", body)
+    return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts)
 
 @app.route("/recruiter/jd/<code>")
 @login_required
 def view_candidates(code):
     db = SessionLocal()
-    apps = db.query(Candidate).filter_by(jd_code=code).order_by(Candidate.created_at.desc()).all()
+    apps = db.query(Candidate)\
+             .filter_by(jd_code=code)\
+             .order_by(Candidate.created_at.desc())\
+             .all()
     db.close()
-    rows = ""
-    for c in apps:
-        avg = round(sum(c.answer_scores)/len(c.answer_scores),2) if c.answer_scores else "-"
-        real = "✔️" if c.realism else "❌"
-        rows += f"""
-        <tr>
-          <td>{c.id}</td><td>{c.name}</td>
-          <td>{c.fit_score}</td><td>{avg}</td>
-          <td><a href="{url_for('detail',cid=c.id)}">View</a></td>
-          <td><a class="text-danger" href="{url_for('delete_candidate',cid=c.id)}" onclick="return confirm('Delete this app?');">✖</a></td>
-        </tr>"""
-    body = (
-      f"<h4>Apps for {code}</h4>"
-      f"<p><strong>Public Apply Link:</strong> "
-      f"<a href='{url_for('apply', code=code)}' target='_blank'>"
-      f"{request.host_url.rstrip('/')}{url_for('apply', code=code)}</a></p>"
-      "<table class='table table-sm'><thead>"
-      "<tr><th>ID</th><th>Name</th><th>Fit</th><th>Claim Avg</th><th></th><th></th></tr>"
-      "</thead><tbody>" + (rows or "<tr><td colspan=7>No apps</td></tr>") + "</tbody></table>"
-      f"<a class='btn btn-secondary' href='{url_for('recruiter')}'>← Back</a>"
-    )
-    return page(f"Candidates – {code}", body)
+    return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps)
 
-# ─── Public Apply ────────────────────────────────────────────────
+# ─── Global Candidates + Export ─────────────────────────────────
+@app.route("/candidates")
+@login_required
+def global_candidates():
+    q  = request.args.get("q","").strip()
+    jd = request.args.get("jd","").strip()
+
+    db = SessionLocal()
+    apps_q = db.query(Candidate)
+    if jd: apps_q = apps_q.filter(Candidate.jd_code==jd)
+    if q:
+        apps_q = apps_q.filter(or_(
+            Candidate.name.ilike(f"%{q}%"),
+            Candidate.id.ilike(f"%{q}%")
+        ))
+    apps = apps_q.order_by(Candidate.created_at.desc()).all()
+    jd_list = db.query(JobDescription).order_by(JobDescription.code.asc()).all()
+    db.close()
+
+    export_url = url_for("export_candidates") + ("?q="+q if q else "") + ("&jd="+jd if jd else "")
+    return render_template("global_candidates.html",
+        title="Candidates",
+        q=q, jd=jd, apps=apps, jd_list=jd_list, export_url=export_url)
+
+@app.route("/export/candidates.csv")
+@login_required
+def export_candidates():
+    q  = request.args.get("q","").strip()
+    jd = request.args.get("jd","").strip()
+
+    db = SessionLocal()
+    apps_q = db.query(Candidate)
+    if jd: apps_q = apps_q.filter(Candidate.jd_code == jd)
+    if q:
+        apps_q = apps_q.filter(or_(
+            Candidate.name.ilike(f"%{q}%"),
+            Candidate.id.ilike(f"%{q}%")
+        ))
+    apps = apps_q.order_by(Candidate.created_at.desc()).all()
+    db.close()
+
+    out = io.StringIO()
+    out.write("id,name,jd_code,fit_score,avg_q,created_at\n")
+    for c in apps:
+        avg = round(sum(c.answer_scores)/len(c.answer_scores),2) if c.answer_scores else ""
+        created = c.created_at.isoformat() if c.created_at else ""
+        name = (c.name or "").replace('"','""')
+        out.write(f'{c.id},"{name}",{c.jd_code},{c.fit_score},{avg},{created}\n')
+
+    resp = make_response(out.getvalue())
+    resp.headers["Content-Type"] = "text/csv"
+    resp.headers["Content-Disposition"] = "attachment; filename=candidates.csv"
+    return resp
+
+# ─── Public Apply (paged Q&A) ────────────────────────────────────
 @app.route("/apply/<code>", methods=["GET","POST"])
 def apply(code):
     db = SessionLocal()
@@ -328,6 +338,9 @@ def apply(code):
     db.close()
     if not jd:
         return abort(404)
+    # If you want to hide drafts from public, uncomment:
+    # if jd.status != "published" and not current_user.is_authenticated:
+    #     abort(404)
 
     if request.method=="POST":
         name = request.form.get("name","").strip()
@@ -362,81 +375,77 @@ def apply(code):
             fit_score     = fit,
             realism       = real,
             questions     = qs,
-            answers       = [],
+            answers       = [""]*len(qs),
             answer_scores = [],
             jd_code       = jd.code,
         )
         db.add(c); db.commit(); db.close()
 
-        import html
-        items = "".join(f"""
-          <li class='list-group-item'>
-            <strong>{html.escape(q).strip('"').strip(',')}</strong>
-            <textarea name='a{i}' class='form-control mt-2' rows=2 required></textarea>
-          </li>""" for i, q in enumerate(qs))
+        return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
 
-        form = (
-          f"<h4>{name}, answer these:</h4>"
-          f"<form method='post' action='{url_for('submit_answers',code=code,cid=cid)}'>"
-          f"<ul class='list-group mb-3'>{items}</ul>"
-          "<button class='btn btn-primary w-100'>Submit Answers</button>"
-          "</form>"
-        )
-        return page("Questions", form)
+    return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd)
 
-    form = (
-      f"<h4>Apply – {jd.code} / {jd.title}</h4>"
-      f"<pre class='p-3 bg-white border'>{jd.html}</pre>"
-      "<form method=post enctype=multipart/form-data class='card p-4 shadow-sm'>"
-      "<div class='mb-3'><label>Your Name</label>"
-      "<input name=name class='form-control' required></div>"
-      "<div class='mb-3'><label>Résumé</label>"
-      "<input type=file name=resume_file accept='.pdf,.docx' class='form-control' required></div>"
-      "<button class='btn btn-primary w-100'>Upload & Get Questions</button>"
-      "</form>"
-    )
-    return page(f"Apply – {code}", form)
+@app.route("/apply/<code>/<cid>/q/<int:idx>", methods=["GET","POST"])
+def question_paged(code, cid, idx):
+    db = SessionLocal()
+    c  = db.get(Candidate, cid)
+    db.close()
+    if not c or c.jd_code != code:
+        flash("Application not found"); return redirect(url_for("apply", code=code))
 
-@app.route("/apply/<code>/<cid>/answers", methods=["POST"])
-def submit_answers(code, cid):
+    n = len(c.questions or [])
+    if n == 0:
+        flash("No questions generated"); return redirect(url_for("apply", code=code))
+    idx = max(0, min(idx, n-1))
+
+    if request.method == "POST":
+        a = request.form.get("answer","").strip()
+        db = SessionLocal()
+        c2 = db.get(Candidate, cid)
+        if c2:
+            ans = list(c2.answers or [""]*n)
+            ans[idx] = a
+            c2.answers = ans
+            db.merge(c2); db.commit()
+        db.close()
+
+        action = request.form.get("action","next")
+        if action == "prev" and idx > 0:
+            return redirect(url_for("question_paged", code=code, cid=cid, idx=idx-1))
+        if action == "next" and idx < n-1:
+            return redirect(url_for("question_paged", code=code, cid=cid, idx=idx+1))
+        return redirect(url_for("finish_application", code=code, cid=cid))
+
+    current_q = c.questions[idx]
+    current_a = (c.answers or [""]*n)[idx] if c.answers else ""
+    progress  = f"Question {idx+1} of {n}"
+    return render_template("question_paged.html",
+                           title="Questions",
+                           name=c.name, code=code, cid=cid,
+                           q=current_q, a=current_a, idx=idx, n=n, progress=progress)
+
+@app.route("/apply/<code>/<cid>/finish")
+def finish_application(code, cid):
     db = SessionLocal()
     c  = db.get(Candidate, cid)
     if not c:
-        db.close(); flash("App not found")
-        return redirect(url_for("apply",code=code))
-
-    ans    = [request.form.get(f"a{i}","").strip() for i in range(4)]
-    scores = score_answers(c.resume_json, c.questions, ans)
-
-    c.answers       = ans
+        db.close(); flash("App not found"); return redirect(url_for("apply", code=code))
+    scores = score_answers(c.resume_json, c.questions, c.answers or [])
     c.answer_scores = scores
     c.created_at    = c.created_at or datetime.utcnow()
     db.merge(c); db.commit(); db.close()
 
-    # 🚫 If not logged in, just show thank you message
     if not current_user.is_authenticated:
-        return page("Thanks", f"<h4>Thank you for applying, {c.name}!</h4><p>Your answers have been submitted.</p>")
+        return render_template("submit_thanks.html", title="Thanks", name=c.name)
 
-    # ✅ Admin view
     avg  = round(sum(scores)/len(scores),2)
-    rows = "".join(f"""
-      <tr>
-        <td><strong>{q}</strong></td>
-        <td>{a or '<em>(no answer)</em>'}</td>
-        <td>{s}</td>
-      </tr>""" for q,a,s in zip(c.questions, c.answers, c.answer_scores))
+    qa   = list(zip(c.questions, c.answers, c.answer_scores))
+    return render_template("answers_admin.html", title="Done", c=c, avg=avg, qa=qa)
 
-    body = (
-      f"<h4>Thanks, {c.name}!</h4>"
-      f"Fit: <strong>{c.fit_score}/5</strong><br>"
-      f"Avg Q-score: <strong>{avg}</strong></p>"
-      "<h5>Your Answers</h5>"
-      "<table class='table'><thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead><tbody>"
-      + rows + "</tbody></table>"
-      f"<a class='btn btn-secondary' href='{url_for('apply',code=code)}'>Re-apply</a> "
-      f"<a class='btn btn-primary' href='{url_for('recruiter')}'>Dashboard</a>"
-    )
-    return page("Done", body)
+# Legacy bulk submit kept (redirects to finish)
+@app.route("/apply/<code>/<cid>/answers", methods=["POST"])
+def submit_answers(code, cid):
+    return redirect(url_for("finish_application", code=code, cid=cid))
 
 # ─── Download & Delete résumé ────────────────────────────────────
 @app.route("/resume/<cid>")
@@ -455,16 +464,17 @@ def download_resume(cid):
 @login_required
 def delete_candidate(cid):
     db = SessionLocal(); c = db.get(Candidate,cid)
+    code = ""
     if c:
-        if S3_ENABLED and c.resume_url.startswith("s3://"):
-            b,k = c.resume_url.split("/",3)[2:]
-            try: presign.delete_object(Bucket=b,Key=k)
-            except: pass
-        elif os.path.exists(c.resume_url):
-            try: os.remove(c.resume_url)
-            except: pass
-        db.delete(c); db.commit(); flash("Deleted app")
         code = c.jd_code
+        try:
+            if S3_ENABLED and c.resume_url.startswith("s3://"):
+                delete_s3(c.resume_url)
+            elif os.path.exists(c.resume_url):
+                os.remove(c.resume_url)
+        except Exception:
+            pass
+        db.delete(c); db.commit(); flash("Deleted app")
     db.close()
     return redirect(url_for("view_candidates",code=code or ""))
 
@@ -479,25 +489,9 @@ def detail(cid):
     if not c:
         flash("Not found"); return redirect(url_for("recruiter"))
 
-    avg  = round(sum(c.answer_scores)/len(c.answer_scores),2) if c.answer_scores else "-"
-    rows = "".join(f"""
-      <tr>
-        <td><strong>{q}</strong></td>
-        <td>{a or '<em>(no answer)</em>'}</td>
-        <td>{s}</td>
-      </tr>""" for q,a,s in zip(c.questions, c.answers, c.answer_scores))
-
-    body = (
-      f"<a href='{url_for('view_candidates',code=c.jd_code)}'>← Back</a>"
-      f"<h4>{c.name}</h4>"
-      f"<p>ID: {c.id}<br>JD: {c.jd_code} — {jd.title if jd else ''}<br>"
-      f"Fit: <strong>{c.fit_score}/5</strong><br>Avg Q: <strong>{avg}</strong></p>"
-      "<h5>Q&A</h5>"
-      "<table class='table'><thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead><tbody>"
-      + rows + "</tbody></table>"
-      f"<a class='btn btn-outline-secondary' href='{url_for('download_resume',cid=cid)}'>Download résumé</a>"
-    )
-    return page(f"Candidate – {c.name}", body)
+    qa = list(zip(c.questions, c.answers, c.answer_scores))
+    return render_template("candidate_detail.html",
+                           title=f"Candidate – {c.name}", c=c, jd=jd, qa=qa)
 
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":

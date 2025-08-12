@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-2">{{ name }}, please answer:</h3>
+<p class="text-muted">{{ progress }}</p>
+<form method="post">
+  <div class="card p-4 mb-3">
+    <strong>{{ q }}</strong>
+    <textarea name="answer" class="form-control mt-2" rows="4" maxlength="1000" required>{{ a }}</textarea>
+    <small class="text-muted"><span id="ccnt">0</span>/1000</small>
+  </div>
+  <div class="d-flex justify-content-between">
+    <button name="action" value="prev" class="btn btn-outline-secondary" {% if idx==0 %}disabled{% endif %}>← Previous</button>
+    {% if idx+1 < n %}
+      <button name="action" value="next" class="btn btn-primary">Next →</button>
+    {% else %}
+      <button name="action" value="finish" class="btn btn-primary">Finish</button>
+    {% endif %}
+  </div>
+</form>
+
+<script>
+  (function(){
+    const ta = document.querySelector('textarea[name="answer"]');
+    const cc = document.getElementById('ccnt');
+    const update = () => { cc.textContent = (ta.value || '').length; };
+    ta.addEventListener('input', update);
+    update();
+  })();
+</script>
+{% endblock %}

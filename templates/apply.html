@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-1">{{ jd.code }} — {{ jd.title }}</h3>
+<p class="text-muted mb-3">
+  {{ jd.location or '' }}{% if jd.employment_type %} • {{ jd.employment_type }}{% endif %}
+  {% if jd.salary_range %} • {{ jd.salary_range }}{% endif %}
+  {% if jd.end_date %} • End Date: {{ jd.end_date.strftime('%b %d, %Y') }}{% endif %}
+</p>
+
+<div class="card p-4 mb-4 job-html">
+  {{ jd.html|safe }}
+</div>
+<form method="post" enctype="multipart/form-data" class="card p-4">
+  <label class="form-label">Your Name</label>
+  <input name="name" class="form-control mb-3" required>
+  <label class="form-label">Résumé (PDF or DOCX)</label>
+  <input type="file" name="resume_file" accept=".pdf,.docx" class="form-control mb-3" required>
+  <div class="text-muted mb-2">Max file size: 2MB</div>
+  <button class="btn btn-primary w-100">Upload & Get Questions</button>
+</form>
+{% endblock %}
