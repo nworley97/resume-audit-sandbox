@@ -214,7 +214,7 @@ def _apply_candidate_filters(query, args):
         query = query.filter(Candidate.created_at <= date_to)
 
     return query
-
+import csv
 @app.route("/candidates/export.csv")
 @login_required
 def candidates_export_csv():
