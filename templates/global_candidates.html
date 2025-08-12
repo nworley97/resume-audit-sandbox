@@ -23,16 +23,16 @@
     <button class="btn btn-primary w-100">Filter</button>
   </div>
   <div class="col-md-2 d-flex gap-2 justify-content-end">
-  <a class="btn btn-outline-secondary btn-flat"
-     href="{{ url_for('candidates_export_csv', **request.args.to_dict()) }}">
-    Export Current View
-  </a>
-  <a class="btn btn-outline-secondary btn-flat"
-     href="{{ url_for('candidates_export_csv', all=1) }}">
-    Export All
-  </a>
-</div>
-
+    <!-- Flat export buttons -->
+    <a class="btn btn-export w-100"
+       href="{{ url_for('candidates_export_csv', **request.args.to_dict()) }}">
+      Export Current View
+    </a>
+    <a class="btn btn-export w-100"
+       href="{{ url_for('candidates_export_csv', all=1) }}">
+      Export All
+    </a>
+  </div>
 </form>
 
 <div class="mb-2 small text-muted">
@@ -68,7 +68,7 @@
                                else ('badge-yellow' if avgv and avgv >= 3 else 'badge-red') %}
 
             <tr>
-              <td class="text-monospace">{{ c.id }}</td>
+              <td class="font-monospace">{{ c.id }}</td>
               <td>{{ c.name }}</td>
               <td>{{ c.jd_code }}</td>
               <td>
