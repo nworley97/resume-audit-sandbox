@@ -493,7 +493,7 @@ def apply_prep(code, cid):
     const ack = document.getElementById('ackCheck');
 
     let ready = false;
-    function updateButton(){ startBtn.disabled = !(ready && ack.checked); }
+    function updateButton() {{ startBtn.disabled = !(ready && ack.checked); }}
     ack.addEventListener('change', updateButton);
 
     async function pollReady() {{
