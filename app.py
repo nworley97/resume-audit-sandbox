@@ -522,37 +522,41 @@ def apply(code):
     # if jd.status != "published" and not current_user.is_authenticated:
     #     abort(404)
 
-    if request.method=="POST":
-        name = request.form.get("name","").strip()
+    if request.method == "POST":
+        name  = request.form.get("name","").strip()
         email = request.form.get("email","").strip()
-# ...
-        rjs  = resume_json(text)
-        if email:
-            try:
-                 rjs["applicant_email"] = email
-            except Exception:
-                 pass
+        f     = request.files.get("resume_file")
 
-        f    = request.files.get("resume_file")
         if not name or not f or not f.filename:
-            flash("Name & file required"); return redirect(request.url)
+            flash("Name & file required"); 
+            return redirect(request.url)
 
-        ext  = os.path.splitext(f.filename)[1] or ".pdf"
-        with tempfile.NamedTemporaryFile(delete=False,suffix=ext) as tmp:
+        ext = os.path.splitext(f.filename)[1] or ".pdf"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             f.save(tmp.name)
             path = tmp.name
 
         try:
-            text = file_to_text(path, mimetypes.guess_type(f.filename)[0] or f.mimetype)
+            mime_guess = mimetypes.guess_type(f.filename)[0] or f.mimetype
+            text = file_to_text(path, mime_guess)
         except ValueError:
-            flash("PDF or DOCX only"); return redirect(request.url)
+            flash("PDF or DOCX only"); 
+            return redirect(request.url)
 
-        rjs  = resume_json(text)
+        # Build résumé JSON THEN attach the email you collected
+        rjs = resume_json(text)
+        if email:
+            try:
+                rjs["applicant_email"] = email
+            except Exception:
+                pass
+
+        # Continue with the rest of the pipeline
         fit  = fit_score(rjs, jd.html)
         real = realism_check(rjs)
         qs   = generate_questions(rjs, jd.html)
 
-        cid = str(uuid.uuid4())[:8]
+        cid     = str(uuid.uuid4())[:8]
         storage = upload_pdf(path)
 
         db = SessionLocal()
@@ -570,9 +574,11 @@ def apply(code):
         )
         db.add(c); db.commit(); db.close()
 
+        # Go to camera gate before questions
         return redirect(url_for("camera_gate", code=code, cid=cid))
 
     return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd)
+
 
 @app.route("/apply/<code>/<cid>/q/<int:idx>", methods=["GET","POST"])
 def question_paged(code, cid, idx):
