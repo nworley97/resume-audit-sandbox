@@ -4,6 +4,7 @@ from flask import (
     Flask, request, redirect, url_for,
     render_template, flash, send_file, abort, make_response
 )
+from markupsafe import Markup, escape
 from flask_login import (
     LoginManager, login_user, login_required,
     logout_user, current_user
@@ -117,6 +118,7 @@ def realism_check(rjs: dict) -> bool:
 
 def generate_questions(rjs: dict, jd_text: str) -> list[str]:
     # Per requirement: base questions ONLY on résumé, ignore JD.
+    raw = ""
     try:
         raw = chat(
             "You are an interviewer.",
@@ -128,7 +130,8 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
     except Exception as e:
         logging.warning("Fallback triggered in question generation: %s", e)
 
-    lines = raw.splitlines()
+    # Fallback: try to parse lines out of whatever came back (or raw could be empty)
+    lines = (raw or "").splitlines()
     cleaned = []
     for line in lines:
         line = line.strip().strip("-• ").strip('"').strip(',')
@@ -141,6 +144,14 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
             len(line) > 10
         ):
             cleaned.append(line)
+    # Final safety: if still empty, generate generic prompts from rjs
+    if not cleaned:
+        cleaned = [
+            "Tell us about a project you’re most proud of and your specific contributions.",
+            "Describe a time you overcame a technical challenge—what was the root cause and outcome?",
+            "How do you prioritize tasks when timelines are tight and requirements change?",
+            "Which skills from your résumé would make the biggest impact in this role, and why?"
+        ]
     return cleaned[:4]
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
@@ -171,6 +182,88 @@ def _parse_dt(val: str):
 @app.route("/")
 def home():
     return redirect(url_for("login")) if not current_user.is_authenticated else redirect(url_for("recruiter"))
+
+# ─── CSV Export: Current View vs All (NEW) ───────────────────────
+def _apply_candidate_filters(query, args):
+    """
+    Mirror the filters used by your global candidates table.
+    Supported params:
+      q   : free-text (name or id)
+      jd  : JD code
+      from: ISO date (YYYY-MM-DD)
+      to  : ISO date (YYYY-MM-DD)
+    Extend as needed to match your UI.
+    """
+    q_str = (args.get("q") or "").strip()
+    if q_str:
+        like = f"%{q_str}%"
+        query = query.filter(or_(
+            Candidate.name.ilike(like),
+            Candidate.id.ilike(like)  # Search by string id
+        ))
+
+    jd_code = (args.get("jd") or "").strip()
+    if jd_code:
+        query = query.join(JobDescription).filter(JobDescription.code == jd_code)
+
+    date_from = (args.get("from") or "").strip()
+    if date_from:
+        query = query.filter(Candidate.created_at >= date_from)
+    date_to = (args.get("to") or "").strip()
+    if date_to:
+        query = query.filter(Candidate.created_at <= date_to)
+
+    return query
+
+@app.route("/candidates/export.csv")
+@login_required
+def candidates_export_csv():
+    """
+    Export Current View (default) or All (?all=1) as CSV.
+    Uses SessionLocal for consistency with the rest of the app.
+    """
+    export_all = request.args.get("all") == "1"
+
+    session = SessionLocal()
+    try:
+        q = session.query(Candidate).outerjoin(JobDescription)
+        if not export_all:
+            q = _apply_candidate_filters(q, request.args)
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID","Name","JD Code","JD Title","Fit","Claim Avg","Created At"])
+
+        for c in q.order_by(Candidate.created_at.desc()).all():
+            scores = c.scores if isinstance(getattr(c, "scores", None), dict) else {}
+            fit = getattr(c, "fit_score", None) or scores.get("fit") or getattr(c, "fit", None)
+
+            claim_avg = scores.get("claim_avg")
+            if claim_avg is None and getattr(c, "answer_scores", None):
+                try:
+                    claim_avg = round(sum(c.answer_scores) / len(c.answer_scores), 2)
+                except Exception:
+                    claim_avg = None
+
+            writer.writerow([
+                c.id,
+                getattr(c, "name", ""),
+                getattr(c.job_description, "code", "") if c.job_description else "",
+                getattr(c.job_description, "title", "") if c.job_description else "",
+                fit if fit is not None else "",
+                claim_avg if claim_avg is not None else "",
+                getattr(c, "created_at", ""),
+            ])
+
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode("utf-8")),
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="candidates.csv",
+        )
+    finally:
+        session.close()
 
 # ─── Auth ────────────────────────────────────────────────────────
 @app.route("/create-admin")
@@ -228,7 +321,7 @@ def edit_jd():
     if request.method=="POST":
         jd.code            = request.form["jd_code"].strip()
         jd.title           = request.form["jd_title"].strip()
-        jd.html            = request.form["jd_text"]
+        jd.html            = request.form["jd_text"]  # plain text stored in 'html' field; rendered as plain text in templates
         jd.status          = request.form.get("jd_status","draft")
         jd.department      = request.form.get("jd_department","").strip() or None
         jd.team            = request.form.get("jd_team","").strip() or None
@@ -276,7 +369,7 @@ def view_candidates(code):
     db.close()
     return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps)
 
-# ─── Global Candidates + Export ─────────────────────────────────
+# ─── Global Candidates + (legacy) Export ─────────────────────────
 @app.route("/candidates")
 @login_required
 def global_candidates():
@@ -295,6 +388,7 @@ def global_candidates():
     jd_list = db.query(JobDescription).order_by(JobDescription.code.asc()).all()
     db.close()
 
+    # NOTE: we keep legacy export route below for backward-compat; new templates should call candidates_export_csv
     export_url = url_for("export_candidates") + ("?q="+q if q else "") + ("&jd="+jd if jd else "")
     return render_template("global_candidates.html",
         title="Candidates",
@@ -303,6 +397,7 @@ def global_candidates():
 @app.route("/export/candidates.csv")
 @login_required
 def export_candidates():
+    # Legacy export: exports current filtered view only (kept for backward compatibility)
     q  = request.args.get("q","").strip()
     jd = request.args.get("jd","").strip()
 

@@ -16,7 +16,7 @@
   --brand-gradient: linear-gradient(90deg, #155cfa 0%, #1448e6 100%);
 
   /* Radii / elevation / font (adjust when you import more tokens) */
-  --radius: 12px;
+  --radius: 14px;
   --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.1);
   --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 
@@ -37,10 +37,10 @@ html, body{
   margin: 0 auto;
 }
 
-.navbar{
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: var(--shadow);
+/* ---------- Navbar ---------- */
+.navbar-brand{
+  font-weight: 700;
+  letter-spacing: .2px;
 }
 
 /* ---------- Cards ---------- */
@@ -74,25 +74,10 @@ html, body{
   border-color: var(--brand-600);
 }
 
-.btn-outline-primary:hover,
-.btn-outline-primary:focus{
-  background: var(--brand-600);
-  color: #fff;
-  border-color: var(--brand-600);
-}
-
-/* ---------- Tables ---------- */
-.table > :not(caption) > * > *{
-  vertical-align: middle;
-}
-
-/* ---------- Job description block ---------- */
-.job-html{
-  line-height: 1.6;
-}
-
-/* ---------- Footer ---------- */
-.footer{
+/* ---------- Forms ---------- */
+.form-label{
+  font-weight: 600;
+  letter-spacing: .2px;
   color: var(--muted);
   font-size: 0.9rem;
 }
@@ -122,3 +107,13 @@ html, body{
   border-radius: var(--radius);
 }
 */
+
+/* --- Additions for dropzone, step label, plain-text JD, and optional vertical nav --- */
+.file-drop { border:2px dashed #e5e7eb; padding:1.25rem; border-radius: var(--radius); background:#fafafa; }
+.file-drop:hover { background:#f5f7fb; }
+.step-label { font-weight:600; letter-spacing:.2px; color:#6b7280; font-size:.9rem; }
+.job-html { white-space: pre-line; }
+
+/* Optional vertical nav support */
+.has-vnav .container-narrow { max-width: 1200px; margin-left: 260px; }
+@media (max-width: 992px){ .has-vnav .container-narrow { margin-left: 0; } }
