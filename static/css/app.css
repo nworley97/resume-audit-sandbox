@@ -1,127 +1,77 @@
 :root{
-  /* === Figma tokens mapped to app variables === */
-  --brand:        #0b5cff;  /* Primary */
-  --brand-600:    #155cfa;  /* Hover/active */
-  --bg:           #f9fbfd;  /* App background */
-  --card:         #ffffff;  /* Card background */
-  --text:         #1a1c1f;  /* Primary text */
-  --muted:        #475569;  /* Secondary text */
+  --brand:        #0b5cff;
+  --brand-600:    #155cfa;
+  --bg:           #f9fbfd;
+  --card:         #ffffff;
+  --text:         #1a1c1f;
+  --muted:        #475569;
 
-  /* Semantic (badges, states) */
   --success:      #27ae60;
   --warning:      #f2994a;
   --danger:       #eb5757;
 
-  /* Optional: gradient if you want to use it on headers/CTAs */
-  --brand-gradient: linear-gradient(90deg, #155cfa 0%, #1448e6 100%);
+  --radius-card:  14px;
+  --radius-btn:   14px;
+  --shadow-1:     0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.1);
+  --font-sans:    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 
-  /* Radii / elevation / font (adjust when you import more tokens) */
-  --radius: 14px;
-  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.1);
-  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-
-  /* Tie Bootstrap primary to brand */
-  --bs-primary: var(--brand);
+  --bs-primary:   var(--brand);
 }
 
-/* ---------- Base layout ---------- */
+/* ------- Base ------- */
 html, body{
   height: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
 }
+.container-narrow{ max-width: 960px; margin: 0 auto; }
 
-.container-narrow{
-  max-width: 960px;
-  margin: 0 auto;
-}
+/* ------- Navbar ------- */
+.navbar-brand{ font-weight: 700; letter-spacing: .2px; }
 
-/* ---------- Navbar ---------- */
-.navbar-brand{
-  font-weight: 700;
-  letter-spacing: .2px;
-}
+/* ------- Cards ------- */
+.card{ background: var(--card); border: 1px solid #e5e7eb; border-radius: var(--radius-card); box-shadow: var(--shadow-1); }
+.card-flat{ background: var(--card); border: 1px solid #e5e7eb; border-radius: var(--radius-card); }
 
-/* ---------- Cards ---------- */
-.card{
-  background: var(--card);
-  border: 1px solid #e5e7eb;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
+/* ------- Buttons ------- */
+.btn{ border-radius: var(--radius-btn); box-shadow: none !important; } /* keep all buttons flat */
+.btn-primary{ background: var(--brand); border-color: var(--brand); }
+.btn-primary:hover,.btn-primary:focus{ background: var(--brand-600); border-color: var(--brand-600); }
 
-.card-flat{
-  background: var(--card);
-  border: 1px solid #e5e7eb;
-  border-radius: var(--radius);
-}
-
-/* ---------- Buttons ---------- */
-.btn-primary{
-  background: var(--brand);
-  border-color: var(--brand);
-}
-
-.btn-primary:hover,
-.btn-primary:focus{
-  background: var(--brand-600);
-  border-color: var(--brand-600);
-}
-
-.btn-outline-primary{
-  color: var(--brand-600);
-  border-color: var(--brand-600);
-}
-
-/* ---------- Forms ---------- */
-.form-label{
+/* Flat “Export” buttons */
+.btn-export{
+  background: transparent !important;
+  border: 1px solid #d1d5db !important;   /* slate-300 */
+  color: #374151 !important;              /* slate-700 */
+  border-radius: var(--radius-btn);
   font-weight: 600;
-  letter-spacing: .2px;
-  color: var(--muted);
-  font-size: 0.9rem;
+}
+.btn-export:hover{
+  background: #f3f4f6 !important;         /* gray-100 */
+  border-color: #cbd5e1 !important;        /* slate-300 */
+  color: #111827 !important;               /* gray-900 */
 }
 
-/* ---------- Score badges ---------- */
-.badge-score{
-  display: inline-block;
-  border-radius: 999px;
-  font-weight: 600;
-  padding: .35em .6em;
-  letter-spacing: .2px;
-}
+/* ------- Forms ------- */
+.form-label{ font-weight: 600; letter-spacing: .2px; color: var(--muted); font-size: 0.9rem; }
 
-.badge-green  { background: var(--success); color: #fff; }
-.badge-yellow { background: var(--warning); color: #111; }
-.badge-red    { background: var(--danger);  color: #fff; }
+/* ------- Badges ------- */
+.badge-score{ display:inline-block; border-radius:999px; font-weight:600; padding:.35em .6em; letter-spacing:.2px; }
+.badge-green{  background: var(--success); color:#fff; }
+.badge-yellow{ background: var(--warning); color:#111; }
+.badge-red{    background: var(--danger);  color:#fff; }
 
-/* ---------- Utility (optional niceties) ---------- */
-.text-muted  { color: var(--muted) !important; }
-.border-soft { border: 1px solid #e5e7eb; border-radius: var(--radius); }
+/* ------- Misc helpers ------- */
+.text-muted{ color: var(--muted) !important; }
+.border-soft{ border: 1px solid #e5e7eb; border-radius: var(--radius-card); }
 
-/* Optional: use gradient for hero/header bars if desired */
-/*
-.header-hero{
-  background: var(--brand-gradient);
-  color: #fff;
-  border-radius: var(--radius);
-}
-*/
+/* Apply/JD helpers */
+.file-drop{ border:2px dashed #e5e7eb; padding:1.25rem; border-radius: var(--radius-card); background:#fafafa; }
+.file-drop:hover{ background:#f5f7fb; }
+.step-label{ font-weight:600; letter-spacing:.2px; color:#6b7280; font-size:.9rem; }
+.job-html{ white-space: pre-line; }
 
-/* --- Additions for dropzone, step label, plain-text JD, and optional vertical nav --- */
-.file-drop { border:2px dashed #e5e7eb; padding:1.25rem; border-radius: var(--radius); background:#fafafa; }
-.file-drop:hover { background:#f5f7fb; }
-.step-label { font-weight:600; letter-spacing:.2px; color:#6b7280; font-size:.9rem; }
-.job-html { white-space: pre-line; }
-
-/* Optional vertical nav support */
+/* Optional vertical nav support (won’t affect current layout unless body.has-vnav) */
 .has-vnav .container-narrow { max-width: 1200px; margin-left: 260px; }
 @media (max-width: 992px){ .has-vnav .container-narrow { margin-left: 0; } }
-
-/* Keep buttons visually flat (no elevation) */
-.btn, .btn:focus, .btn:active { box-shadow: none !important; }
-
-/* Extra-flat style for outline buttons (used by Export) */
-.btn-flat { background: transparent; }
-.btn-flat:hover { background: #f5f7fb; }  /* subtle hover, still flat */
-
