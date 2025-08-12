@@ -123,3 +123,6 @@ html, body{
 }
 
 }
+/* Camera gate niceties */
+.card .lead { font-weight: 600; color: #334155; }
+
