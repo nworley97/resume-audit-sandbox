@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">Sign in</h3>
+<form method="post" class="card p-4">
+  <label class="form-label">Email</label>
+  <input name="username" class="form-control mb-3" placeholder="Enter your work email" required>
+  <label class="form-label">Password</label>
+  <input name="password" type="password" class="form-control mb-3" placeholder="Enter your password" required>
+  <button class="btn btn-primary w-100">Sign in</button>
+  <div class="text-end mt-2">
+    <a href="{{ url_for('forgot') }}">Forgot password?</a>
+  </div>
+</form>
+{% endblock %}

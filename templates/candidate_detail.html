@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="{{ url_for('view_candidates', code=c.jd_code) }}">← Back</a>
+<h3 class="mt-2">{{ c.name }}</h3>
+<p>
+  ID: {{ c.id }}<br>
+  JD: {{ c.jd_code }} — {{ jd.title if jd else '' }}<br>
+  Fit: <strong>{{ c.fit_score }}/5</strong><br>
+  Avg Q: <strong>{% if c.answer_scores %}{{ (c.answer_scores|sum / c.answer_scores|length)|round(2) }}{% else %}-{% endif %}</strong>
+</p>
+
+<h5>Q&A</h5>
+<table class="table">
+  <thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead>
+  <tbody>
+    {% for q, a, s in qa %}
+    <tr><td><strong>{{ q }}</strong></td><td>{{ a or '-' }}</td><td>{{ s }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<a class="btn btn-outline-secondary" href="{{ url_for('download_resume', cid=c.id) }}">Download résumé</a>
+{% endblock %}

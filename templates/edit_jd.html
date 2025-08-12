@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">Edit Job</h3>
+<form method="post" class="card p-4">
+  <div class="row">
+    <div class="col-md-4">
+      <label class="form-label">Code</label>
+      <input name="jd_code" value="{{ jd.code }}" class="form-control mb-3" required>
+    </div>
+    <div class="col-md-8">
+      <label class="form-label">Title</label>
+      <input name="jd_title" value="{{ jd.title }}" class="form-control mb-3" required>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4">
+      <label class="form-label">Status</label>
+      <select name="jd_status" class="form-select mb-3">
+        <option value="draft" {% if jd.status!='published' %}selected{% endif %}>Draft</option>
+        <option value="published" {% if jd.status=='published' %}selected{% endif %}>Published</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Department</label>
+      <input name="jd_department" value="{{ jd.department or '' }}" class="form-control mb-3">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Team</label>
+      <input name="jd_team" value="{{ jd.team or '' }}" class="form-control mb-3">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4">
+      <label class="form-label">Location</label>
+      <input name="jd_location" value="{{ jd.location or '' }}" class="form-control mb-3">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Employment Type</label>
+      <input name="jd_employment_type" value="{{ jd.employment_type or '' }}" class="form-control mb-3" placeholder="Full-time, Contract...">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Salary Range</label>
+      <input name="jd_salary_range" value="{{ jd.salary_range or '' }}" class="form-control mb-3" placeholder="$X–$Y">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <label class="form-label">Start Date</label>
+      <input name="jd_start" value="{{ jd.start_date or '' }}" class="form-control mb-3" placeholder="YYYY-MM-DD or ISO 8601">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">End Date</label>
+      <input name="jd_end" value="{{ jd.end_date or '' }}" class="form-control mb-3" placeholder="YYYY-MM-DD or ISO 8601">
+    </div>
+  </div>
+
+  <label class="form-label">Description (HTML)</label>
+  <textarea name="jd_text" rows="8" class="form-control mb-3">{{ jd.html }}</textarea>
+
+  <button class="btn btn-primary">Save</button>
+</form>
+{% endblock %}
