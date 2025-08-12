@@ -9,23 +9,18 @@
 </head>
 <body>
   <nav class="navbar navbar-light bg-white border-bottom">
-    <!-- Left logo, centered title, right controls -->
-    <div class="container-fluid position-relative" style="min-height:72px;">
-      <!-- Left: logo hugs the left -->
-      <a class="navbar-brand d-flex align-items-center"
+    <!-- Center brand; controls on the right -->
+    <div class="container position-relative" style="min-height:64px;">
+      <!-- Centered brand/logo -->
+      <a class="navbar-brand position-absolute top-50 start-50 translate-middle"
          href="{{ url_for('recruiter') if current_user.is_authenticated else url_for('home') }}"
          aria-label="Black Box Strategies">
         <img src="{{ url_for('static', filename='img/logo.png') }}"
-             alt="Black Box Strategies" class="brand-logo-left"
-             onerror="this.style.display='none'">
+             alt="Black Box Strategies" height="32"
+             onerror="this.replaceWith(document.createTextNode('Black Box Strategies'))">
       </a>
 
-      <!-- Center: big company title (change text here if you want 'Technologies') -->
-      <div class="navbar-center-title text-center">
-        Black Box Strategies
-      </div>
-
-      <!-- Right: auth/links (unchanged) -->
+      <!-- Right-side controls -->
       {% if current_user.is_authenticated %}
         <div class="d-flex align-items-center position-absolute end-0 top-50 translate-middle-y">
           <a class="btn btn-outline-secondary me-2" href="{{ url_for('recruiter') }}">Recruiter</a>
@@ -47,31 +42,37 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="container container-narrow pb-4 footer">
+  <footer class="container container-narrow pb-4 footer text-center">
     <hr class="my-4">
-    <div class="d-flex gap-3">
-      <a href="{{ url_for('privacy') }}" class="text-decoration-none">Privacy</a>
-      <a href="{{ url_for('terms') }}" class="text-decoration-none">Terms</a>
+    <div class="powered-by mb-2">
+      <!-- tiny spark icon -->
+      <svg width="16" height="16" viewBox="0 0 24 24" class="me-1" aria-hidden="true">
+        <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" fill="currentColor" opacity=".8"/>
+      </svg>
+      Powered by <a href="#" class="fw-semibold text-decoration-none">ALTERA</a>
+    </div>
+    <div class="d-flex gap-3 justify-content-center">
+      <a href="{{ url_for('privacy') }}" class="text-decoration-none">Privacy Policy</a>
+      <a href="{{ url_for('terms') }}" class="text-decoration-none">Terms of Service</a>
       <a href="{{ url_for('forgot') }}" class="text-decoration-none">Support</a>
     </div>
   </footer>
 
   <!-- Busy overlay -->
-<div id="busy" class="position-fixed top-0 start-0 w-100 h-100 d-none"
-     style="background:rgba(255,255,255,.7); z-index:1050; display:grid; place-items:center;">
-  <div class="text-center">
-    <div class="spinner-border" role="status" aria-label="loading"></div>
-    <div id="busy-text" class="mt-2 fw-semibold">Working…</div>
-    <div id="busy-sub" class="text-muted small">This may take a minute.</div>
+  <div id="busy" class="position-fixed top-0 start-0 w-100 h-100 d-none"
+       style="background:rgba(255,255,255,.7); z-index:1050; display:grid; place-items:center;">
+    <div class="text-center">
+      <div class="spinner-border" role="status" aria-label="loading"></div>
+      <div id="busy-text" class="mt-2 fw-semibold">Working…</div>
+      <div id="busy-sub" class="text-muted small">This may take a minute.</div>
+    </div>
   </div>
-</div>
-<script>
-  window.showBusy = function (msg, sub) {
-    document.getElementById('busy-text').textContent = msg || 'Working…';
-    document.getElementById('busy-sub').textContent  = sub || 'This may take a minute.';
-    document.getElementById('busy').classList.remove('d-none');
-  };
-</script>
-
+  <script>
+    window.showBusy = function (msg, sub) {
+      document.getElementById('busy-text').textContent = msg || 'Working…';
+      document.getElementById('busy-sub').textContent  = sub || 'This may take a minute.';
+      document.getElementById('busy').classList.remove('d-none');
+    };
+  </script>
 </body>
 </html>

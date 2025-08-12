@@ -126,3 +126,24 @@ html, body{
 /* Camera gate niceties */
 .card .lead { font-weight: 600; color: #334155; }
 
+/* Completion page tweaks */
+.complete-check { display:inline-block; }
+.soft-panel{
+  background:#f5f7fb;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:1rem 1.25rem;
+  max-width:640px;
+}
+
+/* Footer “Powered by” */
+.powered-by{
+  color:#64748b;
+  font-size:.95rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.powered-by a { color:#0b5cff; }
+
+
