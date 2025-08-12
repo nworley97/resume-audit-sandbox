@@ -11,9 +11,13 @@
   {{ jd.html }}
 </div>
 
-<form method="post" enctype="multipart/form-data" class="card p-4" onsubmit="showBusy('Preparing questions…','This may take ~20–40 seconds.');">
+<form method="post" enctype="multipart/form-data" class="card p-4"
+      onsubmit="showBusy('Preparing questions…','This may take ~30–60 seconds.');">
   <label class="form-label">Your Name</label>
   <input name="name" class="form-control mb-3" required>
+
+  <label class="form-label">Email</label>
+  <input name="email" type="email" class="form-control mb-3" placeholder="you@example.com" required>
 
   <p class="text-muted mb-2">PDF or DOCX • Max 2MB</p>
   <label class="form-label">Résumé</label>
@@ -21,6 +25,6 @@
     <input type="file" name="resume_file" accept=".pdf,.docx" class="form-control" required>
   </div>
 
-  <button class="btn btn-primary w-100">Upload & Get Questions</button>
+  <button class="btn btn-primary w-100">Upload & Continue</button>
 </form>
 {% endblock %}

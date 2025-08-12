@@ -381,6 +381,23 @@ def logout():
     return redirect(url_for("login"))
 
 # ─── JD Management ──────────────────────────────────────────────
+@app.route("/apply/<code>/<cid>/camera", methods=["GET","POST"])
+def camera_gate(code, cid):
+    db = SessionLocal()
+    c  = db.get(Candidate, cid)
+    db.close()
+    if not c or c.jd_code != code:
+        flash("Application not found"); return redirect(url_for("apply", code=code))
+
+    if request.method == "POST":
+        # We could store the ack/camera choice if you like, but not required now.
+        # Example (no schema change):
+        #   c.resume_json["_ack"] = bool(request.form.get("ack"))
+        #   c.resume_json["_cam"] = request.form.get("cam")
+        return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
+
+    return render_template("camera_gate.html", title="Camera Check", c=c)
+
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
 def edit_jd():
@@ -507,6 +524,15 @@ def apply(code):
 
     if request.method=="POST":
         name = request.form.get("name","").strip()
+        email = request.form.get("email","").strip()
+# ...
+        rjs  = resume_json(text)
+        if email:
+            try:
+                 rjs["applicant_email"] = email
+            except Exception:
+                 pass
+
         f    = request.files.get("resume_file")
         if not name or not f or not f.filename:
             flash("Name & file required"); return redirect(request.url)
@@ -544,7 +570,7 @@ def apply(code):
         )
         db.add(c); db.commit(); db.close()
 
-        return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
+        return redirect(url_for("camera_gate", code=code, cid=cid))
 
     return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd)
 
