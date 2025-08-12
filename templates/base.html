@@ -9,17 +9,26 @@
 </head>
 <body>
   <nav class="navbar navbar-light bg-white border-bottom">
-    <div class="container-fluid">
-      <span class="navbar-brand">Black Box Strategies</span>
+    <div class="container position-relative" style="min-height:64px">
+      <!-- Centered brand/logo -->
+      <a class="navbar-brand position-absolute top-50 start-50 translate-middle"
+         href="{{ url_for('recruiter') if current_user.is_authenticated else url_for('home') }}"
+         aria-label="Black Box Strategies">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Black Box Strategies" height="32"
+             onerror="this.replaceWith(document.createTextNode('Black Box Strategies'))">
+      </a>
 
+      <!-- Right-side controls -->
       {% if current_user.is_authenticated %}
-        <div class="d-flex align-items-center">
+        <div class="d-flex align-items-center position-absolute end-0 top-50 translate-middle-y">
           <a class="btn btn-outline-secondary me-2" href="{{ url_for('recruiter') }}">Recruiter</a>
           <a class="btn btn-outline-secondary me-2" href="{{ url_for('global_candidates') }}">Candidates</a>
           <a class="btn btn-outline-danger" href="{{ url_for('logout') }}">Logout</a>
         </div>
       {% else %}
-        <a class="btn btn-outline-primary" href="{{ url_for('login') }}">Admin Login</a>
+        <div class="position-absolute end-0 top-50 translate-middle-y">
+          <a class="btn btn-outline-primary" href="{{ url_for('login') }}">Admin Login</a>
+        </div>
       {% endif %}
     </div>
   </nav>
@@ -34,14 +43,15 @@
   <footer class="container container-narrow pb-4 footer">
     <hr class="my-4">
     <div class="d-flex gap-3">
-      <a href="#" class="text-decoration-none">Privacy</a>
-      <a href="#" class="text-decoration-none">Terms</a>
+      <a href="{{ url_for('privacy') }}" class="text-decoration-none">Privacy</a>
+      <a href="{{ url_for('terms') }}" class="text-decoration-none">Terms</a>
       <a href="{{ url_for('forgot') }}" class="text-decoration-none">Support</a>
     </div>
   </footer>
 
   <!-- Busy overlay (used on long submits) -->
-  <div id="busy" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background:rgba(255,255,255,.7); z-index:1050; display:grid; place-items:center;">
+  <div id="busy" class="position-fixed top-0 start-0 w-100 h-100 d-none"
+       style="background:rgba(255,255,255,.7); z-index:1050; display:grid; place-items:center;">
     <div class="text-center">
       <div class="spinner-border" role="status" aria-label="loading"></div>
       <div id="busy-text" class="mt-2 fw-semibold">Working…</div>

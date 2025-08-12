@@ -86,3 +86,7 @@ html, body{
 /* Optional vertical nav readiness */
 .has-vnav .container-narrow { max-width: 1200px; margin-left: 260px; }
 @media (max-width: 992px){ .has-vnav .container-narrow { margin-left: 0; } }
+
+/* Legal pages */
+.legal-copy p { margin-bottom: .75rem; }
+.legal-copy h2, .legal-copy h3, .legal-copy h4 { margin-top: 1.25rem; margin-bottom: .5rem; }

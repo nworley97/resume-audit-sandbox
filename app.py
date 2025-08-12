@@ -4,6 +4,7 @@ from flask import (
     Flask, request, redirect, url_for,
     render_template, flash, send_file, abort, make_response
 )
+from pathlib import Path
 from markupsafe import Markup, escape
 from flask_login import (
     LoginManager, login_user, login_required,
@@ -177,6 +178,33 @@ def _parse_dt(val: str):
         return dtparse.parse(val) if val else None
     except Exception:
         return None
+    
+    # --- Legal pages: load DOCX and render as simple HTML ---
+BASE_DIR = Path(__file__).resolve().parent
+LEGAL_DIR = BASE_DIR / "static" / "legal"
+
+def docx_to_html_simple(docx_path: Path) -> Markup:
+    """
+    Very light DOCX -> HTML: headings become <h2>/<h3>, everything else <p>.
+    Preserves blank lines; escapes HTML.
+    """
+    d = docx.Document(str(docx_path))
+    parts = []
+    for p in d.paragraphs:
+        txt = (p.text or "").strip()
+        style = getattr(getattr(p, "style", None), "name", "") or ""
+        if not txt:
+            parts.append("<br>")
+            continue
+        if style.startswith("Heading"):
+            # map Heading 1/2/3 -> h2/h3/h4 for page hierarchy
+            level = "".join(ch for ch in style if ch.isdigit())
+            level = int(level) if level.isdigit() else 2
+            level = 2 if level == 1 else 3 if level == 2 else 4
+            parts.append(f"<h{level}>{escape(txt)}</h{level}>")
+        else:
+            parts.append(f"<p>{escape(txt)}</p>")
+    return Markup("\n".join(parts))
 
 # ─── Home ─────────────────────────────────────────────────────────
 @app.route("/")
@@ -214,6 +242,17 @@ def _apply_candidate_filters(query, args):
         query = query.filter(Candidate.created_at <= date_to)
 
     return query
+@app.route("/privacy")
+def privacy():
+    path = LEGAL_DIR / "20250811_Privacy.docx"
+    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Privacy policy coming soon.</p>")
+    return render_template("legal.html", title="Privacy Policy", body=body)
+
+@app.route("/terms")
+def terms():
+    path = LEGAL_DIR / "20250811_Terms.docx"
+    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Terms of Service coming soon.</p>")
+    return render_template("legal.html", title="Terms of Service", body=body)
 
 import csv  # ensure this import exists
 # ...
