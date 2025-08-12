@@ -22,13 +22,14 @@
   <div class="col-md-2">
     <button class="btn btn-primary w-100">Filter</button>
   </div>
+
+  <!-- Flat export links (no Bootstrap .btn class) -->
   <div class="col-md-2 d-flex gap-2 justify-content-end">
-    <!-- Flat export buttons -->
-    <a class="btn btn-export w-100"
+    <a class="export-link w-100"
        href="{{ url_for('candidates_export_csv', **request.args.to_dict()) }}">
       Export Current View
     </a>
-    <a class="btn btn-export w-100"
+    <a class="export-link w-100"
        href="{{ url_for('candidates_export_csv', all=1) }}">
       Export All
     </a>
@@ -58,55 +59,51 @@
         </tr>
       </thead>
       <tbody>
-        {% if apps and apps|length > 0 %}
-          {% for c in apps %}
-            {% set fit_class = 'badge-green' if c.fit_score and c.fit_score >= 4
-                               else ('badge-yellow' if c.fit_score and c.fit_score >= 3 else 'badge-red') %}
-            {% set avgv = (c.answer_scores|sum / (c.answer_scores|length))|round(2)
-                          if c.answer_scores and (c.answer_scores|length) > 0 else None %}
-            {% set avg_class = 'badge-green' if avgv and avgv >= 4
-                               else ('badge-yellow' if avgv and avgv >= 3 else 'badge-red') %}
+      {% if apps and apps|length > 0 %}
+        {% for c in apps %}
+          {% set fit_class = 'badge-green' if c.fit_score and c.fit_score >= 4
+                             else ('badge-yellow' if c.fit_score and c.fit_score >= 3 else 'badge-red') %}
+          {% set avgv = (c.answer_scores|sum / (c.answer_scores|length))|round(2)
+                        if c.answer_scores and (c.answer_scores|length) > 0 else None %}
+          {% set avg_class = 'badge-green' if avgv and avgv >= 4
+                             else ('badge-yellow' if avgv and avgv >= 3 else 'badge-red') %}
 
-            <tr>
-              <td class="font-monospace">{{ c.id }}</td>
-              <td>{{ c.name }}</td>
-              <td>{{ c.jd_code }}</td>
-              <td>
-                {% if c.fit_score is not none %}
-                  <span class="badge badge-score {{ fit_class }}">{{ c.fit_score }}</span>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if avgv is not none %}
-                  <span class="badge badge-score {{ avg_class }}">{{ avgv }}</span>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if c.created_at %}
-                  {{ c.created_at.strftime('%Y-%m-%d %H:%M') }}
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </td>
-              <td class="text-end">
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('detail', cid=c.id) }}">View</a>
-                <a class="btn btn-sm btn-outline-danger"
-                   href="{{ url_for('delete_candidate', cid=c.id) }}"
-                   onclick="return confirm('Delete this application?');">
-                  Delete
-                </a>
-              </td>
-            </tr>
-          {% endfor %}
-        {% else %}
           <tr>
-            <td colspan="7" class="text-center text-muted py-5">No candidates found.</td>
+            <td class="font-monospace">{{ c.id }}</td>
+            <td>{{ c.name }}</td>
+            <td>{{ c.jd_code }}</td>
+            <td>
+              {% if c.fit_score is not none %}
+                <span class="badge badge-score {{ fit_class }}">{{ c.fit_score }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if avgv is not none %}
+                <span class="badge badge-score {{ avg_class }}">{{ avgv }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if c.created_at %}
+                {{ c.created_at.strftime('%Y-%m-%d %H:%M') }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('detail', cid=c.id) }}">View</a>
+              <a class="btn btn-sm btn-outline-danger"
+                 href="{{ url_for('delete_candidate', cid=c.id) }}"
+                 onclick="return confirm('Delete this application?');">Delete</a>
+            </td>
           </tr>
-        {% endif %}
+        {% endfor %}
+      {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-5">No candidates found.</td></tr>
+      {% endif %}
       </tbody>
     </table>
   </div>
