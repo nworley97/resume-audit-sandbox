@@ -35,22 +35,33 @@ html, body{
 .card-flat{ background: var(--card); border: 1px solid #e5e7eb; border-radius: var(--radius-card); }
 
 /* ------- Buttons ------- */
-.btn{ border-radius: var(--radius-btn); box-shadow: none !important; } /* keep all buttons flat */
+.btn{ border-radius: var(--radius-btn); box-shadow: none !important; }
 .btn-primary{ background: var(--brand); border-color: var(--brand); }
 .btn-primary:hover,.btn-primary:focus{ background: var(--brand-600); border-color: var(--brand-600); }
 
-/* Flat “Export” buttons */
-.btn-export{
-  background: transparent !important;
-  border: 1px solid #d1d5db !important;   /* slate-300 */
-  color: #374151 !important;              /* slate-700 */
-  border-radius: var(--radius-btn);
+/* ------- Flat export links (no Bootstrap .btn) ------- */
+.export-link{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;                 /* matches default btn height */
+  padding: 0 .75rem;
+  border: 1px solid #e5e7eb;    /* light border */
+  border-radius: 8px;           /* smaller, not pill */
+  background: #ffffff;          /* flat */
+  color: #374151;               /* slate-700 */
+  text-decoration: none;
   font-weight: 600;
+  line-height: 1;
 }
-.btn-export:hover{
-  background: #f3f4f6 !important;         /* gray-100 */
-  border-color: #cbd5e1 !important;        /* slate-300 */
-  color: #111827 !important;               /* gray-900 */
+.export-link:hover{
+  background: #f3f4f6;          /* subtle hover */
+  color: #111827;
+}
+.export-link:active,
+.export-link:focus{
+  outline: none;
+  box-shadow: inset 0 0 0 1px #d1d5db; /* minimal focus feedback */
 }
 
 /* ------- Forms ------- */
@@ -72,6 +83,6 @@ html, body{
 .step-label{ font-weight:600; letter-spacing:.2px; color:#6b7280; font-size:.9rem; }
 .job-html{ white-space: pre-line; }
 
-/* Optional vertical nav support (won’t affect current layout unless body.has-vnav) */
+/* Optional vertical nav readiness */
 .has-vnav .container-narrow { max-width: 1200px; margin-left: 260px; }
 @media (max-width: 992px){ .has-vnav .container-narrow { margin-left: 0; } }
