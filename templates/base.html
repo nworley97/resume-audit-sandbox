@@ -9,19 +9,21 @@
   <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
 </head>
 <body>
-  <nav class="navbar navbar-light bg-white border-bottom">
-    <div class="container-fluid">
-      <span class="navbar-brand">Black Box Strategies</span>
-      {% if current_user.is_authenticated %}
-        <div class="d-flex align-items-center">
-          <a class="btn btn-outline-secondary me-2" href="{{ url_for('recruiter') }}">Recruiter</a>
-          <a class="btn btn-outline-danger" href="{{ url_for('logout') }}">Logout</a>
-        </div>
-      {% else %}
-        <a class="btn btn-outline-primary" href="{{ url_for('login') }}">Admin Login</a>
-      {% endif %}
-    </div>
-  </nav>
+ <nav class="navbar navbar-light bg-white border-bottom">
+  <div class="container-fluid">
+    <span class="navbar-brand">Black Box Strategies</span>
+
+    {% if current_user.is_authenticated %}
+      <div class="d-flex align-items-center">
+        <a class="btn btn-outline-secondary me-2" href="{{ url_for('recruiter') }}">Recruiter</a>
+        <a class="btn btn-outline-secondary me-2" href="{{ url_for('global_candidates') }}">Candidates</a>
+        <a class="btn btn-outline-danger" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    {% else %}
+      <a class="btn btn-outline-primary" href="{{ url_for('login') }}">Admin Login</a>
+    {% endif %}
+  </div>
+</nav>
 
   <main class="container container-narrow py-4">
     {% for m in get_flashed_messages() %}

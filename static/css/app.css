@@ -117,3 +117,11 @@ html, body{
 /* Optional vertical nav support */
 .has-vnav .container-narrow { max-width: 1200px; margin-left: 260px; }
 @media (max-width: 992px){ .has-vnav .container-narrow { margin-left: 0; } }
+
+/* Keep buttons visually flat (no elevation) */
+.btn, .btn:focus, .btn:active { box-shadow: none !important; }
+
+/* Extra-flat style for outline buttons (used by Export) */
+.btn-flat { background: transparent; }
+.btn-flat:hover { background: #f5f7fb; }  /* subtle hover, still flat */
+

@@ -22,17 +22,17 @@
   <div class="col-md-2">
     <button class="btn btn-primary w-100">Filter</button>
   </div>
-  <div class="col-md-2 d-flex gap-2">
-    <!-- Export Current View: passes current filters; Export All: ignores filters -->
-    <a class="btn btn-outline-secondary w-100"
-       href="{{ url_for('candidates_export_csv', **request.args.to_dict()) }}">
-      Export Current View
-    </a>
-    <a class="btn btn-secondary w-100"
-       href="{{ url_for('candidates_export_csv', all=1) }}">
-      Export All
-    </a>
-  </div>
+  <div class="col-md-2 d-flex gap-2 justify-content-end">
+  <a class="btn btn-outline-secondary btn-flat"
+     href="{{ url_for('candidates_export_csv', **request.args.to_dict()) }}">
+    Export Current View
+  </a>
+  <a class="btn btn-outline-secondary btn-flat"
+     href="{{ url_for('candidates_export_csv', all=1) }}">
+    Export All
+  </a>
+</div>
+
 </form>
 
 <div class="mb-2 small text-muted">
