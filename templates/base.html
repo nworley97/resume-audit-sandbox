@@ -9,18 +9,23 @@
 </head>
 <body>
   <nav class="navbar navbar-light bg-white border-bottom">
-    <!-- Center brand; controls on the right -->
-    <div class="container position-relative" style="min-height:64px;">
-      <!-- Centered brand/logo -->
-      <a class="navbar-brand position-absolute top-50 start-50 translate-middle"
+    <!-- Left logo, centered title, right controls -->
+    <div class="container-fluid position-relative" style="min-height:72px;">
+      <!-- Left: logo hugs the left -->
+      <a class="navbar-brand d-flex align-items-center"
          href="{{ url_for('recruiter') if current_user.is_authenticated else url_for('home') }}"
          aria-label="Black Box Strategies">
         <img src="{{ url_for('static', filename='img/logo.png') }}"
-             alt="Black Box Strategies" height="32"
-             onerror="this.replaceWith(document.createTextNode('Black Box Strategies'))">
+             alt="Black Box Strategies" class="brand-logo-left"
+             onerror="this.style.display='none'">
       </a>
 
-      <!-- Right-side controls -->
+      <!-- Center: big company title -->
+      <div class="navbar-center-title text-center">
+        Black Box Strategies
+      </div>
+
+      <!-- Right: auth/links -->
       {% if current_user.is_authenticated %}
         <div class="d-flex align-items-center position-absolute end-0 top-50 translate-middle-y">
           <a class="btn btn-outline-secondary me-2" href="{{ url_for('recruiter') }}">Recruiter</a>
@@ -45,11 +50,10 @@
   <footer class="container container-narrow pb-4 footer text-center">
     <hr class="my-4">
     <div class="powered-by mb-2">
-      <!-- tiny spark icon -->
       <svg width="16" height="16" viewBox="0 0 24 24" class="me-1" aria-hidden="true">
         <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" fill="currentColor" opacity=".8"/>
       </svg>
-      Powered by <a href="#" class="fw-semibold text-decoration-none">ALTERA</a>
+      Powered by&nbsp;<a href="#" class="fw-semibold text-decoration-none">ALTERA</a>
     </div>
     <div class="d-flex gap-3 justify-content-center">
       <a href="{{ url_for('privacy') }}" class="text-decoration-none">Privacy Policy</a>
