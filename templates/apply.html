@@ -8,14 +8,19 @@
 </p>
 
 <div class="card p-4 mb-4 job-html">
-  {{ jd.html|safe }}
+  {{ jd.html }}
 </div>
-<form method="post" enctype="multipart/form-data" class="card p-4">
+
+<form method="post" enctype="multipart/form-data" class="card p-4" onsubmit="showBusy('Preparing questions…')">
   <label class="form-label">Your Name</label>
   <input name="name" class="form-control mb-3" required>
-  <label class="form-label">Résumé (PDF or DOCX)</label>
-  <input type="file" name="resume_file" accept=".pdf,.docx" class="form-control mb-3" required>
-  <div class="text-muted mb-2">Max file size: 2MB</div>
+
+  <p class="text-muted mb-2">PDF or DOCX • Max 2MB</p>
+  <label class="form-label">Résumé</label>
+  <div class="file-drop mb-3">
+    <input type="file" name="resume_file" accept=".pdf,.docx" class="form-control" required>
+  </div>
+
   <button class="btn btn-primary w-100">Upload & Get Questions</button>
 </form>
 {% endblock %}
