@@ -23,7 +23,6 @@
     <button class="btn btn-primary w-100">Filter</button>
   </div>
 
-  <!-- Flat export links (no Bootstrap .btn class) -->
   <div class="col-md-2 d-flex gap-2 justify-content-end">
     <a class="export-link w-100"
        href="{{ url_for('candidates_export_csv', **request.args.to_dict()) }}">
@@ -50,7 +49,8 @@
       <thead class="table-light">
         <tr>
           <th style="width: 110px;">ID</th>
-          <th>Name</th>
+          <th style="width: 220px;">Name</th>
+          <th style="width: 260px;">Email</th>
           <th style="width: 140px;">Job</th>
           <th style="width: 100px;">Fit</th>
           <th style="width: 130px;">Claim Avg</th>
@@ -61,16 +61,18 @@
       <tbody>
       {% if apps and apps|length > 0 %}
         {% for c in apps %}
+          {% set r = c.resume_json or {} %}
+          {% set email = r.get('applicant_email') %}
           {% set fit_class = 'badge-green' if c.fit_score and c.fit_score >= 4
                              else ('badge-yellow' if c.fit_score and c.fit_score >= 3 else 'badge-red') %}
           {% set avgv = (c.answer_scores|sum / (c.answer_scores|length))|round(2)
                         if c.answer_scores and (c.answer_scores|length) > 0 else None %}
           {% set avg_class = 'badge-green' if avgv and avgv >= 4
                              else ('badge-yellow' if avgv and avgv >= 3 else 'badge-red') %}
-
           <tr>
             <td class="font-monospace">{{ c.id }}</td>
             <td>{{ c.name }}</td>
+            <td>{{ email or '—' }}</td>
             <td>{{ c.jd_code }}</td>
             <td>
               {% if c.fit_score is not none %}
@@ -102,7 +104,7 @@
           </tr>
         {% endfor %}
       {% else %}
-        <tr><td colspan="7" class="text-center text-muted py-5">No candidates found.</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-5">No candidates found.</td></tr>
       {% endif %}
       </tbody>
     </table>
