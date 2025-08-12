@@ -214,27 +214,55 @@ def _apply_candidate_filters(query, args):
         query = query.filter(Candidate.created_at <= date_to)
 
     return query
-import csv
+
+import csv  # ensure this import exists
+# ...
+
 @app.route("/candidates/export.csv")
 @login_required
 def candidates_export_csv():
     """
     Export Current View (default) or All (?all=1) as CSV.
-    Uses SessionLocal for consistency with the rest of the app.
+    Works even if Candidate has no relationship to JobDescription.
     """
     export_all = request.args.get("all") == "1"
 
     session = SessionLocal()
     try:
-        q = session.query(Candidate).outerjoin(JobDescription)
-        if not export_all:
-            q = _apply_candidate_filters(q, request.args)
+        # Explicit LEFT JOIN on JD.code == Candidate.jd_code
+        q = (
+            session.query(
+                Candidate,
+                JobDescription.code.label("jd_code"),
+                JobDescription.title.label("jd_title"),
+            )
+            .outerjoin(JobDescription, JobDescription.code == Candidate.jd_code)
+        )
+
+        # Apply filters to the joined query (same semantics as the page)
+        q_str = (request.args.get("q") or "").strip()
+        if q_str:
+            like = f"%{q_str}%"
+            q = q.filter(or_(Candidate.name.ilike(like), Candidate.id.ilike(like)))
+
+        jd_code = (request.args.get("jd") or "").strip()
+        if jd_code and not export_all:
+            q = q.filter(Candidate.jd_code == jd_code)
+
+        date_from = (request.args.get("from") or "").strip()
+        if date_from and not export_all:
+            q = q.filter(Candidate.created_at >= date_from)
+        date_to = (request.args.get("to") or "").strip()
+        if date_to and not export_all:
+            q = q.filter(Candidate.created_at <= date_to)
+
+        rows = q.order_by(Candidate.created_at.desc()).all()
 
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["ID","Name","JD Code","JD Title","Fit","Claim Avg","Created At"])
+        writer.writerow(["ID", "Name", "JD Code", "JD Title", "Fit", "Claim Avg", "Created At"])
 
-        for c in q.order_by(Candidate.created_at.desc()).all():
+        for c, jd_code_val, jd_title_val in rows:
             scores = c.scores if isinstance(getattr(c, "scores", None), dict) else {}
             fit = getattr(c, "fit_score", None) or scores.get("fit") or getattr(c, "fit", None)
 
@@ -248,11 +276,11 @@ def candidates_export_csv():
             writer.writerow([
                 c.id,
                 getattr(c, "name", ""),
-                getattr(c.job_description, "code", "") if c.job_description else "",
-                getattr(c.job_description, "title", "") if c.job_description else "",
+                jd_code_val or c.jd_code or "",
+                jd_title_val or "",
                 fit if fit is not None else "",
                 claim_avg if claim_avg is not None else "",
-                getattr(c, "created_at", ""),
+                c.created_at.isoformat() if getattr(c, "created_at", None) else "",
             ])
 
         output.seek(0)
@@ -264,6 +292,7 @@ def candidates_export_csv():
         )
     finally:
         session.close()
+
 
 # ─── Auth ────────────────────────────────────────────────────────
 @app.route("/create-admin")
