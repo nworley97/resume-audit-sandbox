@@ -1,5 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Thank you for applying, {{ name }}!</h3>
-<p>Your answers have been submitted.</p>
+
+<div class="card p-5 mb-4 text-center">
+  <!-- Checkmark icon -->
+  <div class="mb-3">
+    <svg class="complete-check" viewBox="0 0 72 72" width="72" height="72" aria-hidden="true">
+      <circle cx="36" cy="36" r="30" fill="none" stroke="#0b5cff" stroke-width="4"/>
+      <path d="M24 37.5l8 8 16-20" fill="none" stroke="#0b5cff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <h2 class="fw-bold display-6 mb-2">Application Complete</h2>
+  <p class="text-muted mb-4">Thank you for your time. Your responses have been successfully recorded.</p>
+
+  <div class="soft-panel text-start mx-auto mb-4">
+    <div class="fw-semibold text-center mb-2">What happens next?</div>
+    <div class="text-muted small">
+      <div class="mb-1">• We will review your responses and get back to you soon.</div>
+      <div>• You will receive an email notification with the next steps.</div>
+    </div>
+  </div>
+
+  <div class="d-grid" style="max-width:220px; margin:0 auto;">
+    <a class="btn btn-outline-secondary" href="/">Go Back</a>
+  </div>
+</div>
+
 {% endblock %}
