@@ -57,18 +57,21 @@
   </footer>
 
   <!-- Busy overlay -->
-  <div id="busy" class="position-fixed top-0 start-0 w-100 h-100 d-none"
-       style="background:rgba(255,255,255,.7); z-index:1050; display:grid; place-items:center;">
-    <div class="text-center">
-      <div class="spinner-border" role="status" aria-label="loading"></div>
-      <div id="busy-text" class="mt-2 fw-semibold">Working…</div>
-    </div>
+<div id="busy" class="position-fixed top-0 start-0 w-100 h-100 d-none"
+     style="background:rgba(255,255,255,.7); z-index:1050; display:grid; place-items:center;">
+  <div class="text-center">
+    <div class="spinner-border" role="status" aria-label="loading"></div>
+    <div id="busy-text" class="mt-2 fw-semibold">Working…</div>
+    <div id="busy-sub" class="text-muted small">This may take a minute.</div>
   </div>
-  <script>
-    window.showBusy = function(msg){
-      document.getElementById('busy-text').textContent = msg || 'Working…';
-      document.getElementById('busy').classList.remove('d-none');
-    };
-  </script>
+</div>
+<script>
+  window.showBusy = function (msg, sub) {
+    document.getElementById('busy-text').textContent = msg || 'Working…';
+    document.getElementById('busy-sub').textContent  = sub || 'This may take a minute.';
+    document.getElementById('busy').classList.remove('d-none');
+  };
+</script>
+
 </body>
 </html>
