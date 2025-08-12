@@ -146,4 +146,31 @@ html, body{
 }
 .powered-by a { color:#0b5cff; }
 
+.powered-by a { margin-left: .15rem; } /* ensure visible space even if HTML collapses */
+
+/* Navbar: left logo + centered title */
+.brand-logo-left{
+  height: 44px;
+  width: auto;
+  margin-left: .25rem;
+}
+.navbar-center-title{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 800;
+  letter-spacing: .2px;
+  white-space: nowrap;
+  font-size: 1.35rem;
+  z-index: 1; /* ensure it sits above the logo area */
+}
+@media (min-width: 768px){ .navbar-center-title{ font-size: 1.6rem; } }
+@media (min-width: 1200px){ .navbar-center-title{ font-size: 1.75rem; } }
+
+/* Footer 'Powered by' spacing safety */
+.powered-by a{ margin-left: .15rem; }
+
+
+
 
