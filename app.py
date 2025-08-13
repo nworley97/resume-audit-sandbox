@@ -1,22 +1,25 @@
 import os, json, uuid, logging, tempfile, mimetypes, re, io
 from datetime import datetime
+from pathlib import Path
+
 from flask import (
     Flask, request, redirect, url_for,
     render_template, flash, send_file, abort, make_response
 )
-from pathlib import Path
 from markupsafe import Markup, escape
 from flask_login import (
     LoginManager, login_user, login_required,
     logout_user, current_user
 )
+
 import PyPDF2, docx
 import bleach
-from openai import OpenAI
-from sqlalchemy import or_, text, inspect
-from dateutil import parser as dtparse
-from types import SimpleNamespace
+import csv
 
+from openai import OpenAI
+from sqlalchemy import or_, text, inspect, func
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from dateutil import parser as dtparse
 
 from db import SessionLocal
 from models import User, JobDescription, Candidate, engine as models_engine
@@ -59,10 +62,18 @@ ensure_schema()
 # ─── Flask-Login ──────────────────────────────────────────────────
 @login_manager.user_loader
 def load_user(uid: str):
+    # Defensive: avoid sticky rollback breaking later requests
     db = SessionLocal()
-    u  = db.get(User, int(uid))
-    db.close()
-    return u
+    try:
+        return db.get(User, int(uid))
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return None
+    finally:
+        db.close()
 
 # ─── OpenAI helper ────────────────────────────────────────────────
 def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
@@ -134,7 +145,6 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
     except Exception as e:
         logging.warning("Fallback triggered in question generation: %s", e)
 
-    # Fallback: try to parse lines out of whatever came back (or raw could be empty)
     lines = (raw or "").splitlines()
     cleaned = []
     for line in lines:
@@ -148,7 +158,6 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
             len(line) > 10
         ):
             cleaned.append(line)
-    # Final safety: if still empty, generate generic prompts from rjs
     if not cleaned:
         cleaned = [
             "Tell us about a project you’re most proud of and your specific contributions.",
@@ -181,8 +190,8 @@ def _parse_dt(val: str):
         return dtparse.parse(val) if val else None
     except Exception:
         return None
-    
-    # --- Legal pages: load DOCX and render as simple HTML ---
+
+# --- Legal pages: load DOCX and render as simple HTML ---
 BASE_DIR = Path(__file__).resolve().parent
 LEGAL_DIR = BASE_DIR / "static" / "legal"
 
@@ -200,7 +209,6 @@ def docx_to_html_simple(docx_path: Path) -> Markup:
             parts.append("<br>")
             continue
         if style.startswith("Heading"):
-            # map Heading 1/2/3 -> h2/h3/h4 for page hierarchy
             level = "".join(ch for ch in style if ch.isdigit())
             level = int(level) if level.isdigit() else 2
             level = 2 if level == 1 else 3 if level == 2 else 4
@@ -214,23 +222,14 @@ def docx_to_html_simple(docx_path: Path) -> Markup:
 def home():
     return redirect(url_for("login")) if not current_user.is_authenticated else redirect(url_for("recruiter"))
 
-# ─── CSV Export: Current View vs All (NEW) ───────────────────────
+# ─── CSV Export: Current View vs All ─────────────────────────────
 def _apply_candidate_filters(query, args):
-    """
-    Mirror the filters used by your global candidates table.
-    Supported params:
-      q   : free-text (name or id)
-      jd  : JD code
-      from: ISO date (YYYY-MM-DD)
-      to  : ISO date (YYYY-MM-DD)
-    Extend as needed to match your UI.
-    """
     q_str = (args.get("q") or "").strip()
     if q_str:
         like = f"%{q_str}%"
         query = query.filter(or_(
             Candidate.name.ilike(like),
-            Candidate.id.ilike(like)  # Search by string id
+            Candidate.id.ilike(like)
         ))
 
     jd_code = (args.get("jd") or "").strip()
@@ -245,20 +244,6 @@ def _apply_candidate_filters(query, args):
         query = query.filter(Candidate.created_at <= date_to)
 
     return query
-@app.route("/privacy")
-def privacy():
-    path = LEGAL_DIR / "20250811_Privacy.docx"
-    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Privacy policy coming soon.</p>")
-    return render_template("legal.html", title="Privacy Policy", body=body)
-
-@app.route("/terms")
-def terms():
-    path = LEGAL_DIR / "20250811_Terms.docx"
-    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Terms of Service coming soon.</p>")
-    return render_template("legal.html", title="Terms of Service", body=body)
-
-import csv  # ensure this import exists
-# ...
 
 @app.route("/candidates/export.csv")
 @login_required
@@ -268,10 +253,8 @@ def candidates_export_csv():
     Works even if Candidate has no relationship to JobDescription.
     """
     export_all = request.args.get("all") == "1"
-
     session = SessionLocal()
     try:
-        # Explicit LEFT JOIN on JD.code == Candidate.jd_code
         q = (
             session.query(
                 Candidate,
@@ -281,7 +264,6 @@ def candidates_export_csv():
             .outerjoin(JobDescription, JobDescription.code == Candidate.jd_code)
         )
 
-        # Apply filters to the joined query (same semantics as the page)
         q_str = (request.args.get("q") or "").strip()
         if q_str:
             like = f"%{q_str}%"
@@ -335,42 +317,61 @@ def candidates_export_csv():
     finally:
         session.close()
 
+# ─── Legal pages ─────────────────────────────────────────────────
+@app.route("/privacy")
+def privacy():
+    path = LEGAL_DIR / "20250811_Privacy.docx"
+    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Privacy policy coming soon.</p>")
+    return render_template("legal.html", title="Privacy Policy", body=body)
+
+@app.route("/terms")
+def terms():
+    path = LEGAL_DIR / "20250811_Terms.docx"
+    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Terms of Service coming soon.</p>")
+    return render_template("legal.html", title="Terms of Service", body=body)
 
 # ─── Auth ────────────────────────────────────────────────────────
 @app.route("/create-admin")
 def create_admin():
     db = SessionLocal()
-    if db.query(User).filter_by(username="james@blackboxstrategies.ai").first():
+    try:
+        if db.query(User).filter_by(username="james@blackboxstrategies.ai").first():
+            return "Admin already exists."
+        admin = User(username="james@blackboxstrategies.ai")
+        admin.set_pw("2025@gv70!")  # hashes correctly
+        db.add(admin); db.commit()
+        return "Admin user created."
+    finally:
         db.close()
-        return "Admin already exists."
-    admin = User(username="james@blackboxstrategies.ai")
-    admin.set_pw("2025@gv70!")  # hashes correctly
-    db.add(admin); db.commit(); db.close()
-    return "Admin user created."
 
 @app.route("/reset-admin")
 def reset_admin():
     db = SessionLocal()
-    user = db.query(User).filter_by(username="james@blackboxstrategies.ai").first()
-    if user:
-        db.delete(user); db.commit()
-    admin = User(username="james@blackboxstrategies.ai")
-    admin.set_pw("2025@gv70!")
-    db.add(admin); db.commit(); db.close()
-    return "Admin reset complete."
+    try:
+        user = db.query(User).filter_by(username="james@blackboxstrategies.ai").first()
+        if user:
+            db.delete(user); db.commit()
+        admin = User(username="james@blackboxstrategies.ai")
+        admin.set_pw("2025@gv70!")
+        db.add(admin); db.commit()
+        return "Admin reset complete."
+    finally:
+        db.close()
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         u, p = request.form["username"], request.form["password"]
         db = SessionLocal()
-        usr = db.query(User).filter_by(username=u).first()
-        db.close()
-        if not usr or not usr.check_pw(p):
-            flash("Bad credentials")
-        else:
-            login_user(usr)
-            return redirect(url_for("recruiter"))
+        try:
+            usr = db.query(User).filter_by(username=u).first()
+            if not usr or not usr.check_pw(p):
+                flash("Bad credentials")
+            else:
+                login_user(usr)
+                return redirect(url_for("recruiter"))
+        finally:
+            db.close()
     return render_template("login.html", title="Login")
 
 @app.route("/forgot")
@@ -383,235 +384,198 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
-# ─── JD Management ──────────────────────────────────────────────
+# ─── Camera gate (between upload and questions) ──────────────────
 @app.route("/apply/<code>/<cid>/camera", methods=["GET","POST"])
 def camera_gate(code, cid):
     db = SessionLocal()
-    c  = db.get(Candidate, cid)
-    db.close()
+    try:
+        c  = db.get(Candidate, cid)
+    finally:
+        db.close()
     if not c or c.jd_code != code:
         flash("Application not found"); return redirect(url_for("apply", code=code))
 
     if request.method == "POST":
-        # We could store the ack/camera choice if you like, but not required now.
-        # Example (no schema change):
-        #   c.resume_json["_ack"] = bool(request.form.get("ack"))
-        #   c.resume_json["_cam"] = request.form.get("cam")
         return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
 
     return render_template("camera_gate.html", title="Camera Check", c=c)
-## --- JD HTML sanitizer (with graceful fallback if tinycss2 is missing) ---
-try:
-    from bleach.css_sanitizer import CSSSanitizer  # requires tinycss2
-    _css_ok = CSSSanitizer(
-        allowed_css_properties=["font-family", "font-weight", "text-decoration"]
-    )
-except Exception:
-    CSSSanitizer = None
-    _css_ok = None
-    logging.warning("tinycss2 not installed; stripping inline styles from JD HTML.")
 
+# ─── JD HTML sanitizer (for Quill) ───────────────────────────────
 ALLOWED_TAGS = (
     bleach.sanitizer.ALLOWED_TAGS
-    | {"p", "br", "div", "span", "ul", "ol", "li", "strong", "b", "em", "i", "u", "h2", "h3", "h4", "a"}
+    | {"p","br","div","span","ul","ol","li","strong","b","em","i","u","h2","h3","h4","a"}
 )
-
-# If CSS sanitizer is unavailable, don't advertise 'style' as allowed (Bleach will strip it).
-if _css_ok is None:
-    ALLOWED_ATTRS = {
-        **bleach.sanitizer.ALLOWED_ATTRIBUTES,
-        "a": ["href", "rel", "target"],
-        "span": ["class"],
-        "div":  ["class"],
-        "p":    ["class"],
-        "li":   ["class"],
-    }
-else:
-    ALLOWED_ATTRS = {
-        **bleach.sanitizer.ALLOWED_ATTRIBUTES,
-        "a": ["href", "rel", "target"],
-        "span": ["style", "class"],
-        "div":  ["style", "class"],
-        "p":    ["style", "class"],
-        "li":   ["style", "class"],
-    }
+ALLOWED_ATTRS = {
+    **bleach.sanitizer.ALLOWED_ATTRIBUTES,
+    "a": ["href","rel","target"],
+    "span": ["style","class"],
+    "div":  ["style","class"],
+    "p":    ["style","class"],
+    "li":   ["style","class"],
+}
+ALLOWED_STYLES = ["font-family","font-weight","text-decoration"]
 
 def sanitize_jd(html: str) -> str:
     linked = bleach.linkify(html or "")
-    return bleach.clean(
-        linked,
-        tags=ALLOWED_TAGS,
-        attributes=ALLOWED_ATTRS,
-        css_sanitizer=_css_ok,  # if None, Bleach strips style attrs (safe fallback)
-        strip=True,
-    )
+    return bleach.clean(linked, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS,
+                        styles=ALLOWED_STYLES, strip=True)
 
-
+# ─── JD Management ───────────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
 def edit_jd():
+    """
+    - GET with ?code=XYZ -> edit existing JD XYZ
+      GET with no code   -> new JD form (empty defaults)
+    - POST with ?code=XYZ updates existing JD
+      POST with no code   inserts a new JD
+    - Changing code for a JD that has candidates is blocked.
+    """
+    param_code = (request.args.get("code") or "").strip() or None
+
     db = SessionLocal()
+    try:
+        existing = db.query(JobDescription).filter_by(code=param_code).first() if param_code else None
+        has_candidates = False
+        if existing:
+            has_candidates = db.query(func.count(Candidate.id)).filter(Candidate.jd_code == existing.code).scalar() > 0
 
-    # Are we editing an existing JD (has ?code=...) or creating a new one?
-    arg_code = (request.args.get("code") or "").strip()
-    editing = bool(arg_code)
+        if request.method == "POST":
+            form_code = request.form.get("jd_code","").strip()
+            if not form_code:
+                flash("Code is required")
+                return redirect(request.url)
 
-    existing = db.get(JobDescription, arg_code) if editing else None
-    if request.method == "GET":
-        if editing and existing:
-            has_candidates = db.query(Candidate).filter(Candidate.jd_code == existing.code).count() > 0
-            out = render_template(
-                "edit_jd.html",
-                title="Edit Job",
-                jd=existing,
-                has_candidates=has_candidates,
-                editing=True
-            )
-        else:
-            # NEW job: do NOT prefill JD01. Show a clean, empty shell.
-            jd_shell = SimpleNamespace(
-                code="",
-                title="",
-                html="",
-                status="draft",
-                department=None,
-                team=None,
-                location=None,
-                employment_type=None,
-                salary_range=None,
-                start_date=None,
-                end_date=None,
-            )
-            out = render_template(
-                "edit_jd.html",
-                title="New Job",
-                jd=jd_shell,
-                has_candidates=False,
-                editing=False
-            )
-        db.close()
-        return out
+            # Collect fields
+            title           = request.form.get("jd_title","").strip()
+            html_sanitized  = sanitize_jd(request.form.get("jd_text",""))
+            status          = request.form.get("jd_status","draft")
+            department      = (request.form.get("jd_department","") or "").strip() or None
+            team            = (request.form.get("jd_team","") or "").strip() or None
+            location        = (request.form.get("jd_location","") or "").strip() or None
+            employment_type = (request.form.get("jd_employment_type","") or "").strip() or None
+            salary_range    = (request.form.get("jd_salary_range","") or "").strip() or None
+            start_date      = _parse_dt(request.form.get("jd_start",""))
+            end_date        = _parse_dt(request.form.get("jd_end",""))
+            now             = datetime.utcnow()
 
-    # POST — collect form values
-    form_code        = (request.form.get("jd_code") or "").strip()
-    form_title       = (request.form.get("jd_title") or "").strip()
-    form_html        = sanitize_jd(request.form.get("jd_text",""))
-    form_status      = (request.form.get("jd_status") or "draft").strip()
-    form_department  = (request.form.get("jd_department") or "").strip() or None
-    form_team        = (request.form.get("jd_team") or "").strip() or None
-    form_location    = (request.form.get("jd_location") or "").strip() or None
-    form_employment  = (request.form.get("jd_employment_type") or "").strip() or None
-    form_salary      = (request.form.get("jd_salary_range") or "").strip() or None
-    form_start       = _parse_dt(request.form.get("jd_start",""))
-    form_end         = _parse_dt(request.form.get("jd_end",""))
-    now              = datetime.utcnow()
+            if existing:
+                # Editing an existing JD
+                if form_code != existing.code:
+                    # Only allow code change when there are no candidates
+                    if has_candidates:
+                        flash("Job code can’t be changed because candidates already exist for this job.")
+                        return redirect(url_for("edit_jd", code=existing.code))
 
-    if editing:
-        # Edit existing JD
-        if not existing:
-            db.close()
-            flash("Job not found.")
-            return redirect(url_for("recruiter"))
+                    # Make sure the new code isn't already taken
+                    conflict = db.query(JobDescription).filter(JobDescription.code == form_code).first()
+                    if conflict:
+                        flash(f"Code {form_code} is already in use.")
+                        return redirect(url_for("edit_jd", code=existing.code))
 
-        has_candidates = db.query(Candidate).filter(Candidate.jd_code == existing.code).count() > 0
-        # Don’t allow code change if candidates exist
-        if has_candidates and form_code and form_code != existing.code:
-            flash("You can’t change the Job Code after candidates exist. Keeping the current code.")
-            form_code = existing.code
+                    existing.code = form_code  # safe: no candidates
 
-        # If no candidates, allow rename — but ensure no duplicate key
-        if not has_candidates and form_code != existing.code:
-            if db.get(JobDescription, form_code):
-                flash("That Job Code already exists. Choose a different code.")
-                db.close()
-                return redirect(url_for("edit_jd", code=existing.code))
-            # Safe to change PK (no dependents)
-            existing.code = form_code
+                # Update fields
+                existing.title           = title
+                existing.html            = html_sanitized
+                existing.status          = status
+                existing.department      = department
+                existing.team            = team
+                existing.location        = location
+                existing.employment_type = employment_type
+                existing.salary_range    = salary_range
+                existing.start_date      = start_date
+                existing.end_date        = end_date
+                existing.updated_at      = now
 
-        existing.title           = form_title
-        existing.html            = form_html
-        existing.status          = form_status
-        existing.department      = form_department
-        existing.team            = form_team
-        existing.location        = form_location
-        existing.employment_type = form_employment
-        existing.salary_range    = form_salary
-        existing.start_date      = form_start
-        existing.end_date        = form_end
-        existing.updated_at      = now
+                db.add(existing)
+                db.commit()
+                flash("JD saved")
+                return redirect(url_for("recruiter"))
 
-        db.add(existing)
-        db.commit()
-        code_for_url = existing.code  # might have changed (if allowed)
-        db.close()
-        flash("JD saved")
-        return redirect(url_for("edit_jd", code=code_for_url))
+            else:
+                # Creating a NEW JD
+                # Guard: prevent overwriting some other code
+                conflict = db.query(JobDescription).filter(JobDescription.code == form_code).first()
+                if conflict:
+                    flash(f"Code {form_code} is already in use.")
+                    return redirect(url_for("edit_jd", code=conflict.code))
 
-    else:
-        # Create NEW JD
-        if not form_code:
-            db.close()
-            flash("Please provide a Job Code.")
-            return redirect(url_for("edit_jd"))
+                jd = JobDescription(
+                    code            = form_code,
+                    title           = title,
+                    html            = html_sanitized,
+                    status          = status or "draft",
+                    department      = department,
+                    team            = team,
+                    location        = location,
+                    employment_type = employment_type,
+                    salary_range    = salary_range,
+                    start_date      = start_date,
+                    end_date        = end_date,
+                    updated_at      = now,
+                )
+                db.add(jd); db.commit()
+                flash("JD saved")
+                return redirect(url_for("recruiter"))
 
-        if db.get(JobDescription, form_code):
-            db.close()
-            flash("That Job Code already exists. Choose a different code.")
-            return redirect(url_for("edit_jd"))
+        # GET
+        jd_for_form = existing or JobDescription(code="", title="", html="", status="draft")
+        return render_template("edit_jd.html", title="Edit Job", jd=jd_for_form, has_candidates=has_candidates)
 
-        new_jd = JobDescription(
-            code=form_code,
-            title=form_title,
-            html=form_html,
-            status=form_status,
-            department=form_department,
-            team=form_team,
-            location=form_location,
-            employment_type=form_employment,
-            salary_range=form_salary,
-            start_date=form_start,
-            end_date=form_end,
-            updated_at=now
-        )
-        db.add(new_jd)
-        db.commit()
-        db.close()
-        flash("JD created")
+    except SQLAlchemyError as e:
+        db.rollback()
+        app.logger.exception("edit_jd failed")
+        flash("There was a problem saving this job. Please try again.")
         return redirect(url_for("recruiter"))
-
+    finally:
+        db.close()
 
 @app.route("/delete-jd/<code>")
 @login_required
 def delete_jd(code):
     db = SessionLocal()
-    jd = db.query(JobDescription).filter_by(code=code).first()
-    if jd:
+    try:
+        jd = db.query(JobDescription).filter_by(code=code).first()
+        if not jd:
+            flash("Job not found"); return redirect(url_for("recruiter"))
+
+        cnt = db.query(func.count(Candidate.id)).filter(Candidate.jd_code == jd.code).scalar()
+        if cnt > 0:
+            flash("You can’t delete this job because candidates already exist for it.")
+            return redirect(url_for("recruiter"))
+
         db.delete(jd); db.commit(); flash(f"Deleted {code}")
-    db.close()
-    return redirect(url_for("recruiter"))
+        return redirect(url_for("recruiter"))
+    finally:
+        db.close()
 
 # ─── Recruiter Dashboard ────────────────────────────────────────
 @app.route("/recruiter")
 @login_required
 def recruiter():
     db = SessionLocal()
-    jds = db.query(JobDescription).order_by(JobDescription.created_at.desc()).all()
-    counts = { jd.code: len(jd.candidates) for jd in jds }
-    db.close()
-    return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts)
+    try:
+        jds = db.query(JobDescription).order_by(JobDescription.created_at.desc()).all()
+        counts = { jd.code: len(jd.candidates) for jd in jds }
+        return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts)
+    finally:
+        db.close()
 
 @app.route("/recruiter/jd/<code>")
 @login_required
 def view_candidates(code):
     db = SessionLocal()
-    apps = db.query(Candidate)\
-             .filter_by(jd_code=code)\
-             .order_by(Candidate.created_at.desc())\
-             .all()
-    db.close()
-    return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps)
+    try:
+        apps = db.query(Candidate)\
+                 .filter_by(jd_code=code)\
+                 .order_by(Candidate.created_at.desc())\
+                 .all()
+        return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps)
+    finally:
+        db.close()
 
-# ─── Global Candidates + (legacy) Export ─────────────────────────
+# ─── Global Candidates + legacy export (kept for back-compat) ────
 @app.route("/candidates")
 @login_required
 def global_candidates():
@@ -619,22 +583,23 @@ def global_candidates():
     jd = request.args.get("jd","").strip()
 
     db = SessionLocal()
-    apps_q = db.query(Candidate)
-    if jd: apps_q = apps_q.filter(Candidate.jd_code==jd)
-    if q:
-        apps_q = apps_q.filter(or_(
-            Candidate.name.ilike(f"%{q}%"),
-            Candidate.id.ilike(f"%{q}%")
-        ))
-    apps = apps_q.order_by(Candidate.created_at.desc()).all()
-    jd_list = db.query(JobDescription).order_by(JobDescription.code.asc()).all()
-    db.close()
+    try:
+        apps_q = db.query(Candidate)
+        if jd: apps_q = apps_q.filter(Candidate.jd_code==jd)
+        if q:
+            apps_q = apps_q.filter(or_(
+                Candidate.name.ilike(f"%{q}%"),
+                Candidate.id.ilike(f"%{q}%")
+            ))
+        apps = apps_q.order_by(Candidate.created_at.desc()).all()
+        jd_list = db.query(JobDescription).order_by(JobDescription.code.asc()).all()
 
-    # NOTE: we keep legacy export route below for backward-compat; new templates should call candidates_export_csv
-    export_url = url_for("export_candidates") + ("?q="+q if q else "") + ("&jd="+jd if jd else "")
-    return render_template("global_candidates.html",
-        title="Candidates",
-        q=q, jd=jd, apps=apps, jd_list=jd_list, export_url=export_url)
+        export_url = url_for("export_candidates") + ("?q="+q if q else "") + ("&jd="+jd if jd else "")
+        return render_template("global_candidates.html",
+            title="Candidates",
+            q=q, jd=jd, apps=apps, jd_list=jd_list, export_url=export_url)
+    finally:
+        db.close()
 
 @app.route("/export/candidates.csv")
 @login_required
@@ -644,15 +609,17 @@ def export_candidates():
     jd = request.args.get("jd","").strip()
 
     db = SessionLocal()
-    apps_q = db.query(Candidate)
-    if jd: apps_q = apps_q.filter(Candidate.jd_code == jd)
-    if q:
-        apps_q = apps_q.filter(or_(
-            Candidate.name.ilike(f"%{q}%"),
-            Candidate.id.ilike(f"%{q}%")
-        ))
-    apps = apps_q.order_by(Candidate.created_at.desc()).all()
-    db.close()
+    try:
+        apps_q = db.query(Candidate)
+        if jd: apps_q = apps_q.filter(Candidate.jd_code == jd)
+        if q:
+            apps_q = apps_q.filter(or_(
+                Candidate.name.ilike(f"%{q}%"),
+                Candidate.id.ilike(f"%{q}%")
+            ))
+        apps = apps_q.order_by(Candidate.created_at.desc()).all()
+    finally:
+        db.close()
 
     out = io.StringIO()
     out.write("id,name,jd_code,fit_score,avg_q,created_at\n")
@@ -671,8 +638,10 @@ def export_candidates():
 @app.route("/apply/<code>", methods=["GET","POST"])
 def apply(code):
     db = SessionLocal()
-    jd = db.query(JobDescription).filter_by(code=code).first()
-    db.close()
+    try:
+        jd = db.query(JobDescription).filter_by(code=code).first()
+    finally:
+        db.close()
     if not jd:
         return abort(404)
     # If you want to hide drafts from public, uncomment:
@@ -685,7 +654,7 @@ def apply(code):
         f     = request.files.get("resume_file")
 
         if not name or not f or not f.filename:
-            flash("Name & file required"); 
+            flash("Name & file required")
             return redirect(request.url)
 
         ext = os.path.splitext(f.filename)[1] or ".pdf"
@@ -697,10 +666,9 @@ def apply(code):
             mime_guess = mimetypes.guess_type(f.filename)[0] or f.mimetype
             text = file_to_text(path, mime_guess)
         except ValueError:
-            flash("PDF or DOCX only"); 
+            flash("PDF or DOCX only")
             return redirect(request.url)
 
-        # Build résumé JSON THEN attach the email you collected
         rjs = resume_json(text)
         if email:
             try:
@@ -708,7 +676,6 @@ def apply(code):
             except Exception:
                 pass
 
-        # Continue with the rest of the pipeline
         fit  = fit_score(rjs, jd.html)
         real = realism_check(rjs)
         qs   = generate_questions(rjs, jd.html)
@@ -717,31 +684,34 @@ def apply(code):
         storage = upload_pdf(path)
 
         db = SessionLocal()
-        c  = Candidate(
-            id            = cid,
-            name          = name,
-            resume_url    = storage,
-            resume_json   = rjs,
-            fit_score     = fit,
-            realism       = real,
-            questions     = qs,
-            answers       = [""]*len(qs),
-            answer_scores = [],
-            jd_code       = jd.code,
-        )
-        db.add(c); db.commit(); db.close()
+        try:
+            c  = Candidate(
+                id            = cid,
+                name          = name,
+                resume_url    = storage,
+                resume_json   = rjs,
+                fit_score     = fit,
+                realism       = real,
+                questions     = qs,
+                answers       = [""]*len(qs),
+                answer_scores = [],
+                jd_code       = jd.code,
+            )
+            db.add(c); db.commit()
+        finally:
+            db.close()
 
-        # Go to camera gate before questions
         return redirect(url_for("camera_gate", code=code, cid=cid))
 
     return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd)
 
-
 @app.route("/apply/<code>/<cid>/q/<int:idx>", methods=["GET","POST"])
 def question_paged(code, cid, idx):
     db = SessionLocal()
-    c  = db.get(Candidate, cid)
-    db.close()
+    try:
+        c  = db.get(Candidate, cid)
+    finally:
+        db.close()
     if not c or c.jd_code != code:
         flash("Application not found"); return redirect(url_for("apply", code=code))
 
@@ -753,13 +723,15 @@ def question_paged(code, cid, idx):
     if request.method == "POST":
         a = request.form.get("answer","").strip()
         db = SessionLocal()
-        c2 = db.get(Candidate, cid)
-        if c2:
-            ans = list(c2.answers or [""]*n)
-            ans[idx] = a
-            c2.answers = ans
-            db.merge(c2); db.commit()
-        db.close()
+        try:
+            c2 = db.get(Candidate, cid)
+            if c2:
+                ans = list(c2.answers or [""]*n)
+                ans[idx] = a
+                c2.answers = ans
+                db.merge(c2); db.commit()
+        finally:
+            db.close()
 
         action = request.form.get("action","next")
         if action == "prev" and idx > 0:
@@ -779,13 +751,16 @@ def question_paged(code, cid, idx):
 @app.route("/apply/<code>/<cid>/finish")
 def finish_application(code, cid):
     db = SessionLocal()
-    c  = db.get(Candidate, cid)
-    if not c:
-        db.close(); flash("App not found"); return redirect(url_for("apply", code=code))
-    scores = score_answers(c.resume_json, c.questions, c.answers or [])
-    c.answer_scores = scores
-    c.created_at    = c.created_at or datetime.utcnow()
-    db.merge(c); db.commit(); db.close()
+    try:
+        c  = db.get(Candidate, cid)
+        if not c:
+            flash("App not found"); return redirect(url_for("apply", code=code))
+        scores = score_answers(c.resume_json, c.questions, c.answers or [])
+        c.answer_scores = scores
+        c.created_at    = c.created_at or datetime.utcnow()
+        db.merge(c); db.commit()
+    finally:
+        db.close()
 
     if not current_user.is_authenticated:
         return render_template("submit_thanks.html", title="Thanks", name=c.name)
@@ -803,7 +778,11 @@ def submit_answers(code, cid):
 @app.route("/resume/<cid>")
 @login_required
 def download_resume(cid):
-    db = SessionLocal(); c = db.get(Candidate,cid); db.close()
+    db = SessionLocal()
+    try:
+        c = db.get(Candidate,cid)
+    finally:
+        db.close()
     if not c: abort(404)
     fn = os.path.basename(c.resume_url)
     mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
@@ -815,35 +794,39 @@ def download_resume(cid):
 @app.route("/delete/<cid>")
 @login_required
 def delete_candidate(cid):
-    db = SessionLocal(); c = db.get(Candidate,cid)
-    code = ""
-    if c:
-        code = c.jd_code
-        try:
-            if S3_ENABLED and c.resume_url.startswith("s3://"):
-                delete_s3(c.resume_url)
-            elif os.path.exists(c.resume_url):
-                os.remove(c.resume_url)
-        except Exception:
-            pass
-        db.delete(c); db.commit(); flash("Deleted app")
-    db.close()
-    return redirect(url_for("view_candidates",code=code or ""))
+    db = SessionLocal()
+    try:
+        c = db.get(Candidate,cid)
+        code = ""
+        if c:
+            code = c.jd_code
+            try:
+                if S3_ENABLED and c.resume_url.startswith("s3://"):
+                    delete_s3(c.resume_url)
+                elif os.path.exists(c.resume_url):
+                    os.remove(c.resume_url)
+            except Exception:
+                pass
+            db.delete(c); db.commit(); flash("Deleted app")
+        return redirect(url_for("view_candidates",code=code or ""))
+    finally:
+        db.close()
 
 # ─── Candidate Detail ───────────────────────────────────────────
 @app.route("/recruiter/<cid>")
 @login_required
 def detail(cid):
     db = SessionLocal()
-    c  = db.get(Candidate, cid)
-    jd = db.query(JobDescription).filter_by(code=c.jd_code).first() if c else None
-    db.close()
-    if not c:
-        flash("Not found"); return redirect(url_for("recruiter"))
-
-    qa = list(zip(c.questions, c.answers, c.answer_scores))
-    return render_template("candidate_detail.html",
-                           title=f"Candidate – {c.name}", c=c, jd=jd, qa=qa)
+    try:
+        c  = db.get(Candidate, cid)
+        jd = db.query(JobDescription).filter_by(code=c.jd_code).first() if c else None
+        if not c:
+            flash("Not found"); return redirect(url_for("recruiter"))
+        qa = list(zip(c.questions, c.answers, c.answer_scores))
+        return render_template("candidate_detail.html",
+                               title=f"Candidate – {c.name}", c=c, jd=jd, qa=qa)
+    finally:
+        db.close()
 
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":
