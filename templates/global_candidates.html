@@ -73,7 +73,14 @@
             <td class="font-monospace">{{ c.id }}</td>
             <td>{{ c.name }}</td>
             <td>{{ email or '—' }}</td>
-            <td>{{ c.jd_code }}</td>
+            <td>
+				{% if c.jd_code %}
+					<a href="{{ url_for('view_candidates', code=c.jd_code) }}" class="text-decoration-none">
+						{{ c.jd_code }}
+					</a>
+				{% else %}—{% endif %}
+			</td>
+
             <td>
               {% if c.fit_score is not none %}
                 <span class="badge badge-score {{ fit_class }}">{{ c.fit_score }}</span>

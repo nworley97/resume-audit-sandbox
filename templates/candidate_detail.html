@@ -4,7 +4,13 @@
 <h3 class="mt-2">{{ c.name }}</h3>
 <p>
   ID: {{ c.id }}<br>
-  JD: {{ c.jd_code }} — {{ jd.title if jd else '' }}<br>
+  JD:
+  {% if c.jd_code %}
+    <a href="{{ url_for('view_candidates', code=c.jd_code) }}" class="text-decoration-none">
+      {{ c.jd_code }}
+    </a>
+  {% else %}—{% endif %}
+  — {{ jd.title if jd else '' }}<br>
   Fit: <strong>{{ c.fit_score }}/5</strong><br>
   Avg Q: <strong>{% if c.answer_scores %}{{ (c.answer_scores|sum / c.answer_scores|length)|round(2) }}{% else %}-{% endif %}</strong>
 </p>
