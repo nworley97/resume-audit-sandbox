@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <h3 class="mb-3">Candidates — {{ code }}</h3>
+<div class="mb-2">
+  <strong>Public Apply Link:</strong>
+  <a class="text-decoration-none"
+     href="{{ url_for('apply', code=code, _external=True) }}"
+     target="_blank">
+    {{ url_for('apply', code=code, _external=True) }}
+  </a>
+</div>
 
 <div class="card p-0">
   <div class="table-responsive">
