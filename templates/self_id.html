@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container-narrow mx-auto" style="max-width:860px;">
+  <h3 class="mt-3 mb-2">Voluntary Self-Identification</h3>
+  <p class="text-muted">
+    For government reporting purposes, we ask candidates to complete this brief self-identification survey.
+    <strong>Completion is entirely voluntary.</strong> Whatever your decision, it will not be considered in the hiring
+    process or thereafter. Any information you provide will be recorded and maintained in a confidential file.
+    Black Box Strategies is an Equal Opportunity Employer and does not discriminate on the basis of any protected status.
+  </p>
+
+  <form method="post" id="eeo-form" novalidate>
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Gender*</label>
+            <select class="form-select" name="gender" required>
+              <option value="" disabled {% if not data %}selected{% endif %}>Select…</option>
+              <option {% if data and data.get('gender')=='Male' %}selected{% endif %}>Male</option>
+              <option {% if data and data.get('gender')=='Female' %}selected{% endif %}>Female</option>
+              <option {% if data and data.get('gender')=='Decline to self-identify' %}selected{% endif %}>Decline to self-identify</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Are you Hispanic or Latino?*</label>
+            <select class="form-select" name="hispanic" required>
+              <option value="" disabled {% if not data %}selected{% endif %}>Select…</option>
+              <option {% if data and data.get('hispanic')=='Yes' %}selected{% endif %}>Yes</option>
+              <option {% if data and data.get('hispanic')=='No' %}selected{% endif %}>No</option>
+              <option {% if data and data.get('hispanic')=='Decline to self-identify' %}selected{% endif %}>Decline to self-identify</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label d-block">Veteran Status*</label>
+            <div class="text-muted small mb-2">
+              “Protected veterans” include: disabled veterans; recently separated veterans (within 3 years of discharge);
+              active duty wartime or campaign badge veterans; and Armed Forces service medal veterans.
+            </div>
+            <select class="form-select" name="veteran" required>
+              <option value="" disabled {% if not data %}selected{% endif %}>Select…</option>
+              <option {% if data and data.get('veteran')=='I am not a protected veteran' %}selected{% endif %}>I am not a protected veteran</option>
+              <option {% if data and data.get('veteran')=='I identify as one or more of the classifications' %}selected{% endif %}>I identify as one or more of the classifications</option>
+              <option {% if data and data.get('veteran')=="I don't wish to answer" %}selected{% endif %}>I don't wish to answer</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label d-block">Voluntary Self-Identification of Disability*</label>
+            <div class="text-muted small mb-2">
+              A disability is a condition that substantially limits one or more major life activities (for example:
+              diabetes, epilepsy, depression, ADHD, autism, cancer, heart disease, asthma, migraine, mobility
+              impairments, low vision, deafness, PTSD, and others). Your response is confidential and will not be used
+              in hiring decisions.
+            </div>
+            <select class="form-select" name="disability" required>
+              <option value="" disabled {% if not data %}selected{% endif %}>Select…</option>
+              <option {% if data and data.get('disability')=='Yes I have a disability' %}selected{% endif %}>Yes I have a disability</option>
+              <option {% if data and data.get('disability')=="No, I don't have a disability" %}selected{% endif %}>No, I don't have a disability</option>
+              <option {% if data and data.get('disability')=="I don't want to answer" %}selected{% endif %}>I don't want to answer</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-end">
+      <a class="btn btn-outline-secondary" href="{{ url_for('question_paged', code=c.jd_code, cid=c.id, idx=(c.answers|length - 1)|int ) }}">Back</a>
+      <button class="btn btn-primary ms-2" type="submit">Continue</button>
+    </div>
+  </form>
+
+  <p class="text-muted small mt-3">
+    Completing this form is voluntary. If you choose not to answer, please select the appropriate “Decline/I don’t wish to answer”
+    option. Thank you.
+  </p>
+</div>
+
+{% endblock %}
