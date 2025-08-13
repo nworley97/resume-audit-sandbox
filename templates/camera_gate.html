@@ -1,126 +1,116 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="text-center mb-3">
-  <h2 class="fw-bold mb-2">Hi {{ c.name }}!</h2>
-  <p class="lead mb-1">To help us get to know you better,</p>
-  <p class="lead">please answer a few short questions.</p>
-  <div class="text-muted mt-2">Follow the guidelines below to ensure the best possible session.</div>
-</div>
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
 
-<div class="card p-4 mb-3">
-  <div class="mb-3">
-    <div class="d-flex align-items-center gap-2">
-      <span class="rounded-circle d-inline-block" style="width:8px; height:8px; background:#0b5cff;"></span>
-      <strong>Preparation Tips</strong>
-    </div>
-    <div class="text-muted small mt-1">Follow these recommendations for the best interview experience.</div>
-  </div>
+          <h2 class="h4 mb-3">Camera Check</h2>
+          <p class="text-muted mb-4">
+            Hi {{ c.name }} — before we begin your questions, we request temporary access to your camera to verify identity.
+          </p>
 
-  <hr class="my-3">
+          <!-- Warning that does not block progress -->
+          <div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+            <div class="mt-1">⚠️</div>
+            <div>
+              <strong>Important:</strong> If you do <em>not</em> allow camera access,
+              your application may be considered <strong>void</strong>.
+              You can still continue now, but we may not review your submission.
+            </div>
+          </div>
 
-  <div class="mb-3">
-    <div class="d-flex align-items-center gap-2">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#0b5cff" stroke-width="2"/><path d="M8 12l3 3 5-6" stroke="#0b5cff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="fw-semibold">Stable Internet Connection</span>
-    </div>
-    <div class="text-muted small ms-4">Ensure you have a reliable internet connection to avoid interruptions during the interview.</div>
-  </div>
+          <!-- Camera preview / status -->
+          <div class="row g-3 align-items-center mb-3">
+            <div class="col-md-7">
+              <div class="ratio ratio-4x3 bg-light rounded-3 overflow-hidden border">
+                <video id="camPreview" autoplay playsinline muted></video>
+              </div>
+            </div>
+            <div class="col-md-5">
+              <div id="camStatus" class="small text-muted">
+                Requesting camera permission…
+              </div>
+              <ul class="small text-muted mt-2 mb-0">
+                <li>Your video is not stored.</li>
+                <li>You can disable camera after this step.</li>
+              </ul>
+            </div>
+          </div>
 
-  <div>
-    <div class="d-flex align-items-center gap-2">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#0b5cff" stroke-width="2"/><path d="M8 12l3 3 5-6" stroke="#0b5cff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="fw-semibold">Quiet Environment</span>
-    </div>
-    <div class="text-muted small ms-4">Pick a calm, well-lit place to stay focused.</div>
-  </div>
-</div>
+          <form method="post" class="needs-validation" novalidate>
+            <!-- REQUIRED acknowledgement (must be checked to submit) -->
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" value="1" id="ackBox" name="ack" required>
+              <label class="form-check-label" for="ackBox">
+                I understand that blocking camera access may void my application.
+              </label>
+              <div class="invalid-feedback">Please acknowledge to continue.</div>
+            </div>
 
-<div class="card p-4 mb-3">
-  <div class="mb-2">
-    <div class="d-flex align-items-center gap-2">
-      <span class="rounded-circle d-inline-block" style="width:8px; height:8px; background:#0b5cff;"></span>
-      <strong>Allow Camera Access</strong>
-    </div>
-    <div class="text-muted small mt-1">To help verify fairness and authenticity, please allow access to your camera.</div>
-  </div>
+            <!-- We record camera outcome for reference; backend can ignore -->
+            <input type="hidden" name="cam" id="camField" value="pending">
 
-  <hr class="my-3">
+            <div class="d-flex justify-content-between">
+              <a class="btn btn-outline-secondary" href="{{ url_for('apply', code=c.jd_code) }}">Back</a>
+              <button type="submit" class="btn btn-primary">
+                Continue
+              </button>
+            </div>
+          </form>
 
-  <div class="d-flex flex-column align-items-center">
-    <div class="border rounded-3 p-3 text-center mb-3" style="max-width:360px; width:100%; background:#fafafa;">
-      <div class="mb-2 fw-semibold">Your browser wants to use your camera</div>
-      <div class="d-grid gap-2">
-        <button type="button" class="btn btn-outline-secondary" id="allowOnceBtn">Allow this time</button>
-        <button type="button" class="btn btn-outline-secondary" id="allowAlwaysBtn">Allow on every visit</button>
-        <button type="button" class="btn btn-outline-secondary" id="denyBtn">Don’t allow</button>
+        </div>
       </div>
     </div>
-    <div id="cam-status" class="small text-muted">Waiting for permission…</div>
   </div>
 </div>
 
-<form method="post" class="card p-4" id="gateForm"
-      onsubmit="showBusy('Loading your questions…','This may take a few seconds.');">
-  <div class="form-check mb-3">
-    <input class="form-check-input" type="checkbox" value="1" id="ack" name="ack">
-    <label class="form-check-label" for="ack">
-      I understand that not responding to questions may forfeit my opportunity.
-    </label>
-  </div>
-
-  <div class="d-grid">
-    <button class="btn btn-primary" id="startBtn" disabled>Start</button>
-  </div>
-
-  <input type="hidden" name="cam" id="camField" value="unknown">
-</form>
+<style>
+  #camPreview { width: 100%; height: 100%; object-fit: cover; background: #000; }
+</style>
 
 <script>
-  (function(){
-    const ack = document.getElementById('ack');
-    const startBtn = document.getElementById('startBtn');
-    const camField = document.getElementById('camField');
-    const statusEl = document.getElementById('cam-status');
+(function () {
+  const statusEl = document.getElementById('camStatus');
+  const videoEl  = document.getElementById('camPreview');
+  const camField = document.getElementById('camField');
 
-    function updateReady(){
-      // Only require the checkbox to proceed (camera permission is optional for now)
-      startBtn.disabled = !ack.checked;
-    }
-    ack.addEventListener('change', updateReady);
-    updateReady();
-
-    async function requestCam(persist){
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        statusEl.textContent = 'Camera API not available in this browser.';
-        camField.value = 'unsupported';
-        return;
+  // Bootstrap-style client-side validation for the required checkbox
+  document.querySelectorAll('.needs-validation').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      if (!form.checkValidity()) {
+        e.preventDefault();
+        e.stopPropagation();
       }
-      try{
-        const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
-        stream.getTracks().forEach(t=>t.stop());
-        statusEl.textContent = 'Camera access allowed.';
-        statusEl.classList.remove('text-muted'); statusEl.classList.add('text-success');
-        camField.value = persist ? 'allowed_persist' : 'allowed_once';
-      }catch(err){
-        statusEl.textContent = 'Permission denied or unavailable.';
-        statusEl.classList.remove('text-muted'); statusEl.classList.add('text-danger');
+      form.classList.add('was-validated');
+    }, false);
+  });
+
+  // Try to get camera; continue is allowed regardless of result
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        try { videoEl.srcObject = stream; }
+        catch { videoEl.src = window.URL.createObjectURL(stream); }
+        camField.value = 'granted';
+        statusEl.innerHTML = '<span class="text-success">Camera access granted.</span>';
+      })
+      .catch((err) => {
         camField.value = 'denied';
-      }
-    }
-
-    // Buttons that trigger the permission prompt
-    document.getElementById('allowOnceBtn').addEventListener('click', ()=>requestCam(false));
-    document.getElementById('allowAlwaysBtn').addEventListener('click', ()=>requestCam(true));
-    document.getElementById('denyBtn').addEventListener('click', ()=>{
-      statusEl.textContent = 'You chose not to allow camera access.';
-      statusEl.classList.remove('text-muted'); statusEl.classList.add('text-warning');
-      camField.value = 'declined';
-    });
-
-    // Best-effort auto prompt after a tick (some browsers require a gesture; this may silently fail)
-    setTimeout(()=>{ /* noop – keep UI explicit */ }, 300);
-  })();
+        statusEl.innerHTML =
+          '<span class="text-danger">Camera access blocked or unavailable.</span> ' +
+          '<span class="text-muted">You can still continue, but your application may be void.</span>';
+        console.warn('getUserMedia error:', err);
+      });
+  } else {
+    camField.value = 'unsupported';
+    statusEl.innerHTML =
+      '<span class="text-warning">Camera not supported on this device/browser.</span> ' +
+      '<span class="text-muted">You can still continue.</span>';
+  }
+})();
 </script>
 
 {% endblock %}
