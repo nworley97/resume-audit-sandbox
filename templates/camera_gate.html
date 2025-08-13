@@ -65,7 +65,7 @@
           </svg>
         </div>
 
-        <!-- Warning (they can still continue even if they later deny in the browser) -->
+        <!-- Warning -->
         <div class="alert alert-warning d-flex align-items-start gap-2 small mt-3" role="alert" style="border-radius:12px;">
           ⚠️ <div><strong>Heads up:</strong> If you deny camera access in your browser, your application may be voided by the hiring team.
           You can still proceed below.</div>
@@ -77,7 +77,7 @@
     <div class="card mb-4 shadow-sm">
       <div class="card-body">
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="ack" name="ack" required>
+          <input class="form-check-input" type="checkbox" id="ack" name="ack" required aria-required="true">
           <label class="form-check-label" for="ack">
             I understand that not responding to questions may forfeit my opportunity.
           </label>
@@ -93,7 +93,10 @@
 
 <style>
   .container-narrow { padding-bottom: 32px; }
-  .permission-illustration svg { max-width: 100%; height: auto; }
+
+  /* hard-center the illustration everywhere */
+  .permission-illustration { display: flex; justify-content: center; }
+  .permission-illustration svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 </style>
 
 <script>
@@ -102,21 +105,19 @@
     const btn  = document.getElementById('startBtn');
 
     form.addEventListener('submit', async (e) => {
-      e.preventDefault();               // always capture submit
-      if (!form.reportValidity()) return; // enforce required checkbox
+      e.preventDefault();
+      if (!form.reportValidity()) return; // enforces required checkbox
       btn.disabled = true;
 
-      // Try to trigger the real browser camera prompt.
       try {
         if (navigator.mediaDevices?.getUserMedia) {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          // Immediately stop tracks; we only needed the prompt.
           stream.getTracks().forEach(t => t.stop());
         }
       } catch (err) {
-        // User denied or device unavailable — intentionally ignore.
+        // ignore — proceed either way
       } finally {
-        form.submit(); // proceed either way
+        form.submit();
       }
     });
   })();
