@@ -5,8 +5,7 @@
 
 <form method="post"
       id="jd-form"
-      action="{{ url_for('edit_jd') }}{% if jd and jd.code %}?code={{ jd.code }}{% endif %}"
-      style="padding-bottom:120px"><!-- ensures Save isn't hidden under sticky footer -->
+      action="{{ url_for('edit_jd') }}{% if jd and jd.code %}?code={{ jd.code }}{% endif %}">
   <div class="row g-3">
 
     <div class="col-md-3">
@@ -90,13 +89,13 @@
 
   </div>
 
-  <div class="d-flex justify-content-end gap-2 mt-4">
+  <!-- Sticky action bar so it never hides behind the footer -->
+  <div class="jd-actions d-flex justify-content-end gap-2 mt-4">
     <a class="btn btn-outline-secondary" href="{{ url_for('recruiter') }}">Cancel</a>
     <button class="btn btn-primary" type="submit">Save</button>
   </div>
 </form>
 
-<!-- Quill assets (scoped to this page) -->
 <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 
@@ -111,23 +110,29 @@
       modules: { toolbar: '#jd_toolbar', clipboard: { matchVisual: true } }
     });
 
-    // Load existing JD HTML into the editor
     const initial = {{ (jd.html or '')|tojson }};
     editor.clipboard.dangerouslyPasteHTML(initial);
 
-    // On submit, move editor HTML into the hidden textarea
     document.getElementById('jd-form').addEventListener('submit', function(){
       document.getElementById('jd_text').value = editor.root.innerHTML;
     });
   })();
 </script>
 
-<!-- Map Quill font names to real fonts -->
 <style>
   .ql-font-arial           { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; }
   .ql-font-sans-serif      { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
   .ql-font-times-new-roman { font-family: "Times New Roman", Times, serif; }
   .ql-font-courier-new     { font-family: "Courier New", Courier, monospace; }
+
+  /* Keep the action bar visible above your sticky footer */
+  .jd-actions{
+    position: sticky;
+    bottom: 72px;     /* a bit above your footer height */
+    background: var(--bs-body-bg, #fff);
+    padding: 12px 0;
+    z-index: 2;
+  }
 </style>
 
 {% endblock %}
