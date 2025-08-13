@@ -171,6 +171,12 @@ html, body{
 /* Footer 'Powered by' spacing safety */
 .powered-by a{ margin-left: .15rem; }
 
+/* Center brand title uses Arial (no other elements affected) */
+.navbar-center-title{
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+}
+
+
 
 
 

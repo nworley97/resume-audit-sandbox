@@ -11,6 +11,7 @@ from flask_login import (
     logout_user, current_user
 )
 import PyPDF2, docx
+import bleach
 from openai import OpenAI
 from sqlalchemy import or_, text, inspect
 from dateutil import parser as dtparse
@@ -397,6 +398,35 @@ def camera_gate(code, cid):
         return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
 
     return render_template("camera_gate.html", title="Camera Check", c=c)
+# --- JD HTML sanitizer ---
+from bleach.css_sanitizer import CSSSanitizer
+
+ALLOWED_TAGS = (
+    bleach.sanitizer.ALLOWED_TAGS
+    | {"p","br","div","span","ul","ol","li","strong","b","em","i","u","h2","h3","h4","a"}
+)
+ALLOWED_ATTRS = {
+    **bleach.sanitizer.ALLOWED_ATTRIBUTES,
+    "a": ["href","rel","target"],
+    "span": ["style","class"],
+    "div":  ["style","class"],
+    "p":    ["style","class"],
+    "li":   ["style","class"],
+}
+CSS_OK = CSSSanitizer(
+    allowed_css_properties=["font-family","font-weight","text-decoration"]
+)
+
+def sanitize_jd(html: str) -> str:
+    linked = bleach.linkify(html or "")
+    return bleach.clean(
+        linked,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        css_sanitizer=CSS_OK,
+        strip=True,
+    )
+
 
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
@@ -406,7 +436,7 @@ def edit_jd():
     if request.method=="POST":
         jd.code            = request.form["jd_code"].strip()
         jd.title           = request.form["jd_title"].strip()
-        jd.html            = request.form["jd_text"]  # plain text stored in 'html' field; rendered as plain text in templates
+        jd.html            = sanitize_jd(request.form.get("jd_text",""))  # plain text stored in 'html' field; rendered as plain text in templates
         jd.status          = request.form.get("jd_status","draft")
         jd.department      = request.form.get("jd_department","").strip() or None
         jd.team            = request.form.get("jd_team","").strip() or None
