@@ -398,24 +398,41 @@ def camera_gate(code, cid):
         return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
 
     return render_template("camera_gate.html", title="Camera Check", c=c)
-# --- JD HTML sanitizer ---
-from bleach.css_sanitizer import CSSSanitizer
+## --- JD HTML sanitizer (with graceful fallback if tinycss2 is missing) ---
+try:
+    from bleach.css_sanitizer import CSSSanitizer  # requires tinycss2
+    _css_ok = CSSSanitizer(
+        allowed_css_properties=["font-family", "font-weight", "text-decoration"]
+    )
+except Exception:
+    CSSSanitizer = None
+    _css_ok = None
+    logging.warning("tinycss2 not installed; stripping inline styles from JD HTML.")
 
 ALLOWED_TAGS = (
     bleach.sanitizer.ALLOWED_TAGS
-    | {"p","br","div","span","ul","ol","li","strong","b","em","i","u","h2","h3","h4","a"}
+    | {"p", "br", "div", "span", "ul", "ol", "li", "strong", "b", "em", "i", "u", "h2", "h3", "h4", "a"}
 )
-ALLOWED_ATTRS = {
-    **bleach.sanitizer.ALLOWED_ATTRIBUTES,
-    "a": ["href","rel","target"],
-    "span": ["style","class"],
-    "div":  ["style","class"],
-    "p":    ["style","class"],
-    "li":   ["style","class"],
-}
-CSS_OK = CSSSanitizer(
-    allowed_css_properties=["font-family","font-weight","text-decoration"]
-)
+
+# If CSS sanitizer is unavailable, don't advertise 'style' as allowed (Bleach will strip it).
+if _css_ok is None:
+    ALLOWED_ATTRS = {
+        **bleach.sanitizer.ALLOWED_ATTRIBUTES,
+        "a": ["href", "rel", "target"],
+        "span": ["class"],
+        "div":  ["class"],
+        "p":    ["class"],
+        "li":   ["class"],
+    }
+else:
+    ALLOWED_ATTRS = {
+        **bleach.sanitizer.ALLOWED_ATTRIBUTES,
+        "a": ["href", "rel", "target"],
+        "span": ["style", "class"],
+        "div":  ["style", "class"],
+        "p":    ["style", "class"],
+        "li":   ["style", "class"],
+    }
 
 def sanitize_jd(html: str) -> str:
     linked = bleach.linkify(html or "")
@@ -423,7 +440,7 @@ def sanitize_jd(html: str) -> str:
         linked,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRS,
-        css_sanitizer=CSS_OK,
+        css_sanitizer=_css_ok,  # if None, Bleach strips style attrs (safe fallback)
         strip=True,
     )
 
