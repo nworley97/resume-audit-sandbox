@@ -1,30 +1,66 @@
 {% extends "base.html" %}
 {% block content %}
-<h3 class="mb-1">{{ jd.code }} — {{ jd.title }}</h3>
-<p class="text-muted mb-3">
-  {{ jd.location or '' }}{% if jd.employment_type %} • {{ jd.employment_type }}{% endif %}
-  {% if jd.salary_range %} • {{ jd.salary_range }}{% endif %}
-  {% if jd.end_date %} • End Date: {{ jd.end_date.strftime('%b %d, %Y') }}{% endif %}
-</p>
 
-<div class="card p-4 mb-4 job-html">
-  {{ jd.html }}
+<h3 class="mb-3">Apply — {{ jd.code }}</h3>
+
+<!-- Job details / formatted JD preview -->
+<div class="card p-4 mb-4">
+  <div class="mb-2">
+    <div class="fw-semibold">{{ jd.title or 'Job' }}</div>
+    <div class="text-muted small">
+      {{ jd.department or '' }}{% if jd.team %} · {{ jd.team }}{% endif %}
+      {% if jd.location %} · {{ jd.location }}{% endif %}
+      {% if jd.employment_type %} · {{ jd.employment_type }}{% endif %}
+      {% if jd.salary_range %} · {{ jd.salary_range }}{% endif %}
+    </div>
+  </div>
+  <hr>
+  <!-- Render stored JD HTML safely (we sanitize on save) -->
+  <div class="job-html">
+    {{ jd.html|safe }}
+  </div>
 </div>
 
-<form method="post" enctype="multipart/form-data" class="card p-4"
-      onsubmit="showBusy('Preparing questions…','This may take ~30–60 seconds.');">
-  <label class="form-label">Your Name</label>
-  <input name="name" class="form-control mb-3" required>
+<!-- Apply form -->
+<div class="card p-4">
+  <form method="post" enctype="multipart/form-data" id="apply-form">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Full Name</label>
+        <input name="name" class="form-control" placeholder="Your name" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Email</label>
+        <input name="email" type="email" class="form-control" placeholder="name@work.com">
+      </div>
 
-  <label class="form-label">Email</label>
-  <input name="email" type="email" class="form-control mb-3" placeholder="you@example.com" required>
+      <div class="col-12">
+        <label class="form-label">Résumé (PDF or DOCX)</label>
+        <div class="p-4 rounded-3"
+             style="border:2px dashed #ced4da; background:#fafafa;">
+          <input class="form-control" type="file" name="resume_file"
+                 accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                 required>
+          <div class="form-text">PDF or DOCX • Max 2MB</div>
+        </div>
+      </div>
+    </div>
 
-  <p class="text-muted mb-2">PDF or DOCX • Max 2MB</p>
-  <label class="form-label">Résumé</label>
-  <div class="file-drop mb-3">
-    <input type="file" name="resume_file" accept=".pdf,.docx" class="form-control" required>
-  </div>
+    <div class="d-flex justify-content-end mt-4">
+      <button class="btn btn-primary">
+        Submit &amp; Continue
+      </button>
+    </div>
+  </form>
+</div>
 
-  <button class="btn btn-primary w-100">Upload & Continue</button>
-</form>
+<script>
+  // Show the spinner overlay while we parse the résumé and generate questions
+  document.getElementById('apply-form').addEventListener('submit', function(){
+    if (window.showBusy) {
+      window.showBusy('Preparing questions…', 'This may take a while.');
+    }
+  });
+</script>
+
 {% endblock %}
