@@ -10,7 +10,14 @@
 
     <div class="col-md-3">
       <label class="form-label">Code</label>
-      <input name="jd_code" class="form-control" value="{{ jd.code }}" required>
+      <input name="jd_code"
+             class="form-control"
+             value="{{ jd.code }}"
+             required
+             {% if has_candidates %}readonly{% endif %}>
+      {% if has_candidates %}
+        <div class="form-text text-muted">Job code can’t be changed because candidates already exist.</div>
+      {% endif %}
     </div>
 
     <div class="col-md-9">
@@ -128,7 +135,7 @@
   /* Keep the action bar visible above your sticky footer */
   .jd-actions{
     position: sticky;
-    bottom: 72px;     /* a bit above your footer height */
+    bottom: 72px;     /* adjust if your footer height differs */
     background: var(--bs-body-bg, #fff);
     padding: 12px 0;
     z-index: 2;

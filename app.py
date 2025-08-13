@@ -15,6 +15,8 @@ import bleach
 from openai import OpenAI
 from sqlalchemy import or_, text, inspect
 from dateutil import parser as dtparse
+from types import SimpleNamespace
+
 
 from db import SessionLocal
 from models import User, JobDescription, Candidate, engine as models_engine
@@ -449,26 +451,134 @@ def sanitize_jd(html: str) -> str:
 @login_required
 def edit_jd():
     db = SessionLocal()
-    jd = db.get(JobDescription, request.args.get("code")) or JobDescription(code="JD01", title="", html="", status="draft")
-    if request.method=="POST":
-        jd.code            = request.form["jd_code"].strip()
-        jd.title           = request.form["jd_title"].strip()
-        jd.html            = sanitize_jd(request.form.get("jd_text",""))  # plain text stored in 'html' field; rendered as plain text in templates
-        jd.status          = request.form.get("jd_status","draft")
-        jd.department      = request.form.get("jd_department","").strip() or None
-        jd.team            = request.form.get("jd_team","").strip() or None
-        jd.location        = request.form.get("jd_location","").strip() or None
-        jd.employment_type = request.form.get("jd_employment_type","").strip() or None
-        jd.salary_range    = request.form.get("jd_salary_range","").strip() or None
-        jd.start_date      = _parse_dt(request.form.get("jd_start",""))
-        jd.end_date        = _parse_dt(request.form.get("jd_end",""))
-        jd.updated_at      = datetime.utcnow()
-        db.merge(jd); db.commit(); db.close()
+
+    # Are we editing an existing JD (has ?code=...) or creating a new one?
+    arg_code = (request.args.get("code") or "").strip()
+    editing = bool(arg_code)
+
+    existing = db.get(JobDescription, arg_code) if editing else None
+    if request.method == "GET":
+        if editing and existing:
+            has_candidates = db.query(Candidate).filter(Candidate.jd_code == existing.code).count() > 0
+            out = render_template(
+                "edit_jd.html",
+                title="Edit Job",
+                jd=existing,
+                has_candidates=has_candidates,
+                editing=True
+            )
+        else:
+            # NEW job: do NOT prefill JD01. Show a clean, empty shell.
+            jd_shell = SimpleNamespace(
+                code="",
+                title="",
+                html="",
+                status="draft",
+                department=None,
+                team=None,
+                location=None,
+                employment_type=None,
+                salary_range=None,
+                start_date=None,
+                end_date=None,
+            )
+            out = render_template(
+                "edit_jd.html",
+                title="New Job",
+                jd=jd_shell,
+                has_candidates=False,
+                editing=False
+            )
+        db.close()
+        return out
+
+    # POST — collect form values
+    form_code        = (request.form.get("jd_code") or "").strip()
+    form_title       = (request.form.get("jd_title") or "").strip()
+    form_html        = sanitize_jd(request.form.get("jd_text",""))
+    form_status      = (request.form.get("jd_status") or "draft").strip()
+    form_department  = (request.form.get("jd_department") or "").strip() or None
+    form_team        = (request.form.get("jd_team") or "").strip() or None
+    form_location    = (request.form.get("jd_location") or "").strip() or None
+    form_employment  = (request.form.get("jd_employment_type") or "").strip() or None
+    form_salary      = (request.form.get("jd_salary_range") or "").strip() or None
+    form_start       = _parse_dt(request.form.get("jd_start",""))
+    form_end         = _parse_dt(request.form.get("jd_end",""))
+    now              = datetime.utcnow()
+
+    if editing:
+        # Edit existing JD
+        if not existing:
+            db.close()
+            flash("Job not found.")
+            return redirect(url_for("recruiter"))
+
+        has_candidates = db.query(Candidate).filter(Candidate.jd_code == existing.code).count() > 0
+        # Don’t allow code change if candidates exist
+        if has_candidates and form_code and form_code != existing.code:
+            flash("You can’t change the Job Code after candidates exist. Keeping the current code.")
+            form_code = existing.code
+
+        # If no candidates, allow rename — but ensure no duplicate key
+        if not has_candidates and form_code != existing.code:
+            if db.get(JobDescription, form_code):
+                flash("That Job Code already exists. Choose a different code.")
+                db.close()
+                return redirect(url_for("edit_jd", code=existing.code))
+            # Safe to change PK (no dependents)
+            existing.code = form_code
+
+        existing.title           = form_title
+        existing.html            = form_html
+        existing.status          = form_status
+        existing.department      = form_department
+        existing.team            = form_team
+        existing.location        = form_location
+        existing.employment_type = form_employment
+        existing.salary_range    = form_salary
+        existing.start_date      = form_start
+        existing.end_date        = form_end
+        existing.updated_at      = now
+
+        db.add(existing)
+        db.commit()
+        code_for_url = existing.code  # might have changed (if allowed)
+        db.close()
         flash("JD saved")
+        return redirect(url_for("edit_jd", code=code_for_url))
+
+    else:
+        # Create NEW JD
+        if not form_code:
+            db.close()
+            flash("Please provide a Job Code.")
+            return redirect(url_for("edit_jd"))
+
+        if db.get(JobDescription, form_code):
+            db.close()
+            flash("That Job Code already exists. Choose a different code.")
+            return redirect(url_for("edit_jd"))
+
+        new_jd = JobDescription(
+            code=form_code,
+            title=form_title,
+            html=form_html,
+            status=form_status,
+            department=form_department,
+            team=form_team,
+            location=form_location,
+            employment_type=form_employment,
+            salary_range=form_salary,
+            start_date=form_start,
+            end_date=form_end,
+            updated_at=now
+        )
+        db.add(new_jd)
+        db.commit()
+        db.close()
+        flash("JD created")
         return redirect(url_for("recruiter"))
-    out = render_template("edit_jd.html", title="Edit Job", jd=jd)
-    db.close()
-    return out
+
 
 @app.route("/delete-jd/<code>")
 @login_required
