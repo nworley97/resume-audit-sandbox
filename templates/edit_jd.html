@@ -3,7 +3,7 @@
 
 <h3 class="mb-3">Edit Job</h3>
 
-<form method="post" id="jd-form">
+<form method="post" id="jd-form" action="{{ url_for('edit_jd') }}{% if jd and jd.code %}?code={{ jd.code }}{% endif %}">
   <div class="row g-3">
 
     <div class="col-md-3">
@@ -89,7 +89,7 @@
 
   <div class="d-flex justify-content-end gap-2 mt-4">
     <a class="btn btn-outline-secondary" href="{{ url_for('recruiter') }}">Cancel</a>
-    <button class="btn btn-primary">Save</button>
+    <button class="btn btn-primary" type="submit">Save</button>
   </div>
 </form>
 
