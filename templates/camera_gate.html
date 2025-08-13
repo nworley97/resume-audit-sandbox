@@ -1,116 +1,133 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <div class="card shadow-sm border-0">
-        <div class="card-body p-4">
+<div class="mx-auto" style="max-width:980px;">
+  <h2 class="text-center mb-2" style="font-weight:600;">Hi {{ (c.name or 'there').split(' ')[0] }}!</h2>
+  <p class="text-center text-muted mb-4">
+    To help us get to know you better, please answer a few short questions.<br>
+    Follow the guidelines below to ensure the best possible session.
+  </p>
 
-          <h2 class="h4 mb-3">Camera Check</h2>
-          <p class="text-muted mb-4">
-            Hi {{ c.name }} — before we begin your questions, we request temporary access to your camera to verify identity.
-          </p>
+  <!-- Prep tips -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="fw-semibold mb-2">Preparation Tips</div>
+      <p class="text-muted mb-3">Follow these recommendations for the best interview experience.</p>
 
-          <!-- Warning that does not block progress -->
-          <div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
-            <div class="mt-1">⚠️</div>
-            <div>
-              <strong>Important:</strong> If you do <em>not</em> allow camera access,
-              your application may be considered <strong>void</strong>.
-              You can still continue now, but we may not review your submission.
-            </div>
-          </div>
+      <hr class="my-2">
+      <div class="d-flex align-items-start gap-2 py-2">
+        <span class="text-primary mt-1">○</span>
+        <div>
+          <div class="fw-semibold">Stable Internet Connection</div>
+          <div class="text-muted small">Ensure you have a reliable internet connection to avoid interruptions during the interview.</div>
+        </div>
+      </div>
 
-          <!-- Camera preview / status -->
-          <div class="row g-3 align-items-center mb-3">
-            <div class="col-md-7">
-              <div class="ratio ratio-4x3 bg-light rounded-3 overflow-hidden border">
-                <video id="camPreview" autoplay playsinline muted></video>
-              </div>
-            </div>
-            <div class="col-md-5">
-              <div id="camStatus" class="small text-muted">
-                Requesting camera permission…
-              </div>
-              <ul class="small text-muted mt-2 mb-0">
-                <li>Your video is not stored.</li>
-                <li>You can disable camera after this step.</li>
-              </ul>
-            </div>
-          </div>
-
-          <form method="post" class="needs-validation" novalidate>
-            <!-- REQUIRED acknowledgement (must be checked to submit) -->
-            <div class="form-check mb-3">
-              <input class="form-check-input" type="checkbox" value="1" id="ackBox" name="ack" required>
-              <label class="form-check-label" for="ackBox">
-                I understand that blocking camera access may void my application.
-              </label>
-              <div class="invalid-feedback">Please acknowledge to continue.</div>
-            </div>
-
-            <!-- We record camera outcome for reference; backend can ignore -->
-            <input type="hidden" name="cam" id="camField" value="pending">
-
-            <div class="d-flex justify-content-between">
-              <a class="btn btn-outline-secondary" href="{{ url_for('apply', code=c.jd_code) }}">Back</a>
-              <button type="submit" class="btn btn-primary">
-                Continue
-              </button>
-            </div>
-          </form>
-
+      <hr class="my-2">
+      <div class="d-flex align-items-start gap-2 py-2">
+        <span class="text-primary mt-1">○</span>
+        <div>
+          <div class="fw-semibold">Quiet Environment</div>
+          <div class="text-muted small">Choose a quiet, well-lit space with minimal background noise.</div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Camera access -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="fw-semibold mb-2">Allow Camera Access</div>
+      <p class="text-muted mb-3">
+        To ensure fairness and authenticity for all candidates, please allow access to your camera before starting.
+      </p>
+
+      <hr class="my-2">
+
+      <div class="d-flex align-items-start gap-2">
+        <span class="text-primary mt-1">○</span>
+        <div class="flex-grow-1">
+          <div class="fw-semibold">Camera Access</div>
+          <div class="text-muted small mb-3">
+            Your video and activity data will only be used for identity verification and evaluation integrity purposes.
+            They will not be stored or shared externally.
+          </div>
+
+          <!-- Browser prompt mock (purely visual) -->
+          <div class="cg-prompt shadow-sm border rounded-3 p-3 mx-auto" style="max-width:340px;">
+            <div class="small fw-semibold mb-2 text-muted">abcdefg.com wants to</div>
+            <div class="small mb-3">Use your camera</div>
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-light border">Allow this time</button>
+              <button type="button" class="btn btn-light border">Allow on every visit</button>
+              <button type="button" class="btn btn-light border">Don’t allow</button>
+            </div>
+          </div>
+
+          <div class="text-muted small mt-3">
+            <strong>Note:</strong> You can proceed even if you choose “Don’t allow,” but doing so may void your application.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Acknowledgement + Start -->
+  <form id="cam-form" method="post" novalidate>
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Acknowledgement</div>
+        <p class="text-muted small mb-3">
+          Failure to answer questions may result in removal from consideration for this role.
+        </p>
+
+        <div class="form-check mb-1">
+          <input class="form-check-input" type="checkbox" id="ack" name="ack" required>
+          <label class="form-check-label" for="ack">
+            I understand that not responding to questions may forfeit my opportunity, and that declining camera access may void my application.
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center">
+      <button id="startBtn" class="btn btn-primary px-5" type="submit">Start</button>
+    </div>
+  </form>
 </div>
 
+<!-- Page-scoped styles so we don't affect anything else -->
 <style>
-  #camPreview { width: 100%; height: 100%; object-fit: cover; background: #000; }
+  .cg-prompt .btn { border-radius: 10px; }
 </style>
 
 <script>
-(function () {
-  const statusEl = document.getElementById('camStatus');
-  const videoEl  = document.getElementById('camPreview');
-  const camField = document.getElementById('camField');
+  (function () {
+    const form = document.getElementById('cam-form');
+    const btn  = document.getElementById('startBtn');
+    const ack  = document.getElementById('ack');
 
-  // Bootstrap-style client-side validation for the required checkbox
-  document.querySelectorAll('.needs-validation').forEach((form) => {
-    form.addEventListener('submit', (e) => {
+    btn.addEventListener('click', async function (e) {
+      // Let HTML5 required validation run first
       if (!form.checkValidity()) {
-        e.preventDefault();
-        e.stopPropagation();
+        // allow browser to show native validation UI
+        return;
       }
-      form.classList.add('was-validated');
-    }, false);
-  });
+      e.preventDefault();
 
-  // Try to get camera; continue is allowed regardless of result
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then((stream) => {
-        try { videoEl.srcObject = stream; }
-        catch { videoEl.src = window.URL.createObjectURL(stream); }
-        camField.value = 'granted';
-        statusEl.innerHTML = '<span class="text-success">Camera access granted.</span>';
-      })
-      .catch((err) => {
-        camField.value = 'denied';
-        statusEl.innerHTML =
-          '<span class="text-danger">Camera access blocked or unavailable.</span> ' +
-          '<span class="text-muted">You can still continue, but your application may be void.</span>';
-        console.warn('getUserMedia error:', err);
-      });
-  } else {
-    camField.value = 'unsupported';
-    statusEl.innerHTML =
-      '<span class="text-warning">Camera not supported on this device/browser.</span> ' +
-      '<span class="text-muted">You can still continue.</span>';
-  }
-})();
+      // Try to trigger the browser's camera prompt; continue regardless of outcome.
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          // Immediately stop tracks; we only needed the permission prompt.
+          stream.getTracks().forEach(t => t.stop());
+        }
+      } catch (err) {
+        // Permission denied or no device — intentionally ignored.
+      }
+      form.submit();
+    });
+  })();
 </script>
 
 {% endblock %}
