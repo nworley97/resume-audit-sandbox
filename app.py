@@ -232,15 +232,25 @@ def _apply_candidate_filters(query, args):
 
 @app.route("/privacy")
 def privacy():
-    path = LEGAL_DIR / "20250811_Privacy.docx"
-    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Privacy policy coming soon.</p>")
-    return render_template("legal.html", title="Privacy Policy", body=body)
+    path = (Path(__file__).resolve().parent / "static" / "legal" / "20250811_Privacy.docx")
+    if not path.exists():
+        return render_template("legal.html", title="Privacy Policy",
+                               body=Markup("<p>Privacy policy coming soon.</p>"))
+    import mimetypes
+    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    # download_name keeps the original file format
+    return send_file(path, as_attachment=True, download_name=path.name, mimetype=mime)
 
 @app.route("/terms")
 def terms():
-    path = LEGAL_DIR / "20250811_Terms.docx"
-    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Terms of Service coming soon.</p>")
-    return render_template("legal.html", title="Terms of Service", body=body)
+    path = (Path(__file__).resolve().parent / "static" / "legal" / "20250811_Terms.docx")
+    if not path.exists():
+        return render_template("legal.html", title="Terms of Service",
+                               body=Markup("<p>Terms of Service coming soon.</p>"))
+    import mimetypes
+    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    return send_file(path, as_attachment=True, download_name=path.name, mimetype=mime)
+
 
 @app.route("/candidates/export.csv")
 @login_required
@@ -690,7 +700,8 @@ def finish_application(code, cid):
     db.merge(c); db.commit(); db.close()
 
     if not current_user.is_authenticated:
-        return render_template("submit_thanks.html", title="Thanks", name=c.name)
+        return render_template("submit_thanks.html", title="Thanks", name=c.name, code=c.jd_code)
+
 
     avg  = round(sum(scores)/len(scores),2)
     qa   = list(zip(c.questions, c.answers, c.answer_scores))
