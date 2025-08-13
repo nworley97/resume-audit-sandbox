@@ -639,7 +639,8 @@ def question_paged(code, cid, idx):
             return redirect(url_for("question_paged", code=code, cid=cid, idx=idx-1))
         if action == "next" and idx < n-1:
             return redirect(url_for("question_paged", code=code, cid=cid, idx=idx+1))
-        return redirect(url_for("finish_application", code=code, cid=cid))
+        return redirect(url_for("self_id", code=code, cid=cid))
+
 
     current_q = c.questions[idx]
     current_a = (c.answers or [""]*n)[idx] if c.answers else ""
@@ -648,6 +649,34 @@ def question_paged(code, cid, idx):
                            title="Questions",
                            name=c.name, code=code, cid=cid,
                            q=current_q, a=current_a, idx=idx, n=n, progress=progress)
+@app.route("/apply/<code>/<cid>/self-id", methods=["GET", "POST"])
+def self_id(code, cid):
+    db = SessionLocal()
+    try:
+        c = db.get(Candidate, cid)
+        if not c or c.jd_code != code:
+            flash("Application not found")
+            return redirect(url_for("apply", code=code))
+
+        if request.method == "POST":
+            data = {
+                "gender":     (request.form.get("gender") or "Decline to self-identify").strip(),
+                "hispanic":   (request.form.get("hispanic") or "Decline to self-identify").strip(),
+                "veteran":    (request.form.get("veteran") or "I don't wish to answer").strip(),
+                "disability": (request.form.get("disability") or "I don't want to answer").strip(),
+                "ts_utc":     datetime.utcnow().isoformat() + "Z",
+            }
+            rjs = dict(c.resume_json or {})
+            rjs["_self_id"] = data
+            c.resume_json = rjs
+            db.merge(c); db.commit()
+            return redirect(url_for("finish_application", code=code, cid=cid))
+
+        existing = (c.resume_json or {}).get("_self_id", {})
+        return render_template("self_id.html", title="Voluntary Self-Identification", c=c, data=existing)
+    finally:
+        db.close()
+
 
 @app.route("/apply/<code>/<cid>/finish")
 def finish_application(code, cid):
