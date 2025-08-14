@@ -2,7 +2,8 @@
 {% block content %}
 <h3 class="mb-2">{{ name }}, please answer:</h3>
 <p class="text-muted">{{ progress }}</p>
-<form method="post">
+
+<form method="post" id="qaForm">
   <div class="card p-4 mb-3">
     <strong>{{ q }}</strong>
     <textarea name="answer" class="form-control mt-2" rows="4" maxlength="1000" required>{{ a }}</textarea>
@@ -25,6 +26,19 @@
     const update = () => { cc.textContent = (ta.value || '').length; };
     ta.addEventListener('input', update);
     update();
+  })();
+</script>
+
+<script>
+  (function(){
+    const form = document.getElementById('qaForm');
+    form.addEventListener('click', function(e){
+      const btn = e.target.closest('button[name="action"]');
+      if (!btn) return;
+      if (btn.value === 'finish') {
+        showBusy('Scoring your answers…');
+      }
+    });
   })();
 </script>
 {% endblock %}

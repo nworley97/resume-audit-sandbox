@@ -1,14 +1,17 @@
-import os, json, uuid, logging, tempfile, mimetypes, re, io
+import os, json, uuid, logging, tempfile, mimetypes, re, io, csv
 from datetime import datetime
 from flask import (
     Flask, request, redirect, url_for,
     render_template, flash, send_file, abort, make_response
 )
+from pathlib import Path
+from markupsafe import Markup, escape
 from flask_login import (
     LoginManager, login_user, login_required,
     logout_user, current_user
 )
-import PyPDF2, docx
+import PyPDF2, docx, bleach
+from bleach.css_sanitizer import CSSSanitizer
 from openai import OpenAI
 from sqlalchemy import or_, text, inspect
 from dateutil import parser as dtparse
@@ -117,6 +120,7 @@ def realism_check(rjs: dict) -> bool:
 
 def generate_questions(rjs: dict, jd_text: str) -> list[str]:
     # Per requirement: base questions ONLY on résumé, ignore JD.
+    raw = ""
     try:
         raw = chat(
             "You are an interviewer.",
@@ -128,7 +132,8 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
     except Exception as e:
         logging.warning("Fallback triggered in question generation: %s", e)
 
-    lines = raw.splitlines()
+    # Fallbacks
+    lines = (raw or "").splitlines()
     cleaned = []
     for line in lines:
         line = line.strip().strip("-• ").strip('"').strip(',')
@@ -141,6 +146,13 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
             len(line) > 10
         ):
             cleaned.append(line)
+    if not cleaned:
+        cleaned = [
+            "Tell us about a project you’re most proud of and your specific contributions.",
+            "Describe a time you overcame a technical challenge—what was the root cause and outcome?",
+            "How do you prioritize tasks when timelines are tight and requirements change?",
+            "Which skills from your résumé would make the biggest impact in this role, and why?"
+        ]
     return cleaned[:4]
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
@@ -167,10 +179,150 @@ def _parse_dt(val: str):
     except Exception:
         return None
 
+# --- Legal pages: load DOCX and render as simple HTML ---
+BASE_DIR = Path(__file__).resolve().parent
+LEGAL_DIR = BASE_DIR / "static" / "legal"
+
+def docx_to_html_simple(docx_path: Path) -> Markup:
+    """
+    Very light DOCX -> HTML: headings become <h2>/<h3>, everything else <p>.
+    Preserves blank lines; escapes HTML.
+    """
+    d = docx.Document(str(docx_path))
+    parts = []
+    for p in d.paragraphs:
+        txt = (p.text or "").strip()
+        style = getattr(getattr(p, "style", None), "name", "") or ""
+        if not txt:
+            parts.append("<br>")
+            continue
+        if style.startswith("Heading"):
+            level = "".join(ch for ch in style if ch.isdigit())
+            level = int(level) if level.isdigit() else 2
+            level = 2 if level == 1 else 3 if level == 2 else 4
+            parts.append(f"<h{level}>{escape(txt)}</h{level}>")
+        else:
+            parts.append(f"<p>{escape(txt)}</p>")
+    return Markup("\n".join(parts))
+
 # ─── Home ─────────────────────────────────────────────────────────
 @app.route("/")
 def home():
     return redirect(url_for("login")) if not current_user.is_authenticated else redirect(url_for("recruiter"))
+
+# ─── CSV Export: Current View vs All (NEW) ───────────────────────
+def _apply_candidate_filters(query, args):
+    q_str = (args.get("q") or "").strip()
+    if q_str:
+        like = f"%{q_str}%"
+        query = query.filter(or_(
+            Candidate.name.ilike(like),
+            Candidate.id.ilike(like)
+        ))
+    jd_code = (args.get("jd") or "").strip()
+    if jd_code:
+        query = query.join(JobDescription).filter(JobDescription.code == jd_code)
+    date_from = (args.get("from") or "").strip()
+    if date_from:
+        query = query.filter(Candidate.created_at >= date_from)
+    date_to = (args.get("to") or "").strip()
+    if date_to:
+        query = query.filter(Candidate.created_at <= date_to)
+    return query
+
+@app.route("/privacy")
+def privacy():
+    path = (Path(__file__).resolve().parent / "static" / "legal" / "20250811_Privacy.docx")
+    if not path.exists():
+        return render_template("legal.html", title="Privacy Policy",
+                               body=Markup("<p>Privacy policy coming soon.</p>"))
+    import mimetypes
+    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    # download_name keeps the original file format
+    return send_file(path, as_attachment=True, download_name=path.name, mimetype=mime)
+
+@app.route("/terms")
+def terms():
+    path = (Path(__file__).resolve().parent / "static" / "legal" / "20250811_Terms.docx")
+    if not path.exists():
+        return render_template("legal.html", title="Terms of Service",
+                               body=Markup("<p>Terms of Service coming soon.</p>"))
+    import mimetypes
+    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    return send_file(path, as_attachment=True, download_name=path.name, mimetype=mime)
+
+
+@app.route("/candidates/export.csv")
+@login_required
+def candidates_export_csv():
+    """
+    Export Current View (default) or All (?all=1) as CSV.
+    Works even if Candidate has no relationship to JobDescription.
+    """
+    export_all = request.args.get("all") == "1"
+    session = SessionLocal()
+    try:
+        q = (
+            session.query(
+                Candidate,
+                JobDescription.code.label("jd_code"),
+                JobDescription.title.label("jd_title"),
+            )
+            .outerjoin(JobDescription, JobDescription.code == Candidate.jd_code)
+        )
+
+        q_str = (request.args.get("q") or "").strip()
+        if q_str:
+            like = f"%{q_str}%"
+            q = q.filter(or_(Candidate.name.ilike(like), Candidate.id.ilike(like)))
+
+        jd_code = (request.args.get("jd") or "").strip()
+        if jd_code and not export_all:
+            q = q.filter(Candidate.jd_code == jd_code)
+
+        date_from = (request.args.get("from") or "").strip()
+        if date_from and not export_all:
+            q = q.filter(Candidate.created_at >= date_from)
+        date_to = (request.args.get("to") or "").strip()
+        if date_to and not export_all:
+            q = q.filter(Candidate.created_at <= date_to)
+
+        rows = q.order_by(Candidate.created_at.desc()).all()
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Name", "JD Code", "JD Title", "Fit", "Claim Avg", "Created At"])
+
+        for c, jd_code_val, jd_title_val in rows:
+            scores = c.scores if isinstance(getattr(c, "scores", None), dict) else {}
+            fit = getattr(c, "fit_score", None) or scores.get("fit") or getattr(c, "fit", None)
+
+            claim_avg = scores.get("claim_avg")
+            if claim_avg is None and getattr(c, "answer_scores", None):
+                try:
+                    claim_avg = round(sum(c.answer_scores) / len(c.answer_scores), 2)
+                except Exception:
+                    claim_avg = None
+
+            writer.writerow([
+                c.id,
+                getattr(c, "name", ""),
+                jd_code_val or c.jd_code or "",
+                jd_title_val or "",
+                fit if fit is not None else "",
+                claim_avg if claim_avg is not None else "",
+                c.created_at.isoformat() if getattr(c, "created_at", None) else "",
+            ])
+
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode("utf-8")),
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="candidates.csv",
+        )
+    finally:
+        session.close()
 
 # ─── Auth ────────────────────────────────────────────────────────
 @app.route("/create-admin")
@@ -219,29 +371,99 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
+# ─── Camera gate ─────────────────────────────────────────────────
+@app.route("/apply/<code>/<cid>/camera", methods=["GET","POST"])
+def camera_gate(code, cid):
+    db = SessionLocal()
+    c  = db.get(Candidate, cid)
+    db.close()
+    if not c or c.jd_code != code:
+        flash("Application not found"); return redirect(url_for("apply", code=code))
+
+    if request.method == "POST":
+        # Require acknowledgement checkbox. Camera permission can be denied and still proceed.
+        if not request.form.get("ack"):
+            flash("Please acknowledge the warning to continue.")
+            return render_template("camera_gate.html", title="Camera Check", c=c)
+        return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
+
+    return render_template("camera_gate.html", title="Camera Check", c=c)
+
+# --- JD HTML sanitizer (Bleach ≥6) ---
+ALLOWED_TAGS = set(bleach.sanitizer.ALLOWED_TAGS) | {
+    "p","br","div","span","ul","ol","li","strong","b","em","i","u","h2","h3","h4","a"
+}
+ALLOWED_ATTRS = {
+    **bleach.sanitizer.ALLOWED_ATTRIBUTES,
+    "a": ["href","rel","target"],
+    "span": ["style","class"],
+    "div":  ["style","class"],
+    "p":    ["style","class"],
+    "li":   ["style","class"],
+    "ul":   ["class"],
+    "ol":   ["class"],
+}
+CSS_ALLOWED = CSSSanitizer(
+    allowed_css_properties=["font-family", "font-weight", "text-decoration"]
+)
+def sanitize_jd(html: str) -> str:
+    linked = bleach.linkify(html or "")
+    return bleach.clean(
+        linked,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        css_sanitizer=CSS_ALLOWED,
+        strip=True,
+    )
+
 # ─── JD Management ──────────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
 @login_required
 def edit_jd():
     db = SessionLocal()
-    jd = db.get(JobDescription, request.args.get("code")) or JobDescription(code="JD01", title="", html="", status="draft")
+    code_qs = request.args.get("code")
+    jd = db.get(JobDescription, code_qs) or JobDescription(code="", title="", html="", status="draft")
+
     if request.method=="POST":
-        jd.code            = request.form["jd_code"].strip()
-        jd.title           = request.form["jd_title"].strip()
-        jd.html            = request.form["jd_text"]
-        jd.status          = request.form.get("jd_status","draft")
-        jd.department      = request.form.get("jd_department","").strip() or None
-        jd.team            = request.form.get("jd_team","").strip() or None
-        jd.location        = request.form.get("jd_location","").strip() or None
-        jd.employment_type = request.form.get("jd_employment_type","").strip() or None
-        jd.salary_range    = request.form.get("jd_salary_range","").strip() or None
-        jd.start_date      = _parse_dt(request.form.get("jd_start",""))
-        jd.end_date        = _parse_dt(request.form.get("jd_end",""))
-        jd.updated_at      = datetime.utcnow()
+        posted_code     = request.form["jd_code"].strip()
+        html_sanitized  = sanitize_jd(request.form.get("jd_text",""))
+
+        if jd.code:  # editing existing JD — do not allow code change here
+            jd.title           = request.form["jd_title"].strip()
+            jd.html            = html_sanitized
+            jd.status          = request.form.get("jd_status","draft")
+            jd.department      = request.form.get("jd_department","").strip() or None
+            jd.team            = request.form.get("jd_team","").strip() or None
+            jd.location        = request.form.get("jd_location","").strip() or None
+            jd.employment_type = request.form.get("jd_employment_type","").strip() or None
+            jd.salary_range    = request.form.get("jd_salary_range","").strip() or None
+            jd.start_date      = _parse_dt(request.form.get("jd_start",""))
+            jd.end_date        = _parse_dt(request.form.get("jd_end",""))
+            jd.updated_at      = datetime.utcnow()
+        else:
+            # creating new
+            if not posted_code:
+                db.close()
+                flash("Job code is required")
+                return redirect(request.url)
+            jd.code            = posted_code
+            jd.title           = request.form["jd_title"].strip()
+            jd.html            = html_sanitized
+            jd.status          = request.form.get("jd_status","draft")
+            jd.department      = request.form.get("jd_department","").strip() or None
+            jd.team            = request.form.get("jd_team","").strip() or None
+            jd.location        = request.form.get("jd_location","").strip() or None
+            jd.employment_type = request.form.get("jd_employment_type","").strip() or None
+            jd.salary_range    = request.form.get("jd_salary_range","").strip() or None
+            jd.start_date      = _parse_dt(request.form.get("jd_start",""))
+            jd.end_date        = _parse_dt(request.form.get("jd_end",""))
+            jd.updated_at      = datetime.utcnow()
+
         db.merge(jd); db.commit(); db.close()
         flash("JD saved")
         return redirect(url_for("recruiter"))
-    out = render_template("edit_jd.html", title="Edit Job", jd=jd)
+
+    out = render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=bool(jd.code and jd.candidates))
     db.close()
     return out
 
@@ -276,7 +498,7 @@ def view_candidates(code):
     db.close()
     return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps)
 
-# ─── Global Candidates + Export ─────────────────────────────────
+# ─── Global Candidates + (legacy) Export ─────────────────────────
 @app.route("/candidates")
 @login_required
 def global_candidates():
@@ -303,6 +525,7 @@ def global_candidates():
 @app.route("/export/candidates.csv")
 @login_required
 def export_candidates():
+    # Legacy export: exports current filtered view only (kept for backward compatibility)
     q  = request.args.get("q","").strip()
     jd = request.args.get("jd","").strip()
 
@@ -342,28 +565,39 @@ def apply(code):
     # if jd.status != "published" and not current_user.is_authenticated:
     #     abort(404)
 
-    if request.method=="POST":
-        name = request.form.get("name","").strip()
-        f    = request.files.get("resume_file")
-        if not name or not f or not f.filename:
-            flash("Name & file required"); return redirect(request.url)
+    if request.method == "POST":
+        name  = request.form.get("name","").strip()
+        email = request.form.get("email","").strip()
+        f     = request.files.get("resume_file")
 
-        ext  = os.path.splitext(f.filename)[1] or ".pdf"
-        with tempfile.NamedTemporaryFile(delete=False,suffix=ext) as tmp:
+        if not name or not f or not f.filename:
+            flash("Name & file required")
+            return redirect(request.url)
+
+        ext = os.path.splitext(f.filename)[1] or ".pdf"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             f.save(tmp.name)
             path = tmp.name
 
         try:
-            text = file_to_text(path, mimetypes.guess_type(f.filename)[0] or f.mimetype)
+            mime_guess = mimetypes.guess_type(f.filename)[0] or f.mimetype
+            text = file_to_text(path, mime_guess)
         except ValueError:
-            flash("PDF or DOCX only"); return redirect(request.url)
+            flash("PDF or DOCX only")
+            return redirect(request.url)
 
-        rjs  = resume_json(text)
+        rjs = resume_json(text)
+        if email:
+            try:
+                rjs["applicant_email"] = email
+            except Exception:
+                pass
+
         fit  = fit_score(rjs, jd.html)
         real = realism_check(rjs)
         qs   = generate_questions(rjs, jd.html)
 
-        cid = str(uuid.uuid4())[:8]
+        cid     = str(uuid.uuid4())[:8]
         storage = upload_pdf(path)
 
         db = SessionLocal()
@@ -381,7 +615,8 @@ def apply(code):
         )
         db.add(c); db.commit(); db.close()
 
-        return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
+        # Go to camera gate before questions
+        return redirect(url_for("camera_gate", code=code, cid=cid))
 
     return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd)
 
@@ -414,7 +649,8 @@ def question_paged(code, cid, idx):
             return redirect(url_for("question_paged", code=code, cid=cid, idx=idx-1))
         if action == "next" and idx < n-1:
             return redirect(url_for("question_paged", code=code, cid=cid, idx=idx+1))
-        return redirect(url_for("finish_application", code=code, cid=cid))
+        return redirect(url_for("self_id", code=code, cid=cid))
+
 
     current_q = c.questions[idx]
     current_a = (c.answers or [""]*n)[idx] if c.answers else ""
@@ -423,6 +659,34 @@ def question_paged(code, cid, idx):
                            title="Questions",
                            name=c.name, code=code, cid=cid,
                            q=current_q, a=current_a, idx=idx, n=n, progress=progress)
+@app.route("/apply/<code>/<cid>/self-id", methods=["GET", "POST"])
+def self_id(code, cid):
+    db = SessionLocal()
+    try:
+        c = db.get(Candidate, cid)
+        if not c or c.jd_code != code:
+            flash("Application not found")
+            return redirect(url_for("apply", code=code))
+
+        if request.method == "POST":
+            data = {
+                "gender":     (request.form.get("gender") or "Decline to self-identify").strip(),
+                "hispanic":   (request.form.get("hispanic") or "Decline to self-identify").strip(),
+                "veteran":    (request.form.get("veteran") or "I don't wish to answer").strip(),
+                "disability": (request.form.get("disability") or "I don't want to answer").strip(),
+                "ts_utc":     datetime.utcnow().isoformat() + "Z",
+            }
+            rjs = dict(c.resume_json or {})
+            rjs["_self_id"] = data
+            c.resume_json = rjs
+            db.merge(c); db.commit()
+            return redirect(url_for("finish_application", code=code, cid=cid))
+
+        existing = (c.resume_json or {}).get("_self_id", {})
+        return render_template("self_id.html", title="Voluntary Self-Identification", c=c, data=existing)
+    finally:
+        db.close()
+
 
 @app.route("/apply/<code>/<cid>/finish")
 def finish_application(code, cid):
@@ -436,7 +700,8 @@ def finish_application(code, cid):
     db.merge(c); db.commit(); db.close()
 
     if not current_user.is_authenticated:
-        return render_template("submit_thanks.html", title="Thanks", name=c.name)
+        return render_template("submit_thanks.html", title="Thanks", name=c.name, code=c.jd_code)
+
 
     avg  = round(sum(scores)/len(scores),2)
     qa   = list(zip(c.questions, c.answers, c.answer_scores))

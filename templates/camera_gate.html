@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container-narrow mx-auto" style="max-width:860px;">
+  <h2 class="text-center mt-3 mb-2">Hi {{ c.name.split(' ')[0] if c.name else '' }}!</h2>
+  <p class="text-center mb-4">To help us get to know you better, please answer a few short questions.</p>
+
+  <form method="post" id="cam-form" novalidate>
+    <!-- Prep tips card -->
+    <div class="card mb-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="mb-3">Preparation Tips</h6>
+        <div class="border-top py-3">
+          <strong class="me-2">🔗 Stable Internet Connection</strong>
+          <div class="text-muted small">Ensure a reliable connection to avoid interruptions.</div>
+        </div>
+        <div class="border-top py-3">
+          <strong class="me-2">🔇 Quiet Environment</strong>
+          <div class="text-muted small">Choose a quiet place to minimize background noise.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Camera card -->
+    <div class="card mb-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="mb-2">Allow Camera Access</h6>
+        <div class="text-muted small mb-3">
+          To ensure fairness and authenticity, we’ll ask your browser for camera access when you continue.
+          Your video and activity data will only be used for identity verification and integrity purposes.
+        </div>
+
+        <!-- Static illustration (flat image) -->
+<!-- Static illustration (no interactivity) -->
+<div class="permission-illustration d-flex justify-content-center my-2">
+  <img
+    src="{{ url_for('static', filename='img/camera-permission.jpg') }}"
+    alt="Browser camera permission prompt"
+    class="img-fluid shadow-sm rounded-3"
+    style="max-width:420px; height:auto;"
+  >
+</div>
+
+        <!-- Warning -->
+        <div class="alert alert-warning d-flex align-items-start gap-2 small mt-3" role="alert" style="border-radius:12px;">
+          ⚠️ <div><strong>Heads up:</strong> If you deny camera access in your browser, your application may be voided by the hiring team.
+          You can still proceed below.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Required acknowledgement -->
+    <div class="card mb-4 shadow-sm">
+      <div class="card-body">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="ack" name="ack" required aria-required="true">
+          <label class="form-check-label" for="ack">
+            I understand that not responding to questions may forfeit my opportunity.
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center">
+      <button id="startBtn" class="btn btn-primary px-4" type="submit">Start</button>
+    </div>
+  </form>
+</div>
+
+<style>
+  .container-narrow { padding-bottom: 32px; }
+
+  /* center the illustration */
+  .permission-illustration {
+    display: flex;
+    justify-content: center;
+  }
+  .permission-img {
+    max-width: 520px;   /* keeps it nicely sized on desktop */
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.08);
+  }
+</style>
+
+<script>
+  (function(){
+    const form = document.getElementById('cam-form');
+    const btn  = document.getElementById('startBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.reportValidity()) return; // enforces required checkbox
+      btn.disabled = true;
+
+      try {
+        if (navigator.mediaDevices?.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          stream.getTracks().forEach(t => t.stop());
+        }
+      } catch (err) {
+        // ignore — proceed either way
+      } finally {
+        form.submit();
+      }
+    });
+  })();
+</script>
+
+{% endblock %}

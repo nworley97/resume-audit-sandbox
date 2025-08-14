@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">{{ title }}</h3>
+<div class="card p-4 legal-copy">
+  {{ body|safe }}
+</div>
+{% endblock %}

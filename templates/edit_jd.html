@@ -1,65 +1,145 @@
 {% extends "base.html" %}
 {% block content %}
-<h3 class="mb-3">Edit Job</h3>
-<form method="post" class="card p-4">
-  <div class="row">
-    <div class="col-md-4">
-      <label class="form-label">Code</label>
-      <input name="jd_code" value="{{ jd.code }}" class="form-control mb-3" required>
-    </div>
-    <div class="col-md-8">
-      <label class="form-label">Title</label>
-      <input name="jd_title" value="{{ jd.title }}" class="form-control mb-3" required>
-    </div>
-  </div>
 
-  <div class="row">
-    <div class="col-md-4">
+<h3 class="mb-3">Edit Job</h3>
+
+<form method="post"
+      id="jd-form"
+      action="{{ url_for('edit_jd') }}{% if jd and jd.code %}?code={{ jd.code }}{% endif %}">
+  <div class="row g-3">
+
+    <div class="col-md-3">
+      <label class="form-label">Code</label>
+      <input name="jd_code"
+             class="form-control"
+             value="{{ jd.code }}"
+             required
+             {% if has_candidates %}readonly{% endif %}>
+      {% if has_candidates %}
+        <div class="form-text text-muted">Job code can’t be changed because candidates already exist.</div>
+      {% endif %}
+    </div>
+
+    <div class="col-md-9">
+      <label class="form-label">Title</label>
+      <input name="jd_title" class="form-control" value="{{ jd.title }}" required>
+    </div>
+
+    <div class="col-md-3">
       <label class="form-label">Status</label>
-      <select name="jd_status" class="form-select mb-3">
-        <option value="draft" {% if jd.status!='published' %}selected{% endif %}>Draft</option>
+      <select name="jd_status" class="form-select">
+        <option value="draft"     {% if jd.status=='draft' %}selected{% endif %}>Draft</option>
         <option value="published" {% if jd.status=='published' %}selected{% endif %}>Published</option>
       </select>
     </div>
-    <div class="col-md-4">
+
+    <div class="col-md-3">
       <label class="form-label">Department</label>
-      <input name="jd_department" value="{{ jd.department or '' }}" class="form-control mb-3">
+      <input name="jd_department" class="form-control" value="{{ jd.department or '' }}">
     </div>
-    <div class="col-md-4">
+
+    <div class="col-md-3">
       <label class="form-label">Team</label>
-      <input name="jd_team" value="{{ jd.team or '' }}" class="form-control mb-3">
+      <input name="jd_team" class="form-control" value="{{ jd.team or '' }}">
     </div>
-  </div>
 
-  <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-3">
       <label class="form-label">Location</label>
-      <input name="jd_location" value="{{ jd.location or '' }}" class="form-control mb-3">
+      <input name="jd_location" class="form-control" value="{{ jd.location or '' }}">
     </div>
-    <div class="col-md-4">
+
+    <div class="col-md-3">
       <label class="form-label">Employment Type</label>
-      <input name="jd_employment_type" value="{{ jd.employment_type or '' }}" class="form-control mb-3" placeholder="Full-time, Contract...">
+      <input name="jd_employment_type" class="form-control" value="{{ jd.employment_type or '' }}">
     </div>
-    <div class="col-md-4">
+
+    <div class="col-md-3">
       <label class="form-label">Salary Range</label>
-      <input name="jd_salary_range" value="{{ jd.salary_range or '' }}" class="form-control mb-3" placeholder="$X–$Y">
+      <input name="jd_salary_range" class="form-control" value="{{ jd.salary_range or '' }}">
     </div>
-  </div>
 
-  <div class="row">
-    <div class="col-md-6">
+    <div class="col-md-3">
       <label class="form-label">Start Date</label>
-      <input name="jd_start" value="{{ jd.start_date or '' }}" class="form-control mb-3" placeholder="YYYY-MM-DD or ISO 8601">
+      <input name="jd_start" type="date" class="form-control"
+             value="{{ jd.start_date.date() if jd.start_date else '' }}">
     </div>
-    <div class="col-md-6">
+
+    <div class="col-md-3">
       <label class="form-label">End Date</label>
-      <input name="jd_end" value="{{ jd.end_date or '' }}" class="form-control mb-3" placeholder="YYYY-MM-DD or ISO 8601">
+      <input name="jd_end" type="date" class="form-control"
+             value="{{ jd.end_date.date() if jd.end_date else '' }}">
     </div>
+
+    <!-- Rich Text JD -->
+    <div class="col-12">
+      <label class="form-label">Job Description</label>
+
+      <!-- Hidden field that will receive the editor HTML -->
+      <textarea name="jd_text" id="jd_text" class="d-none"></textarea>
+
+      <!-- Quill toolbar + editor -->
+      <div id="jd_toolbar" class="mb-2">
+        <span class="ql-formats">
+          <select class="ql-font"></select>
+        </span>
+        <span class="ql-formats">
+          <button type="button" class="ql-bold"></button>
+          <button type="button" class="ql-underline"></button>
+        </span>
+        <span class="ql-formats">
+          <button type="button" class="ql-list" value="bullet"></button>
+          <button type="button" class="ql-list" value="ordered"></button>
+        </span>
+      </div>
+      <div id="jd_editor" style="min-height:240px; background:#fff; border:1px solid #dee2e6; border-radius:12px;"></div>
+    </div>
+
   </div>
 
-  <label class="form-label">Description (HTML)</label>
-  <textarea name="jd_text" rows="8" class="form-control mb-3">{{ jd.html }}</textarea>
-
-  <button class="btn btn-primary">Save</button>
+  <!-- Sticky action bar so it never hides behind the footer -->
+  <div class="jd-actions d-flex justify-content-end gap-2 mt-4">
+    <a class="btn btn-outline-secondary" href="{{ url_for('recruiter') }}">Cancel</a>
+    <button class="btn btn-primary" type="submit">Save</button>
+  </div>
 </form>
+
+<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+
+<script>
+  (function(){
+    const Font = Quill.import('formats/font');
+    Font.whitelist = ['arial','sans-serif','times-new-roman','courier-new'];
+    Quill.register(Font, true);
+
+    const editor = new Quill('#jd_editor', {
+      theme: 'snow',
+      modules: { toolbar: '#jd_toolbar', clipboard: { matchVisual: true } }
+    });
+
+    const initial = {{ (jd.html or '')|tojson }};
+    editor.clipboard.dangerouslyPasteHTML(initial);
+
+    document.getElementById('jd-form').addEventListener('submit', function(){
+      document.getElementById('jd_text').value = editor.root.innerHTML;
+    });
+  })();
+</script>
+
+<style>
+  .ql-font-arial           { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; }
+  .ql-font-sans-serif      { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  .ql-font-times-new-roman { font-family: "Times New Roman", Times, serif; }
+  .ql-font-courier-new     { font-family: "Courier New", Courier, monospace; }
+
+  /* Keep the action bar visible above your sticky footer */
+  .jd-actions{
+    position: sticky;
+    bottom: 72px;     /* adjust if your footer height differs */
+    background: var(--bs-body-bg, #fff);
+    padding: 12px 0;
+    z-index: 2;
+  }
+</style>
+
 {% endblock %}
