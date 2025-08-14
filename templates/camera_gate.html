@@ -31,13 +31,15 @@
         </div>
 
         <!-- Static illustration (flat image) -->
-        <div class="permission-illustration my-2">
-          <img
-            src="{{ url_for('static', filename='img/camera-permission.jpg') }}"
-            alt="Browser camera permission dialog"
-            class="permission-img img-fluid"
-            loading="lazy">
-        </div>
+<!-- Static illustration (no interactivity) -->
+<div class="permission-illustration d-flex justify-content-center my-2">
+  <img
+    src="{{ url_for('static', filename='img/camera-permission.jpg') }}"
+    alt="Browser camera permission prompt"
+    class="img-fluid shadow-sm rounded-3"
+    style="max-width:420px; height:auto;"
+  >
+</div>
 
         <!-- Warning -->
         <div class="alert alert-warning d-flex align-items-start gap-2 small mt-3" role="alert" style="border-radius:12px;">
