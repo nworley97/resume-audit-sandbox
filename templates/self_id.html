@@ -2,81 +2,104 @@
 {% block content %}
 
 <div class="container-narrow mx-auto" style="max-width:860px;">
-  <h3 class="mt-3 mb-2">Voluntary Self-Identification</h3>
-  <p class="text-muted">
-    For government reporting purposes, we ask candidates to complete this brief self-identification survey.
-    <strong>Completion is entirely voluntary.</strong> Whatever your decision, it will not be considered in the hiring
-    process or thereafter. Any information you provide will be recorded and maintained in a confidential file.
-    Black Box Strategies is an Equal Opportunity Employer and does not discriminate on the basis of any protected status.
+  <h2 class="mt-2 mb-3 text-center">Voluntary Self-Identification</h2>
+
+  <p class="text-muted small">
+    For government reporting purposes, we ask candidates to respond to this voluntary self-identification survey.
+    Completion of the form is entirely voluntary. Whatever your decision, it will not be considered in the hiring
+    process or thereafter. Any information that you do provide will be recorded and maintained in a confidential file.
   </p>
 
-  <form method="post" id="eeo-form" novalidate>
-    <div class="card shadow-sm mb-3">
-      <div class="card-body">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">Gender*</label>
-            <select class="form-select" name="gender" required>
-              <option value="" disabled {% if not data %}selected{% endif %}>Select…</option>
-              <option {% if data and data.get('gender')=='Male' %}selected{% endif %}>Male</option>
-              <option {% if data and data.get('gender')=='Female' %}selected{% endif %}>Female</option>
-              <option {% if data and data.get('gender')=='Decline to self-identify' %}selected{% endif %}>Decline to self-identify</option>
-            </select>
-          </div>
+  <form method="post" class="card p-4 shadow-sm">
+    <div class="row g-3">
+      <!-- Gender -->
+      <div class="col-md-6">
+        <label class="form-label">Gender<span class="text-danger">*</span></label>
+        <select name="gender" class="form-select" required>
+          <option value="" selected disabled>Select…</option>
+          <option>Male</option>
+          <option>Female</option>
+          <option>Decline to self-identify</option>
+        </select>
+      </div>
 
-          <div class="col-md-6">
-            <label class="form-label">Are you Hispanic or Latino?*</label>
-            <select class="form-select" name="hispanic" required>
-              <option value="" disabled {% if not data %}selected{% endif %}>Select…</option>
-              <option {% if data and data.get('hispanic')=='Yes' %}selected{% endif %}>Yes</option>
-              <option {% if data and data.get('hispanic')=='No' %}selected{% endif %}>No</option>
-              <option {% if data and data.get('hispanic')=='Decline to self-identify' %}selected{% endif %}>Decline to self-identify</option>
-            </select>
-          </div>
+      <!-- Hispanic/Latino -->
+      <div class="col-md-6">
+        <label class="form-label">Are you Hispanic or Latino?<span class="text-danger">*</span></label>
+        <select name="hispanic" class="form-select" required>
+          <option value="" selected disabled>Select…</option>
+          <option>Yes</option>
+          <option>No</option>
+          <option>Decline to self-identify</option>
+        </select>
+        <div class="mt-1">
+          <a href="#" class="small text-decoration-none" data-bs-toggle="modal" data-bs-target="#raceDefs">
+            Race &amp; Ethnicity Definitions
+          </a>
+        </div>
+      </div>
 
-          <div class="col-12">
-            <label class="form-label d-block">Veteran Status*</label>
-            <div class="text-muted small mb-2">
-              “Protected veterans” include: disabled veterans; recently separated veterans (within 3 years of discharge);
-              active duty wartime or campaign badge veterans; and Armed Forces service medal veterans.
-            </div>
-            <select class="form-select" name="veteran" required>
-              <option value="" disabled {% if not data %}selected{% endif %}>Select…</option>
-              <option {% if data and data.get('veteran')=='I am not a protected veteran' %}selected{% endif %}>I am not a protected veteran</option>
-              <option {% if data and data.get('veteran')=='I identify as one or more of the classifications' %}selected{% endif %}>I identify as one or more of the classifications</option>
-              <option {% if data and data.get('veteran')=="I don't wish to answer" %}selected{% endif %}>I don't wish to answer</option>
-            </select>
-          </div>
+      <!-- Veteran -->
+      <div class="col-md-6">
+        <label class="form-label">Veteran Status<span class="text-danger">*</span></label>
+        <select name="veteran" class="form-select" required>
+          <option value="" selected disabled>Select…</option>
+          <option>I am not a protected veteran</option>
+          <option>I identify as one or more of the classifications</option>
+          <option>I don't wish to answer</option>
+        </select>
+      </div>
 
-          <div class="col-12">
-            <label class="form-label d-block">Voluntary Self-Identification of Disability*</label>
-            <div class="text-muted small mb-2">
-              A disability is a condition that substantially limits one or more major life activities (for example:
-              diabetes, epilepsy, depression, ADHD, autism, cancer, heart disease, asthma, migraine, mobility
-              impairments, low vision, deafness, PTSD, and others). Your response is confidential and will not be used
-              in hiring decisions.
-            </div>
-            <select class="form-select" name="disability" required>
-              <option value="" disabled {% if not data %}selected{% endif %}>Select…</option>
-              <option {% if data and data.get('disability')=='Yes I have a disability' %}selected{% endif %}>Yes I have a disability</option>
-              <option {% if data and data.get('disability')=="No, I don't have a disability" %}selected{% endif %}>No, I don't have a disability</option>
-              <option {% if data and data.get('disability')=="I don't want to answer" %}selected{% endif %}>I don't want to answer</option>
-            </select>
-          </div>
+      <!-- Disability -->
+      <div class="col-md-6">
+        <label class="form-label">Voluntary Self-Identification of Disability<span class="text-danger">*</span></label>
+        <select name="disability" class="form-select" required>
+          <option value="" selected disabled>Select…</option>
+          <option>Yes, I have a disability</option>
+          <option>No, I don't have a disability</option>
+          <option>I don't want to answer</option>
+        </select>
+        <div class="form-text mt-2">
+          Completing this form is voluntary, and we hope that you will choose to do so. Your answer is confidential.
+          No one who makes hiring decisions will see it. Your decision to complete the form and your answer will not
+          harm you in any way. If you want to learn more about the law or this form, visit the U.S. Department of
+          Labor’s Office of Federal Contract Compliance Programs (OFCCP) website at
+          <a href="https://www.dol.gov/ofccp" target="_blank" rel="noopener">www.dol.gov/ofccp</a>.
         </div>
       </div>
     </div>
 
-    <div class="text-end">
-      <a class="btn btn-outline-secondary" href="{{ url_for('question_paged', code=c.jd_code, cid=c.id, idx=(c.answers|length - 1)|int ) }}">Back</a>
-      <button class="btn btn-primary ms-2" type="submit">Continue</button>
+    <div class="text-end mt-4">
+      <a class="btn btn-outline-secondary" href="{{ url_for('question_paged', code=code, cid=cid, idx=(n-1 if n else 0)) }}">Back</a>
+      <button class="btn btn-primary" type="submit">Submit</button>
     </div>
   </form>
+</div>
 
-  <p class="text-muted small mt-3">
-    Completing this form is voluntary. If you choose not to answer, please select the appropriate “Decline/I don’t wish to answer”
-    option. Thank you.
-  </p>
+<!-- Race & Ethnicity modal -->
+<div class="modal fade" id="raceDefs" tabindex="-1" aria-labelledby="raceDefsLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="raceDefsLabel">Race &amp; Ethnicity Definitions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body small text-muted">
+        <ul class="mb-0">
+          <li><strong>Hispanic or Latino</strong> — A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin, regardless of race.</li>
+          <li><strong>White</strong> — A person having origins in any of the original peoples of Europe, the Middle East, or North Africa.</li>
+          <li><strong>Black or African American</strong> — A person having origins in any of the Black racial groups of Africa.</li>
+          <li><strong>Asian</strong> — A person having origins in any of the original peoples of the Far East, Southeast Asia, or the Indian subcontinent.</li>
+          <li><strong>Native Hawaiian or Other Pacific Islander</strong> — A person having origins in any of the original peoples of Hawaii, Guam, Samoa, or other Pacific Islands.</li>
+          <li><strong>American Indian or Alaska Native</strong> — A person having origins in any of the original peoples of North and South America (including Central America) and who maintains tribal affiliation or community attachment.</li>
+          <li><strong>Two or More Races</strong> — All persons who identify with more than one of the above five races.</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% endblock %}
