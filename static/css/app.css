@@ -176,6 +176,8 @@ html, body{
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
 }
 
+.export-group .btn { white-space: nowrap; }   /* belt & suspenders */
+
 
 
 
