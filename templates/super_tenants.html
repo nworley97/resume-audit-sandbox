@@ -46,6 +46,7 @@
             <th>Display Name</th>
             <th>Logo</th>
             <th>Key Links</th>
+            <th class="text-end">Actions</th> <!-- NEW -->
           </tr>
         </thead>
         <tbody>
@@ -63,9 +64,15 @@
               <div><a href="/{{ t.slug }}/recruiter" target="_blank">/{{ t.slug }}/recruiter</a></div>
               <div class="text-muted">Jobs: /{{ t.slug }}/apply/&lt;CODE&gt;</div>
             </td>
+            <td class="text-end">
+              <a class="btn btn-outline-danger btn-sm"
+                 href="{{ url_for('super_tenant_delete_confirm', tid=t.id) }}">
+                Delete…
+              </a>
+            </td>
           </tr>
           {% else %}
-          <tr><td colspan="4" class="text-muted">No tenants yet.</td></tr>
+          <tr><td colspan="5" class="text-muted">No tenants yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>

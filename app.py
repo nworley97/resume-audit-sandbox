@@ -21,6 +21,7 @@ from sqlalchemy import or_, text, inspect, func
 from sqlalchemy.exc import SQLAlchemyError
 from dateutil import parser as dtparse
 
+
 from db import SessionLocal
 from models import (
     Tenant, User, JobDescription, Candidate,
@@ -85,19 +86,40 @@ def current_tenant():
 
 @app.before_request
 def _capture_route_tenant():
-    # if route has <tenant> param, remember it for this request
-    if "tenant" in request.view_args or "tenant" in request.args:
-        slug = request.view_args.get("tenant") if request.view_args else request.args.get("tenant")
-        if slug:
-            g.route_tenant_slug = slug
+    """Capture tenant from URL or session and make it available on g."""
+    slug = None
+    # Prefer route param
+    if request.view_args and "tenant" in request.view_args:
+        slug = request.view_args.get("tenant")
+    # Fallback to query (?tenant=)
+    elif "tenant" in request.args:
+        slug = request.args.get("tenant")
+    # Finally, use session-remembered tenant for logged-in flows
+    if not slug:
+        slug = session.get("tenant_slug")
+
+    if slug:
+        g.route_tenant_slug = slug
+        g.tenant = load_tenant_by_slug(slug)
+    else:
+        g.route_tenant_slug = None
+        g.tenant = None
+
 
 @app.context_processor
 def inject_brand():
-    t = current_tenant()
+    """
+    Make tenant info available to templates consistently.
+    Keys:
+      - tenant_obj  (Tenant or None)
+      - tenant_slug (str or None)
+      - brand_name  (display name or 'Altera' fallback)
+    """
+    t = getattr(g, "tenant", None)
     return {
         "tenant_obj": t,
-        "tenant_slug": t.slug if t else None,
-        "tenant_display": t.display_name if t else None
+        "tenant_slug": getattr(t, "slug", None),
+        "brand_name": (t.display_name if t and getattr(t, "display_name", None) else "Altera"),
     }
 
 # ─── Superadmin-only decorator ────────────────────────────────────
@@ -436,6 +458,58 @@ def super_tenants():
 
         tenants = db.query(Tenant).order_by(Tenant.slug.asc()).all()
         return render_template("super_tenants.html", title="Tenants", tenants=tenants)
+    finally:
+        db.close()
+# --- Super: Delete tenant (confirm page) ---
+@app.get("/super/tenants/<int:tid>/delete")
+@super_required
+def super_tenant_delete_confirm(tid):
+    db = SessionLocal()
+    try:
+        t = db.get(Tenant, tid)
+        if not t:
+            flash("Tenant not found")
+            return redirect(url_for("super_tenants"))
+
+        counts = {
+            "users": db.query(func.count(User.id)).filter(User.tenant_id == tid).scalar(),
+            "jobs":  db.query(func.count(JobDescription.code)).filter(JobDescription.tenant_id == tid).scalar(),
+            "cands": db.query(func.count(Candidate.id)).filter(Candidate.tenant_id == tid).scalar(),
+        }
+        return render_template("super_tenant_delete.html",
+                               title=f"Delete {t.display_name}",
+                               t=t, counts=counts)
+    finally:
+        db.close()
+
+
+# --- Super: Delete tenant (POST actually deletes) ---
+@app.post("/super/tenants/<int:tid>/delete")
+@super_required
+def super_tenant_delete(tid):
+    confirm_slug = (request.form.get("confirm_slug") or "").strip().lower()
+    confirm_text = (request.form.get("confirm_text") or "").strip().upper()
+
+    db = SessionLocal()
+    try:
+        t = db.get(Tenant, tid)
+        if not t:
+            flash("Tenant not found")
+            return redirect(url_for("super_tenants"))
+
+        if confirm_slug != (t.slug or "").lower() or confirm_text != "DELETE":
+            flash("Confirmation values did not match. Nothing was deleted.")
+            return redirect(url_for("super_tenant_delete_confirm", tid=tid))
+
+        # Manual cascade delete (because FKs are SET NULL in your models)
+        db.query(Candidate).filter(Candidate.tenant_id == tid).delete(synchronize_session=False)
+        db.query(JobDescription).filter(JobDescription.tenant_id == tid).delete(synchronize_session=False)
+        db.query(User).filter(User.tenant_id == tid).delete(synchronize_session=False)
+
+        db.delete(t)
+        db.commit()
+        flash(f"Tenant '{t.slug}' and all associated data were deleted.")
+        return redirect(url_for("super_tenants"))
     finally:
         db.close()
 
