@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import (
     Column, String, Integer, Boolean, DateTime, JSON, ForeignKey, Text
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from werkzeug.security import generate_password_hash, check_password_hash
 
