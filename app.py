@@ -833,6 +833,15 @@ def super_bootstrap():
             return "superadmin already exists"
     finally:
         db.close()
+# Support page (global)
+@app.route("/forgot")
+def forgot():
+    return render_template("forgot.html", title="Support")
+
+# Optional: tenant-scoped support page
+@app.route("/<tenant>/forgot")
+def forgot_tenant(tenant):
+    return render_template("forgot.html", title="Support")
 
 
 # ─── Self-ID page (one page) ─────────────────────────────────────
