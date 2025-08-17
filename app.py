@@ -1,29 +1,41 @@
+# app.py
 import os, json, uuid, logging, tempfile, mimetypes, re, io, csv
 from datetime import datetime
+from pathlib import Path
+from functools import wraps
+
 from flask import (
     Flask, request, redirect, url_for,
-    render_template, flash, send_file, abort, make_response
+    render_template, flash, send_file, abort, make_response, session, g
 )
-from pathlib import Path
 from markupsafe import Markup, escape
 from flask_login import (
     LoginManager, login_user, login_required,
     logout_user, current_user
 )
+
 import PyPDF2, docx, bleach
 from bleach.css_sanitizer import CSSSanitizer
 from openai import OpenAI
-from sqlalchemy import or_, text, inspect
+from sqlalchemy import or_, text, inspect, func
+from sqlalchemy.exc import SQLAlchemyError
 from dateutil import parser as dtparse
 
 from db import SessionLocal
-from models import User, JobDescription, Candidate, engine as models_engine
+from models import (
+    Tenant, User, JobDescription, Candidate,
+    engine as models_engine
+)
 from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
 
 # ─── Config ───────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
+
+# Superadmin credentials (simple form)
+SUPERADMIN_USER = os.getenv("SUPERADMIN_USER", "Altera")
+SUPERADMIN_PASSWORD = os.getenv("SUPERADMIN_PASSWORD", "175050")
 
 # PDF text: 2MB limit — enforce it
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB
@@ -34,7 +46,7 @@ login_manager.login_view = "login"
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL  = "gpt-4o"
 
-# ─── One-time schema upgrade (adds columns if they don't exist) ───
+# ─── One-time schema upgrade for JD columns (kept) ────────────────
 def ensure_schema():
     insp = inspect(models_engine)
     cols = {c["name"] for c in insp.get_columns("job_description")}
@@ -54,28 +66,69 @@ def ensure_schema():
             conn.execute(text(ddl))
 ensure_schema()
 
+# ─── Tenant helpers ───────────────────────────────────────────────
+def load_tenant_by_slug(slug: str):
+    if not slug: return None
+    db = SessionLocal()
+    try:
+        return db.query(Tenant).filter(Tenant.slug == slug).first()
+    finally:
+        db.close()
+
+def current_tenant():
+    # priority: URL segment > session
+    slug = getattr(g, "route_tenant_slug", None) or session.get("tenant_slug")
+    if not slug:
+        return None
+    t = load_tenant_by_slug(slug)
+    return t
+
+@app.before_request
+def _capture_route_tenant():
+    # if route has <tenant> param, remember it for this request
+    if "tenant" in request.view_args or "tenant" in request.args:
+        slug = request.view_args.get("tenant") if request.view_args else request.args.get("tenant")
+        if slug:
+            g.route_tenant_slug = slug
+
+@app.context_processor
+def inject_brand():
+    t = current_tenant()
+    return {
+        "tenant_obj": t,
+        "tenant_slug": t.slug if t else None,
+        "tenant_display": t.display_name if t else None
+    }
+
+# ─── Superadmin-only decorator ────────────────────────────────────
+def super_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("is_superadmin"):
+            return redirect(url_for("super_login"))
+        return f(*args, **kwargs)
+    return wrapper
+
 # ─── Flask-Login ──────────────────────────────────────────────────
 @login_manager.user_loader
 def load_user(uid: str):
     db = SessionLocal()
-    u  = db.get(User, int(uid))
-    db.close()
-    return u
+    try:
+        return db.get(User, int(uid))
+    finally:
+        db.close()
 
-# ─── OpenAI helper ────────────────────────────────────────────────
+# ─── OpenAI helper (unchanged) ────────────────────────────────────
 def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     resp = client.chat.completions.create(
         model=MODEL, temperature=0, top_p=0.1,
         response_format={"type":"json_object"} if structured else None,
-        messages=[
-          {"role":"system","content":system},
-          {"role":"user","content":user}
-        ],
+        messages=[{"role":"system","content":system},{"role":"user","content":user}],
         timeout=timeout,
     )
     return resp.choices[0].message.content.strip()
 
-# ─── File-to-text helpers ─────────────────────────────────────────
+# ─── File-to-text helpers (unchanged) ─────────────────────────────
 def pdf_to_text(path):
     return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(path).pages)
 
@@ -85,14 +138,11 @@ def docx_to_text(path):
 def file_to_text(path, mime):
     if mime == "application/pdf":
         return pdf_to_text(path)
-    if mime in (
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/msword"
-    ):
+    if mime in ("application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/msword"):
         return docx_to_text(path)
     raise ValueError("Unsupported file type")
 
-# ─── AI scoring helpers ───────────────────────────────────────────
+# ─── AI scoring helpers (unchanged) ───────────────────────────────
 def resume_json(text: str) -> dict:
     raw = chat("Extract résumé to JSON.", text, structured=True)
     try:
@@ -112,39 +162,23 @@ def fit_score(rjs: dict, jd_text: str) -> int:
     return int(m.group()) if m else 1
 
 def realism_check(rjs: dict) -> bool:
-    reply = chat(
-        "You are a résumé authenticity checker.",
-        json.dumps(rjs) + "\n\nIs this résumé realistic? yes or no."
-    )
+    reply = chat("You are a résumé authenticity checker.", json.dumps(rjs) + "\n\nIs this résumé realistic? yes or no.")
     return reply.lower().startswith("y")
 
 def generate_questions(rjs: dict, jd_text: str) -> list[str]:
-    # Per requirement: base questions ONLY on résumé, ignore JD.
     raw = ""
     try:
-        raw = chat(
-            "You are an interviewer.",
-            f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY FOUR interview questions as a JSON array."
-        )
+        raw = chat("You are an interviewer.", f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY FOUR interview questions as a JSON array.")
         parsed = json.loads(raw)
         if isinstance(parsed, list):
-            return [q.strip().strip('"').strip(',') for q in parsed if isinstance(q, str) and len(q.strip()) > 10]
+            return [q.strip().strip('",') for q in parsed if isinstance(q, str) and len(q.strip()) > 10]
     except Exception as e:
         logging.warning("Fallback triggered in question generation: %s", e)
-
-    # Fallbacks
     lines = (raw or "").splitlines()
     cleaned = []
     for line in lines:
         line = line.strip().strip("-• ").strip('"').strip(',')
-        if (
-            line and
-            not line.lower().startswith("json") and
-            not line.startswith("[") and
-            not line.startswith("]") and
-            not line.startswith("```") and
-            len(line) > 10
-        ):
+        if line and not line.lower().startswith("json") and line not in ("[","]","```") and len(line) > 10:
             cleaned.append(line)
     if not cleaned:
         cleaned = [
@@ -161,10 +195,7 @@ def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
         wc = len(re.findall(r"\w+", a))
         if wc<5:
             scores.append(1); continue
-        prompt = (
-            f"Question: {q}\nAnswer: {a}\nRésumé JSON:\n"
-            f"{json.dumps(rjs)[:1500]}\n\nScore 1-5."
-        )
+        prompt = f"Question: {q}\nAnswer: {a}\nRésumé JSON:\n{json.dumps(rjs)[:1500]}\n\nScore 1-5."
         raw = chat("Grade answer.", prompt)
         m   = re.search(r"[1-5]", raw)
         s   = int(m.group()) if m else 1
@@ -172,30 +203,24 @@ def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
         scores.append(s)
     return scores + [1]*max(0,4-len(scores))
 
-# ─── Helpers ─────────────────────────────────────────────────────
 def _parse_dt(val: str):
     try:
         return dtparse.parse(val) if val else None
     except Exception:
         return None
 
-# --- Legal pages: load DOCX and render as simple HTML ---
+# --- Legal pages: load DOCX and render as simple HTML -------------
 BASE_DIR = Path(__file__).resolve().parent
 LEGAL_DIR = BASE_DIR / "static" / "legal"
 
 def docx_to_html_simple(docx_path: Path) -> Markup:
-    """
-    Very light DOCX -> HTML: headings become <h2>/<h3>, everything else <p>.
-    Preserves blank lines; escapes HTML.
-    """
     d = docx.Document(str(docx_path))
     parts = []
     for p in d.paragraphs:
         txt = (p.text or "").strip()
         style = getattr(getattr(p, "style", None), "name", "") or ""
         if not txt:
-            parts.append("<br>")
-            continue
+            parts.append("<br>"); continue
         if style.startswith("Heading"):
             level = "".join(ch for ch in style if ch.isdigit())
             level = int(level) if level.isdigit() else 2
@@ -208,67 +233,59 @@ def docx_to_html_simple(docx_path: Path) -> Markup:
 # ─── Home ─────────────────────────────────────────────────────────
 @app.route("/")
 def home():
-    return redirect(url_for("login")) if not current_user.is_authenticated else redirect(url_for("recruiter"))
+    # keep legacy behavior: unauth -> login, auth -> redirect to tenant recruiter
+    if not current_user.is_authenticated:
+        return redirect(url_for("login"))
+    # find tenant from session or user's tenant
+    slug = session.get("tenant_slug")
+    if not slug and current_user and current_user.tenant_id:
+        db = SessionLocal()
+        try:
+            t = db.get(Tenant, current_user.tenant_id)
+            if t: slug = t.slug
+        finally:
+            db.close()
+    if slug:
+        return redirect(url_for("recruiter", tenant=slug))
+    return redirect(url_for("login"))
 
-# ─── CSV Export: Current View vs All (NEW) ───────────────────────
-def _apply_candidate_filters(query, args):
-    q_str = (args.get("q") or "").strip()
-    if q_str:
-        like = f"%{q_str}%"
-        query = query.filter(or_(
-            Candidate.name.ilike(like),
-            Candidate.id.ilike(like)
-        ))
-    jd_code = (args.get("jd") or "").strip()
-    if jd_code:
-        query = query.join(JobDescription).filter(JobDescription.code == jd_code)
-    date_from = (args.get("from") or "").strip()
-    if date_from:
-        query = query.filter(Candidate.created_at >= date_from)
-    date_to = (args.get("to") or "").strip()
-    if date_to:
-        query = query.filter(Candidate.created_at <= date_to)
-    return query
-
+# ─── Privacy / Terms ─────────────────────────────────────────────
 @app.route("/privacy")
 def privacy():
-    path = (Path(__file__).resolve().parent / "static" / "legal" / "20250811_Privacy.docx")
-    if not path.exists():
-        return render_template("legal.html", title="Privacy Policy",
-                               body=Markup("<p>Privacy policy coming soon.</p>"))
-    import mimetypes
-    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
-    # download_name keeps the original file format
-    return send_file(path, as_attachment=True, download_name=path.name, mimetype=mime)
+    path = LEGAL_DIR / "20250811_Privacy.docx"
+    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Privacy policy coming soon.</p>")
+    return render_template("legal.html", title="Privacy Policy", body=body)
 
 @app.route("/terms")
 def terms():
-    path = (Path(__file__).resolve().parent / "static" / "legal" / "20250811_Terms.docx")
-    if not path.exists():
-        return render_template("legal.html", title="Terms of Service",
-                               body=Markup("<p>Terms of Service coming soon.</p>"))
-    import mimetypes
-    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
-    return send_file(path, as_attachment=True, download_name=path.name, mimetype=mime)
+    path = LEGAL_DIR / "20250811_Terms.docx"
+    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Terms of Service coming soon.</p>")
+    return render_template("legal.html", title="Terms of Service", body=body)
 
-
+# ─── CSV Export (All or Current View), tenant-scoped ─────────────
 @app.route("/candidates/export.csv")
+@app.route("/<tenant>/candidates/export.csv")
 @login_required
-def candidates_export_csv():
-    """
-    Export Current View (default) or All (?all=1) as CSV.
-    Works even if Candidate has no relationship to JobDescription.
-    """
+def candidates_export_csv(tenant=None):
+    # resolve tenant
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        # legacy: try session tenant or bounce to login
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("candidates_export_csv", tenant=slug))
+        return redirect(url_for("login"))
+
     export_all = request.args.get("all") == "1"
-    session = SessionLocal()
+    session_db = SessionLocal()
     try:
         q = (
-            session.query(
+            session_db.query(
                 Candidate,
                 JobDescription.code.label("jd_code"),
                 JobDescription.title.label("jd_title"),
             )
             .outerjoin(JobDescription, JobDescription.code == Candidate.jd_code)
+            .filter(Candidate.tenant_id == t.id)
         )
 
         q_str = (request.args.get("q") or "").strip()
@@ -322,48 +339,38 @@ def candidates_export_csv():
             download_name="candidates.csv",
         )
     finally:
-        session.close()
+        session_db.close()
 
-# ─── Auth ────────────────────────────────────────────────────────
-@app.route("/create-admin")
-def create_admin():
-    db = SessionLocal()
-    if db.query(User).filter_by(username="james@blackboxstrategies.ai").first():
-        db.close()
-        return "Admin already exists."
-    admin = User(username="james@blackboxstrategies.ai")
-    admin.set_pw("2025@gv70!")  # hashes correctly
-    db.add(admin); db.commit(); db.close()
-    return "Admin user created."
+# ─── Auth (Recruiter) ────────────────────────────────────────────
+@app.route("/login", methods=["GET","POST"])
+@app.route("/<tenant>/login", methods=["GET","POST"])
+def login(tenant=None):
+    # If tenant is given in URL, restrict auth to that tenant
+    t = load_tenant_by_slug(tenant) if tenant else None
 
-@app.route("/reset-admin")
-def reset_admin():
-    db = SessionLocal()
-    user = db.query(User).filter_by(username="james@blackboxstrategies.ai").first()
-    if user:
-        db.delete(user); db.commit()
-    admin = User(username="james@blackboxstrategies.ai")
-    admin.set_pw("2025@gv70!")
-    db.add(admin); db.commit(); db.close()
-    return "Admin reset complete."
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
     if request.method == "POST":
         u, p = request.form["username"], request.form["password"]
         db = SessionLocal()
-        usr = db.query(User).filter_by(username=u).first()
-        db.close()
-        if not usr or not usr.check_pw(p):
-            flash("Bad credentials")
-        else:
-            login_user(usr)
-            return redirect(url_for("recruiter"))
+        try:
+            user_q = db.query(User).filter(User.username == u)
+            if t:
+                user_q = user_q.filter(User.tenant_id == t.id)
+            usr = user_q.first()
+            if not usr or not usr.check_pw(p):
+                flash("Bad credentials")
+            else:
+                login_user(usr)
+                # remember tenant in session
+                if usr.tenant_id:
+                    tt = db.get(Tenant, usr.tenant_id)
+                    if tt:
+                        session["tenant_slug"] = tt.slug
+                        return redirect(url_for("recruiter", tenant=tt.slug))
+                return redirect(url_for("recruiter"))
+        finally:
+            db.close()
+    # GET
     return render_template("login.html", title="Login")
-
-@app.route("/forgot")
-def forgot():
-    return render_template("forgot.html", title="Support")
 
 @app.route("/logout")
 @login_required
@@ -371,23 +378,66 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
-# ─── Camera gate ─────────────────────────────────────────────────
-@app.route("/apply/<code>/<cid>/camera", methods=["GET","POST"])
-def camera_gate(code, cid):
-    db = SessionLocal()
-    c  = db.get(Candidate, cid)
-    db.close()
-    if not c or c.jd_code != code:
-        flash("Application not found"); return redirect(url_for("apply", code=code))
-
+# ─── Superadmin (web UI) ─────────────────────────────────────────
+@app.route("/super/login", methods=["GET", "POST"])
+def super_login():
     if request.method == "POST":
-        # Require acknowledgement checkbox. Camera permission can be denied and still proceed.
-        if not request.form.get("ack"):
-            flash("Please acknowledge the warning to continue.")
-            return render_template("camera_gate.html", title="Camera Check", c=c)
-        return redirect(url_for("question_paged", code=code, cid=cid, idx=0))
+        u = (request.form.get("username") or "").strip()
+        p = (request.form.get("password") or "").strip()
+        if u == SUPERADMIN_USER and p == SUPERADMIN_PASSWORD:
+            session["is_superadmin"] = True
+            flash("Welcome, superadmin!")
+            return redirect(url_for("super_tenants"))
+        else:
+            flash("Bad credentials")
+    return render_template("super_login.html", title="Superadmin Login")
 
-    return render_template("camera_gate.html", title="Camera Check", c=c)
+@app.route("/super/logout")
+def super_logout():
+    session.pop("is_superadmin", None)
+    flash("Signed out")
+    return redirect(url_for("super_login"))
+
+@app.route("/super/tenants", methods=["GET", "POST"])
+@super_required
+def super_tenants():
+    db = SessionLocal()
+    try:
+        if request.method == "POST":
+            slug = (request.form.get("slug") or "").strip().lower()
+            display = (request.form.get("display_name") or "").strip()
+            logo = (request.form.get("logo_url") or "").strip() or None
+            username = (request.form.get("username") or "").strip()
+            password = (request.form.get("password") or "").strip()
+
+            if not slug or not re.match(r"^[a-z0-9-]+$", slug):
+                flash("Slug must be lowercase letters, numbers, and hyphens only.")
+                return redirect(url_for("super_tenants"))
+            if not display:
+                flash("Display name is required.")
+                return redirect(url_for("super_tenants"))
+            if not username or not password:
+                flash("Username and password are required.")
+                return redirect(url_for("super_tenants"))
+
+            if db.query(Tenant).filter_by(slug=slug).first():
+                flash(f"Tenant '{slug}' already exists.")
+                return redirect(url_for("super_tenants"))
+
+            t = Tenant(slug=slug, display_name=display, logo_url=logo)
+            db.add(t); db.flush()
+
+            u = User(username=username, tenant_id=t.id)
+            u.set_pw(password)
+            db.add(u); db.commit()
+
+            flash(f"Tenant '{slug}' created with user '{username}'.")
+            return redirect(url_for("super_tenants"))
+
+        tenants = db.query(Tenant).order_by(Tenant.slug.asc()).all()
+        return render_template("super_tenants.html", title="Tenants", tenants=tenants)
+    finally:
+        db.close()
 
 # --- JD HTML sanitizer (Bleach ≥6) ---
 ALLOWED_TAGS = set(bleach.sanitizer.ALLOWED_TAGS) | {
@@ -403,167 +453,228 @@ ALLOWED_ATTRS = {
     "ul":   ["class"],
     "ol":   ["class"],
 }
-CSS_ALLOWED = CSSSanitizer(
-    allowed_css_properties=["font-family", "font-weight", "text-decoration"]
-)
+CSS_ALLOWED = CSSSanitizer(allowed_css_properties=["font-family","font-weight","text-decoration"])
 def sanitize_jd(html: str) -> str:
     linked = bleach.linkify(html or "")
-    return bleach.clean(
-        linked,
-        tags=ALLOWED_TAGS,
-        attributes=ALLOWED_ATTRS,
-        css_sanitizer=CSS_ALLOWED,
-        strip=True,
-    )
+    return bleach.clean(linked, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, css_sanitizer=CSS_ALLOWED, strip=True)
 
 # ─── JD Management ──────────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
+@app.route("/<tenant>/edit-jd", methods=["GET","POST"])
 @login_required
-def edit_jd():
+def edit_jd(tenant=None):
+    # resolve tenant
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("edit_jd", tenant=slug, **request.args))
+        return redirect(url_for("login"))
+
     db = SessionLocal()
-    code_qs = request.args.get("code")
-    jd = db.get(JobDescription, code_qs) or JobDescription(code="", title="", html="", status="draft")
+    try:
+        code_qs = request.args.get("code")
+        existing = db.query(JobDescription).filter_by(code=code_qs, tenant_id=t.id).first() if code_qs else None
+        jd = existing or JobDescription(code="", title="", html="", status="draft", tenant_id=t.id)
+        has_candidates = False
+        if existing:
+            has_candidates = db.query(func.count(Candidate.id)).filter(Candidate.jd_code == existing.code, Candidate.tenant_id == t.id).scalar() > 0
 
-    if request.method=="POST":
-        posted_code     = request.form["jd_code"].strip()
-        html_sanitized  = sanitize_jd(request.form.get("jd_text",""))
+        if request.method=="POST":
+            posted_code     = request.form["jd_code"].strip()
+            html_sanitized  = sanitize_jd(request.form.get("jd_text",""))
+            title           = request.form.get("jd_title","").strip()
+            status          = request.form.get("jd_status","draft")
+            department      = (request.form.get("jd_department","") or "").strip() or None
+            team            = (request.form.get("jd_team","") or "").strip() or None
+            location        = (request.form.get("jd_location","") or "").strip() or None
+            employment_type = (request.form.get("jd_employment_type","") or "").strip() or None
+            salary_range    = (request.form.get("jd_salary_range","") or "").strip() or None
+            start_date      = _parse_dt(request.form.get("jd_start",""))
+            end_date        = _parse_dt(request.form.get("jd_end",""))
 
-        if jd.code:  # editing existing JD — do not allow code change here
-            jd.title           = request.form["jd_title"].strip()
-            jd.html            = html_sanitized
-            jd.status          = request.form.get("jd_status","draft")
-            jd.department      = request.form.get("jd_department","").strip() or None
-            jd.team            = request.form.get("jd_team","").strip() or None
-            jd.location        = request.form.get("jd_location","").strip() or None
-            jd.employment_type = request.form.get("jd_employment_type","").strip() or None
-            jd.salary_range    = request.form.get("jd_salary_range","").strip() or None
-            jd.start_date      = _parse_dt(request.form.get("jd_start",""))
-            jd.end_date        = _parse_dt(request.form.get("jd_end",""))
-            jd.updated_at      = datetime.utcnow()
-        else:
-            # creating new
-            if not posted_code:
-                db.close()
-                flash("Job code is required")
-                return redirect(request.url)
-            jd.code            = posted_code
-            jd.title           = request.form["jd_title"].strip()
-            jd.html            = html_sanitized
-            jd.status          = request.form.get("jd_status","draft")
-            jd.department      = request.form.get("jd_department","").strip() or None
-            jd.team            = request.form.get("jd_team","").strip() or None
-            jd.location        = request.form.get("jd_location","").strip() or None
-            jd.employment_type = request.form.get("jd_employment_type","").strip() or None
-            jd.salary_range    = request.form.get("jd_salary_range","").strip() or None
-            jd.start_date      = _parse_dt(request.form.get("jd_start",""))
-            jd.end_date        = _parse_dt(request.form.get("jd_end",""))
-            jd.updated_at      = datetime.utcnow()
+            if existing:
+                if posted_code != existing.code:
+                    if has_candidates:
+                        flash("Job code can’t be changed because candidates already exist for this job.")
+                        return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
+                    # ensure no conflict in this demo (global code space)
+                    conflict = db.query(JobDescription).filter_by(code=posted_code).first()
+                    if conflict:
+                        flash(f"Code {posted_code} is already in use.")
+                        return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
+                    existing.code = posted_code
 
-        db.merge(jd); db.commit(); db.close()
-        flash("JD saved")
-        return redirect(url_for("recruiter"))
+                existing.title           = title
+                existing.html            = html_sanitized
+                existing.status          = status
+                existing.department      = department
+                existing.team            = team
+                existing.location        = location
+                existing.employment_type = employment_type
+                existing.salary_range    = salary_range
+                existing.start_date      = start_date
+                existing.end_date        = end_date
+                existing.updated_at      = datetime.utcnow()
+                db.add(existing); db.commit()
+                flash("JD saved")
+                return redirect(url_for("recruiter", tenant=t.slug))
 
-    out = render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=bool(jd.code and jd.candidates))
-    db.close()
-    return out
+            else:
+                if not posted_code:
+                    flash("Job code is required"); return redirect(request.url)
+                # guard: prevent overwriting some other code
+                conflict = db.query(JobDescription).filter_by(code=posted_code).first()
+                if conflict:
+                    flash(f"Code {posted_code} is already in use.")
+                    return redirect(url_for("edit_jd", tenant=t.slug, code=conflict.code))
+
+                jd.code            = posted_code
+                jd.title           = title
+                jd.html            = html_sanitized
+                jd.status          = status
+                jd.department      = department
+                jd.team            = team
+                jd.location        = location
+                jd.employment_type = employment_type
+                jd.salary_range    = salary_range
+                jd.start_date      = start_date
+                jd.end_date        = end_date
+                jd.updated_at      = datetime.utcnow()
+                jd.tenant_id       = t.id
+
+                db.add(jd); db.commit()
+                flash("JD saved")
+                return redirect(url_for("recruiter", tenant=t.slug))
+
+        return render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=has_candidates)
+    finally:
+        db.close()
 
 @app.route("/delete-jd/<code>")
+@app.route("/<tenant>/delete-jd/<code>")
 @login_required
-def delete_jd(code):
+def delete_jd(code, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("delete_jd", tenant=slug, code=code))
+        return redirect(url_for("login"))
+
     db = SessionLocal()
-    jd = db.query(JobDescription).filter_by(code=code).first()
-    if jd:
+    try:
+        jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
+        if not jd:
+            flash("Job not found"); return redirect(url_for("recruiter", tenant=t.slug))
+
+        cnt = db.query(func.count(Candidate.id)).filter(Candidate.jd_code == jd.code, Candidate.tenant_id == t.id).scalar()
+        if cnt > 0:
+            flash("You can’t delete this job because candidates already exist for it.")
+            return redirect(url_for("recruiter", tenant=t.slug))
+
         db.delete(jd); db.commit(); flash(f"Deleted {code}")
-    db.close()
-    return redirect(url_for("recruiter"))
+        return redirect(url_for("recruiter", tenant=t.slug))
+    finally:
+        db.close()
 
 # ─── Recruiter Dashboard ────────────────────────────────────────
 @app.route("/recruiter")
+@app.route("/<tenant>/recruiter")
 @login_required
-def recruiter():
+def recruiter(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("recruiter", tenant=slug))
+        return redirect(url_for("login"))
+
     db = SessionLocal()
-    jds = db.query(JobDescription).order_by(JobDescription.created_at.desc()).all()
-    counts = { jd.code: len(jd.candidates) for jd in jds }
-    db.close()
-    return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts)
+    try:
+        jds = db.query(JobDescription).filter(JobDescription.tenant_id == t.id).order_by(JobDescription.created_at.desc()).all()
+        counts = { jd.code: db.query(func.count(Candidate.id)).filter(Candidate.jd_code==jd.code, Candidate.tenant_id==t.id).scalar() for jd in jds }
+        return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts)
+    finally:
+        db.close()
 
 @app.route("/recruiter/jd/<code>")
+@app.route("/<tenant>/recruiter/jd/<code>")
 @login_required
-def view_candidates(code):
+def view_candidates(code, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("view_candidates", tenant=slug, code=code))
+        return redirect(url_for("login"))
     db = SessionLocal()
-    apps = db.query(Candidate)\
-             .filter_by(jd_code=code)\
-             .order_by(Candidate.created_at.desc())\
-             .all()
-    db.close()
-    return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps)
+    try:
+        apps = db.query(Candidate).filter_by(jd_code=code, tenant_id=t.id).order_by(Candidate.created_at.desc()).all()
+        return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps, tenant_slug=t.slug)
+    finally:
+        db.close()
 
-# ─── Global Candidates + (legacy) Export ─────────────────────────
+# ─── Global Candidates (legacy) ──────────────────────────────────
 @app.route("/candidates")
+@app.route("/<tenant>/candidates")
 @login_required
-def global_candidates():
+def global_candidates(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("global_candidates", tenant=slug, **request.args))
+        return redirect(url_for("login"))
+
     q  = request.args.get("q","").strip()
     jd = request.args.get("jd","").strip()
 
     db = SessionLocal()
-    apps_q = db.query(Candidate)
-    if jd: apps_q = apps_q.filter(Candidate.jd_code==jd)
-    if q:
-        apps_q = apps_q.filter(or_(
-            Candidate.name.ilike(f"%{q}%"),
-            Candidate.id.ilike(f"%{q}%")
-        ))
-    apps = apps_q.order_by(Candidate.created_at.desc()).all()
-    jd_list = db.query(JobDescription).order_by(JobDescription.code.asc()).all()
-    db.close()
+    try:
+        apps_q = db.query(Candidate).filter(Candidate.tenant_id == t.id)
+        if jd: apps_q = apps_q.filter(Candidate.jd_code==jd)
+        if q:
+            apps_q = apps_q.filter(or_(Candidate.name.ilike(f"%{q}%"), Candidate.id.ilike(f"%{q}%")))
+        apps = apps_q.order_by(Candidate.created_at.desc()).all()
+        jd_list = db.query(JobDescription).filter(JobDescription.tenant_id == t.id).order_by(JobDescription.code.asc()).all()
 
-    export_url = url_for("export_candidates") + ("?q="+q if q else "") + ("&jd="+jd if jd else "")
-    return render_template("global_candidates.html",
-        title="Candidates",
-        q=q, jd=jd, apps=apps, jd_list=jd_list, export_url=export_url)
+        export_url = url_for("export_candidates", tenant=t.slug) + ("?q="+q if q else "") + ("&jd="+jd if jd else "")
+        return render_template("global_candidates.html",
+            title="Candidates",
+            q=q, jd=jd, apps=apps, jd_list=jd_list, export_url=export_url)
+    finally:
+        db.close()
 
 @app.route("/export/candidates.csv")
+@app.route("/<tenant>/export/candidates.csv")
 @login_required
-def export_candidates():
-    # Legacy export: exports current filtered view only (kept for backward compatibility)
-    q  = request.args.get("q","").strip()
-    jd = request.args.get("jd","").strip()
-
-    db = SessionLocal()
-    apps_q = db.query(Candidate)
-    if jd: apps_q = apps_q.filter(Candidate.jd_code == jd)
-    if q:
-        apps_q = apps_q.filter(or_(
-            Candidate.name.ilike(f"%{q}%"),
-            Candidate.id.ilike(f"%{q}%")
-        ))
-    apps = apps_q.order_by(Candidate.created_at.desc()).all()
-    db.close()
-
-    out = io.StringIO()
-    out.write("id,name,jd_code,fit_score,avg_q,created_at\n")
-    for c in apps:
-        avg = round(sum(c.answer_scores)/len(c.answer_scores),2) if c.answer_scores else ""
-        created = c.created_at.isoformat() if c.created_at else ""
-        name = (c.name or "").replace('"','""')
-        out.write(f'{c.id},"{name}",{c.jd_code},{c.fit_score},{avg},{created}\n')
-
-    resp = make_response(out.getvalue())
-    resp.headers["Content-Type"] = "text/csv"
-    resp.headers["Content-Disposition"] = "attachment; filename=candidates.csv"
-    return resp
+def export_candidates(tenant=None):
+    # keep for back-compat; recommend using /candidates/export.csv
+    return redirect(url_for("candidates_export_csv", tenant=tenant, **request.args))
 
 # ─── Public Apply (paged Q&A) ────────────────────────────────────
+# Legacy link without tenant → redirect to the tenanted path
 @app.route("/apply/<code>", methods=["GET","POST"])
-def apply(code):
+def apply_legacy(code):
     db = SessionLocal()
-    jd = db.query(JobDescription).filter_by(code=code).first()
-    db.close()
+    try:
+        jd = db.query(JobDescription).filter_by(code=code).first()
+        if not jd:
+            return abort(404)
+        t = db.get(Tenant, jd.tenant_id)
+        slug = t.slug if t else "blackbox"
+        return redirect(url_for("apply", tenant=slug, code=code))
+    finally:
+        db.close()
+
+@app.route("/<tenant>/apply/<code>", methods=["GET","POST"])
+def apply(tenant, code):
+    t = load_tenant_by_slug(tenant)
+    if not t: abort(404)
+
+    db = SessionLocal()
+    try:
+        jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
+    finally:
+        db.close()
     if not jd:
         return abort(404)
-    # If you want to hide drafts from public, uncomment:
-    # if jd.status != "published" and not current_user.is_authenticated:
-    #     abort(404)
 
     if request.method == "POST":
         name  = request.form.get("name","").strip()
@@ -588,10 +699,8 @@ def apply(code):
 
         rjs = resume_json(text)
         if email:
-            try:
-                rjs["applicant_email"] = email
-            except Exception:
-                pass
+            try: rjs["applicant_email"] = email
+            except Exception: pass
 
         fit  = fit_score(rjs, jd.html)
         real = realism_check(rjs)
@@ -601,56 +710,88 @@ def apply(code):
         storage = upload_pdf(path)
 
         db = SessionLocal()
-        c  = Candidate(
-            id            = cid,
-            name          = name,
-            resume_url    = storage,
-            resume_json   = rjs,
-            fit_score     = fit,
-            realism       = real,
-            questions     = qs,
-            answers       = [""]*len(qs),
-            answer_scores = [],
-            jd_code       = jd.code,
-        )
-        db.add(c); db.commit(); db.close()
+        try:
+            c  = Candidate(
+                id            = cid,
+                name          = name,
+                resume_url    = storage,
+                resume_json   = rjs,
+                fit_score     = fit,
+                realism       = real,
+                questions     = qs,
+                answers       = [""]*len(qs),
+                answer_scores = [],
+                jd_code       = jd.code,
+                tenant_id     = t.id,
+            )
+            db.add(c); db.commit()
+        finally:
+            db.close()
 
-        # Go to camera gate before questions
-        return redirect(url_for("camera_gate", code=code, cid=cid))
+        return redirect(url_for("camera_gate", tenant=t.slug, code=code, cid=cid))
 
-    return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd)
+    return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd, tenant_slug=t.slug)
 
-@app.route("/apply/<code>/<cid>/q/<int:idx>", methods=["GET","POST"])
-def question_paged(code, cid, idx):
+# ─── Camera gate ─────────────────────────────────────────────────
+@app.route("/<tenant>/apply/<code>/<cid>/camera", methods=["GET","POST"])
+def camera_gate(tenant, code, cid):
+    t = load_tenant_by_slug(tenant)
+    if not t: abort(404)
+
     db = SessionLocal()
-    c  = db.get(Candidate, cid)
-    db.close()
-    if not c or c.jd_code != code:
-        flash("Application not found"); return redirect(url_for("apply", code=code))
+    try:
+        c  = db.get(Candidate, cid)
+    finally:
+        db.close()
+    if not c or c.jd_code != code or c.tenant_id != t.id:
+        flash("Application not found"); return redirect(url_for("apply", tenant=t.slug, code=code))
+
+    if request.method == "POST":
+        if not request.form.get("ack"):
+            flash("Please acknowledge the warning to continue.")
+            return render_template("camera_gate.html", title="Camera Check", c=c)
+        return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=0))
+
+    return render_template("camera_gate.html", title="Camera Check", c=c)
+
+# ─── Questions (paged) ───────────────────────────────────────────
+@app.route("/<tenant>/apply/<code>/<cid>/q/<int:idx>", methods=["GET","POST"])
+def question_paged(tenant, code, cid, idx):
+    t = load_tenant_by_slug(tenant)
+    if not t: abort(404)
+
+    db = SessionLocal()
+    try:
+        c  = db.get(Candidate, cid)
+    finally:
+        db.close()
+    if not c or c.jd_code != code or c.tenant_id != t.id:
+        flash("Application not found"); return redirect(url_for("apply", tenant=t.slug, code=code))
 
     n = len(c.questions or [])
     if n == 0:
-        flash("No questions generated"); return redirect(url_for("apply", code=code))
+        flash("No questions generated"); return redirect(url_for("apply", tenant=t.slug, code=code))
     idx = max(0, min(idx, n-1))
 
     if request.method == "POST":
         a = request.form.get("answer","").strip()
         db = SessionLocal()
-        c2 = db.get(Candidate, cid)
-        if c2:
-            ans = list(c2.answers or [""]*n)
-            ans[idx] = a
-            c2.answers = ans
-            db.merge(c2); db.commit()
-        db.close()
+        try:
+            c2 = db.get(Candidate, cid)
+            if c2:
+                ans = list(c2.answers or [""]*n)
+                ans[idx] = a
+                c2.answers = ans
+                db.merge(c2); db.commit()
+        finally:
+            db.close()
 
         action = request.form.get("action","next")
         if action == "prev" and idx > 0:
-            return redirect(url_for("question_paged", code=code, cid=cid, idx=idx-1))
+            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx-1))
         if action == "next" and idx < n-1:
-            return redirect(url_for("question_paged", code=code, cid=cid, idx=idx+1))
-        return redirect(url_for("self_id", code=code, cid=cid))
-
+            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx+1))
+        return redirect(url_for("self_id", tenant=t.slug, code=code, cid=cid))
 
     current_q = c.questions[idx]
     current_a = (c.answers or [""]*n)[idx] if c.answers else ""
@@ -659,14 +800,52 @@ def question_paged(code, cid, idx):
                            title="Questions",
                            name=c.name, code=code, cid=cid,
                            q=current_q, a=current_a, idx=idx, n=n, progress=progress)
-@app.route("/apply/<code>/<cid>/self-id", methods=["GET", "POST"])
-def self_id(code, cid):
+
+@app.get("/super/bootstrap")
+def super_bootstrap():
+    # Guard this with the env key so only you can call it
+    key = request.args.get("key", "")
+    if key != os.getenv("SUPER_BOOTSTRAP_KEY"):
+        return ("forbidden", 403)
+
+    db = SessionLocal()
+    try:
+        # IMPORTANT: requires your User model to have is_superadmin: Boolean, tenant_id: nullable Integer
+        u = db.query(User).filter_by(username="Altera").first()
+        if not u:
+            u = User(username="Altera")
+            u.set_pw("175050")            # hashes with werkzeug
+            # if your model doesn’t yet have these fields, deploy the multi-tenant models first
+            setattr(u, "is_superadmin", True)
+            setattr(u, "tenant_id", None)
+            db.add(u)
+            db.commit()
+            return "superadmin created"
+        else:
+            # make sure flags are correct even if it already exists
+            changed = False
+            if not getattr(u, "is_superadmin", False):
+                setattr(u, "is_superadmin", True); changed = True
+            if getattr(u, "tenant_id", None) is not None:
+                setattr(u, "tenant_id", None); changed = True
+            if changed:
+                db.add(u); db.commit()
+            return "superadmin already exists"
+    finally:
+        db.close()
+
+
+# ─── Self-ID page (one page) ─────────────────────────────────────
+@app.route("/<tenant>/apply/<code>/<cid>/self-id", methods=["GET", "POST"])
+def self_id(tenant, code, cid):
+    t = load_tenant_by_slug(tenant)
+    if not t: abort(404)
     db = SessionLocal()
     try:
         c = db.get(Candidate, cid)
-        if not c or c.jd_code != code:
+        if not c or c.jd_code != code or c.tenant_id != t.id:
             flash("Application not found")
-            return redirect(url_for("apply", code=code))
+            return redirect(url_for("apply", tenant=t.slug, code=code))
 
         if request.method == "POST":
             data = {
@@ -680,83 +859,120 @@ def self_id(code, cid):
             rjs["_self_id"] = data
             c.resume_json = rjs
             db.merge(c); db.commit()
-            return redirect(url_for("finish_application", code=code, cid=cid))
+            return redirect(url_for("finish_application", tenant=t.slug, code=code, cid=cid))
 
         existing = (c.resume_json or {}).get("_self_id", {})
         return render_template("self_id.html", title="Voluntary Self-Identification", c=c, data=existing)
     finally:
         db.close()
 
+        
 
-@app.route("/apply/<code>/<cid>/finish")
-def finish_application(code, cid):
+# ─── Finish (thank you) ──────────────────────────────────────────
+@app.route("/<tenant>/apply/<code>/<cid>/finish")
+def finish_application(tenant, code, cid):
+    t = load_tenant_by_slug(tenant)
+    if not t: abort(404)
+
     db = SessionLocal()
-    c  = db.get(Candidate, cid)
-    if not c:
-        db.close(); flash("App not found"); return redirect(url_for("apply", code=code))
-    scores = score_answers(c.resume_json, c.questions, c.answers or [])
-    c.answer_scores = scores
-    c.created_at    = c.created_at or datetime.utcnow()
-    db.merge(c); db.commit(); db.close()
+    try:
+        c  = db.get(Candidate, cid)
+        if not c or c.tenant_id != t.id or c.jd_code != code:
+            flash("App not found"); return redirect(url_for("apply", tenant=t.slug, code=code))
+        scores = score_answers(c.resume_json, c.questions, c.answers or [])
+        c.answer_scores = scores
+        c.created_at    = c.created_at or datetime.utcnow()
+        db.merge(c); db.commit()
+    finally:
+        db.close()
 
     if not current_user.is_authenticated:
-        return render_template("submit_thanks.html", title="Thanks", name=c.name, code=c.jd_code)
-
+        # note: submit_thanks.html should link back to tenanted apply page
+        return render_template("submit_thanks.html", title="Thanks", name=c.name, code=code, tenant_slug=t.slug)
 
     avg  = round(sum(scores)/len(scores),2)
     qa   = list(zip(c.questions, c.answers, c.answer_scores))
-    return render_template("answers_admin.html", title="Done", c=c, avg=avg, qa=qa)
+    return render_template("answers_admin.html", title="Done", c=c, avg=avg, qa=qa, tenant_slug=t.slug)
 
 # Legacy bulk submit kept (redirects to finish)
-@app.route("/apply/<code>/<cid>/answers", methods=["POST"])
-def submit_answers(code, cid):
-    return redirect(url_for("finish_application", code=code, cid=cid))
+@app.route("/<tenant>/apply/<code>/<cid>/answers", methods=["POST"])
+def submit_answers(tenant, code, cid):
+    return redirect(url_for("finish_application", tenant=tenant, code=code, cid=cid))
 
-# ─── Download & Delete résumé ────────────────────────────────────
+# ─── Download & Delete résumé (tenant scoped) ────────────────────
 @app.route("/resume/<cid>")
+@app.route("/<tenant>/resume/<cid>")
 @login_required
-def download_resume(cid):
-    db = SessionLocal(); c = db.get(Candidate,cid); db.close()
-    if not c: abort(404)
+def download_resume(cid, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("download_resume", tenant=slug, cid=cid))
+        return redirect(url_for("login"))
+
+    db = SessionLocal()
+    try:
+        c = db.get(Candidate,cid)
+    finally:
+        db.close()
+    if not c or c.tenant_id != t.id: abort(404)
+
     fn = os.path.basename(c.resume_url)
-    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
-        if fn.lower().endswith(".docx") else "application/pdf"
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if fn.lower().endswith(".docx") else "application/pdf"
     if S3_ENABLED and c.resume_url.startswith("s3://"):
         return redirect(presign(c.resume_url))
     return send_file(c.resume_url, as_attachment=True, download_name=fn, mimetype=mime)
 
 @app.route("/delete/<cid>")
+@app.route("/<tenant>/delete/<cid>")
 @login_required
-def delete_candidate(cid):
-    db = SessionLocal(); c = db.get(Candidate,cid)
-    code = ""
-    if c:
-        code = c.jd_code
-        try:
-            if S3_ENABLED and c.resume_url.startswith("s3://"):
-                delete_s3(c.resume_url)
-            elif os.path.exists(c.resume_url):
-                os.remove(c.resume_url)
-        except Exception:
-            pass
-        db.delete(c); db.commit(); flash("Deleted app")
-    db.close()
-    return redirect(url_for("view_candidates",code=code or ""))
+def delete_candidate(cid, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("delete_candidate", tenant=slug, cid=cid))
+        return redirect(url_for("login"))
 
-# ─── Candidate Detail ───────────────────────────────────────────
-@app.route("/recruiter/<cid>")
-@login_required
-def detail(cid):
     db = SessionLocal()
-    c  = db.get(Candidate, cid)
-    jd = db.query(JobDescription).filter_by(code=c.jd_code).first() if c else None
-    db.close()
-    if not c:
-        flash("Not found"); return redirect(url_for("recruiter"))
+    try:
+        c = db.get(Candidate,cid)
+        code = ""
+        if c and c.tenant_id == t.id:
+            code = c.jd_code
+            try:
+                if S3_ENABLED and c.resume_url.startswith("s3://"):
+                    delete_s3(c.resume_url)
+                elif os.path.exists(c.resume_url):
+                    os.remove(c.resume_url)
+            except Exception:
+                pass
+            db.delete(c); db.commit(); flash("Deleted app")
+        return redirect(url_for("view_candidates", tenant=t.slug, code=code or ""))
+    finally:
+        db.close()
 
-    qa = list(zip(c.questions, c.answers, c.answer_scores))
-    return render_template("candidate_detail.html",
-                           title=f"Candidate – {c.name}", c=c, jd=jd, qa=qa)
+# ─── Candidate Detail (admin) ────────────────────────────────────
+@app.route("/recruiter/<cid>")
+@app.route("/<tenant>/recruiter/<cid>")
+@login_required
+def detail(cid, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug: return redirect(url_for("detail", tenant=slug, cid=cid))
+        return redirect(url_for("login"))
+
+    db = SessionLocal()
+    try:
+        c  = db.get(Candidate, cid)
+        jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first() if c else None
+        if not c or c.tenant_id != t.id:
+            flash("Not found"); return redirect(url_for("recruiter", tenant=t.slug))
+        qa = list(zip(c.questions, c.answers, c.answer_scores))
+        return render_template("candidate_detail.html",
+                               title=f"Candidate – {c.name}", c=c, jd=jd, qa=qa, tenant_slug=t.slug)
+    finally:
+        db.close()
 
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":

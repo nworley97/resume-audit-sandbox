@@ -1,55 +1,55 @@
 # models.py
 import os
 from datetime import datetime
-
 from sqlalchemy import (
-    create_engine, Column, String, Integer, Boolean,
-    DateTime, JSON, ForeignKey, Text
+    Column, String, Integer, Boolean, DateTime, JSON, ForeignKey, Text
 )
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.ext.mutable import MutableDict, MutableList
-from sqlalchemy.sql import func
+from werkzeug.security import generate_password_hash, check_password_hash
 
-# Single source of truth for Base/engine in this file
-DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-Base = declarative_base()
+# IMPORTANT: we import Base and engine from your db.py to avoid re-defining Base twice
+from db import Base, engine as engine  # engine is re-exported for app.ensure_schema()
 
+# ─── Tenant ──────────────────────────────────────────────────────
+class Tenant(Base):
+    __tablename__ = "tenant"
+    id = Column(Integer, primary_key=True)
+    slug = Column(String, unique=True, nullable=False)
+    display_name = Column(String, nullable=False)
+    logo_url = Column(String, nullable=True)
 
+# ─── User ────────────────────────────────────────────────────────
 class User(Base):
     __tablename__ = "user"
     id       = Column(Integer, primary_key=True)
-    username = Column(String(128), unique=True, nullable=False)
+    username = Column(String(128), nullable=False)  # (demo: not globally unique)
     pw_hash  = Column(String(256), nullable=False)
 
-    # Flask-Login helpers
-    def set_pw(self, pw):
-        from werkzeug.security import generate_password_hash
-        self.pw_hash = generate_password_hash(pw)
+    tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
+    tenant    = relationship("Tenant")
 
-    def check_pw(self, pw):
-        from werkzeug.security import check_password_hash
-        return check_password_hash(self.pw_hash, pw)
+    def set_pw(self, pw):  self.pw_hash = generate_password_hash(pw)
+    def check_pw(self, pw): return check_password_hash(self.pw_hash, pw)
 
+    # Flask-Login
     @property
-    def is_active(self): return True
+    def is_active(self):         return True
     @property
-    def is_authenticated(self): return True
+    def is_authenticated(self):  return True
     @property
-    def is_anonymous(self): return False
-    def get_id(self): return str(self.id)
+    def is_anonymous(self):      return False
+    def get_id(self):            return str(self.id)
 
-
+# ─── JobDescription ─────────────────────────────────────────────
 class JobDescription(Base):
     __tablename__ = "job_description"
 
-    # Core fields
-    code       = Column(String, primary_key=True)              # PK
-    title      = Column(String, nullable=False, default="")
-    html       = Column(Text,   nullable=False, default="")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    code        = Column(String, primary_key=True)
+    title       = Column(String, nullable=False, default="")
+    html        = Column(Text,   nullable=False, default="")
+    created_at  = Column(DateTime(timezone=True), default=datetime.utcnow)
 
-    # Fields added by ensure_schema()
     status          = Column(String, nullable=False, default="draft")
     department      = Column(String, nullable=True)
     team            = Column(String, nullable=True)
@@ -60,13 +60,14 @@ class JobDescription(Base):
     start_date      = Column(DateTime(timezone=True), nullable=True)
     end_date        = Column(DateTime(timezone=True), nullable=True)
 
-    # Relationship to candidates
+    tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
+    tenant    = relationship("Tenant")
+
     candidates = relationship("Candidate", back_populates="job", lazy="selectin")
 
-
+# ─── Candidate ──────────────────────────────────────────────────
 class Candidate(Base):
     __tablename__ = "candidate"
-
     id            = Column(String(8), primary_key=True)
     name          = Column(String(128), nullable=False)
     resume_url    = Column(String(512), nullable=False)
@@ -76,13 +77,10 @@ class Candidate(Base):
     questions     = Column(MutableList.as_mutable(JSON), nullable=False)
     answers       = Column(MutableList.as_mutable(JSON), nullable=True)
     answer_scores = Column(MutableList.as_mutable(JSON), nullable=True)
+    jd_code       = Column(String(20), ForeignKey("job_description.code", ondelete="SET NULL"))
+    created_at    = Column(DateTime(timezone=True), default=datetime.utcnow)
 
-    jd_code    = Column(String(20), ForeignKey("job_description.code", ondelete="SET NULL"))
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
+    tenant    = relationship("Tenant")
 
-    # Explicit two-way relationship
     job = relationship("JobDescription", back_populates="candidates")
-
-
-# Create tables if they don't exist (safe for local/dev; fine on Render too)
-Base.metadata.create_all(engine)
