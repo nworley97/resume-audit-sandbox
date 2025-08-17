@@ -21,7 +21,6 @@ from sqlalchemy import or_, text, inspect, func
 from sqlalchemy.exc import SQLAlchemyError
 from dateutil import parser as dtparse
 
-
 from db import SessionLocal
 from models import (
     Tenant, User, JobDescription, Candidate,
@@ -38,7 +37,7 @@ app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
 SUPERADMIN_USER = os.getenv("SUPERADMIN_USER", "Altera")
 SUPERADMIN_PASSWORD = os.getenv("SUPERADMIN_PASSWORD", "175050")
 
-# PDF text: 2MB limit — enforce it
+# PDF text: 2MB limit
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB
 
 login_manager = LoginManager(app)
@@ -69,7 +68,8 @@ ensure_schema()
 
 # ─── Tenant helpers ───────────────────────────────────────────────
 def load_tenant_by_slug(slug: str):
-    if not slug: return None
+    if not slug:
+        return None
     db = SessionLocal()
     try:
         return db.query(Tenant).filter(Tenant.slug == slug).first()
@@ -79,48 +79,35 @@ def load_tenant_by_slug(slug: str):
 def current_tenant():
     # priority: URL segment > session
     slug = getattr(g, "route_tenant_slug", None) or session.get("tenant_slug")
-    if not slug:
-        return None
-    t = load_tenant_by_slug(slug)
-    return t
+    return load_tenant_by_slug(slug) if slug else None
 
 @app.before_request
 def _capture_route_tenant():
-    """Capture tenant from URL or session and make it available on g."""
-    slug = None
-    # Prefer route param
-    if request.view_args and "tenant" in request.view_args:
-        slug = request.view_args.get("tenant")
-    # Fallback to query (?tenant=)
+    # Robustly read <tenant> from matched route or from querystring fallback
+    va = getattr(request, "view_args", None) or {}
+    if "tenant" in va:
+        g.route_tenant_slug = va.get("tenant")
     elif "tenant" in request.args:
-        slug = request.args.get("tenant")
-    # Finally, use session-remembered tenant for logged-in flows
-    if not slug:
-        slug = session.get("tenant_slug")
-
-    if slug:
-        g.route_tenant_slug = slug
-        g.tenant = load_tenant_by_slug(slug)
-    else:
-        g.route_tenant_slug = None
-        g.tenant = None
-
+        g.route_tenant_slug = request.args.get("tenant")
 
 @app.context_processor
 def inject_brand():
-    """
-    Make tenant info available to templates consistently.
-    Keys:
-      - tenant_obj  (Tenant or None)
-      - tenant_slug (str or None)
-      - brand_name  (display name or 'Altera' fallback)
-    """
-    t = getattr(g, "tenant", None)
+    t = current_tenant()
+    slug = t.slug if t else None
+    display = t.display_name if t else "Altera"
     return {
-        "tenant_obj": t,
-        "tenant_slug": getattr(t, "slug", None),
-        "brand_name": (t.display_name if t and getattr(t, "display_name", None) else "Altera"),
+        "tenant": t,
+        "tenant_slug": slug,
+        "brand_name": display,
     }
+
+# ─── Unauthorized redirect respects tenant ───────────────────────
+@login_manager.unauthorized_handler
+def _unauthorized():
+    slug = session.get("tenant_slug")
+    if slug:
+        return redirect(url_for("login", tenant=slug))
+    return redirect(url_for("login"))
 
 # ─── Superadmin-only decorator ────────────────────────────────────
 def super_required(f):
@@ -131,7 +118,7 @@ def super_required(f):
         return f(*args, **kwargs)
     return wrapper
 
-# ─── Flask-Login ──────────────────────────────────────────────────
+# ─── Flask-Login ─────────────────────────────────────────────────
 @login_manager.user_loader
 def load_user(uid: str):
     db = SessionLocal()
@@ -140,7 +127,7 @@ def load_user(uid: str):
     finally:
         db.close()
 
-# ─── OpenAI helper (unchanged) ────────────────────────────────────
+# ─── OpenAI helper (unchanged) ───────────────────────────────────
 def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     resp = client.chat.completions.create(
         model=MODEL, temperature=0, top_p=0.1,
@@ -150,7 +137,7 @@ def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     )
     return resp.choices[0].message.content.strip()
 
-# ─── File-to-text helpers (unchanged) ─────────────────────────────
+# ─── File-to-text helpers (unchanged) ────────────────────────────
 def pdf_to_text(path):
     return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(path).pages)
 
@@ -164,7 +151,7 @@ def file_to_text(path, mime):
         return docx_to_text(path)
     raise ValueError("Unsupported file type")
 
-# ─── AI scoring helpers (unchanged) ───────────────────────────────
+# ─── AI scoring helpers (unchanged) ──────────────────────────────
 def resume_json(text: str) -> dict:
     raw = chat("Extract résumé to JSON.", text, structured=True)
     try:
@@ -255,10 +242,9 @@ def docx_to_html_simple(docx_path: Path) -> Markup:
 # ─── Home ─────────────────────────────────────────────────────────
 @app.route("/")
 def home():
-    # keep legacy behavior: unauth -> login, auth -> redirect to tenant recruiter
+    # unauth -> login, auth -> redirect to tenant recruiter
     if not current_user.is_authenticated:
         return redirect(url_for("login"))
-    # find tenant from session or user's tenant
     slug = session.get("tenant_slug")
     if not slug and current_user and current_user.tenant_id:
         db = SessionLocal()
@@ -289,10 +275,8 @@ def terms():
 @app.route("/<tenant>/candidates/export.csv")
 @login_required
 def candidates_export_csv(tenant=None):
-    # resolve tenant
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
-        # legacy: try session tenant or bounce to login
         slug = session.get("tenant_slug")
         if slug: return redirect(url_for("candidates_export_csv", tenant=slug))
         return redirect(url_for("login"))
@@ -333,11 +317,10 @@ def candidates_export_csv(tenant=None):
         writer.writerow(["ID", "Name", "JD Code", "JD Title", "Fit", "Claim Avg", "Created At"])
 
         for c, jd_code_val, jd_title_val in rows:
-            scores = c.scores if isinstance(getattr(c, "scores", None), dict) else {}
-            fit = getattr(c, "fit_score", None) or scores.get("fit") or getattr(c, "fit", None)
+            fit = getattr(c, "fit_score", None)
 
-            claim_avg = scores.get("claim_avg")
-            if claim_avg is None and getattr(c, "answer_scores", None):
+            claim_avg = None
+            if getattr(c, "answer_scores", None):
                 try:
                     claim_avg = round(sum(c.answer_scores) / len(c.answer_scores), 2)
                 except Exception:
@@ -367,7 +350,6 @@ def candidates_export_csv(tenant=None):
 @app.route("/login", methods=["GET","POST"])
 @app.route("/<tenant>/login", methods=["GET","POST"])
 def login(tenant=None):
-    # If tenant is given in URL, restrict auth to that tenant
     t = load_tenant_by_slug(tenant) if tenant else None
 
     if request.method == "POST":
@@ -382,7 +364,6 @@ def login(tenant=None):
                 flash("Bad credentials")
             else:
                 login_user(usr)
-                # remember tenant in session
                 if usr.tenant_id:
                     tt = db.get(Tenant, usr.tenant_id)
                     if tt:
@@ -460,7 +441,8 @@ def super_tenants():
         return render_template("super_tenants.html", title="Tenants", tenants=tenants)
     finally:
         db.close()
-# --- Super: Delete tenant (confirm page) ---
+
+# Confirm delete
 @app.get("/super/tenants/<int:tid>/delete")
 @super_required
 def super_tenant_delete_confirm(tid):
@@ -482,8 +464,7 @@ def super_tenant_delete_confirm(tid):
     finally:
         db.close()
 
-
-# --- Super: Delete tenant (POST actually deletes) ---
+# Perform delete
 @app.post("/super/tenants/<int:tid>/delete")
 @super_required
 def super_tenant_delete(tid):
@@ -501,7 +482,7 @@ def super_tenant_delete(tid):
             flash("Confirmation values did not match. Nothing was deleted.")
             return redirect(url_for("super_tenant_delete_confirm", tid=tid))
 
-        # Manual cascade delete (because FKs are SET NULL in your models)
+        # Manual cascade delete (models set NULL ondelete)
         db.query(Candidate).filter(Candidate.tenant_id == tid).delete(synchronize_session=False)
         db.query(JobDescription).filter(JobDescription.tenant_id == tid).delete(synchronize_session=False)
         db.query(User).filter(User.tenant_id == tid).delete(synchronize_session=False)
@@ -532,12 +513,11 @@ def sanitize_jd(html: str) -> str:
     linked = bleach.linkify(html or "")
     return bleach.clean(linked, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, css_sanitizer=CSS_ALLOWED, strip=True)
 
-# ─── JD Management ──────────────────────────────────────────────
+# ─── JD Management ───────────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
 @app.route("/<tenant>/edit-jd", methods=["GET","POST"])
 @login_required
 def edit_jd(tenant=None):
-    # resolve tenant
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
@@ -571,10 +551,10 @@ def edit_jd(tenant=None):
                     if has_candidates:
                         flash("Job code can’t be changed because candidates already exist for this job.")
                         return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
-                    # ensure no conflict in this demo (global code space)
-                    conflict = db.query(JobDescription).filter_by(code=posted_code).first()
+                    # tenant-scoped conflict check
+                    conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                     if conflict:
-                        flash(f"Code {posted_code} is already in use.")
+                        flash(f"Code {posted_code} is already in use for this tenant.")
                         return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
                     existing.code = posted_code
 
@@ -596,10 +576,10 @@ def edit_jd(tenant=None):
             else:
                 if not posted_code:
                     flash("Job code is required"); return redirect(request.url)
-                # guard: prevent overwriting some other code
-                conflict = db.query(JobDescription).filter_by(code=posted_code).first()
+                # tenant-scoped conflict check
+                conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                 if conflict:
-                    flash(f"Code {posted_code} is already in use.")
+                    flash(f"Code {posted_code} is already in use for this tenant.")
                     return redirect(url_for("edit_jd", tenant=t.slug, code=conflict.code))
 
                 jd.code            = posted_code
@@ -650,7 +630,7 @@ def delete_jd(code, tenant=None):
     finally:
         db.close()
 
-# ─── Recruiter Dashboard ────────────────────────────────────────
+# ─── Recruiter Dashboard ─────────────────────────────────────────
 @app.route("/recruiter")
 @app.route("/<tenant>/recruiter")
 @login_required
@@ -722,8 +702,7 @@ def export_candidates(tenant=None):
     # keep for back-compat; recommend using /candidates/export.csv
     return redirect(url_for("candidates_export_csv", tenant=tenant, **request.args))
 
-# ─── Public Apply (paged Q&A) ────────────────────────────────────
-# Legacy link without tenant → redirect to the tenanted path
+# ─── Public Apply (legacy redirect) ──────────────────────────────
 @app.route("/apply/<code>", methods=["GET","POST"])
 def apply_legacy(code):
     db = SessionLocal()
@@ -737,6 +716,7 @@ def apply_legacy(code):
     finally:
         db.close()
 
+# ─── Public Apply (paged Q&A) ────────────────────────────────────
 @app.route("/<tenant>/apply/<code>", methods=["GET","POST"])
 def apply(tenant, code):
     t = load_tenant_by_slug(tenant)
@@ -875,38 +855,6 @@ def question_paged(tenant, code, cid, idx):
                            name=c.name, code=code, cid=cid,
                            q=current_q, a=current_a, idx=idx, n=n, progress=progress)
 
-@app.get("/super/bootstrap")
-def super_bootstrap():
-    # Guard this with the env key so only you can call it
-    key = request.args.get("key", "")
-    if key != os.getenv("SUPER_BOOTSTRAP_KEY"):
-        return ("forbidden", 403)
-
-    db = SessionLocal()
-    try:
-        # IMPORTANT: requires your User model to have is_superadmin: Boolean, tenant_id: nullable Integer
-        u = db.query(User).filter_by(username="Altera").first()
-        if not u:
-            u = User(username="Altera")
-            u.set_pw("175050")            # hashes with werkzeug
-            # if your model doesn’t yet have these fields, deploy the multi-tenant models first
-            setattr(u, "is_superadmin", True)
-            setattr(u, "tenant_id", None)
-            db.add(u)
-            db.commit()
-            return "superadmin created"
-        else:
-            # make sure flags are correct even if it already exists
-            changed = False
-            if not getattr(u, "is_superadmin", False):
-                setattr(u, "is_superadmin", True); changed = True
-            if getattr(u, "tenant_id", None) is not None:
-                setattr(u, "tenant_id", None); changed = True
-            if changed:
-                db.add(u); db.commit()
-            return "superadmin already exists"
-    finally:
-        db.close()
 # Support page (global)
 @app.route("/forgot")
 def forgot():
@@ -916,7 +864,6 @@ def forgot():
 @app.route("/<tenant>/forgot")
 def forgot_tenant(tenant):
     return render_template("forgot.html", title="Support")
-
 
 # ─── Self-ID page (one page) ─────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/self-id", methods=["GET", "POST"])
@@ -949,8 +896,6 @@ def self_id(tenant, code, cid):
     finally:
         db.close()
 
-        
-
 # ─── Finish (thank you) ──────────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/finish")
 def finish_application(tenant, code, cid):
@@ -970,7 +915,6 @@ def finish_application(tenant, code, cid):
         db.close()
 
     if not current_user.is_authenticated:
-        # note: submit_thanks.html should link back to tenanted apply page
         return render_template("submit_thanks.html", title="Thanks", name=c.name, code=code, tenant_slug=t.slug)
 
     avg  = round(sum(scores)/len(scores),2)

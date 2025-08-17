@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{{ title or (tenant.display_name if tenant else "Altera") }}</title>
+  <title>{{ title or brand_name }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
@@ -12,32 +12,32 @@
     <div class="container-fluid position-relative" style="min-height:72px;">
       <!-- Left: logo -->
       <a class="navbar-brand d-flex align-items-center"
-         href="{{ url_for('recruiter_t', tenant=tenant.slug) if (tenant and current_user.is_authenticated) else url_for('home') }}"
-         aria-label="{{ tenant.display_name if tenant else 'Altera' }}">
+         href="{{ url_for('recruiter', tenant=tenant_slug) if (tenant_slug and current_user.is_authenticated) else url_for('home') }}"
+         aria-label="{{ brand_name }}">
         <img src="{{ url_for('static', filename='img/logo.png') }}"
-             alt="{{ tenant.display_name if tenant else 'Altera' }}"
+             alt="{{ brand_name }}"
              class="brand-logo-left"
              onerror="this.style.display='none'">
       </a>
 
       <!-- Center: brand title -->
       <div class="navbar-center-title text-center">
-        {{ tenant.display_name if tenant else 'Altera' }}
+        {{ brand_name }}
       </div>
 
       <!-- Right: auth/links -->
       {% if current_user.is_authenticated %}
         <div class="d-flex align-items-center position-absolute end-0 top-50 translate-middle-y">
           <a class="btn btn-outline-secondary me-2"
-             href="{{ url_for('recruiter_t', tenant=tenant.slug) if tenant else url_for('recruiter') }}">Recruiter</a>
+             href="{{ url_for('recruiter', tenant=tenant_slug) if tenant_slug else url_for('recruiter') }}">Recruiter</a>
           <a class="btn btn-outline-secondary me-2"
-             href="{{ url_for('global_candidates_t', tenant=tenant.slug) if tenant else url_for('global_candidates') }}">Candidates</a>
+             href="{{ url_for('global_candidates', tenant=tenant_slug) if tenant_slug else url_for('global_candidates') }}">Candidates</a>
           <a class="btn btn-outline-danger" href="{{ url_for('logout') }}">Logout</a>
         </div>
       {% else %}
         <div class="position-absolute end-0 top-50 translate-middle-y">
           <a class="btn btn-outline-primary"
-             href="{{ url_for('login_t', tenant=tenant.slug) if tenant else url_for('login') }}">Admin Login</a>
+             href="{{ url_for('login', tenant=tenant_slug) if tenant_slug else url_for('login') }}">Admin Login</a>
         </div>
       {% endif %}
     </div>
@@ -59,12 +59,13 @@
       Powered by&nbsp;<a href="#" class="fw-semibold text-decoration-none">ALTERA</a>
     </div>
     <div class="d-flex gap-3 justify-content-center">
-      <a href="{{ url_for('privacy_t', tenant=tenant.slug) if tenant else url_for('privacy') }}" class="text-decoration-none">Privacy Policy</a>
-      <a href="{{ url_for('terms_t', tenant=tenant.slug) if tenant else url_for('terms') }}" class="text-decoration-none">Terms of Service</a>
+      <a href="{{ url_for('privacy') }}" class="text-decoration-none">Privacy Policy</a>
+      <a href="{{ url_for('terms') }}" class="text-decoration-none">Terms of Service</a>
       <a href="{{ url_for('forgot') }}" class="text-decoration-none">Support</a>
     </div>
   </footer>
 
+  <!-- Busy overlay -->
   <div id="busy" class="position-fixed top-0 start-0 w-100 h-100 d-none"
        style="background:rgba(255,255,255,.7); z-index:1050; display:grid; place-items:center;">
     <div class="text-center">
