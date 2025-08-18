@@ -1,25 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Thanks, {{ c.name }}!</h3>
-<p>
-  <strong>Fit:</strong> {{ c.fit_score }}/5<br>
-  <strong>Avg Q-score:</strong> {{ avg }}
-</p>
 
-<h5>Your Answers</h5>
-<table class="table">
-  <thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead>
-  <tbody>
-    {% for q,a,s in qa %}
-    <tr>
-      <td><strong>{{ q }}</strong></td>
-      <td>{{ a or '-' }}</td>
-      <td>{{ s }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<h4 class="mb-3">Submission recorded</h4>
 
-<a class="btn btn-secondary" href="{{ url_for('apply', code=c.jd_code) }}">Re-apply</a>
-<a class="btn btn-primary" href="{{ url_for('recruiter') }}">Dashboard</a>
+<div class="mb-3">
+  <div class="text-muted">Candidate</div>
+  <div class="fw-semibold">{{ c.name }}</div>
+</div>
+
+<div class="mb-3">
+  <div class="text-muted">Job Code</div>
+  <div class="fw-semibold">{{ c.jd_code }}</div>
+</div>
+
+<div class="mb-4">
+  <div class="text-muted">Average score</div>
+  <div class="fw-semibold">{{ avg }}</div>
+</div>
+
+<h6 class="mb-2">Q&A</h6>
+<div class="list-group mb-4">
+  {% for q, a, s in qa %}
+  <div class="list-group-item">
+    <div class="fw-semibold">{{ q }}</div>
+    <div class="mt-1">{{ a or "—" }}</div>
+    <div class="text-muted small">Score: {{ s }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="d-flex gap-2">
+  <!-- FIX: include tenant -->
+  <a class="btn btn-secondary" href="{{ url_for('apply', tenant=tenant.slug, code=c.jd_code) }}">
+    Re-apply
+  </a>
+
+  {% if current_user.is_authenticated %}
+    <!-- FIX: include tenant -->
+    <a class="btn btn-primary" href="{{ url_for('view_candidates', tenant=tenant.slug, code=c.jd_code) }}">
+      Back to candidates
+    </a>
+  {% else %}
+    <!-- For public flow, just give a done/close option -->
+    <a class="btn btn-primary" href="{{ url_for('apply', tenant=tenant.slug, code=c.jd_code) }}">
+      Done
+    </a>
+  {% endif %}
+</div>
+
 {% endblock %}
