@@ -151,7 +151,7 @@ def file_to_text(path, mime):
         return docx_to_text(path)
     raise ValueError("Unsupported file type")
 
-# ─── AI scoring helpers (unchanged) ──────────────────────────────
+# ─── AI helpers ──────────────────────────────────────────────────
 def resume_json(text: str) -> dict:
     raw = chat("Extract résumé to JSON.", text, structured=True)
     try:
@@ -174,21 +174,35 @@ def realism_check(rjs: dict) -> bool:
     reply = chat("You are a résumé authenticity checker.", json.dumps(rjs) + "\n\nIs this résumé realistic? yes or no.")
     return reply.lower().startswith("y")
 
+# >>> minimal fix: trim stray quotes from questions <<<
 def generate_questions(rjs: dict, jd_text: str) -> list[str]:
+    def _tidy_q(s: str) -> str:
+        s = (s or "").replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+        s = s.strip()
+        s = re.sub(r'^[\'"`\s]+', '', s)
+        s = re.sub(r'[\'"`\s]+$', '', s)
+        s = re.sub(r'[,\s]+$', '', s)
+        return s
+
     raw = ""
     try:
         raw = chat("You are an interviewer.", f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY FOUR interview questions as a JSON array.")
         parsed = json.loads(raw)
         if isinstance(parsed, list):
-            return [q.strip().strip('",') for q in parsed if isinstance(q, str) and len(q.strip()) > 10]
+            cleaned = []
+            for q in parsed:
+                if isinstance(q, str) and len(q.strip()) > 10:
+                    cleaned.append(_tidy_q(q))
+            return cleaned[:4]
     except Exception as e:
         logging.warning("Fallback triggered in question generation: %s", e)
+
     lines = (raw or "").splitlines()
     cleaned = []
     for line in lines:
-        line = line.strip().strip("-• ").strip('"').strip(',')
+        line = line.strip().lstrip("-• ").strip()
         if line and not line.lower().startswith("json") and line not in ("[","]","```") and len(line) > 10:
-            cleaned.append(line)
+            cleaned.append(_tidy_q(line))
     if not cleaned:
         cleaned = [
             "Tell us about a project you’re most proud of and your specific contributions.",
@@ -197,6 +211,7 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
             "Which skills from your résumé would make the biggest impact in this role, and why?"
         ]
     return cleaned[:4]
+# <<< end fix >>>
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
@@ -218,7 +233,7 @@ def _parse_dt(val: str):
     except Exception:
         return None
 
-# --- Legal pages: load DOCX and render as simple HTML -------------
+# --- Legal files (download DOCX) ---------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 LEGAL_DIR = BASE_DIR / "static" / "legal"
 
@@ -242,7 +257,6 @@ def docx_to_html_simple(docx_path: Path) -> Markup:
 # ─── Home ─────────────────────────────────────────────────────────
 @app.route("/")
 def home():
-    # unauth -> login, auth -> redirect to tenant recruiter
     if not current_user.is_authenticated:
         return redirect(url_for("login"))
     slug = session.get("tenant_slug")
@@ -257,18 +271,34 @@ def home():
         return redirect(url_for("recruiter", tenant=slug))
     return redirect(url_for("login"))
 
-# ─── Privacy / Terms ─────────────────────────────────────────────
+# ─── Privacy / Terms — download DOCX (plus tenant variants) ─────
 @app.route("/privacy")
 def privacy():
     path = LEGAL_DIR / "20250811_Privacy.docx"
-    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Privacy policy coming soon.</p>")
-    return render_template("legal.html", title="Privacy Policy", body=body)
+    if not path.exists():
+        return make_response("Privacy policy coming soon.", 200)
+    return send_file(str(path),
+                     mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                     as_attachment=True,
+                     download_name="Privacy.docx")
+
+@app.route("/<tenant>/privacy")
+def privacy_t(tenant):
+    return privacy()
 
 @app.route("/terms")
 def terms():
     path = LEGAL_DIR / "20250811_Terms.docx"
-    body = docx_to_html_simple(path) if path.exists() else Markup("<p>Terms of Service coming soon.</p>")
-    return render_template("legal.html", title="Terms of Service", body=body)
+    if not path.exists():
+        return make_response("Terms of Service coming soon.", 200)
+    return send_file(str(path),
+                     mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                     as_attachment=True,
+                     download_name="Terms.docx")
+
+@app.route("/<tenant>/terms")
+def terms_t(tenant):
+    return terms()
 
 # ─── CSV Export (All or Current View), tenant-scoped ─────────────
 @app.route("/candidates/export.csv")
@@ -318,7 +348,6 @@ def candidates_export_csv(tenant=None):
 
         for c, jd_code_val, jd_title_val in rows:
             fit = getattr(c, "fit_score", None)
-
             claim_avg = None
             if getattr(c, "answer_scores", None):
                 try:
@@ -372,7 +401,6 @@ def login(tenant=None):
                 return redirect(url_for("recruiter"))
         finally:
             db.close()
-    # GET
     return render_template("login.html", title="Login")
 
 @app.route("/logout")
@@ -439,6 +467,37 @@ def super_tenants():
 
         tenants = db.query(Tenant).order_by(Tenant.slug.asc()).all()
         return render_template("super_tenants.html", title="Tenants", tenants=tenants)
+    finally:
+        db.close()
+
+# NEW: add additional user to a tenant
+@app.post("/super/tenants/<int:tid>/users")
+@super_required
+def super_tenant_add_user(tid):
+    username = (request.form.get("username") or "").strip()
+    password = (request.form.get("password") or "").strip()
+
+    db = SessionLocal()
+    try:
+        t = db.get(Tenant, tid)
+        if not t:
+            flash("Tenant not found")
+            return redirect(url_for("super_tenants"))
+
+        if not username or not password:
+            flash("Username and password are required to add a user.")
+            return redirect(url_for("super_tenants") + f"#t-{tid}")
+
+        # Enforce global username uniqueness to avoid ambiguous logins
+        if db.query(User).filter(User.username == username).first():
+            flash(f"User '{username}' already exists.")
+            return redirect(url_for("super_tenants") + f"#t-{tid}")
+
+        u = User(username=username, tenant_id=t.id)
+        u.set_pw(password)
+        db.add(u); db.commit()
+        flash(f"Added user '{username}' to tenant '{t.slug}'.")
+        return redirect(url_for("super_tenants") + f"#t-{tid}")
     finally:
         db.close()
 
@@ -551,7 +610,6 @@ def edit_jd(tenant=None):
                     if has_candidates:
                         flash("Job code can’t be changed because candidates already exist for this job.")
                         return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
-                    # tenant-scoped conflict check
                     conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                     if conflict:
                         flash(f"Code {posted_code} is already in use for this tenant.")
@@ -576,7 +634,6 @@ def edit_jd(tenant=None):
             else:
                 if not posted_code:
                     flash("Job code is required"); return redirect(request.url)
-                # tenant-scoped conflict check
                 conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                 if conflict:
                     flash(f"Code {posted_code} is already in use for this tenant.")
@@ -699,7 +756,6 @@ def global_candidates(tenant=None):
 @app.route("/<tenant>/export/candidates.csv")
 @login_required
 def export_candidates(tenant=None):
-    # keep for back-compat; recommend using /candidates/export.csv
     return redirect(url_for("candidates_export_csv", tenant=tenant, **request.args))
 
 # ─── Public Apply (legacy redirect) ──────────────────────────────

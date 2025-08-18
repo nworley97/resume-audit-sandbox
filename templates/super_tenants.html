@@ -46,12 +46,11 @@
             <th>Display Name</th>
             <th>Logo</th>
             <th>Key Links</th>
-            <th class="text-end">Actions</th> <!-- NEW -->
           </tr>
         </thead>
         <tbody>
           {% for t in tenants %}
-          <tr>
+          <tr id="t-{{ t.id }}">
             <td><code>{{ t.slug }}</code></td>
             <td>{{ t.display_name }}</td>
             <td>
@@ -63,16 +62,26 @@
               <div><a href="/{{ t.slug }}/login" target="_blank">/{{ t.slug }}/login</a></div>
               <div><a href="/{{ t.slug }}/recruiter" target="_blank">/{{ t.slug }}/recruiter</a></div>
               <div class="text-muted">Jobs: /{{ t.slug }}/apply/&lt;CODE&gt;</div>
-            </td>
-            <td class="text-end">
-              <a class="btn btn-outline-danger btn-sm"
-                 href="{{ url_for('super_tenant_delete_confirm', tid=t.id) }}">
-                Delete…
-              </a>
+
+              <!-- Minimal inline form: add user -->
+              <form class="row g-2 align-items-end mt-2" method="post" action="{{ url_for('super_tenant_add_user', tid=t.id) }}">
+                <div class="col-md-4">
+                  <input class="form-control form-control-sm" name="username" placeholder="newuser@company.com" required>
+                </div>
+                <div class="col-md-3">
+                  <input class="form-control form-control-sm" type="password" name="password" placeholder="password" required>
+                </div>
+                <div class="col-md-3">
+                  <button class="btn btn-sm btn-outline-primary w-100" type="submit">Add user</button>
+                </div>
+                <div class="col-md-2 text-end">
+                  <a class="btn btn-sm btn-outline-danger w-100" href="{{ url_for('super_tenant_delete_confirm', tid=t.id) }}">Delete…</a>
+                </div>
+              </form>
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="5" class="text-muted">No tenants yet.</td></tr>
+          <tr><td colspan="4" class="text-muted">No tenants yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
