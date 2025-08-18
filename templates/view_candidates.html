@@ -38,8 +38,13 @@
           {% else %}-{% endif %}
         </td>
         <td class="text-end">
-          <a class="btn btn-sm btn-outline-primary"
+          <a class="btn btn-sm btn-outline-primary me-1"
              href="{{ url_for('detail', tenant=tenant_slug, cid=a.id) }}">View</a>
+          <a class="btn btn-sm btn-outline-danger"
+             href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=a.id) }}"
+             onclick="return confirm('Delete {{ a.name }} ({{ a.id }})? This cannot be undone.');">
+            Delete
+          </a>
         </td>
       </tr>
     {% else %}

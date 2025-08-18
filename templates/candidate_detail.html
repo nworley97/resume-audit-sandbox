@@ -56,5 +56,12 @@
   </tbody>
 </table>
 
-<a class="btn btn-outline-secondary" href="{{ url_for('download_resume', tenant=tenant_slug, cid=c.id) }}">Download résumé</a>
+<a class="btn btn-outline-secondary me-2"
+   href="{{ url_for('download_resume', tenant=tenant_slug, cid=c.id) }}">Download résumé</a>
+<a class="btn btn-outline-danger"
+   href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}"
+   onclick="return confirm('Delete {{ c.name }} ({{ c.id }})? This cannot be undone.');">
+  Delete
+</a>
+
 {% endblock %}
