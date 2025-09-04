@@ -8,7 +8,7 @@ from sqlalchemy.ext.mutable import MutableDict, MutableList
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
-# Use the same Base/engine as app.py
+# Base and engine come from db.py
 from db import Base, engine as engine
 
 
