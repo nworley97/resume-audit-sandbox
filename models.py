@@ -6,13 +6,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin
 
-# Use the same Base/engine your app already relies on
-from db import Base, engine as engine  # engine is imported for ensure_schema() in app.py
+# Use the same Base/engine as app.py
+from db import Base, engine as engine
 
 
 class Tenant(Base):
     __tablename__ = "tenant"
+
     id = Column(Integer, primary_key=True)
     slug = Column(String, unique=True, nullable=False)
     display_name = Column(String, nullable=False)
@@ -20,10 +22,11 @@ class Tenant(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 
-class User(Base):
+class User(Base, UserMixin):
     __tablename__ = "user"
+
     id = Column(Integer, primary_key=True)
-    username = Column(String, nullable=False)   # email for tenant users; "Altera" for super
+    username = Column(String, nullable=False, unique=True)   # email or "Altera"
     pw_hash = Column(String, nullable=False)
     is_super = Column(Boolean, default=False)
 
@@ -39,17 +42,16 @@ class User(Base):
 
 class JobDescription(Base):
     __tablename__ = "job_description"
-    id = Column(Integer, primary_key=True)
 
-    # App uses code as the external identifier and FK target
+    id = Column(Integer, primary_key=True)
     code = Column(String(20), unique=True, nullable=False)
 
     title = Column(String(200), nullable=False)
     html = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
-    # These columns are created/kept in ensure_schema() too; defined here for ORM completeness
-    status = Column(String, nullable=True)             # e.g. "draft", "published", "open", "closed"
+    # Columns also checked by ensure_schema()
+    status = Column(String, nullable=True)
     department = Column(String, nullable=True)
     team = Column(String, nullable=True)
     location = Column(String, nullable=True)
@@ -59,9 +61,9 @@ class JobDescription(Base):
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=True)
 
-    # NEW: per-JD controls (defaults preserve current behavior)
-    id_surveys_enabled = Column(Boolean, default=True)  # toggle veteran/disability surveys
-    question_count = Column(Integer, default=4)         # 1..5 questions
+    # NEW controls
+    id_surveys_enabled = Column(Boolean, default=True)   # toggle surveys
+    question_count = Column(Integer, default=4)          # 1–5 questions
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")
@@ -70,7 +72,7 @@ class JobDescription(Base):
 class Candidate(Base):
     __tablename__ = "candidate"
 
-    # IMPORTANT: your app uses 8-char UUID strings and ilike() searches on id
+    # IMPORTANT: Candidate IDs are 8-char strings in app.py
     id = Column(String(32), primary_key=True)
 
     name = Column(String(120), nullable=False)
@@ -83,17 +85,15 @@ class Candidate(Base):
     fit_score = Column(Integer, nullable=False)
     realism = Column(Boolean, default=False)
 
-    # LLM question/answer payloads
     questions = Column(MutableList.as_mutable(JSON), nullable=False)
     answers = Column(MutableList.as_mutable(JSON), nullable=True)
     answer_scores = Column(MutableList.as_mutable(JSON), nullable=True)
 
-    # Link to JD by code (your app queries on Candidate.jd_code == JobDescription.code)
     jd_code = Column(String(20), ForeignKey("job_description.code", ondelete="SET NULL"))
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
-    # NEW: lightweight anti-cheat signal (tab/window switches during Q&A)
+    # NEW: anti-cheat flag counter
     left_tab_count = Column(Integer, default=0)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
