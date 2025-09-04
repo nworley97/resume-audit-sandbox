@@ -1,72 +1,68 @@
 {% extends "base.html" %}
 {% block content %}
 
-<a href="{{ url_for('view_candidates', tenant=tenant_slug, code=c.jd_code) }}">← Back</a>
-<h3 class="mt-2">{{ c.name }}</h3>
+<h3 class="mb-3">Candidate Detail</h3>
 
-<p class="mb-2">
-  ID: {{ c.id }}<br>
-  JD:
-  {% if c.jd_code %}
-    <a href="{{ url_for('view_candidates', tenant=tenant_slug, code=c.jd_code) }}" class="text-decoration-none">
-      {{ c.jd_code }}
-    </a>
-  {% else %}—{% endif %}
-  {% if jd and jd.title %} — {{ jd.title }}{% endif %}<br>
-  <span class="text-muted">Tab switches detected: {{ c.left_tab_count or 0 }}</span>
-</p>
+<div class="card mb-3">
+  <div class="card-header">Candidate</div>
+  <div class="card-body">
+    <p><strong>Name:</strong> {{ c.name }}</p>
+    <p><strong>ID:</strong> {{ c.id }}</p>
+    <p><strong>Job:</strong> {{ jd.title if jd else c.jd_code }}</p>
+    <p>
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('download_resume', tenant=tenant_slug, cid=c.id) }}">Download Résumé</a>
+      <a class="btn btn-sm btn-outline-danger" href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}">Delete Candidate</a>
+    </p>
+  </div>
+</div>
 
-<div class="row g-3">
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-header">Scores</div>
-      <div class="card-body">
-        <div>Fit: <strong>{{ c.fit_score }}</strong></div>
-        <div>Realism: <strong>{{ 'Likely genuine' if c.realism else 'Potentially AI-assisted' }}</strong></div>
-      </div>
-    </div>
-
-    {% if c.resume_json and c.resume_json.get('_self_id') %}
-    <div class="card mt-3">
-      <div class="card-header">Voluntary Self-Identification</div>
-      <div class="card-body">
-        <pre class="mb-0">{{ c.resume_json['_self_id'] | tojson(indent=2) }}</pre>
-      </div>
-    </div>
+<div class="card mb-3">
+  <div class="card-header">Scores</div>
+  <div class="card-body">
+    <p>Fit: {{ c.fit_score or "N/A" }}</p>
+    <!-- Realism removed -->
+    {% if c.answer_scores %}
+      <p>Average Answer Score: {{ (c.answer_scores | sum / (c.answer_scores|length)) | round(2) }}</p>
     {% endif %}
   </div>
+</div>
 
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-header">Q&A</div>
-      <div class="card-body">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr><th style="width:40%">Question</th><th>Answer</th><th style="width:12%">Score</th></tr>
-          </thead>
-          <tbody>
-            {% for q, a, s in qa %}
-              <tr>
-                <td class="small">{{ q }}</td>
-                <td class="small">{{ a }}</td>
-                <td class="small text-center">{{ s }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
+<div class="card mb-3">
+  <div class="card-header">Questions & Answers</div>
+  <div class="card-body">
+    <ol>
+      {% for q, a, s in qa %}
+        <li class="mb-3">
+          <strong>{{ q }}</strong><br>
+          <em>Answer:</em> {{ a or "(no answer)" }}<br>
+          <em>Score:</em> {{ s }}
+        </li>
+      {% endfor %}
+    </ol>
   </div>
 </div>
 
-<div class="mt-3">
-  <a class="btn btn-outline-secondary me-2"
-     href="{{ url_for('download_resume', tenant=tenant_slug, cid=c.id) }}">Download résumé</a>
-  <a class="btn btn-outline-danger"
-     href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}"
-     onclick="return confirm('Delete {{ c.name }} ({{ c.id }})? This cannot be undone.');">
-    Delete
-  </a>
+{% if c.resume_json and c.resume_json._self_id %}
+<div class="card mb-3">
+  <div class="card-header">Voluntary Self-Identification</div>
+  <div class="card-body">
+    <dl class="row">
+      <dt class="col-sm-4">Gender</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.gender }}</dd>
+
+      <dt class="col-sm-4">Hispanic/Latino</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.hispanic }}</dd>
+
+      <dt class="col-sm-4">Veteran Status</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.veteran }}</dd>
+
+      <dt class="col-sm-4">Disability</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.disability }}</dd>
+    </dl>
+  </div>
 </div>
+{% endif %}
+
+<a class="btn btn-secondary" href="{{ url_for('view_candidates', tenant=tenant_slug, code=c.jd_code) }}">Back to Candidates</a>
 
 {% endblock %}
