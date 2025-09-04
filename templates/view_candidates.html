@@ -16,10 +16,26 @@
 <table class="table align-middle">
   <thead>
     <tr>
-      <th><a href="?sort=name&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">Name</a></th>
-      <th><a href="?sort=fit&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">Fit</a></th>
-      <th><a href="?sort=claim&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">Claim Validity</a></th>
-      <th><a href="?sort=created&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">Applied</a></th>
+      <th>
+        <a href="?sort=name&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">
+          Name
+        </a>
+      </th>
+      <th>
+        <a href="?sort=fit&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">
+          Fit
+        </a>
+      </th>
+      <th>
+        <a href="?sort=claim&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">
+          Claim Validity
+        </a>
+      </th>
+      <th>
+        <a href="?sort=created&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">
+          Applied
+        </a>
+      </th>
       <th>Actions</th>
     </tr>
   </thead>
@@ -34,7 +50,7 @@
              {{ a.name }}
           </a>
         </td>
-        <td>{{ a.fit_score }}</td>
+        <td>{{ a.fit_score if a.fit_score is not none else '—' }}</td>
         <td>
           {% if avgv is not none %}
             {{ avgv }}
@@ -54,7 +70,9 @@
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="text-muted">No candidates yet.</td></tr>
+      <tr>
+        <td colspan="5" class="text-muted">No candidates yet.</td>
+      </tr>
     {% endfor %}
   </tbody>
 </table>

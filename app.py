@@ -761,15 +761,14 @@ def view_candidates(code, tenant=None):
         return redirect(url_for("login"))
     db = SessionLocal()
     try:
-        # --- Sorting (server-side, safe) ---
         sort_field = (request.args.get("sort") or "created").lower()
         sort_dir   = (request.args.get("dir")  or "desc").lower()
         q = db.query(Candidate).filter_by(jd_code=code, tenant_id=t.id)
 
+        # Default SQL-side sort
         sortable = {
             "name":    Candidate.name,
             "fit":     Candidate.fit_score,
-            "realism": Candidate.realism,
             "created": Candidate.created_at,
             "id":      Candidate.id,
         }
@@ -777,9 +776,25 @@ def view_candidates(code, tenant=None):
         q = q.order_by(col.asc() if sort_dir == "asc" else col.desc())
 
         apps = q.all()
-        return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps, tenant_slug=t.slug)
+
+        # NEW: Python-side sort for claim validity
+        if sort_field == "claim":
+            def claim_avg(c):
+                if c.answer_scores and len(c.answer_scores) > 0:
+                    return sum(c.answer_scores)/len(c.answer_scores)
+                return -9999  # put empty at bottom
+            apps = sorted(apps, key=claim_avg, reverse=(sort_dir=="desc"))
+
+        return render_template(
+            "view_candidates.html",
+            title=f"Candidates – {code}",
+            code=code,
+            apps=apps,
+            tenant_slug=t.slug
+        )
     finally:
         db.close()
+
 
 # ─── Global Candidates (legacy) ──────────────────────────────────
 @app.route("/candidates")
