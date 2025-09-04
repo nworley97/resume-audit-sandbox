@@ -70,6 +70,28 @@
              value="{{ jd.end_date.date() if jd.end_date else '' }}">
     </div>
 
+    <!-- NEW: per-JD controls -->
+    <div class="col-md-4">
+      <div class="form-check mt-4">
+        <input class="form-check-input" type="checkbox"
+               name="id_surveys_enabled" id="id_surveys_enabled"
+               {% if jd.id_surveys_enabled %}checked{% endif %}>
+        <label class="form-check-label" for="id_surveys_enabled">
+          Require self-identification surveys
+        </label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <label for="question_count" class="form-label mt-3 mt-md-0">Number of application questions</label>
+      <select class="form-select" name="question_count" id="question_count">
+        {% for i in range(1,6) %}
+          <option value="{{ i }}" {% if (jd.question_count or 4) == i %}selected{% endif %}>{{ i }}</option>
+        {% endfor %}
+      </select>
+      <div class="form-text">Choose 1–5 (default 4).</div>
+    </div>
+
     <!-- Rich Text JD -->
     <div class="col-12">
       <label class="form-label">Job Description</label>
@@ -98,7 +120,7 @@
 
   <!-- Sticky action bar so it never hides behind the footer -->
   <div class="jd-actions d-flex justify-content-end gap-2 mt-4">
-    <a class="btn btn-outline-secondary" href="{{ url_for('recruiter') }}">Cancel</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('recruiter', tenant=tenant_slug) }}">Cancel</a>
     <button class="btn btn-primary" type="submit">Save</button>
   </div>
 </form>
@@ -131,11 +153,9 @@
   .ql-font-sans-serif      { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
   .ql-font-times-new-roman { font-family: "Times New Roman", Times, serif; }
   .ql-font-courier-new     { font-family: "Courier New", Courier, monospace; }
-
-  /* Keep the action bar visible above your sticky footer */
   .jd-actions{
     position: sticky;
-    bottom: 72px;     /* adjust if your footer height differs */
+    bottom: 72px;
     background: var(--bs-body-bg, #fff);
     padding: 12px 0;
     z-index: 2;

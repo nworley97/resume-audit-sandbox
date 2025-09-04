@@ -16,29 +16,27 @@
 <table class="table align-middle">
   <thead>
     <tr>
-      <th>Name</th>
-      <th class="text-center">Fit</th>
-      <th class="text-center">Answers Avg</th>
-      <th></th>
+      <th><a href="?sort=name&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">Name</a></th>
+      <th><a href="?sort=fit&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">Fit</a></th>
+      <th><a href="?sort=realism&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">Realism</a></th>
+      <th><a href="?sort=created&dir={{ 'asc' if request.args.get('dir')=='desc' else 'desc' }}">Applied</a></th>
+      <th>Actions</th>
     </tr>
   </thead>
   <tbody>
     {% for a in apps %}
       <tr>
-        <td>{{ a.name }}</td>
-        <td class="text-center">
-          {% set s=a.fit_score or 0 %}
-          <span class="badge {% if s>=4 %}bg-success{% elif s==3 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-            {{ s }}/5
-          </span>
+        <td>
+          <a class="text-decoration-none"
+             href="{{ url_for('detail', tenant=tenant_slug, cid=a.id) }}">
+             {{ a.name }}
+          </a>
         </td>
-        <td class="text-center">
-          {% if a.answer_scores %}
-            {{ (a.answer_scores|sum / a.answer_scores|length)|round(2) }}
-          {% else %}-{% endif %}
-        </td>
-        <td class="text-end">
-          <a class="btn btn-sm btn-outline-primary me-1"
+        <td>{{ a.fit_score }}</td>
+        <td>{{ 'Yes' if a.realism else 'No' }}</td>
+        <td>{{ a.created_at.strftime('%Y-%m-%d %H:%M') if a.created_at else '—' }}</td>
+        <td class="text-nowrap">
+          <a class="btn btn-sm btn-outline-secondary me-1"
              href="{{ url_for('detail', tenant=tenant_slug, cid=a.id) }}">View</a>
           <a class="btn btn-sm btn-outline-danger"
              href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=a.id) }}"
@@ -48,7 +46,7 @@
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="text-muted">No candidates yet.</td></tr>
+      <tr><td colspan="5" class="text-muted">No candidates yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>

@@ -1,5 +1,4 @@
 # models.py
-import os
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Integer, Boolean, DateTime, JSON, ForeignKey, Text
@@ -8,79 +7,94 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# IMPORTANT: we import Base and engine from your db.py to avoid re-defining Base twice
-from db import Base, engine as engine  # engine is re-exported for app.ensure_schema()
+# Use the same Base/engine your app already relies on
+from db import Base, engine as engine  # engine is imported for ensure_schema() in app.py
 
-# ─── Tenant ──────────────────────────────────────────────────────
+
 class Tenant(Base):
     __tablename__ = "tenant"
     id = Column(Integer, primary_key=True)
     slug = Column(String, unique=True, nullable=False)
     display_name = Column(String, nullable=False)
     logo_url = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
-# ─── User ────────────────────────────────────────────────────────
+
 class User(Base):
     __tablename__ = "user"
-    id       = Column(Integer, primary_key=True)
-    username = Column(String(128), nullable=False)  # (demo: not globally unique)
-    pw_hash  = Column(String(256), nullable=False)
+    id = Column(Integer, primary_key=True)
+    username = Column(String, nullable=False)   # email for tenant users; "Altera" for super
+    pw_hash = Column(String, nullable=False)
+    is_super = Column(Boolean, default=False)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
-    tenant    = relationship("Tenant")
+    tenant = relationship("Tenant")
 
-    def set_pw(self, pw):  self.pw_hash = generate_password_hash(pw)
-    def check_pw(self, pw): return check_password_hash(self.pw_hash, pw)
+    def set_pw(self, pw: str) -> None:
+        self.pw_hash = generate_password_hash(pw)
 
-    # Flask-Login
-    @property
-    def is_active(self):         return True
-    @property
-    def is_authenticated(self):  return True
-    @property
-    def is_anonymous(self):      return False
-    def get_id(self):            return str(self.id)
+    def check_pw(self, pw: str) -> bool:
+        return check_password_hash(self.pw_hash, pw)
 
-# ─── JobDescription ─────────────────────────────────────────────
+
 class JobDescription(Base):
     __tablename__ = "job_description"
+    id = Column(Integer, primary_key=True)
 
-    code        = Column(String, primary_key=True)
-    title       = Column(String, nullable=False, default="")
-    html        = Column(Text,   nullable=False, default="")
-    created_at  = Column(DateTime(timezone=True), default=datetime.utcnow)
+    # App uses code as the external identifier and FK target
+    code = Column(String(20), unique=True, nullable=False)
 
-    status          = Column(String, nullable=False, default="draft")
-    department      = Column(String, nullable=True)
-    team            = Column(String, nullable=True)
-    location        = Column(String, nullable=True)
+    title = Column(String(200), nullable=False)
+    html = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    # These columns are created/kept in ensure_schema() too; defined here for ORM completeness
+    status = Column(String, nullable=True)             # e.g. "draft", "published", "open", "closed"
+    department = Column(String, nullable=True)
+    team = Column(String, nullable=True)
+    location = Column(String, nullable=True)
     employment_type = Column(String, nullable=True)
-    salary_range    = Column(String, nullable=True)
-    updated_at      = Column(DateTime(timezone=True), nullable=True)
-    start_date      = Column(DateTime(timezone=True), nullable=True)
-    end_date        = Column(DateTime(timezone=True), nullable=True)
+    salary_range = Column(String, nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+    start_date = Column(DateTime(timezone=True), nullable=True)
+    end_date = Column(DateTime(timezone=True), nullable=True)
+
+    # NEW: per-JD controls (defaults preserve current behavior)
+    id_surveys_enabled = Column(Boolean, default=True)  # toggle veteran/disability surveys
+    question_count = Column(Integer, default=4)         # 1..5 questions
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
-    tenant    = relationship("Tenant")
+    tenant = relationship("Tenant")
 
-    candidates = relationship("Candidate", back_populates="job", lazy="selectin")
 
-# ─── Candidate ──────────────────────────────────────────────────
 class Candidate(Base):
     __tablename__ = "candidate"
-    id            = Column(String(8), primary_key=True)
-    name          = Column(String(128), nullable=False)
-    resume_url    = Column(String(512), nullable=False)
-    resume_json   = Column(MutableDict.as_mutable(JSON), nullable=False)
-    fit_score     = Column(Integer, nullable=False)
-    realism       = Column(Boolean, default=False)
-    questions     = Column(MutableList.as_mutable(JSON), nullable=False)
-    answers       = Column(MutableList.as_mutable(JSON), nullable=True)
+
+    # IMPORTANT: your app uses 8-char UUID strings and ilike() searches on id
+    id = Column(String(32), primary_key=True)
+
+    name = Column(String(120), nullable=False)
+    email = Column(String(200), nullable=True)
+    phone = Column(String(50), nullable=True)
+
+    resume_url = Column(String(512), nullable=False)
+    resume_json = Column(MutableDict.as_mutable(JSON), nullable=False)
+
+    fit_score = Column(Integer, nullable=False)
+    realism = Column(Boolean, default=False)
+
+    # LLM question/answer payloads
+    questions = Column(MutableList.as_mutable(JSON), nullable=False)
+    answers = Column(MutableList.as_mutable(JSON), nullable=True)
     answer_scores = Column(MutableList.as_mutable(JSON), nullable=True)
-    jd_code       = Column(String(20), ForeignKey("job_description.code", ondelete="SET NULL"))
-    created_at    = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    # Link to JD by code (your app queries on Candidate.jd_code == JobDescription.code)
+    jd_code = Column(String(20), ForeignKey("job_description.code", ondelete="SET NULL"))
+
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    # NEW: lightweight anti-cheat signal (tab/window switches during Q&A)
+    left_tab_count = Column(Integer, default=0)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
-    tenant    = relationship("Tenant")
-
-    job = relationship("JobDescription", back_populates="candidates")
+    tenant = relationship("Tenant")

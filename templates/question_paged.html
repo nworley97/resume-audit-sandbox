@@ -14,31 +14,46 @@
     {% if idx+1 < n %}
       <button name="action" value="next" class="btn btn-primary">Next →</button>
     {% else %}
-      <button name="action" value="finish" class="btn btn-primary">Finish</button>
+      <button name="action" value="finish" class="btn btn-success">Finish</button>
     {% endif %}
   </div>
 </form>
 
 <script>
-  (function(){
-    const ta = document.querySelector('textarea[name="answer"]');
-    const cc = document.getElementById('ccnt');
-    const update = () => { cc.textContent = (ta.value || '').length; };
-    ta.addEventListener('input', update);
-    update();
-  })();
-</script>
-
-<script>
+  // Busy UI on finish (no-op if showBusy not defined)
   (function(){
     const form = document.getElementById('qaForm');
     form.addEventListener('click', function(e){
       const btn = e.target.closest('button[name="action"]');
       if (!btn) return;
       if (btn.value === 'finish') {
-        showBusy('Scoring your answers…');
+        try { showBusy && showBusy('Scoring your answers…'); } catch(e) {}
       }
     });
+  })();
+
+  // Char count
+  (function(){
+    const ta = document.querySelector('textarea[name="answer"]');
+    const cc = document.getElementById('ccnt');
+    const upd = () => { cc.textContent = (ta.value||'').length; };
+    ta.addEventListener('input', upd);
+    upd();
+  })();
+
+  // Anti-cheat: tab/window switch flag (lightweight, no keystrokes)
+  // Uses an absolute server-generated URL so it doesn't depend on the current path
+  (function(){
+    const flagUrl = "{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}";
+    function flagSwitch(){
+      try {
+        fetch(flagUrl, { method: "POST", credentials: "same-origin" });
+      } catch (_) {}
+    }
+    document.addEventListener("visibilitychange", function(){
+      if (document.hidden) flagSwitch();
+    });
+    window.addEventListener("blur", flagSwitch);
   })();
 </script>
 {% endblock %}

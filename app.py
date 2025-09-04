@@ -37,8 +37,8 @@ app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
 SUPERADMIN_USER = os.getenv("SUPERADMIN_USER", "Altera")
 SUPERADMIN_PASSWORD = os.getenv("SUPERADMIN_PASSWORD", "175050")
 
-# PDF text: 2MB limit
-app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB
+# PDF text: bump to 20MB (was 2MB)
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
 
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
@@ -46,9 +46,10 @@ login_manager.login_view = "login"
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL  = "gpt-4o"
 
-# ─── One-time schema upgrade for JD columns (kept) ────────────────
+# ─── One-time schema upgrade (idempotent) ─────────────────────────
 def ensure_schema():
     insp = inspect(models_engine)
+    # Existing JD upgrade block
     cols = {c["name"] for c in insp.get_columns("job_description")}
     adds = []
     if "status" not in cols:          adds.append("ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'draft'")
@@ -60,10 +61,24 @@ def ensure_schema():
     if "updated_at" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ")
     if "start_date" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ")
     if "end_date" not in cols:        adds.append("ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ")
+    # NEW: per-JD toggles
+    if "id_surveys_enabled" not in cols: adds.append("ADD COLUMN IF NOT EXISTS id_surveys_enabled BOOLEAN DEFAULT TRUE")
+    if "question_count" not in cols:     adds.append("ADD COLUMN IF NOT EXISTS question_count INTEGER DEFAULT 4")
     if adds:
         ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
         with models_engine.begin() as conn:
             conn.execute(text(ddl))
+
+    # NEW: candidate anti-cheat counter
+    ccols = {c["name"] for c in insp.get_columns("candidate")}
+    cadds = []
+    if "left_tab_count" not in ccols:
+        cadds.append("ADD COLUMN IF NOT EXISTS left_tab_count INTEGER DEFAULT 0")
+    if cadds:
+        ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
+        with models_engine.begin() as conn:
+            conn.execute(text(ddl2))
+
 ensure_schema()
 
 # ─── Tenant helpers ───────────────────────────────────────────────
@@ -77,13 +92,11 @@ def load_tenant_by_slug(slug: str):
         db.close()
 
 def current_tenant():
-    # priority: URL segment > session
     slug = getattr(g, "route_tenant_slug", None) or session.get("tenant_slug")
     return load_tenant_by_slug(slug) if slug else None
 
 @app.before_request
 def _capture_route_tenant():
-    # Robustly read <tenant> from matched route or from querystring fallback
     va = getattr(request, "view_args", None) or {}
     if "tenant" in va:
         g.route_tenant_slug = va.get("tenant")
@@ -127,7 +140,7 @@ def load_user(uid: str):
     finally:
         db.close()
 
-# ─── OpenAI helper (unchanged) ───────────────────────────────────
+# ─── OpenAI helper ───────────────────────────────────────────────
 def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     resp = client.chat.completions.create(
         model=MODEL, temperature=0, top_p=0.1,
@@ -137,7 +150,7 @@ def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     )
     return resp.choices[0].message.content.strip()
 
-# ─── File-to-text helpers (unchanged) ────────────────────────────
+# ─── File-to-text helpers ────────────────────────────────────────
 def pdf_to_text(path):
     return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(path).pages)
 
@@ -174,10 +187,15 @@ def realism_check(rjs: dict) -> bool:
     reply = chat("You are a résumé authenticity checker.", json.dumps(rjs) + "\n\nIs this résumé realistic? yes or no.")
     return reply.lower().startswith("y")
 
-# >>> minimal fix: trim stray quotes from questions <<<
-def generate_questions(rjs: dict, jd_text: str) -> list[str]:
+def _normalize_quotes(s: str) -> str:
+    return (s or "").replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+
+def generate_questions(rjs: dict, jd_text: str, *, count: int = 4) -> list[str]:
+    """Generate exactly `count` questions; robust to curly quotes."""
+    count = max(1, min(5, int(count or 4)))
+
     def _tidy_q(s: str) -> str:
-        s = (s or "").replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+        s = _normalize_quotes(s)
         s = s.strip()
         s = re.sub(r'^[\'"`\s]+', '', s)
         s = re.sub(r'[\'"`\s]+$', '', s)
@@ -186,18 +204,25 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
 
     raw = ""
     try:
-        raw = chat("You are an interviewer.", f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY FOUR interview questions as a JSON array.")
-        parsed = json.loads(raw)
+        raw = chat(
+            "You are an interviewer.",
+            f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY {count} interview questions as a JSON array of strings."
+        )
+        parsed = json.loads(_normalize_quotes(raw))
         if isinstance(parsed, list):
             cleaned = []
             for q in parsed:
                 if isinstance(q, str) and len(q.strip()) > 10:
                     cleaned.append(_tidy_q(q))
-            return cleaned[:4]
+            cleaned = cleaned[:count]
+            while len(cleaned) < count:
+                cleaned.append("Please share a relevant experience.")
+            return cleaned
     except Exception as e:
-        logging.warning("Fallback triggered in question generation: %s", e)
+        logging.warning("Fallback in question generation: %s", e)
 
-    lines = (raw or "").splitlines()
+    # Fallback: parse lines
+    lines = (_normalize_quotes(raw) or "").splitlines()
     cleaned = []
     for line in lines:
         line = line.strip().lstrip("-• ").strip()
@@ -210,8 +235,10 @@ def generate_questions(rjs: dict, jd_text: str) -> list[str]:
             "How do you prioritize tasks when timelines are tight and requirements change?",
             "Which skills from your résumé would make the biggest impact in this role, and why?"
         ]
-    return cleaned[:4]
-# <<< end fix >>>
+    cleaned = cleaned[:count]
+    while len(cleaned) < count:
+        cleaned.append("Please share a relevant experience.")
+    return cleaned
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
@@ -225,7 +252,10 @@ def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
         s   = int(m.group()) if m else 1
         if wc<10: s = min(s,2)
         scores.append(s)
-    return scores + [1]*max(0,4-len(scores))
+    # pad to length of qs
+    while len(scores) < len(qs):
+        scores.append(1)
+    return scores
 
 def _parse_dt(val: str):
     try:
@@ -605,6 +635,13 @@ def edit_jd(tenant=None):
             start_date      = _parse_dt(request.form.get("jd_start",""))
             end_date        = _parse_dt(request.form.get("jd_end",""))
 
+            # NEW fields
+            id_surveys_enabled = "id_surveys_enabled" in request.form
+            try:
+                question_count = min(5, max(1, int(request.form.get("question_count", 4))))
+            except (TypeError, ValueError):
+                question_count = 4
+
             if existing:
                 if posted_code != existing.code:
                     if has_candidates:
@@ -627,6 +664,10 @@ def edit_jd(tenant=None):
                 existing.start_date      = start_date
                 existing.end_date        = end_date
                 existing.updated_at      = datetime.utcnow()
+                # NEW
+                existing.id_surveys_enabled = id_surveys_enabled
+                existing.question_count     = question_count
+
                 db.add(existing); db.commit()
                 flash("JD saved")
                 return redirect(url_for("recruiter", tenant=t.slug))
@@ -652,6 +693,9 @@ def edit_jd(tenant=None):
                 jd.end_date        = end_date
                 jd.updated_at      = datetime.utcnow()
                 jd.tenant_id       = t.id
+                # NEW
+                jd.id_surveys_enabled = id_surveys_enabled
+                jd.question_count     = question_count
 
                 db.add(jd); db.commit()
                 flash("JD saved")
@@ -717,7 +761,22 @@ def view_candidates(code, tenant=None):
         return redirect(url_for("login"))
     db = SessionLocal()
     try:
-        apps = db.query(Candidate).filter_by(jd_code=code, tenant_id=t.id).order_by(Candidate.created_at.desc()).all()
+        # --- Sorting (server-side, safe) ---
+        sort_field = (request.args.get("sort") or "created").lower()
+        sort_dir   = (request.args.get("dir")  or "desc").lower()
+        q = db.query(Candidate).filter_by(jd_code=code, tenant_id=t.id)
+
+        sortable = {
+            "name":    Candidate.name,
+            "fit":     Candidate.fit_score,
+            "realism": Candidate.realism,
+            "created": Candidate.created_at,
+            "id":      Candidate.id,
+        }
+        col = sortable.get(sort_field, Candidate.created_at)
+        q = q.order_by(col.asc() if sort_dir == "asc" else col.desc())
+
+        apps = q.all()
         return render_template("view_candidates.html", title=f"Candidates – {code}", code=code, apps=apps, tenant_slug=t.slug)
     finally:
         db.close()
@@ -814,7 +873,8 @@ def apply(tenant, code):
 
         fit  = fit_score(rjs, jd.html)
         real = realism_check(rjs)
-        qs   = generate_questions(rjs, jd.html)
+        count = getattr(jd, "question_count", 4) or 4
+        qs   = generate_questions(rjs, jd.html, count=count)
 
         cid     = str(uuid.uuid4())[:8]
         storage = upload_pdf(path)
@@ -873,6 +933,7 @@ def question_paged(tenant, code, cid, idx):
     db = SessionLocal()
     try:
         c  = db.get(Candidate, cid)
+        jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
     finally:
         db.close()
     if not c or c.jd_code != code or c.tenant_id != t.id:
@@ -901,7 +962,12 @@ def question_paged(tenant, code, cid, idx):
             return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx-1))
         if action == "next" and idx < n-1:
             return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx+1))
-        return redirect(url_for("self_id", tenant=t.slug, code=code, cid=cid))
+
+        # LAST: branch based on JD toggle (NEW)
+        if jd and getattr(jd, "id_surveys_enabled", True):
+            return redirect(url_for("self_id", tenant=t.slug, code=code, cid=cid))
+        else:
+            return redirect(url_for("finish_application", tenant=t.slug, code=code, cid=cid))
 
     current_q = c.questions[idx]
     current_a = (c.answers or [""]*n)[idx] if c.answers else ""
@@ -981,6 +1047,23 @@ def finish_application(tenant, code, cid):
 @app.route("/<tenant>/apply/<code>/<cid>/answers", methods=["POST"])
 def submit_answers(tenant, code, cid):
     return redirect(url_for("finish_application", tenant=tenant, code=code, cid=cid))
+
+# ─── Anti-cheat flag (tab/window switches) ───────────────────────
+@app.route("/<tenant>/apply/<code>/<cid>/flag", methods=["POST"])
+def flag_tab_switch(tenant, code, cid):
+    t = load_tenant_by_slug(tenant)
+    if not t:
+        return ("", 404)
+    db = SessionLocal()
+    try:
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
+        if not c:
+            return ("", 404)
+        c.left_tab_count = (c.left_tab_count or 0) + 1
+        db.commit()
+        return ("", 204)
+    finally:
+        db.close()
 
 # ─── Download & Delete résumé (tenant scoped) ────────────────────
 @app.route("/resume/<cid>")
