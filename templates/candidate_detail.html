@@ -20,9 +20,11 @@
   <div class="card-header">Scores</div>
   <div class="card-body">
     <p>Fit: {{ c.fit_score or "N/A" }}</p>
-    <!-- Realism removed -->
     {% if c.answer_scores %}
       <p>Average Answer Score: {{ (c.answer_scores | sum / (c.answer_scores|length)) | round(2) }}</p>
+    {% endif %}
+    {% if c.left_tab_count is not none %}
+      <p>Focus Changes Detected: {{ c.left_tab_count }}</p>
     {% endif %}
   </div>
 </div>
