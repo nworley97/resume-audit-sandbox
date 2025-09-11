@@ -1,25 +1,53 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Thanks, {{ c.name }}!</h3>
-<p>
-  <strong>Fit:</strong> {{ c.fit_score }}/5<br>
-  <strong>Avg Q-score:</strong> {{ avg }}
-</p>
 
-<h5>Your Answers</h5>
-<table class="table">
-  <thead><tr><th>Q</th><th>A</th><th>Score</th></tr></thead>
-  <tbody>
-    {% for q,a,s in qa %}
-    <tr>
-      <td><strong>{{ q }}</strong></td>
-      <td>{{ a or '-' }}</td>
-      <td>{{ s }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<h3 class="mb-3">Application Complete</h3>
 
-<a class="btn btn-secondary" href="{{ url_for('apply', code=c.jd_code) }}">Re-apply</a>
-<a class="btn btn-primary" href="{{ url_for('recruiter') }}">Dashboard</a>
+<div class="card mb-3">
+  <div class="card-header">Scores</div>
+  <div class="card-body">
+    <p>Fit: {{ c.fit_score or "N/A" }}</p>
+    <!-- Realism removed -->
+    <p>Average Answer Score: {{ avg }}</p>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Questions & Answers</div>
+  <div class="card-body">
+    <ol>
+      {% for q, a, s in qa %}
+        <li class="mb-3">
+          <strong>{{ q }}</strong><br>
+          <em>Answer:</em> {{ a or "(no answer)" }}<br>
+          <em>Score:</em> {{ s }}
+        </li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
+
+{% if c.resume_json and c.resume_json._self_id %}
+<div class="card mb-3">
+  <div class="card-header">Voluntary Self-Identification</div>
+  <div class="card-body">
+    <dl class="row">
+      <dt class="col-sm-4">Gender</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.gender }}</dd>
+
+      <dt class="col-sm-4">Hispanic/Latino</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.hispanic }}</dd>
+
+      <dt class="col-sm-4">Veteran Status</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.veteran }}</dd>
+
+      <dt class="col-sm-4">Disability</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.disability }}</dd>
+    </dl>
+  </div>
+</div>
+{% endif %}
+
+<a class="btn btn-secondary" href="{{ url_for('view_candidates', tenant=tenant_slug, code=c.jd_code) }}">Back to Candidates</a>
+
 {% endblock %}
