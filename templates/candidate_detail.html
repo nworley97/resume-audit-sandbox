@@ -1,97 +1,70 @@
 {% extends "base.html" %}
-
 {% block content %}
 
-{# --- simple badge helpers --- #}
-{% macro score_badge(s) -%}
-  {%- set cls = 'secondary' -%}
-  {%- if s is number -%}
-    {%- if s >= 4 -%}{%- set cls = 'success' -%}
-    {%- elif s == 3 -%}{%- set cls = 'warning' -%}
-    {%- else -%}{%- set cls = 'danger' -%}{%- endif -%}
-  {%- endif -%}
-  <span class="badge bg-{{ cls }}">{{ s }}</span>
-{%- endmacro %}
+<h3 class="mb-3">Candidate Detail</h3>
 
-{% macro avg_badge(avg) -%}
-  {%- set cls = 'secondary' -%}
-  {%- if avg is number -%}
-    {%- if avg >= 4 -%}{%- set cls = 'success' -%}
-    {%- elif avg >= 3 -%}{%- set cls = 'warning' -%}
-    {%- else -%}{%- set cls = 'danger' -%}{%- endif -%}
-  {%- endif -%}
-  <span class="badge bg-{{ cls }}">{{ avg }}</span>
-{%- endmacro %}
+<div class="card mb-3">
+  <div class="card-header">Candidate</div>
+  <div class="card-body">
+    <p><strong>Name:</strong> {{ c.name }}</p>
+    <p><strong>ID:</strong> {{ c.id }}</p>
+    <p><strong>Job:</strong> {{ jd.title if jd else c.jd_code }}</p>
+    <p>
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('download_resume', tenant=tenant_slug, cid=c.id) }}">Download Résumé</a>
+      <a class="btn btn-sm btn-outline-danger" href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}">Delete Candidate</a>
+    </p>
+  </div>
+</div>
 
-<a href="{{ url_for('view_candidates', code=c.jd_code) }}">← Back</a>
-<h3 class="mt-2">{{ c.name }}</h3>
+<div class="card mb-3">
+  <div class="card-header">Scores</div>
+  <div class="card-body">
+    <p>Fit: {{ c.fit_score or "N/A" }}</p>
+    {% if c.answer_scores %}
+      <p>Average Answer Score: {{ (c.answer_scores | sum / (c.answer_scores|length)) | round(2) }}</p>
+    {% endif %}
+    {% if c.left_tab_count is not none %}
+      <p>Focus Changes Detected: {{ c.left_tab_count }}</p>
+    {% endif %}
+  </div>
+</div>
 
-<p class="mb-3">
-  ID: {{ c.id }}<br>
-  JD:
-  {% if c.jd_code %}
-    <a href="{{ url_for('view_candidates', code=c.jd_code) }}" class="text-decoration-none">
-      {{ c.jd_code }}
-    </a>
-  {% else %}—{% endif %}
-  — {{ jd.title if jd else '' }}<br>
+<div class="card mb-3">
+  <div class="card-header">Questions & Answers</div>
+  <div class="card-body">
+    <ol>
+      {% for q, a, s in qa %}
+        <li class="mb-3">
+          <strong>{{ q }}</strong><br>
+          <em>Answer:</em> {{ a or "(no answer)" }}<br>
+          <em>Score:</em> {{ s }}
+        </li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
 
-  {# Public Apply Link #}
-  {% if c.jd_code %}
-    Public Apply Link:
-    <a class="text-decoration-none"
-       href="{{ url_for('apply', code=c.jd_code) }}"
-       target="_blank" rel="noopener">
-      {{ url_for('apply', code=c.jd_code, _external=True) }}
-    </a><br>
-  {% endif %}
+{% if c.resume_json and c.resume_json._self_id %}
+<div class="card mb-3">
+  <div class="card-header">Voluntary Self-Identification</div>
+  <div class="card-body">
+    <dl class="row">
+      <dt class="col-sm-4">Gender</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.gender }}</dd>
 
-  {# Fit score with colored badge #}
-  Fit:
-  {% if c.fit_score is not none %}
-    {{ score_badge(c.fit_score) }}
-  {% else %}
-    <strong>-</strong>
-  {% endif %}
+      <dt class="col-sm-4">Hispanic/Latino</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.hispanic }}</dd>
 
-  <br>
+      <dt class="col-sm-4">Veteran Status</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.veteran }}</dd>
 
-  {# Avg Q with colored badge #}
-  {% set _avg = (c.answer_scores|sum / (c.answer_scores|length)) if c.answer_scores else None %}
-  Avg Q:
-  {% if _avg is not none %}
-    {{ avg_badge((_avg)|round(2)) }}
-  {% else %}
-    <strong>-</strong>
-  {% endif %}
-</p>
+      <dt class="col-sm-4">Disability</dt>
+      <dd class="col-sm-8">{{ c.resume_json._self_id.disability }}</dd>
+    </dl>
+  </div>
+</div>
+{% endif %}
 
-<h5>Q&amp;A</h5>
-<table class="table align-middle">
-  <thead>
-    <tr>
-      <th style="width:42%;">Q</th>
-      <th style="width:48%;">A</th>
-      <th style="width:10%;">Score</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for q, a, s in qa %}
-      <tr>
-        <td><strong>{{ q }}</strong></td>
-        <td>{{ a or '-' }}</td>
-        <td>
-          {% if s is not none %}
-            {{ score_badge(s) }}
-          {% else %}
-            <span class="text-muted">-</span>
-          {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<a class="btn btn-outline-secondary" href="{{ url_for('download_resume', cid=c.id) }}">Download résumé</a>
+<a class="btn btn-secondary" href="{{ url_for('view_candidates', tenant=tenant_slug, code=c.jd_code) }}">Back to Candidates</a>
 
 {% endblock %}

@@ -2,7 +2,6 @@
 {% block content %}
 
 <div class="card p-5 mb-4 text-center">
-  <!-- Checkmark icon -->
   <div class="mb-3">
     <svg class="complete-check" viewBox="0 0 72 72" width="72" height="72" aria-hidden="true">
       <circle cx="36" cy="36" r="30" fill="none" stroke="#0b5cff" stroke-width="4"/>
@@ -21,11 +20,11 @@
     </div>
   </div>
 
-<div class="text-center py-5">
-  <h3>Thanks, {{ name }}!</h3>
-  <p class="text-muted mb-4">Your application has been submitted.</p>
-  <a class="btn btn-outline-secondary" href="{{ url_for('apply', code=code) }}">Go back</a>
-</div>
+  <div class="text-center py-5">
+    <h3>Thanks, {{ name }}!</h3>
+    <p class="text-muted mb-4">Your application has been submitted.</p>
+    <a class="btn btn-outline-secondary" href="{{ url_for('apply', tenant=tenant_slug, code=code) }}">Go back</a>
+  </div>
 </div>
 
 {% endblock %}

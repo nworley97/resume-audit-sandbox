@@ -8,12 +8,24 @@
     <form method="post">
       <div class="mb-3">
         <label class="form-label">Email</label>
-        <input name="username" type="email" class="form-control" placeholder="Enter your work email" required>
+        <!-- Allow a real email OR the literal 'Altera' -->
+        <input
+          name="username"
+          type="text"
+          class="form-control"
+          placeholder="Enter your work email or 'Altera'"
+          required
+          inputmode="email"
+          autocomplete="username"
+          spellcheck="false"
+          pattern="(Altera|[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})"
+          title="Enter a valid email address or type Altera"
+        >
       </div>
 
       <div class="mb-3">
         <label class="form-label">Password</label>
-        <input name="password" type="password" class="form-control" placeholder="Enter your Password" required>
+        <input name="password" type="password" class="form-control" placeholder="Enter your Password" required autocomplete="current-password">
       </div>
 
       <div class="d-flex justify-content-end mb-3">

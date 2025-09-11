@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container" style="max-width: 760px;">
+  <h3 class="mb-3">Delete Tenant</h3>
+
+  <div class="alert alert-danger">
+    <strong>Danger zone:</strong> You are about to delete
+    <strong>{{ t.display_name }}</strong> (<code>{{ t.slug }}</code>).
+    This will permanently remove <strong>all users, job descriptions, and candidates</strong> that belong to this tenant.
+    This action cannot be undone.
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row text-center">
+        <div class="col">
+          <div class="h4 mb-0">{{ counts.users }}</div>
+          <div class="text-muted small">Users</div>
+        </div>
+        <div class="col">
+          <div class="h4 mb-0">{{ counts.jobs }}</div>
+          <div class="text-muted small">Jobs</div>
+        </div>
+        <div class="col">
+          <div class="h4 mb-0">{{ counts.cands }}</div>
+          <div class="text-muted small">Candidates</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('super_tenant_delete', tid=t.id) }}">
+    <div class="mb-3">
+      <label class="form-label">Type the tenant slug to confirm</label>
+      <input type="text" name="confirm_slug" class="form-control" placeholder="e.g. {{ t.slug }}" required>
+      <div class="form-text">Must match exactly: <code>{{ t.slug }}</code></div>
+    </div>
+
+    <div class="mb-4">
+      <label class="form-label">Type <strong>DELETE</strong> to confirm</label>
+      <input type="text" name="confirm_text" class="form-control" placeholder="DELETE" required>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{{ url_for('super_tenants') }}">Cancel</a>
+      <button class="btn btn-danger" type="submit">Delete tenant permanently</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
