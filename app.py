@@ -19,7 +19,7 @@ from flask_login import (
 import PyPDF2, docx, bleach
 from bleach.css_sanitizer import CSSSanitizer
 from openai import OpenAI
-from sqlalchemy import or_, text, inspect, func
+from sqlalchemy import or_, text, inspect, func, literal_column
 from sqlalchemy.exc import SQLAlchemyError
 from dateutil import parser as dtparse
 
@@ -851,6 +851,210 @@ def recruiter(tenant=None):
     finally:
         db.close()
 
+# ---- Candidates Overview (all candidates across tenant) ----
+@app.route("/recruiter/candidates")
+@app.route("/<tenant>/recruiter/candidates")
+@login_required
+def global_candidates(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("global_candidates", tenant=slug))
+        return redirect(url_for("login"))
+
+    # URL params
+    q         = (request.args.get("q") or "").strip()
+    sort_key  = (request.args.get("sort") or "applied").lower()
+    direction = (request.args.get("dir")  or "desc").lower()
+    page      = max(int(request.args.get("page") or 1), 1)
+    per_page  = max(min(int(request.args.get("per_page") or 25), 200), 5)
+
+    # Color threshold constants — tweak if needed
+    SCORE_GREEN   = 4.0
+    SCORE_YELLOW  = 3.0
+    REL_GREEN     = 90
+    REL_YELLOW    = 70
+
+    db = SessionLocal()
+    try:
+        # Join Candidate -> JobDescription for title/department
+        C = Candidate
+        J = JobDescription
+
+        qset = (
+            db.query(
+                C.id.label("id"),
+                C.name.label("name"),
+                C.jd_code.label("jd_code"),
+                C.fit_score.label("fit_score"),
+                C.answer_scores.label("answer_scores"),
+                getattr(C, "relevancy", None).label("relevancy") if hasattr(C, "relevancy") else literal_column("NULL").label("relevancy"),
+                C.created_at.label("created_at"),
+                J.title.label("job_title"),
+                J.department.label("department"),
+            )
+            .join(J, J.code == C.jd_code, isouter=True)
+            .filter(C.tenant_id == t.id)
+        )
+
+        # Search over name, job title, ID, department
+        if q:
+            like = f"%{q}%"
+            qset = qset.filter(or_(
+                C.name.ilike(like),
+                J.title.ilike(like),
+                C.jd_code.ilike(like),
+                J.department.ilike(like),
+            ))
+
+        # Sort map
+        sortmap = {
+            "name":     "name",
+            "job":      "job_title",
+            "dept":     "department",
+            "score":    "fit_score",
+            "relevancy":"relevancy",
+            "applied":  "created_at",
+            "id":       "id",
+        }
+        col = sortmap.get(sort_key, "created_at")
+        # sqlalchemy text-safe accessor
+        col_expr = {
+            "name":      C.name,
+            "job_title": J.title,
+            "department":J.department,
+            "fit_score": C.fit_score,
+            "relevancy": getattr(C, "relevancy", None) if hasattr(C, "relevancy") else literal_column("NULL"),
+            "created_at":C.created_at,
+            "id":        C.id,
+        }.get(col if col in ("name","job_title","department","fit_score","relevancy","created_at","id") else "created_at")
+
+        if direction == "asc":
+            qset = qset.order_by(col_expr.asc().nullslast())
+        else:
+            qset = qset.order_by(col_expr.desc().nullslast())
+
+        total = qset.count()
+        rows  = qset.offset((page - 1) * per_page).limit(per_page).all()
+
+        # Build presentation rows safely (handles missing attrs)
+        items = []
+        for r in rows:
+            # score: prefer fit_score, else average of answer_scores
+            score = None
+            if r.fit_score is not None:
+                score = float(r.fit_score)
+            elif r.answer_scores:
+                try:
+                    vals = [float(x) for x in r.answer_scores]  # likely a list in db
+                    score = (sum(vals) / len(vals)) if vals else None
+                except Exception:
+                    score = None
+
+            rel = None
+            if hasattr(r, "relevancy") and r.relevancy is not None:
+                try:
+                    rel = int(r.relevancy)
+                except Exception:
+                    # allow float -> int
+                    try:
+                        rel = int(float(r.relevancy))
+                    except Exception:
+                        rel = None
+
+            items.append({
+                "id":          r.id,
+                "name":        r.name or "",
+                "job_title":   r.job_title or "",
+                "department":  r.department or "",
+                "score":       score,
+                "relevancy":   rel,
+                "applied_at":  r.created_at,
+                "jd_code":     r.jd_code or "",
+            })
+
+        # Pagination numbers
+        pages = max(math.ceil(total / per_page), 1)
+
+        return render_template(
+            "candidates.html",
+            tenant=t,
+            brand_name=getattr(t, "display_name", None) or getattr(t, "slug", None) or "AL",
+            # data
+            items=items,
+            total=total,
+            # params
+            q=q, sort=sort_key, dir=direction,
+            page=page, pages=pages, per_page=per_page,
+            # thresholds for template macros
+            SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
+            REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
+        )
+    finally:
+        db.close()
+
+
+# ---- Export CSV for candidates ----
+@app.route("/recruiter/candidates/export")
+@app.route("/<tenant>/recruiter/candidates/export")
+@login_required
+def export_candidates_csv(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("export_candidates_csv", tenant=slug))
+        return redirect(url_for("login"))
+
+    db = SessionLocal()
+    try:
+        C = Candidate
+        J = JobDescription
+        qset = (
+            db.query(
+                C.id, C.name, C.jd_code, C.fit_score, C.answer_scores,
+                getattr(C, "relevancy", None).label("relevancy") if hasattr(C, "relevancy") else literal_column("NULL").label("relevancy"),
+                C.created_at,
+                J.title.label("job_title"),
+                J.department.label("department"),
+            ).join(J, J.code == C.jd_code, isouter=True)
+             .filter(C.tenant_id == t.id)
+        )
+
+        # optional search filter
+        q = (request.args.get("q") or "").strip()
+        if q:
+            like = f"%{q}%"
+            qset = qset.filter(or_(C.name.ilike(like), J.title.ilike(like), C.jd_code.ilike(like), J.department.ilike(like)))
+
+        rows = qset.all()
+
+        # build CSV
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["ID", "Name", "Job Title", "Department", "JD Code", "Score", "Relevancy", "Applied At"])
+        for r in rows:
+            # score calc mirrors view
+            score = r.fit_score
+            if score is None and r.answer_scores:
+                try:
+                    vals = [float(x) for x in r.answer_scores]
+                    score = (sum(vals) / len(vals)) if vals else None
+                except Exception:
+                    score = None
+            w.writerow([
+                r.id, r.name or "", r.job_title or "", r.department or "",
+                r.jd_code or "", f"{score:.2f}" if score is not None else "",
+                r.relevancy if r.relevancy is not None else "",
+                r.created_at.isoformat() if r.created_at else "",
+            ])
+
+        mem = io.BytesIO(out.getvalue().encode("utf-8"))
+        filename = f"candidates_{t.slug}.csv"
+        return send_file(mem, mimetype="text/csv", as_attachment=True, download_name=filename)
+    finally:
+        db.close()
 
 
 @app.route("/export/jobs.csv")
