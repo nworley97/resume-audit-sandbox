@@ -993,9 +993,9 @@ def question_paged(tenant, code, cid, idx):
                            q=current_q, a=current_a, idx=idx, n=n, progress=progress)
 
 # Support page (global)
-@app.route("/forgot")
+@app.route("/forgot-password")
 def forgot():
-    return render_template("forgot.html", title="Support")
+    return render_template("forgot.html", title="Forgot Password")
 
 # Optional: tenant-scoped support page
 @app.route("/<tenant>/forgot")
