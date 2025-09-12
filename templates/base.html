@@ -8,8 +8,15 @@
   <!-- Tailwind build -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}" />
   {% block head %}{% endblock %}
+  <script src="{{ url_for('static', filename='js/loader.js') }}" defer></script>
 </head>
 <body class="bg-background text-title font-sans">
+  <!-- Loader Overlay -->
+  <div id="loading-overlay"
+       class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-80 hidden opacity-0 transition-opacity duration-200 z-50">
+    <div class="w-12 h-12 border-4 border-[#085CFF] border-t-transparent rounded-full animate-spin"></div>
+  </div>
+
   {% include 'partials/header.html' %}
   <div class="flex min-h-screen">
     {% include 'partials/sidebar.html' %}
