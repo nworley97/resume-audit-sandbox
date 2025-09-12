@@ -1,8 +1,8 @@
-<!-- templates/partials/header.html -->
-<header class="h-14 flex items-center justify-end px-6 border-b border-gray-200 bg-white">
-  <div class="flex items-center gap-3">
-    <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs">
-      {{ (current_user.name or current_user.username or 'U')[:2] | upper }}
+<header class="w-full bg-white border-b border-gray-200">
+  <div class="flex items-center justify-end px-4 py-3">
+    <!-- Right side avatar only (no brand text to avoid the extra header label) -->
+    <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
+      {{ (current_user.username[:2] if current_user and current_user.username else 'JD') | upper }}
     </div>
   </div>
 </header>
