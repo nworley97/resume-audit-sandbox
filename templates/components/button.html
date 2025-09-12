@@ -1,0 +1,11 @@
+<button 
+  type="{{ type|default('button') }}" 
+  class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white hover:bg-blue-600 transition"
+>
+  {{ label }}
+  {% if icon %}
+    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="{{ icon }}" />
+    </svg>
+  {% endif %}
+</button>
