@@ -3,6 +3,8 @@ import os, json, uuid, logging, tempfile, mimetypes, re, io, csv
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
+import math
+from io import StringIO
 
 from flask import (
     Flask, request, redirect, url_for,
@@ -732,23 +734,185 @@ def delete_jd(code, tenant=None):
         db.close()
 
 # ─── Recruiter Dashboard ─────────────────────────────────────────
+# ─── Recruiter Dashboard ─────────────────────────────────────────
 @app.route("/recruiter")
 @app.route("/<tenant>/recruiter")
 @login_required
 def recruiter(tenant=None):
+    # Resolve tenant
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
-        if slug: return redirect(url_for("recruiter", tenant=slug))
+        if slug:
+            return redirect(url_for("recruiter", tenant=slug))
         return redirect(url_for("login"))
+
+    # Query params
+    q        = (request.args.get("q") or "").strip()
+    status   = (request.args.get("status") or "").strip().lower() or None
+    page     = max(1, int(request.args.get("page", 1)))
+    per_page = max(1, int(request.args.get("per_page", 10)))
 
     db = SessionLocal()
     try:
-        jds = db.query(JobDescription).filter(JobDescription.tenant_id == t.id).order_by(JobDescription.created_at.desc()).all()
-        counts = { jd.code: db.query(func.count(Candidate.id)).filter(Candidate.jd_code==jd.code, Candidate.tenant_id==t.id).scalar() for jd in jds }
-        return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts, tenant=t)
+        # Base JD query (adjust fields if your model differs)
+        jd_q = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
+
+        # Search by title or code
+        if q:
+            like = f"%{q}%"
+            jd_q = jd_q.filter(
+                or_(
+                    JobDescription.title.ilike(like),
+                    JobDescription.code.ilike(like),
+                )
+            )
+
+        # Status filter (case-insensitive)
+        if status:
+            jd_q = jd_q.filter(func.lower(JobDescription.status) == status)
+
+        # Count BEFORE pagination
+        total = jd_q.count()
+
+        # Page math
+        pages  = max(1, math.ceil(total / per_page))
+        page   = min(page, pages)
+        offset = (page - 1) * per_page
+
+        # Order newest first if available, fall back sanely
+        order_col = (
+            getattr(JobDescription, "updated_at", None)
+            or getattr(JobDescription, "created_at", None)
+            or getattr(JobDescription, "id", None)
+            or JobDescription.code
+        )
+
+        page_items = (
+            jd_q.order_by(order_col.desc())
+                .offset(offset)
+                .limit(per_page)
+                .all()
+        )
+
+        # Applicants count for jobs on this page
+        page_codes = [getattr(jd, "code", None) for jd in page_items if getattr(jd, "code", None)]
+        counts = {}
+        if page_codes:
+            rows = (
+                db.query(Candidate.jd_code, func.count(Candidate.id))
+                  .filter(Candidate.tenant_id == t.id)
+                  .filter(Candidate.jd_code.in_(page_codes))
+                  .group_by(Candidate.jd_code)
+                  .all()
+            )
+            counts = {code: cnt for code, cnt in rows}
+
+        # Simple pagination window (e.g. 1 2 3 … 68)
+        def window(cur, total_pages, span=2):
+            out, last = [], None
+            for p in range(1, total_pages + 1):
+                if p <= 2 or p > total_pages - 2 or abs(p - cur) <= span:
+                    if last != p:
+                        out.append(p); last = p
+                else:
+                    if last != "…":
+                        out.append("…"); last = "…"
+            return out
+
+        pagination = {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "pages": pages,
+            "window": window(page, pages),
+        }
+
+        return render_template(
+            "recruiter.html",
+            title="Recruiter",
+            tenant=t,               # header/sidebar need this
+            jds=page_items,         # keep for compatibility
+            page_items=page_items,  # explicit for the table
+            counts=counts,
+            pagination=pagination,
+            q=q,
+            status=status,
+        )
     finally:
         db.close()
+
+
+@app.route("/recruiter/export")
+@app.route("/<tenant>/recruiter/export")
+@login_required
+def export_jobs(tenant=None):
+    # Resolve tenant
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("export_jobs", tenant=slug, **request.args))
+        return redirect(url_for("login"))
+
+    # Same filters as the page
+    q      = (request.args.get("q") or "").strip()
+    status = (request.args.get("status") or "").strip().lower() or None
+
+    db = SessionLocal()
+    try:
+        jd_q = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
+
+        if q:
+            like = f"%{q}%"
+            jd_q = jd_q.filter(
+                or_(JobDescription.title.ilike(like), JobDescription.code.ilike(like))
+            )
+
+        if status:
+            jd_q = jd_q.filter(func.lower(JobDescription.status) == status)
+
+        jobs = jd_q.order_by(
+            (getattr(JobDescription, "updated_at", None) or JobDescription.code).desc()
+        ).all()
+
+        # Build applicant counts for all exported jobs
+        codes = [j.code for j in jobs if j.code]
+        counts = {}
+        if codes:
+            rows = (
+                db.query(Candidate.jd_code, func.count(Candidate.id))
+                  .filter(Candidate.tenant_id == t.id)
+                  .filter(Candidate.jd_code.in_(codes))
+                  .group_by(Candidate.jd_code)
+                  .all()
+            )
+            counts = {code: cnt for code, cnt in rows}
+
+        # CSV
+        sio = StringIO()
+        w = csv.writer(sio)
+        w.writerow(["Job ID", "Job Title", "Department", "Start Date", "End Date", "Status", "Applicants"])
+        for jd in jobs:
+            sd = getattr(jd, "start_date", None)
+            ed = getattr(jd, "end_date", None)
+            w.writerow([
+                jd.code or "",
+                jd.title or "",
+                getattr(jd, "department", "") or "",
+                sd.strftime("%Y-%m-%d") if sd else "",
+                ed.strftime("%Y-%m-%d") if ed else "",
+                (jd.status or "").capitalize(),
+                counts.get(jd.code or "", 0),
+            ])
+
+        resp = make_response(sio.getvalue().encode("utf-8"))
+        resp.headers["Content-Type"] = "text/csv; charset=utf-8"
+        resp.headers["Content-Disposition"] = "attachment; filename=jobs.csv"
+        return resp
+    finally:
+        db.close()
+
 
 @app.route("/recruiter/jd/<code>")
 @app.route("/<tenant>/recruiter/jd/<code>")
@@ -790,7 +954,8 @@ def view_candidates(code, tenant=None):
             title=f"Candidates – {code}",
             code=code,
             apps=apps,
-            tenant_slug=t.slug
+            tenant_slug=t.slug,
+            tenant=t,
         )
     finally:
         db.close()
