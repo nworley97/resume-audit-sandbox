@@ -1,7 +1,9 @@
 module.exports = {
   content: [
     "./templates/**/*.html",
-    "./static/**/*.js"
+    "./**/*.html",           // catch-all for templates
+    "./static/**/*.js",
+    "./app.py",              // include Python files in case classes are inline
   ],
   theme: {
     extend: {
