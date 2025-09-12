@@ -747,37 +747,40 @@ def recruiter(tenant=None):
         return redirect(url_for("login"))
 
     # Query params
-    q        = (request.args.get("q") or "").strip()
-    status_f = (request.args.get("status") or "").strip().lower() or None
-    sort     = (request.args.get("sort") or "").lower()
-    direction= (request.args.get("dir") or "desc").lower()
-    page     = max(1, int(request.args.get("page", 1)))
-    per_page = max(1, int(request.args.get("per_page", 10)))
+    q         = (request.args.get("q") or "").strip()
+    status_f  = (request.args.get("status") or "").strip().lower() or None
+    sort      = (request.args.get("sort") or "").lower()
+    direction = (request.args.get("dir") or "desc").lower()
+    page      = max(1, int(request.args.get("page", 1)))
+    per_page  = max(1, int(request.args.get("per_page", 10)))
 
     db = SessionLocal()
     try:
-        # Base query
+        # Base JD query
         jd_q = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
 
         # Search by title or code
         if q:
             like = f"%{q}%"
-            jd_q = jd_q.filter(or_(JobDescription.title.ilike(like),
-                                   JobDescription.code.ilike(like)))
+            jd_q = jd_q.filter(or_(
+                JobDescription.title.ilike(like),
+                JobDescription.code.ilike(like),
+            ))
 
         # Status filter
         if status_f:
             jd_q = jd_q.filter(func.lower(JobDescription.status) == status_f)
 
-        # Status counts (for the "Open • Pending • Draft" line) — computed on the filtered set
+        # Status counts (computed on the filtered set)
         status_counts = {"open": 0, "pending": 0, "draft": 0}
         rows = (
-            jd_q.with_entities(func.lower(JobDescription.status), func.count(JobDescription.id))
+            jd_q.with_entities(func.lower(JobDescription.status),
+                               func.count(JobDescription.id))
                 .group_by(func.lower(JobDescription.status))
                 .all()
         )
         for st, cnt in rows:
-            if st:
+            if st in status_counts:
                 status_counts[st] = cnt
 
         # Sorting
@@ -807,27 +810,26 @@ def recruiter(tenant=None):
 
         page_items = jd_q.offset(offset).limit(per_page).all()
 
-        # Applicant counts (for the badge) and initials peeks (first 3)
+        # Applicant counts and candidate initials peeks
         page_codes = [getattr(jd, "code", None) for jd in page_items if getattr(jd, "code", None)]
-
-        counts = {}
-        cand_peeks = {}   # code -> ['JD', 'RS', 'AM']
-        cand_more  = {}   # code -> int
+        counts, cand_peeks, cand_more = {}, {}, {}
         if page_codes:
             # counts
             c_rows = (
                 db.query(Candidate.jd_code, func.count(Candidate.id))
-                  .filter(Candidate.tenant_id == t.id, Candidate.jd_code.in_(page_codes))
+                  .filter(Candidate.tenant_id == t.id,
+                          Candidate.jd_code.in_(page_codes))
                   .group_by(Candidate.jd_code)
                   .all()
             )
             counts = {c: n for c, n in c_rows}
 
-            # peeks (first 3 latest)
+            # peeks: first 3 newest
             for code in page_codes:
                 names = (
                     db.query(Candidate.name)
-                      .filter(Candidate.tenant_id == t.id, Candidate.jd_code == code)
+                      .filter(Candidate.tenant_id == t.id,
+                              Candidate.jd_code == code)
                       .order_by(Candidate.created_at.desc())
                       .limit(3)
                       .all()
@@ -836,9 +838,9 @@ def recruiter(tenant=None):
                     if not full:
                         return "??"
                     parts = (full or "").strip().split()
-                    first = parts[0][0] if parts else ""
-                    second = parts[1][0] if len(parts) > 1 else ""
-                    return (first + second).upper() or "??"
+                    f = parts[0][0] if parts else ""
+                    s = parts[1][0] if len(parts) > 1 else ""
+                    return (f + s).upper() or "??"
 
                 peeks = [initials(n[0]) for n in names]
                 cand_peeks[code] = peeks
@@ -877,9 +879,11 @@ def recruiter(tenant=None):
             status=status_f,
             sort=sort,
             dir=direction,
+            status_counts=status_counts,
         )
     finally:
         db.close()
+
 
 
 
