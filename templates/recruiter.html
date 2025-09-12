@@ -3,69 +3,56 @@
 
 {% block content %}
 
-{# Safe default for counts so page never 500s #}
-{% set sc = status_counts if status_counts is defined else {'open': 0, 'pending': 0, 'draft': 0} %}
+{# ---------- PAGE HEADER (Create Job OUTSIDE the card) ---------- #}
+<div class="flex items-start justify-between mb-4">
+  <div>
+    <div class="flex items-center gap-2 text-slate text-sm mb-2">
+      <!-- 4-squares icon -->
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <rect x="3"  y="3"  width="7" height="7" rx="1.5"></rect>
+        <rect x="14" y="3"  width="7" height="7" rx="1.5"></rect>
+        <rect x="3"  y="14" width="7" height="7" rx="1.5"></rect>
+        <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+      </svg>
+      <span>Job Posting</span>
+    </div>
+    <h1 class="text-2xl font-semibold text-title">Job Posting</h1>
+    <p class="text-slate mt-1">Manage and track your job postings</p>
+  </div>
 
-<!-- Small breadcrumb label with grid icon -->
-<div class="flex items-center gap-2 text-slate text-sm mb-2">
-  <!-- grid-4 icon -->
-  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-    <rect x="3"  y="3"  width="7" height="7" rx="1.5"></rect>
-    <rect x="14" y="3"  width="7" height="7" rx="1.5"></rect>
-    <rect x="3"  y="14" width="7" height="7" rx="1.5"></rect>
-    <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
-  </svg>
-  <span>Job Posting</span>
+  <a href="{{ url_for('edit_jd', tenant=tenant.slug if tenant else None) }}"
+     class="inline-flex items-center gap-2 rounded-lg bg-primary text-white text-sm font-medium px-3 py-2 hover:opacity-95">
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+    </svg>
+    Create Job
+  </a>
 </div>
 
-<!-- Big page title -->
-<h1 class="text-2xl font-semibold text-title mb-1">Job Posting</h1>
-<p class="text-slate mb-6">Manage and track your job postings</p>
-
-<!-- Card container -->
+{# ---------- CARD ---------- #}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-  <!-- Header: Search + actions -->
+
+  {# ----- Card header: Search + Filter/Export (inside card) ----- #}
   <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
     <!-- Search -->
-    <form
-      action="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
-      method="get"
-      class="w-full max-w-md"
-    >
+    <form action="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
+          method="get" class="w-full max-w-md">
       <input type="hidden" name="status" value="{{ status or '' }}">
-      <input type="hidden" name="sort" value="{{ sort or '' }}">
-      <input type="hidden" name="dir"  value="{{ dir or ''  }}">
+      <input type="hidden" name="sort"   value="{{ sort or '' }}">
+      <input type="hidden" name="dir"    value="{{ dir or ''  }}">
       <div class="relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate/70">
-          <!-- search icon -->
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="11" cy="11" r="7"></circle>
-            <path d="M20 20L17 17"></path>
+            <circle cx="11" cy="11" r="7"></circle><path d="M20 20L17 17"></path>
           </svg>
         </span>
-        <input
-          class="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          type="text"
-          name="q"
-          value="{{ q }}"
-          placeholder="Search by Job Title or ID"
-        />
+        <input class="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+               type="text" name="q" value="{{ q or '' }}" placeholder="Search by Job Title or ID"/>
       </div>
     </form>
 
-    <!-- Right actions -->
+    <!-- Filter & Export (placeholders keep params intact) -->
     <div class="flex items-center gap-2">
-      <a
-        href="{{ url_for('edit_jd', tenant=tenant.slug if tenant else None) }}"
-        class="inline-flex items-center gap-2 rounded-lg bg-primary text-white text-sm font-medium px-3 py-2 hover:opacity-95"
-      >
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
-        </svg>
-        Create Job
-      </a>
-
-      <!-- Filter (placeholder keeps URL params intact) -->
       <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir) }}"
          class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -74,7 +61,6 @@
         Filter
       </a>
 
-      <!-- Export CSV -->
       <a href="{{ url_for('export_jobs', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir) }}"
          class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -86,7 +72,8 @@
     </div>
   </div>
 
-  <!-- Counts line -->
+  {# ----- Counts line ----- #}
+  {% set sc = status_counts or {'open':0,'pending':0,'draft':0} %}
   <div class="px-4 py-3 text-sm text-title/80">
     {{ sc.open }} Open
     <span class="mx-1 text-slate/40">•</span>
@@ -95,7 +82,30 @@
     {{ sc.draft }} Draft
   </div>
 
-  <!-- Table -->
+  {# ----- Table ----- #}
+  {% macro sort_link(label, key) -%}
+    {% set active = (sort==key) %}
+    {% set asc = (active and dir=='asc') %}
+    {% set desc = (active and dir=='desc') %}
+    <div class="inline-flex items-center gap-1">
+      <span>{{ label }}</span>
+      <span class="flex flex-col leading-none">
+        <a class="h-2 {{ 'text-title' if asc else 'text-slate/40' }}"
+           href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, page=1, per_page=per_page, sort=key, dir='asc') }}">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 14l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="h-2 {{ 'text-title' if desc else 'text-slate/40' }}"
+           href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, page=1, per_page=per_page, sort=key, dir='desc') }}">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </span>
+    </div>
+  {%- endmacro %}
+
   <div class="px-2 pb-2">
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
@@ -104,68 +114,34 @@
             <th class="text-left font-medium py-3 pl-4 w-10">
               <input type="checkbox" class="rounded border-gray-300">
             </th>
-
-            {% macro sort_header(label, key, width='') -%}
-              {% set active = (sort==key) %}
-              {% set is_asc = (active and dir=='asc') %}
-              {% set is_desc = (active and dir=='desc') %}
-              <th class="text-left font-medium py-3 {{ width }}">
-                <div class="inline-flex items-center gap-1">
-                  <span>{{ label }}</span>
-                  <span class="flex flex-col leading-none">
-                    <a title="Sort ascending"
-                       class="h-2 {{ 'text-title' if is_asc else 'text-slate/40' }}"
-                       href="{{ url_for('recruiter',
-                                        tenant=tenant.slug if tenant else None,
-                                        q=q, status=status, page=1, per_page=pagination.per_page,
-                                        sort=key, dir='asc') }}">
-                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M6 14l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                    </a>
-                    <a title="Sort descending"
-                       class="h-2 {{ 'text-title' if is_desc else 'text-slate/40' }}"
-                       href="{{ url_for('recruiter',
-                                        tenant=tenant.slug if tenant else None,
-                                        q=q, status=status, page=1, per_page=pagination.per_page,
-                                        sort=key, dir='desc') }}">
-                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                    </a>
-                  </span>
-                </div>
-              </th>
-            {%- endmacro %}
-
-            {{ sort_header('Job ID', 'job_id', 'w-32') }}
-            {{ sort_header('Job Title', 'job_title') }}
-            {{ sort_header('Department', 'department', 'w-44') }}
-            {{ sort_header('Start Date', 'start_date', 'w-36') }}
-            {{ sort_header('End Date', 'end_date', 'w-36') }}
-            {{ sort_header('Status', 'status', 'w-28') }}
-
+            <th class="text-left font-medium py-3 w-32">{{ sort_link('Job ID','job_id') }}</th>
+            <th class="text-left font-medium py-3">{{ sort_link('Job Title','job_title') }}</th>
+            <th class="text-left font-medium py-3 w-44">{{ sort_link('Department','department') }}</th>
+            <th class="text-left font-medium py-3 w-36">{{ sort_link('Start Date','start_date') }}</th>
+            <th class="text-left font-medium py-3 w-36">{{ sort_link('End Date','end_date') }}</th>
+            <th class="text-left font-medium py-3 w-28">{{ sort_link('Status','status') }}</th>
             <th class="text-left font-medium py-3 pr-4 w-56">View Candidates</th>
           </tr>
         </thead>
 
         <tbody>
-          {% for jd in page_items %}
+          {% for jd in items %}
           <tr class="border-t border-gray-200 hover:bg-gray-50/60">
             <td class="py-3 pl-4">
               <input type="checkbox" class="rounded border-gray-300">
             </td>
+
             <td class="py-3">{{ jd.code or '' }}</td>
             <td class="py-3">{{ jd.title or '' }}</td>
             <td class="py-3">{{ jd.department or '' }}</td>
+
             <td class="py-3">
-              {% set sd = jd.start_date %}
-              {{ sd.strftime('%b %d, %Y') if sd else '' }}
+              {% set sd = jd.start_date %}{{ sd.strftime('%b %d, %Y') if sd else '' }}
             </td>
             <td class="py-3">
-              {% set ed = jd.end_date %}
-              {{ ed.strftime('%b %d, %Y') if ed else '' }}
+              {% set ed = jd.end_date %}{{ ed.strftime('%b %d, %Y') if ed else '' }}
             </td>
+
             <td class="py-3">
               {% set st = (jd.status or '')|lower %}
               {% set chip = {
@@ -174,12 +150,11 @@
                 'draft':   'bg-yellow-100 text-yellow-700',
                 'closed':  'bg-rose-100 text-rose-700'
               } %}
-              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ chip.get(st, 'bg-gray-100 text-slate-700') }}">
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ chip.get(st,'bg-gray-100 text-slate-700') }}">
                 {{ (jd.status or '')|capitalize }}
               </span>
             </td>
 
-            <!-- View candidates: initials bubbles + "+N" and button -->
             <td class="py-3 pr-4">
               <div class="flex items-center gap-3">
                 <div class="flex -space-x-2">
@@ -207,40 +182,43 @@
       </table>
     </div>
 
-    <!-- Pagination -->
+    {# ----- Pagination (simple) ----- #}
     <div class="flex items-center justify-between px-2 py-4">
       <div class="text-sm text-slate">
-        <span class="inline-flex items-center gap-1">
+        {% if page > 1 %}
+        <a class="inline-flex items-center gap-1 hover:text-title"
+           href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=page-1, per_page=per_page) }}">
           <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M10 19l-7-7 7-7M3 12h18" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           Previous
-        </span>
+        </a>
+        {% else %}
+        <span class="inline-flex items-center gap-1 opacity-40">Previous</span>
+        {% endif %}
       </div>
 
       <div class="flex items-center gap-1">
-        {% for p in pagination.window %}
-          {% if p == '…' %}
-            <span class="px-2 text-slate">…</span>
-          {% else %}
-            <a href="{{ url_for('recruiter',
-                                tenant=tenant.slug if tenant else None,
-                                q=q, status=status, sort=sort, dir=dir,
-                                page=p, per_page=pagination.per_page) }}"
-               class="min-w-[2rem] text-center rounded-md px-2 py-1 text-sm {{ 'bg-gray-900 text-white' if p==pagination.page else 'hover:bg-gray-100 text-title' }}">
-              {{ p }}
-            </a>
-          {% endif %}
+        {% for p in range(1, pages + 1) %}
+          <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=p, per_page=per_page) }}"
+             class="min-w-[2rem] text-center rounded-md px-2 py-1 text-sm {{ 'bg-gray-900 text-white' if p==page else 'hover:bg-gray-100 text-title' }}">
+            {{ p }}
+          </a>
         {% endfor %}
       </div>
 
       <div class="text-sm text-slate">
-        <span class="inline-flex items-center gap-1">
+        {% if page < pages %}
+        <a class="inline-flex items-center gap-1 hover:text-title"
+           href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=page+1, per_page=per_page) }}">
           Next
           <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M14 5l7 7-7 7M3 12h18" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-        </span>
+        </a>
+        {% else %}
+        <span class="inline-flex items-center gap-1 opacity-40">Next</span>
+        {% endif %}
       </div>
     </div>
   </div>
