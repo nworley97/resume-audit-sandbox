@@ -1,8 +1,20 @@
+/* 1. Tailwind core layers */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --color-primary: #08C5FF;
-  --color-background: #F9FBFD;
+/* 2. Custom additions */
+
+/* Spinner fade helpers */
+#loading-overlay {
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* These classes work with the loader.js script */
+.opacity-0 { opacity: 0; }
+.opacity-100 { opacity: 1; }
+
+/* If you want to force the spinner blue to match Figma (#085CFF), add: */
+.border-\[\#085CFF\] {
+  border-color: #085CFF;
 }
