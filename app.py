@@ -738,148 +738,95 @@ def delete_jd(code, tenant=None):
 @app.route("/<tenant>/recruiter")
 @login_required
 def recruiter(tenant=None):
-    # Resolve tenant
+    # Tenant resolution
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
-        if slug:
-            return redirect(url_for("recruiter", tenant=slug))
-        return redirect(url_for("login"))
-
-    # Query params
-    q         = (request.args.get("q") or "").strip()
-    status_f  = (request.args.get("status") or "").strip().lower() or None
-    sort      = (request.args.get("sort") or "").lower()
-    direction = (request.args.get("dir") or "desc").lower()
-    page      = max(1, int(request.args.get("page", 1)))
-    per_page  = max(1, int(request.args.get("per_page", 10)))
+        return redirect(url_for("recruiter", tenant=slug)) if slug else redirect(url_for("login"))
 
     db = SessionLocal()
     try:
-        # Base JD query
-        jd_q = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
+        # --- query params ---
+        q         = (request.args.get("q") or "").strip()
+        status    = (request.args.get("status") or "").strip().lower()
+        sort      = (request.args.get("sort") or "created").lower()
+        direction = (request.args.get("dir") or "desc").lower()
+        page      = max(int(request.args.get("page", 1)), 1)
+        per_page  = max(min(int(request.args.get("per_page", 10)), 100), 1)
 
-        # Search by title or code
+        # --- base query ---
+        qset = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
+
+        # counts (for the whole tenant, not search-filtered, to match figma behavior)
+        status_counts = {
+            "open":    db.query(JobDescription).filter_by(tenant_id=t.id, status="open").count(),
+            "pending": db.query(JobDescription).filter_by(tenant_id=t.id, status="pending").count(),
+            "draft":   db.query(JobDescription).filter_by(tenant_id=t.id, status="draft").count(),
+        }
+
+        # search
         if q:
             like = f"%{q}%"
-            jd_q = jd_q.filter(or_(
-                JobDescription.title.ilike(like),
-                JobDescription.code.ilike(like),
-            ))
+            qset = qset.filter(or_(JobDescription.title.ilike(like),
+                                   JobDescription.code.ilike(like),
+                                   JobDescription.department.ilike(like)))
 
-        # Status filter
-        if status_f:
-            jd_q = jd_q.filter(func.lower(JobDescription.status) == status_f)
+        # status filter (optional)
+        if status in {"open", "pending", "draft", "closed"}:
+            qset = qset.filter(JobDescription.status == status)
 
-        # Status counts (computed on the filtered set)
-        status_counts = {"open": 0, "pending": 0, "draft": 0}
-        rows = (
-            jd_q.with_entities(func.lower(JobDescription.status),
-                               func.count(JobDescription.id))
-                .group_by(func.lower(JobDescription.status))
-                .all()
-        )
-        for st, cnt in rows:
-            if st in status_counts:
-                status_counts[st] = cnt
-
-        # Sorting
-        sortable = {
-            "job_id":     getattr(JobDescription, "code", None),
-            "code":       getattr(JobDescription, "code", None),
-            "job_title":  getattr(JobDescription, "title", None),
-            "department": getattr(JobDescription, "department", None),
-            "start_date": getattr(JobDescription, "start_date", None),
-            "end_date":   getattr(JobDescription, "end_date", None),
-            "status":     getattr(JobDescription, "status", None),
-            "updated":    getattr(JobDescription, "updated_at", None),
-            "created":    getattr(JobDescription, "created_at", None),
+        # sort
+        sortables = {
+            "job_id":     JobDescription.code,
+            "job_title":  JobDescription.title,
+            "department": JobDescription.department,
+            "start_date": JobDescription.start_date,
+            "end_date":   JobDescription.end_date,
+            "status":     JobDescription.status,
+            "created":    JobDescription.created_at if hasattr(JobDescription, "created_at") else JobDescription.id,
         }
-        default_order = sortable.get("updated") or sortable.get("created") or sortable.get("job_id")
-        col = sortable.get(sort) or default_order
-        if direction not in ("asc", "desc"):
-            direction = "desc"
-        if col is not None:
-            jd_q = jd_q.order_by(col.asc() if direction == "asc" else col.desc())
+        col = sortables.get(sort, sortables["created"])
+        qset = qset.order_by(col.asc() if direction == "asc" else col.desc())
 
-        # Pagination
-        total  = jd_q.count()
-        pages  = max(1, math.ceil(total / per_page))
-        page   = min(page, pages)
-        offset = (page - 1) * per_page
+        # pagination
+        total = qset.count()
+        pages = max((total + per_page - 1) // per_page, 1)
+        page = min(page, pages)
+        items = qset.offset((page - 1) * per_page).limit(per_page).all()
 
-        page_items = jd_q.offset(offset).limit(per_page).all()
+        # candidate bubbles (initials) + remainder
+        def initials(name, email):
+            base = (name or "").strip()
+            if base:
+                parts = [p for p in base.replace("-", " ").split() if p]
+                take = (parts[0][0] if parts else "")
+                if len(parts) > 1:
+                    take += parts[-1][0]
+                return take.upper()[:2]
+            # fallback to email
+            e = (email or "").split("@")[0]
+            return e[:2].upper() if e else "??"
 
-        # Applicant counts and candidate initials peeks
-        page_codes = [getattr(jd, "code", None) for jd in page_items if getattr(jd, "code", None)]
-        counts, cand_peeks, cand_more = {}, {}, {}
-        if page_codes:
-            # counts
-            c_rows = (
-                db.query(Candidate.jd_code, func.count(Candidate.id))
-                  .filter(Candidate.tenant_id == t.id,
-                          Candidate.jd_code.in_(page_codes))
-                  .group_by(Candidate.jd_code)
-                  .all()
-            )
-            counts = {c: n for c, n in c_rows}
-
-            # peeks: first 3 newest
-            for code in page_codes:
-                names = (
-                    db.query(Candidate.name)
-                      .filter(Candidate.tenant_id == t.id,
-                              Candidate.jd_code == code)
-                      .order_by(Candidate.created_at.desc())
-                      .limit(3)
-                      .all()
-                )
-                def initials(full):
-                    if not full:
-                        return "??"
-                    parts = (full or "").strip().split()
-                    f = parts[0][0] if parts else ""
-                    s = parts[1][0] if len(parts) > 1 else ""
-                    return (f + s).upper() or "??"
-
-                peeks = [initials(n[0]) for n in names]
+        cand_peeks = {}  # code -> ["AB","CD","EF"]
+        cand_more  = {}  # code -> int
+        if items:
+            codes = [jd.code for jd in items if jd.code]
+            for code in codes:
+                cqs = db.query(Candidate).filter(Candidate.tenant_id == t.id, Candidate.jd_code == code) \
+                                         .order_by(Candidate.created_at.desc())
+                allc = cqs.limit(8).all()  # pull a few, we only show 3 + remainder
+                peeks = [initials(c.name, c.email) for c in allc[:3]]
+                extra = cqs.count() - len(allc[:3])
                 cand_peeks[code] = peeks
-                cand_more[code] = max(0, (counts.get(code, 0) - len(peeks)))
-
-        # Pagination window
-        def window(cur, total_pages, span=2):
-            out, last = [], None
-            for p in range(1, total_pages + 1):
-                if p <= 2 or p > total_pages - 2 or abs(p - cur) <= span:
-                    if last != p:
-                        out.append(p); last = p
-                else:
-                    if last != "…":
-                        out.append("…"); last = "…"
-            return out
-
-        pagination = {
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "pages": pages,
-            "window": window(page, pages),
-        }
+                cand_more[code] = max(extra, 0)
 
         return render_template(
             "recruiter.html",
-            title="Recruiter",
             tenant=t,
-            page_items=page_items,
-            counts=counts,
-            cand_peeks=cand_peeks,
-            cand_more=cand_more,
-            pagination=pagination,
-            q=q,
-            status=status_f,
-            sort=sort,
-            dir=direction,
+            q=q, status=status, sort=sort, dir=direction,
+            items=items, page=page, pages=pages, per_page=per_page,
             status_counts=status_counts,
+            cand_peeks=cand_peeks, cand_more=cand_more,
         )
     finally:
         db.close()
