@@ -51,3 +51,60 @@
     Powered by AlteraSF
   </div>
 </aside>
+<aside class="w-56 bg-white border-r border-gray-200 relative">
+  <!-- Brand / tenant -->
+  <div class="flex items-center gap-3 px-4 py-4">
+    {% set label = (brand_name or 'Altera') %}
+    <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
+      {{ (label[:2]) | upper }}
+    </div>
+    <div>
+      <div class="text-sm font-medium text-title leading-tight">{{ label }}</div>
+      <div class="text-[11px] text-slate -mt-0.5">HR</div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="px-2">
+    {# active state via request.path / endpoint (no current_app) #}
+    {% set p = request.path %}
+    {% set is_rec = p.startswith('/' ~ (tenant.slug if tenant else '') ~ '/recruiter') or request.endpoint == 'recruiter' %}
+    {% set is_cand = p.startswith('/' ~ (tenant.slug if tenant else '') ~ '/candidates') or request.endpoint == 'global_candidates' %}
+
+    <!-- Job Posting -->
+    <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
+       class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if is_rec else 'text-title hover:bg-gray-50' }}">
+      <!-- 4-squares icon -->
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <rect x="3"  y="3"  width="7" height="7" rx="1.5"></rect>
+        <rect x="14" y="3"  width="7" height="7" rx="1.5"></rect>
+        <rect x="3"  y="14" width="7" height="7" rx="1.5"></rect>
+        <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+      </svg>
+      <span>Job Posting</span>
+    </a>
+
+    <!-- Candidates -->
+    {# NOTE: link to 'recruiter' for now to avoid BuildError if global_candidates doesn't exist yet. 
+       When you add that route, change href to:
+       url_for('global_candidates', tenant=tenant.slug if tenant else None)
+    #}
+    <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
+       class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if is_cand else 'text-title hover:bg-gray-50' }}">
+      <!-- user group icon -->
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M16 11c1.657 0 3-1.79 3-4s-1.343-4-3-4-3 1.79-3 4 1.343 4 3 4Z"></path>
+        <path d="M8 12c1.657 0 3-1.79 3-4S9.657 4 8 4 5 5.79 5 8s1.343 4 3 4Z"></path>
+        <path d="M2 20c0-2.761 2.91-5 6.5-5S15 17.239 15 20"></path>
+        <path d="M15 15.5c3.59 0 6.5 2.239 6.5 5"></path>
+      </svg>
+      <span>Candidates</span>
+    </a>
+  </nav>
+
+  <!-- Powered by (anchored bottom-left like figma) -->
+  <div class="absolute left-4 bottom-4 flex items-center gap-2 text-xs text-slate">
+    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-300">A</span>
+    Powered by AlteraSF
+  </div>
+</aside>
