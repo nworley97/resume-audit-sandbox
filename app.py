@@ -834,75 +834,115 @@ def recruiter(tenant=None):
 
 
 
-@app.route("/recruiter/export")
-@app.route("/<tenant>/recruiter/export")
+@app.route("/recruiter")
+@app.route("/<tenant>/recruiter")
 @login_required
-def export_jobs(tenant=None):
-    # Resolve tenant
+def recruiter(tenant=None):
+    # Tenant resolution
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
-        if slug:
-            return redirect(url_for("export_jobs", tenant=slug, **request.args))
-        return redirect(url_for("login"))
-
-    # Same filters as the page
-    q      = (request.args.get("q") or "").strip()
-    status = (request.args.get("status") or "").strip().lower() or None
+        return redirect(url_for("recruiter", tenant=slug)) if slug else redirect(url_for("login"))
 
     db = SessionLocal()
     try:
-        jd_q = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
+        # --- query params ---
+        q         = (request.args.get("q") or "").strip()
+        status    = (request.args.get("status") or "").strip().lower()
+        sort      = (request.args.get("sort") or "created").lower()
+        direction = (request.args.get("dir") or "desc").lower()
+        page      = max(int(request.args.get("page", 1)), 1)
+        per_page  = max(min(int(request.args.get("per_page", 10)), 100), 1)
 
+        # --- base query ---
+        qset = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
+
+        # counts (whole tenant, figma-style)
+        status_counts = {
+            "open":    db.query(JobDescription).filter_by(tenant_id=t.id, status="open").count(),
+            "pending": db.query(JobDescription).filter_by(tenant_id=t.id, status="pending").count(),
+            "draft":   db.query(JobDescription).filter_by(tenant_id=t.id, status="draft").count(),
+        }
+
+        # search
         if q:
             like = f"%{q}%"
-            jd_q = jd_q.filter(
-                or_(JobDescription.title.ilike(like), JobDescription.code.ilike(like))
+            qset = qset.filter(
+                or_(JobDescription.title.ilike(like),
+                    JobDescription.code.ilike(like),
+                    JobDescription.department.ilike(like))
             )
 
-        if status:
-            jd_q = jd_q.filter(func.lower(JobDescription.status) == status)
+        # status filter (optional)
+        if status in {"open", "pending", "draft", "closed"}:
+            qset = qset.filter(JobDescription.status == status)
 
-        jobs = jd_q.order_by(
-            (getattr(JobDescription, "updated_at", None) or JobDescription.code).desc()
-        ).all()
+        # sort map
+        sortables = {
+            "job_id":     JobDescription.code,
+            "job_title":  JobDescription.title,
+            "department": JobDescription.department,
+            "start_date": JobDescription.start_date,
+            "end_date":   JobDescription.end_date,
+            "status":     JobDescription.status,
+            "created":    JobDescription.created_at if hasattr(JobDescription, "created_at") else JobDescription.id,
+        }
+        col = sortables.get(sort, sortables["created"])
+        qset = qset.order_by(col.asc() if direction == "asc" else col.desc())
 
-        # Build applicant counts for all exported jobs
-        codes = [j.code for j in jobs if j.code]
-        counts = {}
-        if codes:
-            rows = (
-                db.query(Candidate.jd_code, func.count(Candidate.id))
-                  .filter(Candidate.tenant_id == t.id)
-                  .filter(Candidate.jd_code.in_(codes))
-                  .group_by(Candidate.jd_code)
-                  .all()
-            )
-            counts = {code: cnt for code, cnt in rows}
+        # pagination
+        total = qset.count()
+        pages = max((total + per_page - 1) // per_page, 1)
+        page  = min(page, pages)
+        items = qset.offset((page - 1) * per_page).limit(per_page).all()
 
-        # CSV
-        sio = StringIO()
-        w = csv.writer(sio)
-        w.writerow(["Job ID", "Job Title", "Department", "Start Date", "End Date", "Status", "Applicants"])
-        for jd in jobs:
-            sd = getattr(jd, "start_date", None)
-            ed = getattr(jd, "end_date", None)
-            w.writerow([
-                jd.code or "",
-                jd.title or "",
-                getattr(jd, "department", "") or "",
-                sd.strftime("%Y-%m-%d") if sd else "",
-                ed.strftime("%Y-%m-%d") if ed else "",
-                (jd.status or "").capitalize(),
-                counts.get(jd.code or "", 0),
-            ])
+        # candidate initials (3) + remainder count
+        cand_peeks, cand_more = {}, {}
+        if items:
+            for jd in items:
+                code = jd.code or ""
+                if not code:
+                    cand_peeks[code] = []
+                    cand_more[code]  = 0
+                    continue
 
-        resp = make_response(sio.getvalue().encode("utf-8"))
-        resp.headers["Content-Type"] = "text/csv; charset=utf-8"
-        resp.headers["Content-Disposition"] = "attachment; filename=jobs.csv"
-        return resp
+                # top 3 for bubbles
+                top3 = (
+                    db.query(Candidate.name, Candidate.email)
+                      .filter(Candidate.tenant_id == t.id, Candidate.jd_code == code)
+                      .order_by(Candidate.created_at.desc(), Candidate.id.desc())
+                      .limit(3).all()
+                )
+                total_cnt = (
+                    db.query(func.count(Candidate.id))
+                      .filter(Candidate.tenant_id == t.id, Candidate.jd_code == code)
+                      .scalar()
+                )
+
+                def initials(name, email):
+                    name = (name or "").strip()
+                    if name:
+                        parts = [p for p in name.replace("-", " ").split() if p]
+                        first = parts[0][0] if parts else ""
+                        last  = parts[-1][0] if len(parts) > 1 else ""
+                        return (first + last).upper() or "??"
+                    user = ((email or "").split("@")[0] if email else "")[:2]
+                    return (user or "??").upper()
+
+                cand_peeks[code] = [initials(n, e) for (n, e) in top3]
+                cand_more[code]  = max((total_cnt or 0) - len(top3), 0)
+
+        return render_template(
+            "recruiter.html",
+            tenant=t,
+            q=q, status=status, sort=sort, dir=direction,
+            items=items, page=page, pages=pages, per_page=per_page,
+            status_counts=status_counts,
+            cand_peeks=cand_peeks, cand_more=cand_more,
+        )
     finally:
         db.close()
+
 
 
 @app.route("/recruiter/jd/<code>")
