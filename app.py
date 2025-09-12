@@ -852,15 +852,16 @@ def recruiter(tenant=None):
         db.close()
 
 # ---- Candidates Overview (all candidates across tenant) ----
+# ---- Candidates Overview (all candidates across tenant) ----
 @app.route("/recruiter/candidates")
 @app.route("/<tenant>/recruiter/candidates")
 @login_required
-def global_candidates(tenant=None):
+def candidates_overview(tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
-            return redirect(url_for("global_candidates", tenant=slug))
+            return redirect(url_for("candidates_overview", tenant=slug))
         return redirect(url_for("login"))
 
     # URL params
@@ -870,18 +871,13 @@ def global_candidates(tenant=None):
     page      = max(int(request.args.get("page") or 1), 1)
     per_page  = max(min(int(request.args.get("per_page") or 25), 200), 5)
 
-    # Color threshold constants — tweak if needed
-    SCORE_GREEN   = 4.0
-    SCORE_YELLOW  = 3.0
-    REL_GREEN     = 90
-    REL_YELLOW    = 70
+    # Color thresholds
+    SCORE_GREEN, SCORE_YELLOW = 4.0, 3.0
+    REL_GREEN,   REL_YELLOW   = 90, 70
 
     db = SessionLocal()
     try:
-        # Join Candidate -> JobDescription for title/department
-        C = Candidate
-        J = JobDescription
-
+        C, J = Candidate, JobDescription
         qset = (
             db.query(
                 C.id.label("id"),
@@ -898,7 +894,6 @@ def global_candidates(tenant=None):
             .filter(C.tenant_id == t.id)
         )
 
-        # Search over name, job title, ID, department
         if q:
             like = f"%{q}%"
             qset = qset.filter(or_(
@@ -908,86 +903,53 @@ def global_candidates(tenant=None):
                 J.department.ilike(like),
             ))
 
-        # Sort map
         sortmap = {
-            "name":     "name",
-            "job":      "job_title",
-            "dept":     "department",
-            "score":    "fit_score",
-            "relevancy":"relevancy",
-            "applied":  "created_at",
-            "id":       "id",
+            "name":"name", "job":"job_title", "dept":"department",
+            "score":"fit_score", "relevancy":"relevancy",
+            "applied":"created_at", "id":"id",
         }
         col = sortmap.get(sort_key, "created_at")
-        # sqlalchemy text-safe accessor
         col_expr = {
-            "name":      C.name,
-            "job_title": J.title,
-            "department":J.department,
+            "name": C.name, "job_title": J.title, "department": J.department,
             "fit_score": C.fit_score,
             "relevancy": getattr(C, "relevancy", None) if hasattr(C, "relevancy") else literal_column("NULL"),
-            "created_at":C.created_at,
-            "id":        C.id,
+            "created_at": C.created_at, "id": C.id,
         }.get(col if col in ("name","job_title","department","fit_score","relevancy","created_at","id") else "created_at")
 
-        if direction == "asc":
-            qset = qset.order_by(col_expr.asc().nullslast())
-        else:
-            qset = qset.order_by(col_expr.desc().nullslast())
+        qset = qset.order_by(col_expr.asc().nullslast() if direction=="asc" else col_expr.desc().nullslast())
 
         total = qset.count()
         rows  = qset.offset((page - 1) * per_page).limit(per_page).all()
 
-        # Build presentation rows safely (handles missing attrs)
         items = []
         for r in rows:
-            # score: prefer fit_score, else average of answer_scores
-            score = None
-            if r.fit_score is not None:
-                score = float(r.fit_score)
-            elif r.answer_scores:
+            score = float(r.fit_score) if r.fit_score is not None else None
+            if score is None and r.answer_scores:
                 try:
-                    vals = [float(x) for x in r.answer_scores]  # likely a list in db
-                    score = (sum(vals) / len(vals)) if vals else None
+                    vals = [float(x) for x in r.answer_scores]
+                    score = (sum(vals)/len(vals)) if vals else None
                 except Exception:
                     score = None
-
             rel = None
             if hasattr(r, "relevancy") and r.relevancy is not None:
-                try:
-                    rel = int(r.relevancy)
-                except Exception:
-                    # allow float -> int
-                    try:
-                        rel = int(float(r.relevancy))
-                    except Exception:
-                        rel = None
+                try:    rel = int(r.relevancy)
+                except: rel = int(float(r.relevancy)) if str(r.relevancy).replace('.','',1).isdigit() else None
 
             items.append({
-                "id":          r.id,
-                "name":        r.name or "",
-                "job_title":   r.job_title or "",
-                "department":  r.department or "",
-                "score":       score,
-                "relevancy":   rel,
-                "applied_at":  r.created_at,
-                "jd_code":     r.jd_code or "",
+                "id": r.id, "name": r.name or "", "job_title": r.job_title or "",
+                "department": r.department or "", "score": score, "relevancy": rel,
+                "applied_at": r.created_at, "jd_code": r.jd_code or "",
             })
 
-        # Pagination numbers
         pages = max(math.ceil(total / per_page), 1)
 
         return render_template(
             "candidates.html",
             tenant=t,
             brand_name=getattr(t, "display_name", None) or getattr(t, "slug", None) or "AL",
-            # data
-            items=items,
-            total=total,
-            # params
+            items=items, total=total,
             q=q, sort=sort_key, dir=direction,
             page=page, pages=pages, per_page=per_page,
-            # thresholds for template macros
             SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
             REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
         )

@@ -28,7 +28,7 @@
     </a>
 
     <!-- Candidates (links to recruiter until a global candidates page exists) -->
-    <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
+    <a href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}"
        class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if request.endpoint in ['global_candidates','view_candidates'] else 'text-title hover:bg-gray-50' }}">
       <!-- user group icon -->
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
