@@ -1,12 +1,13 @@
-{% extends "base.html" %}
+{% extends "base_auth.html" %}
 {% block title %}Login - ALTERA{% endblock %}
 {% block content %}
-<div class="max-w-md mx-auto mt-12 bg-white shadow-lg rounded-lg p-8">
+<div class="w-full max-w-md bg-white shadow-lg rounded-lg p-8">
   <h2 class="text-2xl font-semibold mb-6">Sign in</h2>
   <form method="post" action="{{ url_for('login') }}" class="space-y-4">
     <div>
       <label for="email" class="block text-sm font-medium text-slate mb-1">Email</label>
-      <input id="email" name="email" type="email" value="{{ request.form.get('email','') }}"
+      <input id="email" name="username" type="email"
+             value="{{ request.form.get('username','') }}"
              class="w-full rounded-lg border border-slate px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" required>
     </div>
     <div>
@@ -17,7 +18,10 @@
     <div class="flex justify-between items-center">
       <a href="/forgot-password" class="text-sm text-primary hover:underline">Forgot password?</a>
     </div>
-    {% include "components/button.html" with context %}
+    <button type="submit"
+            class="w-full bg-primary text-white py-2 rounded-lg hover:bg-blue-600 transition">
+      Sign in
+    </button>
   </form>
 </div>
 {% endblock %}
