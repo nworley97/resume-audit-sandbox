@@ -5,7 +5,7 @@ from pathlib import Path
 from functools import wraps
 import math
 from io import StringIO
-
+from flask import current_app
 from flask import (
     Flask, request, redirect, url_for,
     render_template, flash, send_file, abort, make_response, session, g
@@ -942,6 +942,7 @@ def candidates_overview(tenant=None):
             })
 
         pages = max(math.ceil(total / per_page), 1)
+        has_candidate_detail = 'candidate_detail' in current_app.view_functions
 
         return render_template(
             "candidates.html",
@@ -952,6 +953,7 @@ def candidates_overview(tenant=None):
             page=page, pages=pages, per_page=per_page,
             SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
             REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
+            has_candidate_detail=has_candidate_detail,
         )
     finally:
         db.close()
