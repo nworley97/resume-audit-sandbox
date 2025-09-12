@@ -1,7 +1,29 @@
-<aside class="w-64 bg-white shadow-lg p-4 hidden md:block">
-  <ul class="space-y-2">
-    <li><a href="/" class="block px-3 py-2 rounded hover:bg-primary hover:text-white">Dashboard</a></li>
-    <li><a href="/jobs" class="block px-3 py-2 rounded hover:bg-primary hover:text-white">Job Postings</a></li>
-    <li><a href="/candidates" class="block px-3 py-2 rounded hover:bg-primary hover:text-white">Candidates</a></li>
-  </ul>
+<!-- Sidebar -->
+<aside class="hidden md:block w-64 bg-white border-r border-gray-200">
+  <div class="px-5 py-6">
+    <!-- Brand / Tenant -->
+    <div class="mb-8">
+      <div class="text-lg font-semibold">{{ tenant.name if tenant else "AlteraSF" }}</div>
+      {# add logo <img> here later if you store tenant.logo #}
+    </div>
+
+    {% set path = request.path %}
+    <nav class="space-y-1">
+      <!-- Dashboard / Job Postings take user to recruiter -->
+      <a href="{{ url_for('recruiter', tenant=tenant.slug) if tenant else url_for('recruiter') }}"
+         class="flex items-center justify-between px-3 py-2 rounded-lg text-sm
+                {{ 'bg-gray-100 text-title' if '/recruiter' in path else 'text-slate hover:bg-gray-50' }}">
+        <span>Job Postings</span>
+      </a>
+
+      <a href="{{ url_for('global_candidates', tenant=tenant.slug) if tenant else url_for('global_candidates') }}"
+         class="flex items-center justify-between px-3 py-2 rounded-lg text-sm
+                {{ 'bg-gray-100 text-title' if '/global-candidates' in path else 'text-slate hover:bg-gray-50' }}">
+        <span>Candidates</span>
+      </a>
+
+      <!-- Add more items if present in Figma -->
+      {# <a href="#" class="flex items-center justify-between px-3 py-2 rounded-lg text-sm text-slate hover:bg-gray-50">Analytics</a> #}
+    </nav>
+  </div>
 </aside>
