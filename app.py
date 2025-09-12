@@ -746,7 +746,7 @@ def recruiter(tenant=None):
     try:
         jds = db.query(JobDescription).filter(JobDescription.tenant_id == t.id).order_by(JobDescription.created_at.desc()).all()
         counts = { jd.code: db.query(func.count(Candidate.id)).filter(Candidate.jd_code==jd.code, Candidate.tenant_id==t.id).scalar() for jd in jds }
-        return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts)
+        return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts, tenant=t)
     finally:
         db.close()
 
