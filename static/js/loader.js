@@ -1,38 +1,49 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const overlay = document.getElementById("loading-overlay");
-  if (!overlay) return;
+// static/js/loader.js
+(() => {
+  const ID = "page-loader";
+  let el;
 
-  function showLoader() {
-    overlay.classList.remove("hidden", "opacity-0");
-    overlay.classList.add("opacity-100");
-
-    const start = Date.now();
-
-    window.addEventListener("load", () => {
-      const elapsed = Date.now() - start;
-      const remaining = Math.max(0, 500 - elapsed); // enforce min 500ms
-      setTimeout(() => {
-        overlay.classList.remove("opacity-100");
-        overlay.classList.add("opacity-0");
-        setTimeout(() => overlay.classList.add("hidden"), 200); // match fade duration
-      }, remaining);
-    }, { once: true });
+  function ensure() {
+    if (el) return el;
+    el = document.getElementById(ID);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = ID;
+      el.innerHTML = `
+        <div class="loader-backdrop"></div>
+        <div class="loader-spinner" aria-label="Loading" role="status"></div>
+      `;
+      document.body.appendChild(el);
+    }
+    return el;
   }
 
-  // Trigger on link clicks
-  document.querySelectorAll("a[href]").forEach(link => {
-    link.addEventListener("click", e => {
-      const target = e.currentTarget.getAttribute("href");
-      if (target && !target.startsWith("#") && !target.startsWith("mailto:")) {
-        showLoader();
-      }
-    });
+  function show() { ensure().classList.add("on"); }
+  function hide() { ensure().classList.remove("on"); }
+
+  // Show on user-driven navigations
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("a");
+    if (!a) return;
+    const href = a.getAttribute("href");
+    const tgt  = a.getAttribute("target");
+    if (!href || href.startsWith("#") || href.startsWith("javascript:") || tgt === "_blank") return;
+    show();
   });
 
-  // Trigger on form submits
-  document.querySelectorAll("form").forEach(form => {
-    form.addEventListener("submit", () => {
-      showLoader();
-    });
+  document.addEventListener("submit", () => show());
+
+  // Show while leaving
+  window.addEventListener("beforeunload", () => show());
+
+  // IMPORTANT: When returning via BFCache, pageshow fires with persisted=true.
+  // Always hide overlay on pageshow & popstate.
+  window.addEventListener("pageshow", () => hide());
+  window.addEventListener("popstate", () => hide());
+
+  // Safety nets
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") hide();
   });
-});
+  document.addEventListener("DOMContentLoaded", () => hide());
+})();
