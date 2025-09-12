@@ -3,11 +3,9 @@
 
 {% block content %}
 
-{# ---------- PAGE HEADER (outside card) ---------- #}
 <div class="flex items-start justify-between mb-4">
   <div>
     <div class="flex items-center gap-2 text-slate text-sm mb-2">
-      <!-- people icon -->
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
         <path d="M16 11c1.657 0 3-1.79 3-4s-1.343-4-3-4-3 1.79-3 4 1.343 4 3 4Z"></path>
         <path d="M8 12c1.657 0 3-1.79 3-4S9.657 4 8 4 5 5.79 5 8s1.343 4 3 4Z"></path>
@@ -21,7 +19,6 @@
   </div>
 </div>
 
-{# ---------- EMPTY STATE ---------- #}
 {% if (total or 0) == 0 %}
   <div class="bg-white rounded-xl shadow-sm border border-gray-200">
     <div class="p-12 text-center text-slate">
@@ -36,10 +33,7 @@
 
 {% else %}
 
-{# ---------- CARD: SEARCH / ACTIONS + TABLE ---------- #}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-
-  {# ----- Card header: Search + Filter/Export ----- #}
   <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
     <form action="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}"
           method="get" class="w-full max-w-md">
@@ -76,7 +70,6 @@
     </div>
   </div>
 
-  {# ----- sort macro ----- #}
   {% macro sort_link(label, key) -%}
     {% set active = (sort==key) %}
     {% set asc = (active and dir=='asc') %}
@@ -100,7 +93,6 @@
     </div>
   {%- endmacro %}
 
-  {# ----- Table ----- #}
   <div class="px-2 pb-2">
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
@@ -126,16 +118,19 @@
             </td>
 
             <td class="py-3">
-              <a class="text-title hover:underline"
-                 href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) if 'candidate_detail' in globals() else '#' }}">
-                {{ c.name }}
-              </a>
+              {% if has_candidate_detail %}
+                <a class="text-title hover:underline"
+                   href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">
+                  {{ c.name }}
+                </a>
+              {% else %}
+                <span class="text-title">{{ c.name }}</span>
+              {% endif %}
             </td>
 
             <td class="py-3">{{ c.job_title }}</td>
             <td class="py-3">{{ c.department }}</td>
 
-            {# Score chip (>= SCORE_GREEN: green, >= SCORE_YELLOW: yellow, else red) #}
             <td class="py-3">
               {% set s = c.score %}
               {% if s is not none %}
@@ -150,7 +145,6 @@
               {% endif %}
             </td>
 
-            {# Relevancy chip (>= REL_GREEN green, >= REL_YELLOW yellow, else red) #}
             <td class="py-3">
               {% set r = c.relevancy %}
               {% if r is not none %}
@@ -176,7 +170,6 @@
       </table>
     </div>
 
-    {# ----- Pagination ----- #}
     <div class="flex items-center justify-between px-2 py-4">
       <div class="text-sm text-slate">
         {% if page > 1 %}
