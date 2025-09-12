@@ -1,20 +1,26 @@
 <aside class="w-56 bg-white border-r border-gray-200 relative">
   <!-- Brand / tenant -->
   <div class="flex items-center gap-3 px-4 py-4">
+    {% set label = (brand_name or 'Altera') %}
     <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
-      {{ (brand_name[:2] if brand_name else 'AL') | upper }}
+      {{ (label[:2]) | upper }}
     </div>
     <div>
-      <div class="text-sm font-medium text-title leading-tight">{{ brand_name }}</div>
+      <div class="text-sm font-medium text-title leading-tight">{{ label }}</div>
       <div class="text-[11px] text-slate -mt-0.5">HR</div>
     </div>
   </div>
 
   <!-- Nav -->
   <nav class="px-2">
+    {# helper to detect active based on path prefix #}
+    {% set p = request.path %}
+    {% set is_rec = p.startswith('/' ~ (tenant.slug if tenant else '') ~ '/recruiter') or request.endpoint == 'recruiter' %}
+    {% set is_cand = p.startswith('/' ~ (tenant.slug if tenant else '') ~ '/candidates') or request.endpoint == 'global_candidates' %}
+
     <!-- Job Posting -->
     <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
-       class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if request.endpoint=='recruiter' else 'text-title hover:bg-gray-50' }}">
+       class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if is_rec else 'text-title hover:bg-gray-50' }}">
       <!-- 4-squares icon -->
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
         <rect x="3"  y="3"  width="7" height="7" rx="1.5"></rect>
@@ -25,9 +31,9 @@
       <span>Job Posting</span>
     </a>
 
-    <!-- Candidates -->
-    <a href="{{ url_for('global_candidates', tenant=tenant.slug if tenant else None) }}"
-       class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if request.endpoint=='global_candidates' else 'text-title hover:bg-gray-50' }}">
+    <!-- Candidates (make sure 'global_candidates' exists; if not, point somewhere valid) -->
+    <a href="{{ url_for('global_candidates', tenant=tenant.slug if tenant else None) if 'global_candidates' in current_app.view_functions else url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
+       class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if is_cand else 'text-title hover:bg-gray-50' }}">
       <!-- user group icon -->
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
         <path d="M16 11c1.657 0 3-1.79 3-4s-1.343-4-3-4-3 1.79-3 4 1.343 4 3 4Z"></path>
@@ -39,7 +45,7 @@
     </a>
   </nav>
 
-  <!-- Powered by -->
+  <!-- Powered by (anchored bottom-left like figma) -->
   <div class="absolute left-4 bottom-4 flex items-center gap-2 text-xs text-slate">
     <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-300">A</span>
     Powered by AlteraSF
