@@ -1,8 +1,20 @@
+{# Safe tenant display name (same fallback as sidebar) #}
+{% set tname = "AlteraSF" %}
+{% if tenant is defined and tenant %}
+  {% if tenant.name is defined and tenant.name %}{% set tname = tenant.name %}
+  {% elif tenant.display_name is defined and tenant.display_name %}{% set tname = tenant.display_name %}
+  {% elif tenant.company is defined and tenant.company %}{% set tname = tenant.company %}
+  {% elif tenant.org_name is defined and tenant.org_name %}{% set tname = tenant.org_name %}
+  {% elif tenant.slug is defined and tenant.slug %}{% set tname = tenant.slug %}
+  {% endif %}
+{% endif %}
+
 <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-  <div class="text-sm text-slate truncate">
-    {{ tenant.name if tenant else "AlteraSF" }}
+  <div class="flex items-center gap-2 min-w-0">
+    <span class="text-sm text-slate truncate">{{ tname }}</span>
   </div>
-  <div class="flex items-center gap-3">
+  <div class="flex items-center gap-4">
+    <!-- User avatar fallback -->
     <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs text-slate">
       {{ (current_user.username or 'U')[0] if current_user.is_authenticated else 'U' }}
     </div>

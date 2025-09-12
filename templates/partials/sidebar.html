@@ -1,26 +1,38 @@
 <!-- Sidebar -->
 <aside class="hidden md:block w-64 bg-white border-r border-gray-200">
   <div class="px-5 py-6">
+
+    {# Safe tenant display name without throwing on missing attrs #}
+    {% set tname = "AlteraSF" %}
+    {% if tenant is defined and tenant %}
+      {% if tenant.name is defined and tenant.name %}{% set tname = tenant.name %}
+      {% elif tenant.display_name is defined and tenant.display_name %}{% set tname = tenant.display_name %}
+      {% elif tenant.company is defined and tenant.company %}{% set tname = tenant.company %}
+      {% elif tenant.org_name is defined and tenant.org_name %}{% set tname = tenant.org_name %}
+      {% elif tenant.slug is defined and tenant.slug %}{% set tname = tenant.slug %}
+      {% endif %}
+    {% endif %}
+
     <!-- Tenant badge -->
     <div class="mb-8 flex items-center gap-3">
       <div class="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-semibold">
-        {% set tn = (tenant.name if tenant else 'AlteraSF') %}
-        {{ tn[:2] | upper }}
+        {{ tname[:2] | upper }}
       </div>
       <div class="min-w-0">
-        <div class="text-sm font-medium truncate">{{ tenant.name if tenant else "AlteraSF" }}</div>
-        <div class="text-xs text-slate truncate">{{ "HR" }}</div>
+        <div class="text-sm font-medium truncate text-title">{{ tname }}</div>
+        <div class="text-xs text-slate truncate">HR</div>
       </div>
     </div>
 
     {% set path = request.path %}
     <nav class="space-y-1 text-sm">
+
       <!-- Job Posting -->
-      <a href="{{ url_for('recruiter', tenant=tenant.slug) if tenant else url_for('recruiter') }}"
+      <a href="{{ url_for('recruiter', tenant=tenant.slug) if tenant is defined and tenant and tenant.slug is defined else url_for('recruiter') }}"
          class="flex items-center gap-3 px-3 py-2 rounded-lg
                 {{ 'bg-gray-100 text-title' if '/recruiter' in path else 'text-slate hover:bg-gray-50' }}">
         <!-- document-text icon -->
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round"
                 d="M19.5 14.25v-7.5A2.25 2.25 0 0 0 17.25 4.5h-7.5A2.25 2.25 0 0 0 7.5 6.75v10.5A2.25 2.25 0 0 0 9.75 19.5h4.5M15 2.25V6a.75.75 0 0 0 .75.75H19.5" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 9h6M9 12h3"/>
@@ -29,16 +41,17 @@
       </a>
 
       <!-- Candidates -->
-      <a href="{{ url_for('global_candidates', tenant=tenant.slug) if tenant else url_for('global_candidates') }}"
+      <a href="{{ url_for('global_candidates', tenant=tenant.slug) if tenant is defined and tenant and tenant.slug is defined else url_for('global_candidates') }}"
          class="flex items-center gap-3 px-3 py-2 rounded-lg
                 {{ 'bg-gray-100 text-title' if '/global-candidates' in path else 'text-slate hover:bg-gray-50' }}">
         <!-- users icon -->
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round"
                 d="M15 19.125a3.375 3.375 0 1 0-6 0M4.5 19.125a6.75 6.75 0 0 1 13.5 0M8.25 8.25a3.75 3.75 0 1 0 7.5 0 3.75 3.75 0 0 0-7.5 0Z"/>
         </svg>
         <span>Candidates</span>
       </a>
+
     </nav>
   </div>
 </aside>
