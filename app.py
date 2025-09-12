@@ -734,7 +734,6 @@ def delete_jd(code, tenant=None):
         db.close()
 
 # ─── Recruiter Dashboard ─────────────────────────────────────────
-# ─── Recruiter Dashboard ─────────────────────────────────────────
 @app.route("/recruiter")
 @app.route("/<tenant>/recruiter")
 @login_required
@@ -749,66 +748,103 @@ def recruiter(tenant=None):
 
     # Query params
     q        = (request.args.get("q") or "").strip()
-    status   = (request.args.get("status") or "").strip().lower() or None
+    status_f = (request.args.get("status") or "").strip().lower() or None
+    sort     = (request.args.get("sort") or "").lower()
+    direction= (request.args.get("dir") or "desc").lower()
     page     = max(1, int(request.args.get("page", 1)))
     per_page = max(1, int(request.args.get("per_page", 10)))
 
     db = SessionLocal()
     try:
-        # Base JD query (adjust fields if your model differs)
+        # Base query
         jd_q = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
 
         # Search by title or code
         if q:
             like = f"%{q}%"
-            jd_q = jd_q.filter(
-                or_(
-                    JobDescription.title.ilike(like),
-                    JobDescription.code.ilike(like),
-                )
-            )
+            jd_q = jd_q.filter(or_(JobDescription.title.ilike(like),
+                                   JobDescription.code.ilike(like)))
 
-        # Status filter (case-insensitive)
-        if status:
-            jd_q = jd_q.filter(func.lower(JobDescription.status) == status)
+        # Status filter
+        if status_f:
+            jd_q = jd_q.filter(func.lower(JobDescription.status) == status_f)
 
-        # Count BEFORE pagination
-        total = jd_q.count()
+        # Status counts (for the "Open • Pending • Draft" line) — computed on the filtered set
+        status_counts = {"open": 0, "pending": 0, "draft": 0}
+        rows = (
+            jd_q.with_entities(func.lower(JobDescription.status), func.count(JobDescription.id))
+                .group_by(func.lower(JobDescription.status))
+                .all()
+        )
+        for st, cnt in rows:
+            if st:
+                status_counts[st] = cnt
 
-        # Page math
+        # Sorting
+        sortable = {
+            "job_id":     getattr(JobDescription, "code", None),
+            "code":       getattr(JobDescription, "code", None),
+            "job_title":  getattr(JobDescription, "title", None),
+            "department": getattr(JobDescription, "department", None),
+            "start_date": getattr(JobDescription, "start_date", None),
+            "end_date":   getattr(JobDescription, "end_date", None),
+            "status":     getattr(JobDescription, "status", None),
+            "updated":    getattr(JobDescription, "updated_at", None),
+            "created":    getattr(JobDescription, "created_at", None),
+        }
+        default_order = sortable.get("updated") or sortable.get("created") or sortable.get("job_id")
+        col = sortable.get(sort) or default_order
+        if direction not in ("asc", "desc"):
+            direction = "desc"
+        if col is not None:
+            jd_q = jd_q.order_by(col.asc() if direction == "asc" else col.desc())
+
+        # Pagination
+        total  = jd_q.count()
         pages  = max(1, math.ceil(total / per_page))
         page   = min(page, pages)
         offset = (page - 1) * per_page
 
-        # Order newest first if available, fall back sanely
-        order_col = (
-            getattr(JobDescription, "updated_at", None)
-            or getattr(JobDescription, "created_at", None)
-            or getattr(JobDescription, "id", None)
-            or JobDescription.code
-        )
+        page_items = jd_q.offset(offset).limit(per_page).all()
 
-        page_items = (
-            jd_q.order_by(order_col.desc())
-                .offset(offset)
-                .limit(per_page)
-                .all()
-        )
-
-        # Applicants count for jobs on this page
+        # Applicant counts (for the badge) and initials peeks (first 3)
         page_codes = [getattr(jd, "code", None) for jd in page_items if getattr(jd, "code", None)]
+
         counts = {}
+        cand_peeks = {}   # code -> ['JD', 'RS', 'AM']
+        cand_more  = {}   # code -> int
         if page_codes:
-            rows = (
+            # counts
+            c_rows = (
                 db.query(Candidate.jd_code, func.count(Candidate.id))
-                  .filter(Candidate.tenant_id == t.id)
-                  .filter(Candidate.jd_code.in_(page_codes))
+                  .filter(Candidate.tenant_id == t.id, Candidate.jd_code.in_(page_codes))
                   .group_by(Candidate.jd_code)
                   .all()
             )
-            counts = {code: cnt for code, cnt in rows}
+            counts = {c: n for c, n in c_rows}
 
-        # Simple pagination window (e.g. 1 2 3 … 68)
+            # peeks (first 3 latest)
+            for code in page_codes:
+                names = (
+                    db.query(Candidate.name)
+                      .filter(Candidate.tenant_id == t.id, Candidate.jd_code == code)
+                      .order_by(Candidate.created_at.desc())
+                      .limit(3)
+                      .all()
+                )
+                def initials(full):
+                    if not full:
+                        return "??"
+                    parts = (full or "").strip().split()
+                    first = parts[0][0] if parts else ""
+                    second = parts[1][0] if len(parts) > 1 else ""
+                    return (first + second).upper() or "??"
+
+                peeks = [initials(n[0]) for n in names]
+                cand_peeks[code] = peeks
+                cand_more[code] = max(0, (counts.get(code, 0) - len(peeks)))
+
+        # Pagination window
         def window(cur, total_pages, span=2):
             out, last = [], None
             for p in range(1, total_pages + 1):
@@ -831,16 +867,20 @@ def recruiter(tenant=None):
         return render_template(
             "recruiter.html",
             title="Recruiter",
-            tenant=t,               # header/sidebar need this
-            jds=page_items,         # keep for compatibility
-            page_items=page_items,  # explicit for the table
+            tenant=t,
+            page_items=page_items,
             counts=counts,
+            cand_peeks=cand_peeks,
+            cand_more=cand_more,
             pagination=pagination,
             q=q,
-            status=status,
+            status=status_f,
+            sort=sort,
+            dir=direction,
         )
     finally:
         db.close()
+
 
 
 @app.route("/recruiter/export")
