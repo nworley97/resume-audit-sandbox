@@ -1,13 +1,8 @@
-<!-- Top header -->
 <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-  <div class="flex items-center gap-2 min-w-0">
-    <div class="text-sm text-slate truncate">
-      {{ tenant.name if tenant else "AlteraSF" }}
-    </div>
+  <div class="text-sm text-slate truncate">
+    {{ tenant.name if tenant else "AlteraSF" }}
   </div>
-
-  <div class="flex items-center gap-4">
-    <!-- Placeholder for future search, notifications, etc. -->
+  <div class="flex items-center gap-3">
     <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs text-slate">
       {{ (current_user.username or 'U')[0] if current_user.is_authenticated else 'U' }}
     </div>
