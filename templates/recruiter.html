@@ -3,6 +3,9 @@
 
 {% block content %}
 
+{# Safe default for counts so page never 500s #}
+{% set sc = status_counts if status_counts is defined else {'open': 0, 'pending': 0, 'draft': 0} %}
+
 <!-- Small breadcrumb label with grid icon -->
 <div class="flex items-center gap-2 text-slate text-sm mb-2">
   <!-- grid-4 icon -->
@@ -19,9 +22,9 @@
 <h1 class="text-2xl font-semibold text-title mb-1">Job Posting</h1>
 <p class="text-slate mb-6">Manage and track your job postings</p>
 
-<!-- Action bar sits outside the card (Create, Filter, Export in card header in figma) -->
+<!-- Card container -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-  <!-- Card header: Search + actions -->
+  <!-- Header: Search + actions -->
   <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
     <!-- Search -->
     <form
@@ -29,12 +32,9 @@
       method="get"
       class="w-full max-w-md"
     >
-      <input
-        type="hidden" name="status" value="{{ status or '' }}">
-      <input
-        type="hidden" name="sort" value="{{ sort or '' }}">
-      <input
-        type="hidden" name="dir" value="{{ dir or '' }}">
+      <input type="hidden" name="status" value="{{ status or '' }}">
+      <input type="hidden" name="sort" value="{{ sort or '' }}">
+      <input type="hidden" name="dir"  value="{{ dir or ''  }}">
       <div class="relative">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate/70">
           <!-- search icon -->
@@ -65,7 +65,7 @@
         Create Job
       </a>
 
-      <!-- Filter (placeholder link, wire later if you need) -->
+      <!-- Filter (placeholder keeps URL params intact) -->
       <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir) }}"
          class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -88,11 +88,11 @@
 
   <!-- Counts line -->
   <div class="px-4 py-3 text-sm text-title/80">
-    {{ status_counts.open or 0 }} Open
+    {{ sc.open }} Open
     <span class="mx-1 text-slate/40">•</span>
-    {{ status_counts.pending or 0 }} Pending
+    {{ sc.pending }} Pending
     <span class="mx-1 text-slate/40">•</span>
-    {{ status_counts.draft or 0 }} Draft
+    {{ sc.draft }} Draft
   </div>
 
   <!-- Table -->
@@ -106,7 +106,6 @@
             </th>
 
             {% macro sort_header(label, key, width='') -%}
-              {# highlight current sort #}
               {% set active = (sort==key) %}
               {% set is_asc = (active and dir=='asc') %}
               {% set is_desc = (active and dir=='desc') %}
@@ -117,10 +116,9 @@
                     <a title="Sort ascending"
                        class="h-2 {{ 'text-title' if is_asc else 'text-slate/40' }}"
                        href="{{ url_for('recruiter',
-                          tenant=tenant.slug if tenant else None,
-                          q=q, status=status, page=1, per_page=pagination.per_page,
-                          sort=key, dir='asc') }}">
-                      <!-- chevron up -->
+                                        tenant=tenant.slug if tenant else None,
+                                        q=q, status=status, page=1, per_page=pagination.per_page,
+                                        sort=key, dir='asc') }}">
                       <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M6 14l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
@@ -128,10 +126,9 @@
                     <a title="Sort descending"
                        class="h-2 {{ 'text-title' if is_desc else 'text-slate/40' }}"
                        href="{{ url_for('recruiter',
-                          tenant=tenant.slug if tenant else None,
-                          q=q, status=status, page=1, per_page=pagination.per_page,
-                          sort=key, dir='desc') }}">
-                      <!-- chevron down -->
+                                        tenant=tenant.slug if tenant else None,
+                                        q=q, status=status, page=1, per_page=pagination.per_page,
+                                        sort=key, dir='desc') }}">
                       <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
@@ -242,7 +239,7 @@
           Next
           <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M14 5l7 7-7 7M3 12h18" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg> 
+          </svg>
         </span>
       </div>
     </div>
