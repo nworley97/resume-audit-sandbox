@@ -119,19 +119,18 @@
 
           <tbody>
             {% for c in items %}
-            {% set display_name = c.name or (((c.first_name or '') ~ ' ' ~ (c.last_name or '')).strip()) %}
-            {% set claim = (c._claim_validity if c._claim_validity is defined else ( ((c.answer_scores|sum)/(c.answer_scores|length)) if c.answer_scores else none )) %}
-            {% set r5 = (c._relevancy_5 if c._relevancy_5 is defined else ( (c.relevancy if c.relevancy is not none else (c.fit_score if c.fit_score is not none else 0)) )) %}
-            {% if r5 is not none and r5 > 5 %}{% set r5 = r5 / 20.0 %}{% endif %}
-
             <tr class="border-t border-gray-200 hover:bg-gray-50/60">
               <td class="py-3 pl-4">
                 <input type="checkbox" class="rounded border-gray-300">
               </td>
 
               <td class="py-3">
+                {% set display_name = c.name or (((c.first_name or '') ~ ' ' ~ (c.last_name or '')).strip()) %}
                 {% if has_candidate_detail %}
-                  <a class="text-title hover:underline" href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">{{ display_name }}</a>
+                  <a class="text-title hover:underline"
+                     href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">
+                    {{ display_name }}
+                  </a>
                 {% else %}
                   <span class="text-title">{{ display_name }}</span>
                 {% endif %}
@@ -142,22 +141,28 @@
 
               <!-- Claim Validity chip (0–5) -->
               <td class="py-3">
-                {% if claim is not none %}
-                  {% set chip = 'bg-emerald-100 text-emerald-700' if claim >= SCORE_GREEN
-                                else ('bg-amber-100 text-amber-700' if claim >= SCORE_YELLOW
+                {% set s = c.score if c.score is not none else ( ((c.answer_scores|sum) / (c.answer_scores|length)) if c.answer_scores else none ) %}
+                {% if s is not none %}
+                  {% set chip = 'bg-emerald-100 text-emerald-700' if s >= SCORE_GREEN
+                                else ('bg-amber-100 text-amber-700' if s >= SCORE_YELLOW
                                       else 'bg-rose-100 text-rose-700') %}
-                  <span class="inline-block min-w-[2rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium {{ chip }}">{{ '%.2f'|format(claim) }}</span>
+                  <span class="inline-block min-w-[1.9rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium {{ chip }}">
+                    {{ '%.1f'|format(s) }}/5
+                  </span>
                 {% else %}
                   <span class="text-slate/60">—</span>
                 {% endif %}
               </td>
 
-              <!-- Relevancy Score chip (0–5) -->
+              <!-- Relevancy chip (0–5) -->
               <td class="py-3">
-                {% set chip_r = 'bg-emerald-100 text-emerald-700' if r5 >= SCORE_GREEN
-                                else ('bg-amber-100 text-amber-700' if r5 >= SCORE_YELLOW
+                {% set r = c.relevancy if c.relevancy is not none else (c.fit_score if c.fit_score is not none else ((c.resume_json or {}).get('fit_score') or 0)) %}
+                {% set chip_r = 'bg-emerald-100 text-emerald-700' if r >= REL_GREEN
+                                else ('bg-amber-100 text-amber-700' if r >= REL_YELLOW
                                       else 'bg-rose-100 text-rose-700') %}
-                <span class="inline-block min-w-[2rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium {{ chip_r }}">{{ '%.2f'|format(r5) }}</span>
+                <span class="inline-block min-w-[1.9rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium {{ chip_r }}">
+                  {{ '%.1f'|format(r) }}/5
+                </span>
               </td>
 
               <td class="py-3">
@@ -165,7 +170,8 @@
               </td>
 
               <td class="py-3 pr-4 text-right">
-                <a class="text-blue-600 hover:underline" href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">View</a>
+                <a class="text-blue-600 hover:underline"
+                   href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">View</a>
               </td>
             </tr>
             {% endfor %}
@@ -190,7 +196,7 @@
         <div class="flex items-center gap-0.5">
           {% for p in range(1, pages + 1) %}
             <a href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=p) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=p) }}{% endif %}"
-               class="min-w-[2rem] text-center rounded-md px-2 py-1 text-sm {{ 'bg-gray-900 text-white' if p==page else 'hover:bg-gray-100 text-title' }}">
+               class="min-w-[1.7rem] text-center rounded-md px-1.5 py-0.5 text-[12px] {{ 'bg-gray-900 text-white' if p==page else 'hover:bg-gray-100 text-title' }}">
               {{ p }}
             </a>
           {% endfor %}
