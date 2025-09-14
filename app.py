@@ -884,6 +884,22 @@ def candidates_overview(tenant=None):
             ))
 
         rows = list(qry.all())
+        for c in rows:
+            # claim validity (0–5)
+            scores = getattr(c, "answer_scores", None) or []
+            c._claim_validity = (sum(scores) / len(scores)) if scores else None
+
+            # relevancy (prefer c.relevancy, else c.fit_score). Scale to 0–5 if needed.
+            raw_r = getattr(c, "relevancy", None)
+            if raw_r is None:
+                raw_r = getattr(c, "fit_score", None)
+            if raw_r is None:
+                raw_r = 0.0
+            c._relevancy_5 = (raw_r / 20.0) if raw_r and raw_r > 5 else (raw_r or 0.0)
+
+            # applied_at fallback
+            c.applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None) or getattr(c, "date_applied", None)
+
 
                 # Precompute Claim Validity (avg answer_scores), Relevancy (fallback to fit_score), Applied date
         for c in rows:
@@ -907,13 +923,14 @@ def candidates_overview(tenant=None):
 
         reverse = (dir_ == "desc")
         key_map = {
-            "name":      lambda x: (((getattr(x, "first_name", "") or "") + " " + (getattr(x, "last_name","") or "")).lower()),
-            "job": lambda x: getattr(x, "job_title", None) or (x.resume_json or {}).get("job_title", "") or "",
+            "name":      lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
+            "job":       lambda x: (getattr(x, "job_title", "") or ""),
             "dept":      lambda x: (getattr(x, "department", "") or ""),
-            "score":     lambda x: ((x.score is None, x.score or 0.0)),         # Claim Validity
-            "relevancy": lambda x: ((x.relevancy is None, x.relevancy or 0.0)), # Relevancy Score
+            "score":     lambda x: (x._claim_validity is None, x._claim_validity or 0),
+            "relevancy": lambda x: (x._relevancy_5 is None, x._relevancy_5 or 0),
             "applied":   lambda x: (x.applied_at or datetime.min),
         }
+
         rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
 
 

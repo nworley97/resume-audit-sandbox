@@ -29,8 +29,8 @@
     <!-- Score chips -->
     <div class="flex gap-2">
       <span class="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-medium
-        {% if (relevancy or 0) >= REL_GREEN %} bg-green-100 text-green-700
-        {% elif (relevancy or 0) >= REL_YELLOW %} bg-yellow-100 text-yellow-700
+        {% if (relevancy or 0) >= SCORE_GREEN %} bg-green-100 text-green-700
+        {% elif (relevancy or 0) >= SCORE_YELLOW %} bg-yellow-100 text-yellow-700
         {% else %} bg-red-100 text-red-700 {% endif %}">
         Relevancy: {{ "%.1f"|format(relevancy or 0) }}
       </span>
@@ -43,21 +43,27 @@
     </div>
   </div>
 
+  <!-- Tabs -->
+  <div class="border-b border-gray-200">
+    <nav class="flex gap-4" aria-label="Tabs">
+      <button class="tab-btn border-b-2 border-gray-900 text-gray-900 px-3 py-2 text-sm font-medium" data-target="#tab-resume">Resume</button>
+      <button class="tab-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium" data-target="#tab-qa">AI Q&amp;A</button>
+      {% set sid = (c.resume_json or {}).get('_self_id', {}) %}
+      {% if sid %}<button class="tab-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium" data-target="#tab-selfid">Self-Identification</button>{% endif %}
+    </nav>
+  </div>
+
   <!-- Resume Card -->
-  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4">
+  <div id="tab-resume" class="tab-panel bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4">
     <div class="flex justify-between items-center">
       <h2 class="text-lg font-semibold text-gray-900">Resume</h2>
       <div class="flex gap-2">
         {% if c and c.id %}
           <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
-             class="inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-            Download Resume PDF
-          </a>
+             class="inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Download Resume PDF</a>
         {% endif %}
         <a href="{{ url_for('delete_candidate', tenant=tenant.slug, cid=c.id) }}"
-           class="inline-flex items-center rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-200">
-          Delete Candidate
-        </a>
+           class="inline-flex items-center rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-200">Delete Candidate</a>
       </div>
     </div>
 
@@ -76,7 +82,7 @@
   </div>
 
   <!-- AI Q&A Assessment -->
-  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
+  <div id="tab-qa" class="tab-panel hidden bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
     <div class="px-4 py-3 flex items-center justify-between">
       <h2 class="text-lg font-semibold text-gray-900">AI Q&amp;A Assessment</h2>
       <div class="flex items-center gap-2 text-xs">
@@ -105,9 +111,14 @@
               </p>
             </div>
             <div class="flex items-center gap-2">
-              <span class="inline-block min-w-[2rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
-                {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}
-              </span>
+              {% if s is not none %}
+                {% set chip = 'bg-emerald-100 text-emerald-700' if s >= SCORE_GREEN
+                              else ('bg-amber-100 text-amber-700' if s >= SCORE_YELLOW
+                                    else 'bg-rose-100 text-rose-700') %}
+                <span class="inline-block min-w-[2rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium {{ chip }}">{{ '%.1f'|format(s) }}</span>
+              {% else %}
+                <span class="text-slate/60">N/A</span>
+              {% endif %}
               <button type="button"
                       class="toggle-qa inline-flex items-center rounded-md border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                       aria-expanded="false">
@@ -133,7 +144,7 @@
   <!-- Voluntary Self-Identification -->
   {% set sid = (c.resume_json or {}).get('_self_id', {}) %}
   {% if sid %}
-  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4">
+  <div id="tab-selfid" class="tab-panel hidden bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4">
     <h2 class="text-lg font-semibold text-gray-900 mb-3">Voluntary Self-Identification</h2>
     <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
       <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Gender</dt><dd class="text-gray-900 font-medium">{{ sid.get('gender','—') }}</dd></div>
@@ -146,6 +157,22 @@
 </div>
 
 <script>
+/* tiny tab switcher */
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels  = document.querySelectorAll('.tab-panel');
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = document.querySelector(btn.dataset.target);
+    panels.forEach(p => p.classList.add('hidden'));
+    tabBtns.forEach(b => b.classList.replace('border-gray-900','border-transparent'));
+    tabBtns.forEach(b => b.classList.replace('text-gray-900','text-gray-600'));
+    if (target) target.classList.remove('hidden');
+    btn.classList.replace('border-transparent','border-gray-900');
+    btn.classList.replace('text-gray-600','text-gray-900');
+  });
+});
+
+/* expand/collapse individual answers */
 document.querySelectorAll('.toggle-qa').forEach(btn => {
   btn.addEventListener('click', () => {
     const body = btn.closest('div').parentElement.nextElementSibling;
