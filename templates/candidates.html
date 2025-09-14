@@ -1,23 +1,5 @@
 {% extends "base_app.html" %}
-{% block title %}
-  {% if scope == "global" %}Candidates Overview{% else %}Candidates for {{ jd.title }}{% endif %}
-{% endblock %}
-
-{% block content %}
-<div class="space-y-6">
-
-  <!-- Header -->
-  <h1 class="text-2xl font-bold text-gray-900">
-    {% if scope == "global" %}
-      Candidates Overview
-    {% else %}
-      {{ jd.title }}
-    {% endif %}
-  </h1>
-  <p class="text-gray-600">
-    {% if scope == "global" %}{% extends "base_app.html" %}
 {% block title %}{% if jd %}Candidates – {{ jd.title }}{% else %}Candidates Overview - ALTERA{% endif %}{% endblock %}
-
 {% block content %}
 <div class="space-y-4">
 
@@ -244,68 +226,5 @@
   </div>
 
   {% endif %}
-</div>
-{% endblock %}
-
-      Manage and review candidate applications with intelligent insights
-    {% else %}
-      Manage and review candidate applications for this job
-    {% endif %}
-  </p>
-
-  <!-- Search + Actions -->
-  <div class="flex justify-between items-center">
-    <input type="text" placeholder="Search candidates"
-           class="w-1/3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-    <div class="flex gap-2">
-      <button class="rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Filter</button>
-      <a href="{{ url_for('export_jobs', tenant=tenant.slug) }}"
-         class="rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Export</a>
-    </div>
-  </div>
-
-  <!-- Candidates Table -->
-  <div class="overflow-x-auto bg-white shadow-sm ring-1 ring-gray-200 rounded-lg">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
-        <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job Title</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Claim Validity</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Relevancy Score</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date of Application</th>
-          <th class="px-6 py-3"></th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-200 bg-white">
-        {% for c in candidates %}
-        <tr>
-          <td class="px-6 py-4">{{ c.first_name }} {{ c.last_name }}</td>
-          <td class="px-6 py-4">{{ c.job_title or jd.title if jd else "-" }}</td>
-          <td class="px-6 py-4">{{ c.department or "-" }}</td>
-          <td class="px-6 py-4">
-            {{ "%.2f"|format(c.claim_validity) }}
-          </td>
-          <td class="px-6 py-4">
-            {{ "%.2f"|format(c.relevancy) }}
-          </td>
-          <td class="px-6 py-4">
-            {{ c.created_at.strftime('%b %d, %Y') if c.created_at else "-" }}
-          </td>
-          <td class="px-6 py-4 text-right">
-            <a href="{{ url_for('candidate_detail', tenant=tenant.slug, id=c.id) }}"
-               class="text-blue-600 hover:text-blue-900">View</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Pagination placeholder (can be wired later) -->
-  <div class="flex justify-center py-4 text-gray-600">
-    Pagination goes here
-  </div>
 </div>
 {% endblock %}
