@@ -885,24 +885,37 @@ def candidates_overview(tenant=None):
 
         rows = list(qry.all())
 
-        # Precompute Claim Validity (avg answer_scores) and safe Relevancy
+                # Precompute Claim Validity (avg answer_scores), Relevancy (fallback to fit_score), Applied date
         for c in rows:
             scores = getattr(c, "answer_scores", None) or []
-            c.score = (sum(scores)/len(scores)) if scores else None
-            c.relevancy = getattr(c, "relevancy", None) or 0.0
-            c.applied_at = getattr(c, "created_at", None)
+            c.score = (sum(scores) / len(scores)) if scores else None  # Claim Validity
+            # Relevancy: prefer explicit 'relevancy', else 'fit_score', else value from resume_json
+# Replace this block in candidates_overview
+        rel = getattr(c, "relevancy", None)
+        if rel is None:
+            fs = getattr(c, "fit_score", None)
+            if fs is not None:
+                rel = round((fs / 5) * 100, 1)   # map 1–5 fit_score to 0–100 scale
+        if rel is None:
+            rj = getattr(c, "resume_json", None) or {}
+            fs2 = rj.get("fit_score")
+            if fs2 is not None:
+                rel = round((fs2 / 5) * 100, 1)
+        c.relevancy = rel if rel is not None else 0.0
+
+        c.applied_at = getattr(c, "created_at", None)
 
         reverse = (dir_ == "desc")
         key_map = {
-            "name":    lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
-            "job":     lambda x: getattr(x, "job_title", None) or (getattr(x, "jd_code", None) or ""),
-            "dept":    lambda x: (x.department or ""),
-            "score":   lambda x: (x.score is None, x.score or 0),
-            "relevancy": lambda x: (x.relevancy is None, x.relevancy or 0),
-            "applied": lambda x: (x.applied_at or datetime.min)
+            "name":      lambda x: (((getattr(x, "first_name", "") or "") + " " + (getattr(x, "last_name","") or "")).lower()),
+            "job": lambda x: getattr(x, "job_title", None) or (x.resume_json or {}).get("job_title", "") or "",
+            "dept":      lambda x: (getattr(x, "department", "") or ""),
+            "score":     lambda x: ((x.score is None, x.score or 0.0)),         # Claim Validity
+            "relevancy": lambda x: ((x.relevancy is None, x.relevancy or 0.0)), # Relevancy Score
+            "applied":   lambda x: (x.applied_at or datetime.min),
         }
-
         rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
+
 
         total = len(rows)
         pages = max(1, math.ceil(total / per_page))
@@ -1094,13 +1107,23 @@ def view_candidates(code, tenant=None):
         for c in rows:
             scores = getattr(c, "answer_scores", None) or []
             c.score = (sum(scores)/len(scores)) if scores else None
-            c.relevancy = getattr(c, "relevancy", None) or 0.0
+            rel = getattr(c, "relevancy", None)
+            if rel is None:
+                fs = getattr(c, "fit_score", None)
+                if fs is not None:
+                    rel = round((fs / 5) * 100, 1)
+            if rel is None:
+                rj = getattr(c, "resume_json", None) or {}
+                fs2 = rj.get("fit_score")
+                if fs2 is not None:
+                    rel = round((fs2 / 5) * 100, 1)
+            c.relevancy = rel if rel is not None else 0.0
             c.applied_at = getattr(c, "created_at", None)
 
         reverse = (dir_ == "desc")
         key_map = {
             "name":    lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
-            "job":     lambda x: (x.job_title or ""),
+            "job": lambda x: getattr(x, "job_title", None) or (x.resume_json or {}).get("job_title", "") or "",
             "dept":    lambda x: (x.department or ""),
             "score":   lambda x: (x.score is None, x.score or 0),
             "relevancy": lambda x: (x.relevancy is None, x.relevancy or 0),
@@ -1189,6 +1212,8 @@ def candidate_detail(id, tenant=None):
         # Focus/tab switches (anti-cheat counter)
         focus_changes = getattr(c, "left_tab_count", 0) or 0
 
+        self_id = (c.resume_json or {}).get("_self_id", {})
+
         return render_template(
             "candidate_detail.html",
             tenant=t,
@@ -1197,11 +1222,13 @@ def candidate_detail(id, tenant=None):
             relevancy=relevancy,
             resume_url=resume_url,
             claim_validity=claim_validity,
-            qa=qa,  # <-- use this in template instead of plain answers
+            qa=qa,
             focus_changes=focus_changes,
+            self_id=self_id,   # <-- NEW
             SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
             REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
         )
+
     finally:
         db.close()
 

@@ -28,13 +28,13 @@
 
     <!-- Score chips -->
     <div class="flex gap-2">
-      <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+      <span class="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-medium
         {% if (relevancy or 0) >= REL_GREEN %} bg-green-100 text-green-700
         {% elif (relevancy or 0) >= REL_YELLOW %} bg-yellow-100 text-yellow-700
         {% else %} bg-red-100 text-red-700 {% endif %}">
-        Relevancy Score: {{ "%.1f"|format(relevancy or 0) }}
+        Relevancy: {{ "%.1f"|format(relevancy or 0) }}
       </span>
-      <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
+      <span class="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-medium
         {% if (claim_validity or 0) >= SCORE_GREEN %} bg-green-100 text-green-700
         {% elif (claim_validity or 0) >= SCORE_YELLOW %} bg-yellow-100 text-yellow-700
         {% else %} bg-red-100 text-red-700 {% endif %}">
@@ -84,12 +84,10 @@
           {{ (qa or answers or [])|length }} Questions
         </span>
         <span class="inline-flex items-center rounded-md border px-2 py-1 text-gray-700">
-          Relevancy:
-          <span class="ml-1 font-semibold">{{ "%.0f"|format(relevancy or 0) }}</span>
+          Relevancy: <span class="ml-1 font-semibold">{{ "%.1f"|format(relevancy or 0) }}</span>
         </span>
         <span class="inline-flex items-center rounded-md border px-2 py-1 text-gray-700">
-          Claim Validity:
-          <span class="ml-1 font-semibold">{{ "%.1f"|format(claim_validity or 0) }}</span>
+          Claim Validity: <span class="ml-1 font-semibold">{{ "%.1f"|format(claim_validity or 0) }}</span>
         </span>
       </div>
     </div>
@@ -107,24 +105,13 @@
               </p>
             </div>
             <div class="flex items-center gap-2">
-              {% if s is not none %}
-                {% set chip = 'bg-emerald-100 text-emerald-700' if s >= SCORE_GREEN
-                              else ('bg-amber-100 text-amber-700' if s >= SCORE_YELLOW
-                                    else 'bg-rose-100 text-rose-700') %}
-                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ chip }}">
-                  {{ '%.1f'|format(s) }}
-                </span>
-              {% else %}
-                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-500">
-                  N/A
-                </span>
-              {% endif %}
+              <span class="inline-block min-w-[2rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
+                {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}
+              </span>
               <button type="button"
                       class="toggle-qa inline-flex items-center rounded-md border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                       aria-expanded="false">
-                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/>
-                </svg>
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
               </button>
             </div>
           </div>
@@ -142,6 +129,20 @@
       </a>
     </div>
   </div>
+
+  <!-- Voluntary Self-Identification -->
+  {% set sid = (c.resume_json or {}).get('_self_id', {}) %}
+  {% if sid %}
+  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Voluntary Self-Identification</h2>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+      <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Gender</dt><dd class="text-gray-900 font-medium">{{ sid.get('gender','—') }}</dd></div>
+      <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Hispanic/Latino</dt><dd class="text-gray-900 font-medium">{{ sid.get('hispanic','—') }}</dd></div>
+      <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Veteran Status</dt><dd class="text-gray-900 font-medium">{{ sid.get('veteran','—') }}</dd></div>
+      <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Disability</dt><dd class="text-gray-900 font-medium">{{ sid.get('disability','—') }}</dd></div>
+    </dl>
+  </div>
+  {% endif %}
 </div>
 
 <script>
