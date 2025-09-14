@@ -1,70 +1,153 @@
-{% extends "base.html" %}
+{% extends "base_app.html" %}
+{% block title %}Candidate – {{ (c.name or ((c.first_name or '') ~ ' ' ~ (c.last_name or ''))).strip() or 'Candidate' }} - ALTERA{% endblock %}
+
 {% block content %}
 
-<h3 class="mb-3">Candidate Detail</h3>
+{# --------- Safe helpers --------- #}
+{% set display_name = (c.name or ((c.first_name or '') ~ ' ' ~ (c.last_name or ''))).strip() or 'Candidate' %}
+{% set jd_title     = jd.title if jd else c.jd_code %}
+{% set fit          = c.fit_score %}
+{% set answers      = c.answer_scores or [] %}
+{% set claim        = (answers|length and (answers|sum / (answers|length))) or None %}
+{% set relevancy    = c.relevancy if c.relevancy is defined else None %}
 
-<div class="card mb-3">
-  <div class="card-header">Candidate</div>
-  <div class="card-body">
-    <p><strong>Name:</strong> {{ c.name }}</p>
-    <p><strong>ID:</strong> {{ c.id }}</p>
-    <p><strong>Job:</strong> {{ jd.title if jd else c.jd_code }}</p>
-    <p>
-      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('download_resume', tenant=tenant_slug, cid=c.id) }}">Download Résumé</a>
-      <a class="btn btn-sm btn-outline-danger" href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}">Delete Candidate</a>
-    </p>
+{# thresholds used elsewhere in the app #}
+{% set SCORE_GREEN = 3.8 %}
+{% set SCORE_YELLOW = 3.3 %}
+{% set REL_GREEN = 65 %}
+{% set REL_YELLOW = 40 %}
+
+{% macro score_chip(val) -%}
+  {% if val is not none %}
+    {% set cls = 'bg-emerald-100 text-emerald-700' if val >= SCORE_GREEN
+                 else ('bg-amber-100 text-amber-700' if val >= SCORE_YELLOW
+                       else 'bg-rose-100 text-rose-700') %}
+    <span class="inline-block min-w-[2.75rem] text-center px-2 py-0.5 rounded-full text-xs font-medium {{ cls }}">{{ '%.2f'|format(val) }}</span>
+  {% else %}
+    <span class="text-slate/60">—</span>
+  {% endif %}
+{%- endmacro %}
+
+{% macro rel_chip(val) -%}
+  {% if val is not none %}
+    {% set cls = 'bg-emerald-100 text-emerald-700' if val >= REL_GREEN
+                 else ('bg-amber-100 text-amber-700' if val >= REL_YELLOW
+                       else 'bg-rose-100 text-rose-700') %}
+    <span class="inline-block min-w-[2.5rem] text-center px-2 py-0.5 rounded-full text-xs font-medium {{ cls }}">{{ val }}</span>
+  {% else %}
+    <span class="text-slate/60">—</span>
+  {% endif %}
+{%- endmacro %}
+
+{# --------- Header --------- #}
+<div class="flex items-start justify-between mb-4">
+  <div>
+    <div class="flex items-center gap-2 text-slate text-sm mb-1">
+      <a href="{{ url_for('recruiter', tenant=tenant_slug) }}" class="hover:underline">Recruiter</a>
+      <span>/</span>
+      <a href="{{ url_for('view_candidates', tenant=tenant_slug, code=c.jd_code) }}" class="hover:underline">Candidates</a>
+      <span>/</span>
+      <span class="text-title">{{ display_name }}</span>
+    </div>
+    <h1 class="text-2xl font-semibold text-title">{{ display_name }}</h1>
+    <p class="text-slate mt-1">{{ c.job_title or 'Candidate' }}{% if c.department %} / {{ c.department }}{% endif %}{% if jd_title %} / {{ jd_title }}{% endif %}</p>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5">
+      <span class="text-xs text-slate">Relevancy Score</span>
+      {{ rel_chip(relevancy) }}
+    </div>
+    <div class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5">
+      <span class="text-xs text-slate">Claim Validity</span>
+      {{ score_chip(claim) }}
+    </div>
   </div>
 </div>
 
-<div class="card mb-3">
-  <div class="card-header">Scores</div>
-  <div class="card-body">
-    <p>Fit: {{ c.fit_score or "N/A" }}</p>
-    {% if c.answer_scores %}
-      <p>Average Answer Score: {{ (c.answer_scores | sum / (c.answer_scores|length)) | round(2) }}</p>
-    {% endif %}
-    {% if c.left_tab_count is not none %}
-      <p>Focus Changes Detected: {{ c.left_tab_count }}</p>
-    {% endif %}
+{# --------- Resume card --------- #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+  <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+    <h2 class="text-sm font-medium text-title">Resume</h2>
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('download_resume', tenant=tenant_slug, cid=c.id) }}"
+         class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+        </svg>
+        Download Resume PDF
+      </a>
+      <a href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}"
+         class="inline-flex items-center gap-2 rounded-lg border border-rose-200 text-rose-700 text-sm px-3 py-2 hover:bg-rose-50">
+        Delete Candidate
+      </a>
+    </div>
+  </div>
+
+  <div class="p-6">
+    {# If you later render a PDF/IMG, swap this placeholder #}
+    <div class="w-full h-[420px] bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-slate">
+      <div class="text-center">
+        <div class="text-sm font-medium mb-1">Resume Preview</div>
+        <div class="text-xs">PDF preview placeholder</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="card mb-3">
-  <div class="card-header">Questions & Answers</div>
-  <div class="card-body">
-    <ol>
-      {% for q, a, s in qa %}
-        <li class="mb-3">
-          <strong>{{ q }}</strong><br>
-          <em>Answer:</em> {{ a or "(no answer)" }}<br>
-          <em>Score:</em> {{ s }}
-        </li>
-      {% endfor %}
-    </ol>
+{# --------- AI Q&A Assessment --------- #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+  <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+    <h2 class="text-sm font-medium text-title">AI Q&A Assessment</h2>
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-slate">{{ qa|length }} Questions</span>
+      <div class="flex items-center gap-2 rounded-lg border border-gray-200 px-2 py-1">
+        <span class="text-xs text-slate">Relevancy Score</span>
+        {{ rel_chip(relevancy) }}
+      </div>
+      <div class="flex items-center gap-2 rounded-lg border border-gray-200 px-2 py-1">
+        <span class="text-xs text-slate">Claim Validity</span>
+        {{ score_chip(claim) }}
+      </div>
+    </div>
+  </div>
+
+  <div class="divide-y divide-gray-200">
+    {% for q, a, s in qa %}
+      <details class="group">
+        <summary class="list-none px-4 py-3 cursor-pointer flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate">Q{{ loop.index }}</span>
+            <span class="text-sm text-title">{{ q }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            {{ score_chip(s) }}
+            <svg class="w-4 h-4 text-slate group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </summary>
+        <div class="px-4 pb-4">
+          <div class="rounded-md bg-gray-50 p-3 text-sm text-title/90">{{ a or '(no answer)' }}</div>
+        </div>
+      </details>
+    {% endfor %}
   </div>
 </div>
 
-{% if c.resume_json and c.resume_json._self_id %}
-<div class="card mb-3">
-  <div class="card-header">Voluntary Self-Identification</div>
-  <div class="card-body">
-    <dl class="row">
-      <dt class="col-sm-4">Gender</dt>
-      <dd class="col-sm-8">{{ c.resume_json._self_id.gender }}</dd>
+<div class="flex items-center justify-between">
+  <a class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50"
+     href="{{ url_for('view_candidates', tenant=tenant_slug, code=c.jd_code) }}">
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M10 19l-7-7 7-7M3 12h18" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Back to Candidates
+  </a>
 
-      <dt class="col-sm-4">Hispanic/Latino</dt>
-      <dd class="col-sm-8">{{ c.resume_json._self_id.hispanic }}</dd>
-
-      <dt class="col-sm-4">Veteran Status</dt>
-      <dd class="col-sm-8">{{ c.resume_json._self_id.veteran }}</dd>
-
-      <dt class="col-sm-4">Disability</dt>
-      <dd class="col-sm-8">{{ c.resume_json._self_id.disability }}</dd>
-    </dl>
-  </div>
+  {% if c.left_tab_count is not none %}
+    <div class="text-xs text-slate">Focus Changes Detected: <span class="font-medium text-title">{{ c.left_tab_count }}</span></div>
+  {% endif %}
 </div>
-{% endif %}
-
-<a class="btn btn-secondary" href="{{ url_for('view_candidates', tenant=tenant_slug, code=c.jd_code) }}">Back to Candidates</a>
 
 {% endblock %}

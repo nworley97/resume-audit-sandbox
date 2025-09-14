@@ -1088,6 +1088,8 @@ def export_jobs(tenant=None):
 
 
 
+# ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
+# ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
 @app.route("/recruiter/jd/<code>")
 @app.route("/<tenant>/recruiter/jd/<code>")
 @login_required
@@ -1095,41 +1097,150 @@ def view_candidates(code, tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
-        if slug: return redirect(url_for("view_candidates", tenant=slug, code=code))
+        if slug:
+            return redirect(url_for("view_candidates", tenant=slug, code=code))
         return redirect(url_for("login"))
+
     db = SessionLocal()
     try:
-        sort_field = (request.args.get("sort") or "created").lower()
-        sort_dir   = (request.args.get("dir")  or "desc").lower()
-        q = db.query(Candidate).filter_by(jd_code=code, tenant_id=t.id)
+        jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
 
-        # Default SQL-side sort
+        # Query args
+        q         = (request.args.get("q") or "").strip()
+        sort      = (request.args.get("sort") or "created").lower()
+        direction = (request.args.get("dir")  or "desc").lower()
+        page      = max(int(request.args.get("page") or 1), 1)
+        per_page  = max(min(int(request.args.get("per_page") or 25), 100), 5)
+
+        # Base query
+        qset = db.query(Candidate).filter_by(tenant_id=t.id, jd_code=code)
+
+        # Search
+        if q:
+            like = f"%{q}%"
+            qset = qset.filter(or_(
+                Candidate.name.ilike(like) if hasattr(Candidate, "name") else false(),
+                Candidate.first_name.ilike(like) if hasattr(Candidate, "first_name") else false(),
+                Candidate.last_name.ilike(like) if hasattr(Candidate, "last_name") else false(),
+                Candidate.job_title.ilike(like) if hasattr(Candidate, "job_title") else false(),
+                Candidate.department.ilike(like) if hasattr(Candidate, "department") else false(),
+                Candidate.email.ilike(like) if hasattr(Candidate, "email") else false(),
+            ))
+
+        # SQL-side sort
         sortable = {
-            "name":    Candidate.name,
-            "fit":     Candidate.fit_score,
-            "created": Candidate.created_at,
-            "id":      Candidate.id,
+            "name":      Candidate.name if hasattr(Candidate, "name") else Candidate.created_at,
+            "job":       Candidate.job_title if hasattr(Candidate, "job_title") else Candidate.created_at,
+            "dept":      Candidate.department if hasattr(Candidate, "department") else Candidate.created_at,
+            "score":     Candidate.fit_score if hasattr(Candidate, "fit_score") else Candidate.created_at,
+            "relevancy": Candidate.relevancy if hasattr(Candidate, "relevancy") else Candidate.created_at,
+            "applied":   Candidate.created_at,
+            "created":   Candidate.created_at,
+            "id":        Candidate.id,
         }
-        col = sortable.get(sort_field, Candidate.created_at)
-        q = q.order_by(col.asc() if sort_dir == "asc" else col.desc())
+        col = sortable.get(sort, Candidate.created_at)
+        qset = qset.order_by(col.asc() if direction == "asc" else col.desc())
 
-        apps = q.all()
+        items = qset.all()
 
-        # NEW: Python-side sort for claim validity
-        if sort_field == "claim":
+        # Optional Python-side sort for claim validity
+        if sort == "claim":
             def claim_avg(c):
-                if c.answer_scores and len(c.answer_scores) > 0:
-                    return sum(c.answer_scores)/len(c.answer_scores)
-                return -9999  # put empty at bottom
-            apps = sorted(apps, key=claim_avg, reverse=(sort_dir=="desc"))
+                arr = getattr(c, "answer_scores", None) or []
+                return (sum(arr)/len(arr)) if arr else -9999
+            items = sorted(items, key=claim_avg, reverse=(direction == "desc"))
+
+        total = len(items)
+        pages = max((total + per_page - 1)//per_page, 1)
+        start = (page - 1) * per_page
+        end   = start + per_page
+        page_items = items[start:end]
+
+        # Map to rows for the template (non-mutating)
+        rows = []
+        for c in page_items:
+            nm = getattr(c, "name", None)
+            if not nm:
+                fn = getattr(c, "first_name", "") or ""
+                ln = getattr(c, "last_name", "") or ""
+                nm = (f"{fn} {ln}").strip() or "Candidate"
+
+            rows.append({
+                "id":         c.id,
+                "name":       nm,
+                "job_title":  getattr(c, "job_title", "") or "",
+                "department": getattr(c, "department", "") or "",
+                "score":      getattr(c, "fit_score", None),
+                "relevancy":  getattr(c, "relevancy", None),
+                "applied_at": getattr(c, "created_at", None),
+            })
 
         return render_template(
-            "view_candidates.html",
-            title=f"Candidates – {code}",
-            code=code,
-            apps=apps,
-            tenant_slug=t.slug,
+            "candidates_jd.html",
             tenant=t,
+            jd=jd,
+            code=code,
+            items=rows,
+            total=total,
+            page=page,
+            pages=pages,
+            per_page=per_page,
+            q=q,
+            sort=sort,
+            dir=direction,
+            # thresholds to match Figma chips
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,
+            REL_GREEN=65, REL_YELLOW=40,
+        )
+    finally:
+        db.close()
+
+# ---------- Candidate Detail ----------
+@app.route("/recruiter/candidate/<int:id>")
+@app.route("/<tenant>/recruiter/candidate/<int:id>")
+@login_required
+def candidate_detail(id, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("candidate_detail", tenant=slug, id=id))
+        return redirect(url_for("login"))
+
+    db = SessionLocal()
+    try:
+        c = db.query(Candidate).filter_by(id=id, tenant_id=t.id).first()
+        if not c:
+            abort(404)
+
+        jd = None
+        if getattr(c, "jd_code", None):
+            jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first()
+
+        # Compute claim validity (avg of answer_scores if present)
+        scores = getattr(c, "answer_scores", None) or []
+        claim_validity = (sum(scores) / len(scores)) if scores else None
+
+        # Optional answers collection (list of dicts with 'question', 'answer', 'score')
+        answers = getattr(c, "answers", None) or []
+
+        SCORE_GREEN = 3.8
+        SCORE_YELLOW = 3.3
+        REL_GREEN = 65
+        REL_YELLOW = 40
+
+        resume_url = getattr(c, "resume_url", None) or getattr(c, "resume_pdf", None) or ""
+
+        return render_template(
+            "candidate_detail.html",
+            tenant=t,
+            jd=jd,
+            c=c,
+            resume_url=resume_url,
+            claim_validity=claim_validity,
+            answers=answers,
+            SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
+            REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
         )
     finally:
         db.close()
