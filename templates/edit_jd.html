@@ -1,196 +1,226 @@
 {% extends "base_app.html" %}
-{% block title %}{{ 'Edit Job' if jd and jd.code else 'Create Job' }} - ALTERA{% endblock %}
+{% block title %}Job Posting - ALTERA{% endblock %}
+
 {% block content %}
 <div class="space-y-6">
 
-  <!-- Breadcrumb + Header -->
+  <!-- Page header: title + status/app cards -->
   <div class="flex items-start justify-between">
-    <div class="space-y-1">
-      <nav class="text-sm text-gray-500">
-        <a href="{{ url_for('recruiter', tenant=tenant.slug) }}" class="hover:underline">Job Postings</a>
-        <span class="mx-1">/</span>
-        <span class="text-gray-700 font-medium">{{ 'Edit' if jd and jd.code else 'Create' }}</span>
-      </nav>
-      <h1 class="text-2xl font-semibold text-gray-900">
-        {{ jd and jd.title or 'New Job Posting' }}
-      </h1>
-      {% if jd and jd.team %}
-      <p class="text-gray-500">{{ jd.team }}{% if jd.department %} / {{ jd.department }}{% endif %}</p>
-      {% endif %}
+    <div>
+      <div class="flex items-center gap-2 text-slate text-sm mb-1">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M12 3l9 4-9 4-9-4 9-4Z"></path><path d="M21 12l-9 4-9-4"></path><path d="M21 17l-9 4-9-4"></path>
+        </svg>
+        <span>Job Posting</span>
+      </div>
+      <h1 class="text-2xl font-semibold text-title">Job Posting</h1>
+      <p class="text-slate mt-1">Manage and track your job postings</p>
     </div>
 
-    <!-- Right-side cards -->
-    <div class="grid grid-cols-2 gap-3">
-      <!-- Status -->
-      <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl px-3 py-2">
-        <div class="text-[11px] text-gray-500 mb-1">Job Status</div>
-        {% set st = (jd.status or 'draft') if jd else 'draft' %}
-        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-          {% if st == 'published' %} bg-emerald-100 text-emerald-700
-          {% else %} bg-yellow-100 text-yellow-700 {% endif %}">{{ st|title }}</span>
+    <div class="flex items-center gap-3">
+      <!-- Job Status card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 w-36 text-center">
+        <div class="text-[11px] text-gray-500">Job Status</div>
+        <div class="mt-1 inline-flex items-center justify-center rounded-md px-2.5 py-0.5 text-[11px] font-medium
+          {% if jd and jd.is_published %} bg-emerald-100 text-emerald-700 {% else %} bg-amber-100 text-amber-700 {% endif %}">
+          {{ 'Published' if jd and jd.is_published else 'Draft' }}
+        </div>
       </div>
 
-      <!-- Application link -->
-      <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl px-3 py-2">
-        <div class="text-[11px] text-gray-500 mb-1">Application</div>
-        {% if jd and jd.code %}
-          {% set apply_url = url_for('apply', tenant=tenant.slug, code=jd.code, _external=True) %}
-          <div class="flex items-center gap-2">
-            <input id="applyLink" type="text" readonly
-                   class="flex-1 text-xs px-2 py-1 rounded border border-gray-300"
-                   value="{{ apply_url }}">
-            <button type="button" id="copyLinkBtn"
-                    class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-gray-50">Copy</button>
-          </div>
-        {% else %}
-          <div class="text-xs text-gray-500">Link available after saving</div>
-        {% endif %}
+      <!-- Application (applicant count) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 w-36 text-center">
+        <div class="text-[11px] text-gray-500">Application</div>
+        <div class="mt-1 text-sm font-semibold text-title">{{ applicant_count or 0 }}</div>
       </div>
     </div>
   </div>
 
-  <form method="post"
-        action="{{ url_for('edit_jd', tenant=tenant.slug, code=jd.code if jd and jd.code else None) }}"
-        class="space-y-6" id="jdForm">
-    {{ csrf_token() if csrf_token is defined else '' }}
+  <!-- Form -->
+  <form method="post" class="space-y-6">
 
-    <!-- Basic Information -->
-    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
-      <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-900">Basic Information</h2>
-        <div class="text-xs text-gray-500">Use clear, searchable fields.</div>
+    <!-- Basic Information card -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <h2 class="text-lg font-semibold text-title mb-4">Basic Information</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Job Title (required) -->
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">
+            Job Title <span class="text-red-500">*</span>
+          </label>
+          <input name="title" value="{{ jd.title or '' }}" required
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+
+        <!-- Job ID (label only changed) -->
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Job ID</label>
+          <input name="jd_id" value="{{ jd.jd_id or '' }}"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+
+        <!-- Department -->
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Department / Team</label>
+          <input name="department" value="{{ jd.department or '' }}"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+
+        <!-- Location (required) -->
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">
+            Location <span class="text-red-500">*</span>
+          </label>
+          <input name="location" value="{{ jd.location or '' }}" required
+                 placeholder="e.g., San Francisco, CA (Remote)"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+
+        <!-- Start date/time (required date) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">
+              Start Date <span class="text-red-500">*</span>
+            </label>
+            <input type="date" name="start_date" value="{{ jd.start_date or '' }}" required
+                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">Start Time</label>
+            <input type="time" name="start_time" value="{{ jd.start_time or '' }}"
+                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+        </div>
+
+        <!-- End date/time (required date) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">
+              End Date <span class="text-red-500">*</span>
+            </label>
+            <input type="date" name="end_date" value="{{ jd.end_date or '' }}" required
+                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-700 mb-1">End Time</label>
+            <input type="time" name="end_time" value="{{ jd.end_time or '' }}"
+                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+        </div>
+
+        <!-- Employment Type (required) -->
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">
+            Employment Type <span class="text-red-500">*</span>
+          </label>
+          <input name="employment_type" value="{{ jd.employment_type or '' }}" required
+                 placeholder="e.g., Full-time"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+
+        <!-- Work Arrangement -->
+        <div>
+          <label class="block text-sm text-gray-700 mb-1">Work Arrangement</label>
+          <input name="work_arrangement" value="{{ jd.work_arrangement or '' }}"
+                 placeholder="Onsite / Hybrid / Remote"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+
+        <!-- Salary Range -->
+        <div class="md:col-span-2">
+          <label class="block text-sm text-gray-700 mb-1">Salary Range</label>
+          <input name="salary_range" value="{{ jd.salary_range or '' }}" placeholder="e.g., $90,000 – $120,000 annually"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
       </div>
-      <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-xs text-gray-600 mb-1">Job Title</label>
-          <input name="jd_title" value="{{ jd.title if jd else '' }}" required
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-600 mb-1">JD ID</label>
-          <input name="jd_code" value="{{ jd.code if jd else '' }}" {{ 'readonly' if jd and jd.code else '' }}
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                 placeholder="e.g., SWE-001">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-600 mb-1">Department / Team</label>
-          <input name="jd_department" value="{{ jd.department or '' }}"
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                 placeholder="e.g., Engineering">
-          <input type="hidden" name="jd_team" value="{{ jd.team or '' }}">
-        </div>
 
-        <div>
-          <label class="block text-xs text-gray-600 mb-1">Location</label>
-          <input name="jd_location" value="{{ jd.location or '' }}"
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                 placeholder="e.g., SF, CA (Remote)">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-600 mb-1">Start Date</label>
-          <input type="date" name="jd_start"
-                 value="{{ jd.start_date and jd.start_date.strftime('%Y-%m-%d') or '' }}"
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-600 mb-1">End Date</label>
-          <input type="date" name="jd_end"
-                 value="{{ jd.end_date and jd.end_date.strftime('%Y-%m-%d') or '' }}"
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-        </div>
-
-        <div>
-          <label class="block text-xs text-gray-600 mb-1">Employment Type</label>
-          {% set et = (jd.employment_type or '') if jd else '' %}
-          <select name="jd_employment_type"
-                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-            {% for opt in ['Full-time','Part-time','Contract','Internship','Temporary'] %}
-              <option value="{{ opt }}" {{ 'selected' if et==opt else '' }}>{{ opt }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-xs text-gray-600 mb-1">Salary Range</label>
-          <input name="jd_salary_range" value="{{ jd.salary_range or '' }}"
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                 placeholder="e.g., $90,000 – $120,000">
-        </div>
+      <!-- Role description -->
+      <div class="mt-4">
+        <label class="block text-sm text-gray-700 mb-1">Role Description</label>
+        <textarea name="description" rows="7"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">{{ jd.description or '' }}</textarea>
       </div>
     </div>
 
-    <!-- Role Description -->
-    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
-      <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-900">Role Description</h2>
-        <div class="text-xs text-gray-500">Rich text supported</div>
-      </div>
-      <div class="p-4">
-        <div id="quill" class="rounded-lg border border-gray-300 min-h-[240px] bg-white">
-          {{ (jd.html|safe) if jd and jd.html else '' }}
-        </div>
-        <textarea name="jd_text" id="jd_text" class="hidden"></textarea>
-      </div>
+    <!-- Self-identification survey -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <h2 class="text-lg font-semibold text-title mb-3">Self-Identification Survey</h2>
+      <label class="inline-flex items-center gap-2">
+        <input type="checkbox" name="enable_self_id" value="1"
+               class="sr-only" {% if jd.enable_self_id %}checked{% endif %}>
+        <span class="relative inline-block w-9 h-5 bg-gray-200 rounded-full transition">
+          <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition
+            {% if jd.enable_self_id %} translate-x-4 bg-white {% endif %}"></span>
+        </span>
+        <span class="text-sm text-gray-700">Enable self-identification survey</span>
+      </label>
     </div>
 
-    <!-- Self-ID + Question Settings -->
-    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
-      <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-900">Self-Identification Survey</h2>
-        <label class="inline-flex items-center cursor-pointer">
-          <input type="checkbox" name="id_surveys_enabled" value="1"
-                 class="peer sr-only"
-                 {{ 'checked' if (jd.id_surveys_enabled if jd else False) else '' }}>
-          <span class="w-10 h-6 bg-gray-200 rounded-full relative transition-all
-                      after:content-[''] after:absolute after:left-0.5 after:top-0.5
-                      after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all
-                      peer-checked:bg-blue-600 peer-checked:after:translate-x-4"></span>
-        </label>
+    <!-- Question Settings (own card) -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div class="flex items-start justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-title">Question Settings</h2>
+          <p class="text-sm text-gray-500 mt-1">
+            Customize how many screening questions will be asked for this role.
+          </p>
+        </div>
       </div>
-      <div class="p-4">
-        <label class="block text-xs text-gray-600 mb-1">Question Settings</label>
-        {% set qc = (jd.question_count or 4) if jd else 4 %}
-        <select name="question_count" class="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm">
-          {% for n in [3,4,5] %}
-            <option value="{{ n }}" {{ 'selected' if qc==n else '' }}>{{ n }} questions (default)</option>
+
+      <div class="mt-4 max-w-xs">
+        <label class="block text-sm text-gray-700 mb-1">Number of Questions</label>
+        <select name="questions_count"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+          {% set qc = (jd.questions_count if jd and jd.questions_count is not none else 3) %}
+          {% for n in [1,2,3,4,5] %}
+          <option value="{{ n }}" {% if qc==n %}selected{% endif %}>{{ n }} question{{ '' if n==1 else 's' }}</option>
           {% endfor %}
         </select>
       </div>
     </div>
 
-    <!-- Footer actions -->
+    <!-- Application Link (Figma-style) -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <h2 class="text-lg font-semibold text-title">Application Link</h2>
+      <p class="text-sm text-gray-500 mt-1">
+        Once you publish this job posting, candidates will be able to apply using the link below.
+        Share this link on your website, social media, or job boards.
+      </p>
+
+      <div class="mt-3 flex items-center gap-2 max-w-2xl">
+        <input id="applyLink" readonly
+               value="{{ apply_url or '' }}"
+               class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 select-all" />
+        <button type="button" id="copyBtn"
+                class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+          Copy
+        </button>
+      </div>
+    </div>
+
+    <!-- Actions -->
     <div class="flex items-center justify-end gap-2">
-      <a href="{{ url_for('recruiter', tenant=tenant.slug) }}"
-         class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-gray-50">Cancel</a>
-      <input type="hidden" name="jd_status" id="statusField" value="{{ jd.status if jd else 'draft' }}">
-      <button type="submit"
-              class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black"
-              onclick="document.getElementById('statusField').value='draft'">Save as Draft</button>
-      <button type="submit"
-              class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-              onclick="document.getElementById('statusField').value='published'">Publish Job</button>
+      <button type="submit" name="action" value="delete"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Delete</button>
+      <button type="submit" name="action" value="close"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</button>
+      <button type="submit" name="action" value="draft"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Save as Draft</button>
+      <button type="submit" name="action" value="publish"
+              class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">Publish Job</button>
     </div>
   </form>
 </div>
 
-<!-- Quill (kept to avoid regressions) -->
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
-(function(){
-  var quill = new Quill('#quill', { theme: 'snow' });
-  var form = document.getElementById('jdForm');
-  form.addEventListener('submit', function(){
-    document.getElementById('jd_text').value = quill.root.innerHTML;
+// Copy application link
+const copyBtn = document.getElementById('copyBtn');
+if (copyBtn) {
+  copyBtn.addEventListener('click', async () => {
+    const el = document.getElementById('applyLink');
+    try { await navigator.clipboard.writeText(el.value || ''); copyBtn.textContent = 'Copied'; setTimeout(()=>copyBtn.textContent='Copy', 1400); }
+    catch { el.select(); document.execCommand('copy'); copyBtn.textContent = 'Copied'; setTimeout(()=>copyBtn.textContent='Copy', 1400); }
   });
-  var copy = document.getElementById('copyLinkBtn');
-  if (copy) {
-    copy.addEventListener('click', function(){
-      var inp = document.getElementById('applyLink');
-      inp.select(); inp.setSelectionRange(0, 99999);
-      try { document.execCommand('copy'); copy.textContent='Copied'; setTimeout(()=>copy.textContent='Copy',1200); } catch(e){}
-    });
-  }
-})();
+}
 </script>
 {% endblock %}

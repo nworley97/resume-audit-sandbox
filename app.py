@@ -614,7 +614,7 @@ def edit_jd(tenant=None):
         slug = session.get("tenant_slug")
         if slug: return redirect(url_for("edit_jd", tenant=slug, **request.args))
         return redirect(url_for("login"))
-
+    
     db = SessionLocal()
     try:
         code_qs = request.args.get("code")
@@ -702,8 +702,28 @@ def edit_jd(tenant=None):
                 db.add(jd); db.commit()
                 flash("JD saved")
                 return redirect(url_for("recruiter", tenant=t.slug))
+        # Build Application Link (robust: tries known endpoints, then falls back to /<tenant>/apply/<code>)
+        apply_url = ""
+        if jd and getattr(jd, "code", None):
+            from flask import current_app
+            for ep in ("public_apply", "apply_job", "apply", "job_apply"):
+                if ep in current_app.view_functions:
+                    try:
+                        apply_url = url_for(ep, tenant=t.slug, code=jd.code, _external=True)
+                        break
+                    except Exception:
+                        pass
+            if not apply_url:
+                apply_url = f"{request.url_root.rstrip('/')}/{t.slug}/apply/{jd.code}"
 
-        return render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=has_candidates)
+        # Applicant count (reuse the same db session)
+        applicant_count = 0
+        if jd and getattr(jd, "code", None):
+            applicant_count = db.query(func.count(Candidate.id))\
+                .filter(Candidate.tenant_id == t.id, Candidate.jd_code == jd.code)\
+                .scalar() or 0
+
+        return render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=has_candidates,tenant=t, apply_url=apply_url ,applicant_count=applicant_count)
     finally:
         db.close()
 
