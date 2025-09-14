@@ -25,7 +25,7 @@
       {% if c.relevancy >= REL_GREEN %} bg-green-100 text-green-700
       {% elif c.relevancy >= REL_YELLOW %} bg-yellow-100 text-yellow-700
       {% else %} bg-red-100 text-red-700 {% endif %}">
-      Relevancy: {{ "%.1f"|format relevancy or 0) }}
+      Relevancy: {{ "%.1f"|format(relevancy or 0) }}
     </span>
     <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
       {% if claim_validity >= SCORE_GREEN %} bg-green-100 text-green-700
