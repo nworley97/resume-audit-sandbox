@@ -1,219 +1,311 @@
 {% extends "base_app.html" %}
-{% block title %}Candidates Overview - ALTERA{% endblock %}
-
-{% block content %}
-  {% include "partials/candidates_table.html" %}
+{% block title %}
+  {% if scope == "global" %}Candidates Overview{% else %}Candidates for {{ jd.title }}{% endif %}
 {% endblock %}
 
+{% block content %}
+<div class="space-y-6">
 
-<div class="flex items-start justify-between mb-4">
-  <div>
-    <div class="flex items-center gap-2 text-slate text-sm mb-2">
-      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-        <path d="M16 11c1.657 0 3-1.79 3-4s-1.343-4-3-4-3 1.79-3 4 1.343 4 3 4Z"></path>
-        <path d="M8 12c1.657 0 3-1.79 3-4S9.657 4 8 4 5 5.79 5 8s1.343 4 3 4Z"></path>
-        <path d="M2 20c0-2.761 2.91-5 6.5-5S15 17.239 15 20"></path>
-        <path d="M15 15.5c3.59 0 6.5 2.239 6.5 5"></path>
-      </svg>
-      <span>Candidates</span>
-    </div>
-    <h1 class="text-2xl font-semibold text-title">Candidates Overview</h1>
-    <p class="text-slate mt-1">Manage and review candidate applications with intelligent insights</p>
-  </div>
-</div>
+  <!-- Header -->
+  <h1 class="text-2xl font-bold text-gray-900">
+    {% if scope == "global" %}
+      Candidates Overview
+    {% else %}
+      {{ jd.title }}
+    {% endif %}
+  </h1>
+  <p class="text-gray-600">
+    {% if scope == "global" %}{% extends "base_app.html" %}
+{% block title %}{% if jd %}Candidates – {{ jd.title }}{% else %}Candidates Overview - ALTERA{% endif %}{% endblock %}
 
-{% if (total or 0) == 0 %}
-  <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-    <div class="p-12 text-center text-slate">
-      <div class="text-title text-lg mb-2">No applicants yet</div>
-      <div class="text-sm mb-6">Once candidates apply, they’ll appear here for review and scoring.</div>
-      <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
-         class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-        View Job Postings
-      </a>
-    </div>
-  </div>
+{% block content %}
+<div class="space-y-4">
 
-{% else %}
-
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-  <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
-    <form action="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}"
-          method="get" class="w-full max-w-md">
-      <input type="hidden" name="sort" value="{{ sort or '' }}">
-      <input type="hidden" name="dir"  value="{{ dir  or '' }}">
-      <input type="hidden" name="page" value="1">
-      <div class="relative">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate/70">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="11" cy="11" r="7"></circle><path d="M20 20L17 17"></path>
-          </svg>
-        </span>
-        <input class="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-               type="text" name="q" value="{{ q or '' }}" placeholder="Name, Job Title, JD Code, Department"/>
+  <!-- Header -->
+  <div class="flex items-start justify-between mb-4">
+    <div>
+      <div class="flex items-center gap-2 text-slate text-sm mb-2">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M16 11c1.657 0 3-1.79 3-4s-1.343-4-3-4-3 1.79-3 4 1.343 4 3 4Z"></path>
+          <path d="M8 12c1.657 0 3-1.79 3-4S9.657 4 8 4 5 5.79 5 8s1.343 4 3 4Z"></path>
+          <path d="M2 20c0-2.761 2.91-5 6.5-5S15 17.239 15 20"></path>
+          <path d="M15 15.5c3.59 0 6.5 2.239 6.5 5"></path>
+        </svg>
+        <span>Candidates</span>
       </div>
-    </form>
-
-    <div class="flex items-center gap-2">
-      <a href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=1) }}"
-         class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M3 5h18M6 12h12M10 19h4" stroke-linecap="round"/>
-        </svg>
-        Filter
-      </a>
-      <a href="{{ url_for('export_jobs', tenant=tenant.slug if tenant else None) }}"
-         class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
-        </svg>
-        Export
-      </a>
+      <h1 class="text-2xl font-semibold text-title">
+        {% if jd %}Candidates for {{ jd.title }}{% else %}Candidates Overview{% endif %}
+      </h1>
+      <p class="text-slate mt-1">
+        {% if jd %}Manage and review candidate applications for this job
+        {% else %}Manage and review candidate applications with intelligent insights{% endif %}
+      </p>
     </div>
   </div>
 
-  {% macro sort_link(label, key) -%}
-    {% set active = (sort==key) %}
-    {% set asc = (active and dir=='asc') %}
-    {% set desc = (active and dir=='desc') %}
-    <div class="inline-flex items-center gap-1">
-      <span>{{ label }}</span>
-      <span class="flex flex-col leading-none">
-        <a class="h-2 {{ 'text-title' if asc else 'text-slate/40' }}"
-           href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, page=1, sort=key, dir='asc') }}">
-          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M6 14l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+  {% if (total or 0) == 0 %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div class="p-12 text-center text-slate">
+        <div class="text-title text-lg mb-2">No applicants yet</div>
+        <div class="text-sm mb-6">Once candidates apply, they’ll appear here for review and scoring.</div>
+        <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
+           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+          View Job Postings
         </a>
-        <a class="h-2 {{ 'text-title' if desc else 'text-slate/40' }}"
-           href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, page=1, sort=key, dir='desc') }}">
-          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </a>
-      </span>
+      </div>
     </div>
-  {%- endmacro %}
+  {% else %}
 
-  <div class="px-2 pb-2">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-slate border-y border-gray-200">
-            <th class="text-left font-medium py-3 pl-4 w-10">
-              <input type="checkbox" class="rounded border-gray-300">
-            </th>
-            <th class="text-left font-medium py-3 w-56">{{ sort_link('Name', 'name') }}</th>
-            <th class="text-left font-medium py-3">{{ sort_link('Job Title', 'job') }}</th>
-            <th class="text-left font-medium py-3 w-44">{{ sort_link('Department', 'dept') }}</th>
-            <th class="text-left font-medium py-3 w-28">{{ sort_link('Score', 'score') }}</th>
-            <th class="text-left font-medium py-3 w-28">{{ sort_link('Relevancy %', 'relevancy') }}</th>
-            <th class="text-left font-medium py-3 w-40">{{ sort_link('Date of Application', 'applied') }}</th>
-          </tr>
-        </thead>
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
+      <form action="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}{% endif %}"
+            method="get" class="w-full max-w-md">
+        <input type="hidden" name="sort" value="{{ sort or '' }}">
+        <input type="hidden" name="dir"  value="{{ dir  or '' }}">
+        <input type="hidden" name="page" value="1">
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate/70">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="11" cy="11" r="7"></circle><path d="M20 20L17 17"></path>
+            </svg>
+          </span>
+          <input class="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                 type="text" name="q" value="{{ q or '' }}" placeholder="Name, Job Title, JD Code, Department"/>
+        </div>
+      </form>
 
-        <tbody>
-          {% for c in items %}
-          <tr class="border-t border-gray-200 hover:bg-gray-50/60">
-            <td class="py-3 pl-4">
-              <input type="checkbox" class="rounded border-gray-300">
-            </td>
+      <div class="flex items-center gap-2">
+        <a href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=1) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=1) }}{% endif %}"
+           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 5h18M6 12h12M10 19h4" stroke-linecap="round"/>
+          </svg>
+          Filter
+        </a>
+        <a href="#"
+           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+          </svg>
+          Export
+        </a>
+      </div>
+    </div>
 
-            <td class="py-3">
-              {% if has_candidate_detail %}
-                <a class="text-title hover:underline"
-                   href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">
-                  {{ c.name }}
-                </a>
-              {% else %}
-                <span class="text-title">{{ c.name }}</span>
-              {% endif %}
-            </td>
+    {% macro sort_link(label, key) -%}
+      {% set base = 'view_candidates' if jd else 'candidates_overview' %}
+      {% set active = (sort==key) %}
+      {% set asc = (active and dir=='asc') %}
+      {% set desc = (active and dir=='desc') %}
+      <div class="inline-flex items-center gap-1">
+        <span>{{ label }}</span>
+        <span class="flex flex-col leading-none">
+          <a class="h-2 {{ 'text-title' if asc else 'text-slate/40' }}"
+             href="{% if jd %}{{ url_for(base, tenant=tenant.slug if tenant else None, code=jd.code, q=q, page=1, sort=key, dir='asc') }}{% else %}{{ url_for(base, tenant=tenant.slug if tenant else None, q=q, page=1, sort=key, dir='asc') }}{% endif %}">
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M6 14l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a class="h-2 {{ 'text-title' if desc else 'text-slate/40' }}"
+             href="{% if jd %}{{ url_for(base, tenant=tenant.slug if tenant else None, code=jd.code, q=q, page=1, sort=key, dir='desc') }}{% else %}{{ url_for(base, tenant=tenant.slug if tenant else None, q=q, page=1, sort=key, dir='desc') }}{% endif %}">
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </span>
+      </div>
+    {%- endmacro %}
 
-            <td class="py-3">{{ c.job_title }}</td>
-            <td class="py-3">{{ c.department }}</td>
+    <div class="px-2 pb-2">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-slate border-y border-gray-200">
+              <th class="text-left font-medium py-3 pl-4 w-10">
+                <input type="checkbox" class="rounded border-gray-300">
+              </th>
+              <th class="text-left font-medium py-3 w-56">{{ sort_link('Name', 'name') }}</th>
+              <th class="text-left font-medium py-3">{{ sort_link('Job Title', 'job') }}</th>
+              <th class="text-left font-medium py-3 w-44">{{ sort_link('Department', 'dept') }}</th>
+              <th class="text-left font-medium py-3 w-28">{{ sort_link('Claim Validity', 'score') }}</th>
+              <th class="text-left font-medium py-3 w-28">{{ sort_link('Relevancy Score', 'relevancy') }}</th>
+              <th class="text-left font-medium py-3 w-40">{{ sort_link('Date of Application', 'applied') }}</th>
+              <th class="py-3 w-16"></th>
+            </tr>
+          </thead>
 
-            <td class="py-3">
-              {% set s = c.score %}
-              {% if s is not none %}
-                {% set chip = 'bg-emerald-100 text-emerald-700' if s >= SCORE_GREEN
-                              else ('bg-amber-100 text-amber-700' if s >= SCORE_YELLOW
-                                    else 'bg-rose-100 text-rose-700') %}
-                <span class="inline-block min-w-[2.75rem] text-center px-2 py-0.5 rounded-full text-xs font-medium {{ chip }}">
-                  {{ '%.2f'|format(s) }}
-                </span>
-              {% else %}
-                <span class="text-slate/60">—</span>
-              {% endif %}
-            </td>
+          <tbody>
+            {% for c in items %}
+            <tr class="border-t border-gray-200 hover:bg-gray-50/60">
+              <td class="py-3 pl-4">
+                <input type="checkbox" class="rounded border-gray-300">
+              </td>
 
-            <td class="py-3">
-              {% set r = c.relevancy %}
-              {% if r is not none %}
+              <td class="py-3">
+                {% set display_name = c.name or (((c.first_name or '') ~ ' ' ~ (c.last_name or '')).strip()) %}
+                {% if has_candidate_detail %}
+                  <a class="text-title hover:underline"
+                     href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">
+                    {{ display_name }}
+                  </a>
+                {% else %}
+                  <span class="text-title">{{ display_name }}</span>
+                {% endif %}
+              </td>
+
+              <td class="py-3">{{ c.job_title or (jd.title if jd else '-') }}</td>
+              <td class="py-3">{{ c.department or '-' }}</td>
+
+              <!-- Claim Validity chip -->
+              <td class="py-3">
+                {% set s = c.score if c.score is not none else ( ((c.answer_scores|sum) / (c.answer_scores|length)) if c.answer_scores else none ) %}
+                {% if s is not none %}
+                  {% set chip = 'bg-emerald-100 text-emerald-700' if s >= SCORE_GREEN
+                                else ('bg-amber-100 text-amber-700' if s >= SCORE_YELLOW
+                                      else 'bg-rose-100 text-rose-700') %}
+                  <span class="inline-block min-w-[2.75rem] text-center px-2 py-0.5 rounded-full text-xs font-medium {{ chip }}">
+                    {{ '%.2f'|format(s) }}
+                  </span>
+                {% else %}
+                  <span class="text-slate/60">—</span>
+                {% endif %}
+              </td>
+
+              <!-- Relevancy chip -->
+              <td class="py-3">
+                {% set r = c.relevancy if c.relevancy is not none else 0 %}
                 {% set chip_r = 'bg-emerald-100 text-emerald-700' if r >= REL_GREEN
                                 else ('bg-amber-100 text-amber-700' if r >= REL_YELLOW
                                       else 'bg-rose-100 text-rose-700') %}
-                <span class="inline-block min-w-[2.5rem] text-center px-2 py-0.5 rounded-full text-xs font-medium {{ chip_r }}">{{ r }}</span>
-              {% else %}
-                <span class="text-slate/60">—</span>
-              {% endif %}
-            </td>
+                <span class="inline-block min-w-[2.5rem] text-center px-2 py-0.5 rounded-full text-xs font-medium {{ chip_r }}">
+                  {{ '%.2f'|format(r) }}
+                </span>
+              </td>
 
-            <td class="py-3">
-              {% if c.applied_at %}
-                {{ c.applied_at.strftime('%b %d, %Y') }}
-              {% else %}
-                <span class="text-slate/60">—</span>
-              {% endif %}
-            </td>
-          </tr>
+              <td class="py-3">
+                {% if c.applied_at %}
+                  {{ c.applied_at.strftime('%b %d, %Y') }}
+                {% else %}
+                  <span class="text-slate/60">—</span>
+                {% endif %}
+              </td>
+
+              <td class="py-3 pr-4 text-right">
+                <a class="text-blue-600 hover:underline"
+                   href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">View</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between px-2 py-4">
+        <div class="text-sm text-slate">
+          {% if page > 1 %}
+            <a class="inline-flex items-center gap-1 hover:text-title"
+               href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=page-1) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=page-1) }}{% endif %}">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M10 19l-7-7 7-7M3 12h18" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Previous
+            </a>
+          {% else %}
+            <span class="inline-flex items-center gap-1 opacity-40">Previous</span>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center gap-0.5">
+          {% for p in range(1, pages + 1) %}
+            <a href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=p) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=p) }}{% endif %}"
+               class="min-w-[2rem] text-center rounded-md px-2 py-1 text-sm {{ 'bg-gray-900 text-white' if p==page else 'hover:bg-gray-100 text-title' }}">
+              {{ p }}
+            </a>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
+        </div>
 
-    <div class="flex items-center justify-between px-2 py-4">
-      <div class="text-sm text-slate">
-        {% if page > 1 %}
-          <a class="inline-flex items-center gap-1 hover:text-title"
-             href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=page-1) }}">
-            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M10 19l-7-7 7-7M3 12h18" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Previous
-          </a>
-        {% else %}
-          <span class="inline-flex items-center gap-1 opacity-40">Previous</span>
-        {% endif %}
-      </div>
-
-      <div class="flex items-center gap-0.5">
-        {% for p in range(1, pages + 1) %}
-          <a href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=p) }}"
-             class="min-w-[2rem] text-center rounded-md px-2 py-1 text-sm {{ 'bg-gray-900 text-white' if p==page else 'hover:bg-gray-100 text-title' }}">
-            {{ p }}
-          </a>
-        {% endfor %}
-      </div>
-
-      <div class="text-sm text-slate">
-        {% if page < pages %}
-          <a class="inline-flex items-center gap-1 hover:text-title"
-             href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=page+1) }}">
-            Next
-            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M14 5l7 7-7 7M3 12h18" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
-        {% else %}
-          <span class="inline-flex items-center gap-1 opacity-40">Next</span>
-        {% endif %}
+        <div class="text-sm text-slate">
+          {% if page < pages %}
+            <a class="inline-flex items-center gap-1 hover:text-title"
+               href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=page+1) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=page+1) }}{% endif %}">
+              Next
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M14 5l7 7-7 7M3 12h18" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          {% else %}
+            <span class="inline-flex items-center gap-1 opacity-40">Next</span>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
+
+  {% endif %}
 </div>
+{% endblock %}
 
-{% endif %}
+      Manage and review candidate applications with intelligent insights
+    {% else %}
+      Manage and review candidate applications for this job
+    {% endif %}
+  </p>
 
+  <!-- Search + Actions -->
+  <div class="flex justify-between items-center">
+    <input type="text" placeholder="Search candidates"
+           class="w-1/3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+    <div class="flex gap-2">
+      <button class="rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Filter</button>
+      <a href="{{ url_for('export_jobs', tenant=tenant.slug) }}"
+         class="rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Export</a>
+    </div>
+  </div>
+
+  <!-- Candidates Table -->
+  <div class="overflow-x-auto bg-white shadow-sm ring-1 ring-gray-200 rounded-lg">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job Title</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Claim Validity</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Relevancy Score</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date of Application</th>
+          <th class="px-6 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200 bg-white">
+        {% for c in candidates %}
+        <tr>
+          <td class="px-6 py-4">{{ c.first_name }} {{ c.last_name }}</td>
+          <td class="px-6 py-4">{{ c.job_title or jd.title if jd else "-" }}</td>
+          <td class="px-6 py-4">{{ c.department or "-" }}</td>
+          <td class="px-6 py-4">
+            {{ "%.2f"|format(c.claim_validity) }}
+          </td>
+          <td class="px-6 py-4">
+            {{ "%.2f"|format(c.relevancy) }}
+          </td>
+          <td class="px-6 py-4">
+            {{ c.created_at.strftime('%b %d, %Y') if c.created_at else "-" }}
+          </td>
+          <td class="px-6 py-4 text-right">
+            <a href="{{ url_for('candidate_detail', tenant=tenant.slug, id=c.id) }}"
+               class="text-blue-600 hover:text-blue-900">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination placeholder (can be wired later) -->
+  <div class="flex justify-center py-4 text-gray-600">
+    Pagination goes here
+  </div>
+</div>
 {% endblock %}
