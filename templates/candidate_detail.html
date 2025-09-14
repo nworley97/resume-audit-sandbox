@@ -15,7 +15,9 @@
   <!-- Header -->
   <div class="flex items-start justify-between">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">{{ c.first_name or '' }} {{ c.last_name or '' }}</h1>
+      <h1 class="text-2xl font-bold text-gray-900">
+        {{ c.first_name or '' }} {{ c.last_name or '' }}
+      </h1>
       <p class="text-gray-600">
         Candidate /
         {% if jd %}
@@ -26,23 +28,45 @@
       </p>
     </div>
 
-    <!-- Score chips + tab switches -->
-    <div class="flex items-center gap-2">
-      <span class="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-medium
-        {% if (relevancy or 0) >= REL_GREEN %} bg-green-100 text-green-700
-        {% elif (relevancy or 0) >= REL_YELLOW %} bg-yellow-100 text-yellow-700
-        {% else %} bg-red-100 text-red-700 {% endif %}">
-        Relevancy: {{ "%.1f"|format(relevancy or 0) }}/5
-      </span>
-      <span class="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-medium
-        {% if (claim_validity or 0) >= SCORE_GREEN %} bg-green-100 text-green-700
-        {% elif (claim_validity or 0) >= SCORE_YELLOW %} bg-yellow-100 text-yellow-700
-        {% else %} bg-red-100 text-red-700 {% endif %}">
-        Claim Validity: {{ "%.1f"|format(claim_validity or 0) }}/5
-      </span>
-      <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">
-        Tab switches: {{ focus_changes or 0 }}
-      </span>
+    <!-- Stats box (Relevancy / Claim Validity / Tab switches) -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm px-3 py-2">
+      <div class="flex items-center gap-3">
+        <!-- Relevancy -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-500">Relevancy</span>
+          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+            {% if (relevancy or 0) >= REL_GREEN %} bg-green-100 text-green-700
+            {% elif (relevancy or 0) >= REL_YELLOW %} bg-yellow-100 text-yellow-700
+            {% else %} bg-red-100 text-red-700 {% endif %}">
+            {{ "%.1f"|format(relevancy or 0) }}/5
+          </span>
+        </div>
+
+        <!-- Divider dot -->
+        <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+
+        <!-- Claim Validity -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-500">Claim Validity</span>
+          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+            {% if (claim_validity or 0) >= SCORE_GREEN %} bg-green-100 text-green-700
+            {% elif (claim_validity or 0) >= SCORE_YELLOW %} bg-yellow-100 text-yellow-700
+            {% else %} bg-red-100 text-red-700 {% endif %}">
+            {{ "%.1f"|format(claim_validity or 0) }}/5
+          </span>
+        </div>
+
+        <!-- Divider dot -->
+        <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+
+        <!-- Tab switches -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-500">Tab switches</span>
+          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">
+            {{ focus_changes or 0 }}
+          </span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -53,14 +77,16 @@
       <div class="flex gap-2">
         {% if c and c.id %}
           <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
-             class="inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+             class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-50">
+            <!-- download icon -->
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="4" y="18" width="16" height="3" rx="1.5"></rect>
+            </svg>
             Download Resume PDF
           </a>
         {% endif %}
-        <a href="{{ url_for('delete_candidate', tenant=tenant.slug, cid=c.id) }}"
-           class="inline-flex items-center rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-200">
-          Delete Candidate
-        </a>
+        {# Delete button intentionally removed per request #}
       </div>
     </div>
 
@@ -68,7 +94,8 @@
       {% if resume_url %}
         <iframe src="{{ resume_url }}" class="w-full h-full border-0 rounded-lg" title="Resume PDF Preview"></iframe>
       {% else %}
-        <div class="border-2 border-dashed border-gray-300 rounded-lg w-56 h-72 bg-white flex items-center justify-center">
+        <!-- Page-like placeholder -->
+        <div class="w-56 h-72 bg-white rounded-md shadow-sm border border-gray-200 flex items-center justify-center">
           <div class="text-center text-gray-500">
             <p class="font-medium">Resume Preview</p>
             <p class="text-xs">PDF preview placeholder</p>
@@ -84,7 +111,7 @@
       <h2 class="text-lg font-semibold text-gray-900">AI Q&amp;A Assessment</h2>
       <div class="flex items-center gap-2 text-xs">
         <span class="inline-flex items-center rounded-md border px-2 py-1 text-gray-700">
-          {{ (qa or [])|length }} Questions
+          {{ (qa or answers or [])|length }} Questions
         </span>
         <span class="inline-flex items-center rounded-md border px-2 py-1 text-gray-700">
           Relevancy: <span class="ml-1 font-semibold">{{ "%.1f"|format(relevancy or 0) }}/5</span>
@@ -96,7 +123,7 @@
     </div>
 
     <div class="divide-y divide-gray-200">
-      {% for item in (qa or []) %}
+      {% for item in (qa or answers or []) %}
         {% set qtxt = item.q if item.q is defined else item.question %}
         {% set atxt = item.a if item.a is defined else item.answer %}
         {% set s    = item.s if item.s is defined else (item.score if item.score is defined else none) %}
@@ -106,7 +133,7 @@
         <div class="px-4 py-3">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1">
-              <p class="font-medium text-gray-900">
+              <p class="font-medium text-blue-700">
                 {{ "%02d"|format(loop.index) }}. {{ qtxt }}
               </p>
             </div>
@@ -143,11 +170,25 @@
   {% if sid %}
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4">
     <h2 class="text-lg font-semibold text-gray-900 mb-3">Voluntary Self-Identification</h2>
+
+    <!-- card-style grid (matches the figma feel) -->
     <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-      <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Gender</dt><dd class="text-gray-900 font-medium">{{ sid.get('gender','—') }}</dd></div>
-      <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Hispanic/Latino</dt><dd class="text-gray-900 font-medium">{{ sid.get('hispanic','—') }}</dd></div>
-      <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Veteran Status</dt><dd class="text-gray-900 font-medium">{{ sid.get('veteran','—') }}</dd></div>
-      <div class="bg-gray-50 rounded-lg p-3"><dt class="text-gray-500">Disability</dt><dd class="text-gray-900 font-medium">{{ sid.get('disability','—') }}</dd></div>
+      <div class="bg-gray-50 rounded-lg p-3">
+        <dt class="text-gray-500">Gender</dt>
+        <dd class="text-gray-900 font-medium">{{ sid.get('gender','—') }}</dd>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-3">
+        <dt class="text-gray-500">Hispanic/Latino</dt>
+        <dd class="text-gray-900 font-medium">{{ sid.get('hispanic','—') }}</dd>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-3">
+        <dt class="text-gray-500">Veteran Status</dt>
+        <dd class="text-gray-900 font-medium">{{ sid.get('veteran','—') }}</dd>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-3">
+        <dt class="text-gray-500">Disability</dt>
+        <dd class="text-gray-900 font-medium">{{ sid.get('disability','—') }}</dd>
+      </div>
     </dl>
   </div>
   {% endif %}
