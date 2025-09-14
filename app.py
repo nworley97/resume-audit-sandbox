@@ -1196,8 +1196,8 @@ def view_candidates(code, tenant=None):
         db.close()
 
 # ---------- Candidate Detail ----------
-@app.route("/recruiter/candidate/<int:id>")
-@app.route("/<tenant>/recruiter/candidate/<int:id>")
+@app.route("/recruiter/candidate/<id>")
+@app.route("/<tenant>/recruiter/candidate/<id>")
 @login_required
 def candidate_detail(id, tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1250,31 +1250,60 @@ def candidate_detail(id, tenant=None):
 @app.route("/candidates")
 @app.route("/<tenant>/candidates")
 @login_required
-def global_candidates(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
-    if not t:
-        slug = session.get("tenant_slug")
-        if slug: return redirect(url_for("global_candidates", tenant=slug, **request.args))
-        return redirect(url_for("login"))
+def candidates_overview(tenant):
+    tenant_obj = load_tenant_by_slug(tenant)
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "applied_at")
+    dir_ = request.args.get("dir", "desc")
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = 25
 
-    q  = request.args.get("q","").strip()
-    jd = request.args.get("jd","").strip()
+    # Build filters safely
+    filters = {}
+    if q:
+        filters["q"] = q  # your DAO should interpret across name/title/jd_code
 
-    db = SessionLocal()
-    try:
-        apps_q = db.query(Candidate).filter(Candidate.tenant_id == t.id)
-        if jd: apps_q = apps_q.filter(Candidate.jd_code==jd)
-        if q:
-            apps_q = apps_q.filter(or_(Candidate.name.ilike(f"%{q}%"), Candidate.id.ilike(f"%{q}%")))
-        apps = apps_q.order_by(Candidate.created_at.desc()).all()
-        jd_list = db.query(JobDescription).filter(JobDescription.tenant_id == t.id).order_by(JobDescription.code.asc()).all()
+    rows, total = Candidate.search_for_tenant(
+        tenant_slug=tenant_obj.slug,
+        filters=filters,
+        sort=sort,
+        direction=dir_,
+        page=page,
+        per_page=per_page,
+    )
 
-        export_url = url_for("export_candidates", tenant=t.slug) + ("?q="+q if q else "") + ("&jd="+jd if jd else "")
-        return render_template("global_candidates.html",
-            title="Candidates",
-            q=q, jd=jd, apps=apps, jd_list=jd_list, export_url=export_url)
-    finally:
-        db.close()
+    def _page_url(p):
+        args = dict(request.args)
+        args["page"] = p
+        return url_for("candidates_overview", tenant=tenant_obj.slug, **args)
+
+    def _sort_url(key):
+        args = dict(request.args)
+        if args.get("sort") == key:
+            args["dir"] = "asc" if args.get("dir") == "desc" else "desc"
+        else:
+            args["sort"] = key
+            args["dir"] = "asc"
+        return url_for("candidates_overview", tenant=tenant_obj.slug, **args)
+
+    return render_template(
+        "candidates.html",
+        tenant=tenant_obj,
+        tenant_slug=tenant_obj.slug if tenant_obj else None,
+        brand_name=current_tenant().brand_name if current_tenant() else "ALTERA",
+        rows=rows,
+        total=total,
+        page=page,
+        pages=math.ceil(total / per_page) if total else 1,
+        q=q,
+        sort=sort,
+        dir=dir_,
+        sort_url=_sort_url,
+        page_url=_page_url,
+        export_endpoint="export_candidates_csv",  # optional
+        has_candidate_detail=True,
+    )
+
 
 @app.route("/export/candidates.csv")
 @app.route("/<tenant>/export/candidates.csv")
