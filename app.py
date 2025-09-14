@@ -1230,12 +1230,14 @@ def candidate_detail(id, tenant=None):
         REL_YELLOW = 40
 
         resume_url = getattr(c, "resume_url", None) or getattr(c, "resume_pdf", None) or ""
+        relevancy = getattr(c, "relevancy", None)
 
         return render_template(
             "candidate_detail.html",
             tenant=t,
             jd=jd,
             c=c,
+            relevancy=relevancy,
             resume_url=resume_url,
             claim_validity=claim_validity,
             answers=answers,
