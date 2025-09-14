@@ -3,69 +3,57 @@
 
 {% block content %}
 <div class="space-y-6">
-  <!-- Breadcrumb -->
-  <nav class="text-sm text-gray-500">
-    <a href="{{ url_for('candidates_overview', tenant=tenant.slug) }}" class="hover:underline">Recruiter</a>
-    <span class="mx-1">/</span>
-    <a href="{{ url_for('candidates_overview', tenant=tenant.slug) }}" class="hover:underline">Candidates</a>
-    <span class="mx-1">/</span>
-    <span class="text-gray-700 font-medium">{{ c.first_name or '' }} {{ c.last_name or '' }}</span>
-  </nav>
 
-  <!-- Header -->
+  <!-- Header: name left, stat boxes right -->
   <div class="flex items-start justify-between">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">
-        {{ c.first_name or '' }} {{ c.last_name or '' }}
+      <div class="text-xs text-gray-500 mb-1">
+        Recruiter / Candidates
+      </div>
+      <h1 class="text-2xl font-semibold text-gray-900">
+        {{ (c.first_name or '') ~ (' ' + (c.last_name or '')) }}
       </h1>
       <p class="text-gray-600">
-        Candidate /
         {% if jd %}
-          {{ jd.title }}{% if jd.department %} – {{ jd.department }}{% endif %}
+          {{ jd.title }}{% if jd.department %} — {{ jd.department }}{% endif %}
         {% else %}
           {{ c.job_title or '' }}
         {% endif %}
       </p>
     </div>
 
-    <!-- Stats box (Relevancy / Claim Validity / Tab switches) -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm px-3 py-2">
-      <div class="flex items-center gap-3">
-        <!-- Relevancy -->
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-500">Relevancy</span>
-          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-            {% if (relevancy or 0) >= REL_GREEN %} bg-green-100 text-green-700
-            {% elif (relevancy or 0) >= REL_YELLOW %} bg-yellow-100 text-yellow-700
-            {% else %} bg-red-100 text-red-700 {% endif %}">
-            {{ "%.1f"|format(relevancy or 0) }}/5
-          </span>
-        </div>
+    <!-- Stat cards to match Figma (white boxes, colored pills) -->
+    <div class="flex items-center gap-3">
+      <!-- Relevancy -->
+      <div class="bg-white ring-1 ring-gray-200 rounded-lg px-3 py-2 flex items-center gap-2">
+        <span class="text-gray-600 text-xs">Relevancy</span>
+        {% set rel = relevancy or 0 %}
+        {% set rel_chip = 'bg-emerald-100 text-emerald-700' if rel >= REL_GREEN
+                          else ('bg-amber-100 text-amber-700' if rel >= REL_YELLOW
+                                else 'bg-rose-100 text-rose-700') %}
+        <span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium min-w-[2.1rem] justify-center {{ rel_chip }}">
+          {{ '%.1f'|format(rel) }}/5
+        </span>
+      </div>
 
-        <!-- Divider dot -->
-        <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+      <!-- Claim Validity -->
+      <div class="bg-white ring-1 ring-gray-200 rounded-lg px-3 py-2 flex items-center gap-2">
+        <span class="text-gray-600 text-xs">Claim Validity</span>
+        {% set cv = claim_validity or 0 %}
+        {% set cv_chip = 'bg-emerald-100 text-emerald-700' if cv >= SCORE_GREEN
+                         else ('bg-amber-100 text-amber-700' if cv >= SCORE_YELLOW
+                               else 'bg-rose-100 text-rose-700') %}
+        <span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium min-w-[2.1rem] justify-center {{ cv_chip }}">
+          {{ '%.1f'|format(cv) }}/5
+        </span>
+      </div>
 
-        <!-- Claim Validity -->
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-500">Claim Validity</span>
-          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-            {% if (claim_validity or 0) >= SCORE_GREEN %} bg-green-100 text-green-700
-            {% elif (claim_validity or 0) >= SCORE_YELLOW %} bg-yellow-100 text-yellow-700
-            {% else %} bg-red-100 text-red-700 {% endif %}">
-            {{ "%.1f"|format(claim_validity or 0) }}/5
-          </span>
-        </div>
-
-        <!-- Divider dot -->
-        <span class="w-1 h-1 rounded-full bg-gray-300"></span>
-
-        <!-- Tab switches -->
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-500">Tab switches</span>
-          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">
-            {{ focus_changes or 0 }}
-          </span>
-        </div>
+      <!-- Tab switches -->
+      <div class="bg-white ring-1 ring-gray-200 rounded-lg px-3 py-2 flex items-center gap-2">
+        <span class="text-gray-600 text-xs">Tab switches</span>
+        <span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium min-w-[1.5rem] justify-center bg-gray-100 text-gray-700">
+          {{ focus_changes or 0 }}
+        </span>
       </div>
     </div>
   </div>
@@ -74,33 +62,27 @@
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4">
     <div class="flex justify-between items-center">
       <h2 class="text-lg font-semibold text-gray-900">Resume</h2>
-      <div class="flex gap-2">
-        {% if c and c.id %}
-          <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
-             class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-50">
-            <!-- download icon -->
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
-              <rect x="4" y="18" width="16" height="3" rx="1.5"></rect>
-            </svg>
-            Download Resume PDF
-          </a>
-        {% endif %}
-        {# Delete button intentionally removed per request #}
-      </div>
+
+      {% if c and c.id %}
+      <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
+         class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+        <!-- download icon -->
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+        </svg>
+        Download Resume PDF
+      </a>
+      {% endif %}
     </div>
 
+    <!-- Page-like PDF area -->
     <div class="border rounded-lg bg-gray-50 h-[520px] flex items-center justify-center overflow-hidden">
       {% if resume_url %}
-        <iframe src="{{ resume_url }}" class="w-full h-full border-0 rounded-lg" title="Resume PDF Preview"></iframe>
+        <iframe src="{{ resume_url }}" class="w-full h-full border-0 rounded-lg bg-white" title="Resume PDF Preview"></iframe>
       {% else %}
-        <!-- Page-like placeholder -->
-        <div class="w-56 h-72 bg-white rounded-md shadow-sm border border-gray-200 flex items-center justify-center">
-          <div class="text-center text-gray-500">
-            <p class="font-medium">Resume Preview</p>
-            <p class="text-xs">PDF preview placeholder</p>
-          </div>
-        </div>
+        <!-- simple white page placeholder -->
+        <div class="w-44 h-64 bg-white rounded-md ring-1 ring-gray-300 shadow-sm"></div>
       {% endif %}
     </div>
   </div>
@@ -109,16 +91,34 @@
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
     <div class="px-4 py-3 flex items-center justify-between">
       <h2 class="text-lg font-semibold text-gray-900">AI Q&amp;A Assessment</h2>
+
+      <!-- right aligned mini stat strip (white boxes, colored score pills) -->
       <div class="flex items-center gap-2 text-xs">
-        <span class="inline-flex items-center rounded-md border px-2 py-1 text-gray-700">
+        <div class="bg-white ring-1 ring-gray-200 rounded-md px-2 py-1 text-gray-700">
           {{ (qa or answers or [])|length }} Questions
-        </span>
-        <span class="inline-flex items-center rounded-md border px-2 py-1 text-gray-700">
-          Relevancy: <span class="ml-1 font-semibold">{{ "%.1f"|format(relevancy or 0) }}/5</span>
-        </span>
-        <span class="inline-flex items-center rounded-md border px-2 py-1 text-gray-700">
-          Claim Validity: <span class="ml-1 font-semibold">{{ "%.1f"|format(claim_validity or 0) }}/5</span>
-        </span>
+        </div>
+
+        {% set rel = relevancy or 0 %}
+        {% set rel_chip = 'bg-emerald-100 text-emerald-700' if rel >= REL_GREEN
+                          else ('bg-amber-100 text-amber-700' if rel >= REL_YELLOW
+                                else 'bg-rose-100 text-rose-700') %}
+        <div class="bg-white ring-1 ring-gray-200 rounded-md px-2 py-1 flex items-center gap-2">
+          <span class="text-gray-600">Relevancy</span>
+          <span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium min-w-[2.1rem] justify-center {{ rel_chip }}">
+            {{ '%.1f'|format(rel) }}/5
+          </span>
+        </div>
+
+        {% set cv = claim_validity or 0 %}
+        {% set cv_chip = 'bg-emerald-100 text-emerald-700' if cv >= SCORE_GREEN
+                         else ('bg-amber-100 text-amber-700' if cv >= SCORE_YELLOW
+                               else 'bg-rose-100 text-rose-700') %}
+        <div class="bg-white ring-1 ring-gray-200 rounded-md px-2 py-1 flex items-center gap-2">
+          <span class="text-gray-600">Claim Validity</span>
+          <span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium min-w-[2.1rem] justify-center {{ cv_chip }}">
+            {{ '%.1f'|format(cv) }}/5
+          </span>
+        </div>
       </div>
     </div>
 
@@ -133,12 +133,13 @@
         <div class="px-4 py-3">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1">
+              <!-- question title in blue like Figma -->
               <p class="font-medium text-blue-700">
                 {{ "%02d"|format(loop.index) }}. {{ qtxt }}
               </p>
             </div>
             <div class="flex items-center gap-2">
-              <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium min-w-[1.9rem] text-center {{ chip }}">
+              <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium min-w-[2.1rem] justify-center {{ chip }}">
                 {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
               </span>
               <button type="button"
@@ -165,39 +166,41 @@
     </div>
   </div>
 
-  <!-- Voluntary Self-Identification -->
+  <!-- Voluntary Self-Identification (single white block) -->
   {% set sid = (c.resume_json or {}).get('_self_id', {}) %}
   {% if sid %}
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4">
     <h2 class="text-lg font-semibold text-gray-900 mb-3">Voluntary Self-Identification</h2>
 
-    <!-- card-style grid (matches the figma feel) -->
-    <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-      <div class="bg-gray-50 rounded-lg p-3">
-        <dt class="text-gray-500">Gender</dt>
-        <dd class="text-gray-900 font-medium">{{ sid.get('gender','—') }}</dd>
+    <dl class="rounded-lg ring-1 ring-gray-200 bg-white">
+      <div class="grid grid-cols-2 gap-x-6 px-4 py-3 border-b border-gray-200">
+        <dt class="text-gray-500 text-sm">Gender</dt>
+        <dd class="text-gray-900 text-sm font-medium">{{ sid.get('gender','—') }}</dd>
       </div>
-      <div class="bg-gray-50 rounded-lg p-3">
-        <dt class="text-gray-500">Hispanic/Latino</dt>
-        <dd class="text-gray-900 font-medium">{{ sid.get('hispanic','—') }}</dd>
+      <div class="grid grid-cols-2 gap-x-6 px-4 py-3 border-b border-gray-200">
+        <dt class="text-gray-500 text-sm">Race/Ethnicity</dt>
+        <dd class="text-gray-900 text-sm font-medium">{{ sid.get('hispanic','—') }}</dd>
       </div>
-      <div class="bg-gray-50 rounded-lg p-3">
-        <dt class="text-gray-500">Veteran Status</dt>
-        <dd class="text-gray-900 font-medium">{{ sid.get('veteran','—') }}</dd>
+      <div class="grid grid-cols-2 gap-x-6 px-4 py-3 border-b border-gray-200">
+        <dt class="text-gray-500 text-sm">Veteran Status</dt>
+        <dd class="text-gray-900 text-sm font-medium">{{ sid.get('veteran','—') }}</dd>
       </div>
-      <div class="bg-gray-50 rounded-lg p-3">
-        <dt class="text-gray-500">Disability</dt>
-        <dd class="text-gray-900 font-medium">{{ sid.get('disability','—') }}</dd>
+      <div class="grid grid-cols-2 gap-x-6 px-4 py-3">
+        <dt class="text-gray-500 text-sm">Disability Status</dt>
+        <dd class="text-gray-900 text-sm font-medium">{{ sid.get('disability','—') }}</dd>
       </div>
     </dl>
   </div>
   {% endif %}
+
 </div>
 
 <script>
 document.querySelectorAll('.toggle-qa').forEach(btn => {
   btn.addEventListener('click', () => {
-    const body = btn.closest('div').parentElement.nextElementSibling;
+    const wrapper = btn.closest('.px-4.py-3');
+    const body = wrapper ? wrapper.nextElementSibling : null;
+    if (!body) return;
     const expanded = btn.getAttribute('aria-expanded') === 'true';
     btn.setAttribute('aria-expanded', String(!expanded));
     body.classList.toggle('hidden');
