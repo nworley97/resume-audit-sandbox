@@ -1196,6 +1196,7 @@ def view_candidates(code, tenant=None):
         db.close()
 
 # ---------- Candidate Detail ----------
+# ---------- Candidate Detail ----------
 @app.route("/recruiter/candidate/<id>")
 @app.route("/<tenant>/recruiter/candidate/<id>")
 @login_required
@@ -1217,22 +1218,39 @@ def candidate_detail(id, tenant=None):
         if getattr(c, "jd_code", None):
             jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first()
 
-        # Compute claim validity (avg of answer_scores if present)
-        scores = getattr(c, "answer_scores", None) or []
+        # Compute claim validity (average of answer_scores if present)
+        scores = list(getattr(c, "answer_scores", None) or [])
         claim_validity = (sum(scores) / len(scores)) if scores else None
 
-        # Optional answers collection (list of dicts with 'question', 'answer', 'score')
-        answers = getattr(c, "answers", None) or []
+        # Build zipped Q&A: list of {q, a, s}
+        qs = list(getattr(c, "questions", None) or [])
+        ans = list(getattr(c, "answers", None) or [])
+        scs = list(getattr(c, "answer_scores", None) or [])
+        qa = []
+        n = max(len(qs), len(ans), len(scs))
+        for i in range(n):
+            qa.append({
+                "q": qs[i] if i < len(qs) else "",
+                "a": ans[i] if i < len(ans) else "",
+                "s": scs[i] if i < len(scs) else None,
+            })
 
+        # Thresholds for chips
         SCORE_GREEN = 3.8
         SCORE_YELLOW = 3.3
         REL_GREEN = 65
         REL_YELLOW = 40
 
+        # Resume preview URL
         resume_url = getattr(c, "resume_url", None) or getattr(c, "resume_pdf", None) or ""
+
+        # Optional relevancy (default to 0.0 if None)
         relevancy = getattr(c, "relevancy", None)
         if relevancy is None:
-           relevancy = 0.0
+            relevancy = 0.0
+
+        # Focus/tab switches (anti-cheat counter)
+        focus_changes = getattr(c, "left_tab_count", 0) or 0
 
         return render_template(
             "candidate_detail.html",
@@ -1242,12 +1260,14 @@ def candidate_detail(id, tenant=None):
             relevancy=relevancy,
             resume_url=resume_url,
             claim_validity=claim_validity,
-            answers=answers,
+            qa=qa,  # <-- use this in template instead of plain answers
+            focus_changes=focus_changes,
             SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
             REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
         )
     finally:
         db.close()
+
 
 
 # ─── Global Candidates (legacy) ──────────────────────────────────
