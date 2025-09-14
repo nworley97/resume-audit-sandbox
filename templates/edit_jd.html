@@ -1,165 +1,196 @@
-{% extends "base.html" %}
+{% extends "base_app.html" %}
+{% block title %}{{ 'Edit Job' if jd and jd.code else 'Create Job' }} - ALTERA{% endblock %}
 {% block content %}
+<div class="space-y-6">
 
-<h3 class="mb-3">Edit Job</h3>
-
-<form method="post"
-      id="jd-form"
-      action="{{ url_for('edit_jd') }}{% if jd and jd.code %}?code={{ jd.code }}{% endif %}">
-  <div class="row g-3">
-
-    <div class="col-md-3">
-      <label class="form-label">Code</label>
-      <input name="jd_code"
-             class="form-control"
-             value="{{ jd.code }}"
-             required
-             {% if has_candidates %}readonly{% endif %}>
-      {% if has_candidates %}
-        <div class="form-text text-muted">Job code can’t be changed because candidates already exist.</div>
+  <!-- Breadcrumb + Header -->
+  <div class="flex items-start justify-between">
+    <div class="space-y-1">
+      <nav class="text-sm text-gray-500">
+        <a href="{{ url_for('recruiter', tenant=tenant.slug) }}" class="hover:underline">Job Postings</a>
+        <span class="mx-1">/</span>
+        <span class="text-gray-700 font-medium">{{ 'Edit' if jd and jd.code else 'Create' }}</span>
+      </nav>
+      <h1 class="text-2xl font-semibold text-gray-900">
+        {{ jd and jd.title or 'New Job Posting' }}
+      </h1>
+      {% if jd and jd.team %}
+      <p class="text-gray-500">{{ jd.team }}{% if jd.department %} / {{ jd.department }}{% endif %}</p>
       {% endif %}
     </div>
 
-    <div class="col-md-9">
-      <label class="form-label">Title</label>
-      <input name="jd_title" class="form-control" value="{{ jd.title }}" required>
+    <!-- Right-side cards -->
+    <div class="grid grid-cols-2 gap-3">
+      <!-- Status -->
+      <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl px-3 py-2">
+        <div class="text-[11px] text-gray-500 mb-1">Job Status</div>
+        {% set st = (jd.status or 'draft') if jd else 'draft' %}
+        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+          {% if st == 'published' %} bg-emerald-100 text-emerald-700
+          {% else %} bg-yellow-100 text-yellow-700 {% endif %}">{{ st|title }}</span>
+      </div>
+
+      <!-- Application link -->
+      <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl px-3 py-2">
+        <div class="text-[11px] text-gray-500 mb-1">Application</div>
+        {% if jd and jd.code %}
+          {% set apply_url = url_for('apply', tenant=tenant.slug, code=jd.code, _external=True) %}
+          <div class="flex items-center gap-2">
+            <input id="applyLink" type="text" readonly
+                   class="flex-1 text-xs px-2 py-1 rounded border border-gray-300"
+                   value="{{ apply_url }}">
+            <button type="button" id="copyLinkBtn"
+                    class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-gray-50">Copy</button>
+          </div>
+        {% else %}
+          <div class="text-xs text-gray-500">Link available after saving</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <form method="post"
+        action="{{ url_for('edit_jd', tenant=tenant.slug, code=jd.code if jd and jd.code else None) }}"
+        class="space-y-6" id="jdForm">
+    {{ csrf_token() if csrf_token is defined else '' }}
+
+    <!-- Basic Information -->
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
+      <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900">Basic Information</h2>
+        <div class="text-xs text-gray-500">Use clear, searchable fields.</div>
+      </div>
+      <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Job Title</label>
+          <input name="jd_title" value="{{ jd.title if jd else '' }}" required
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">JD ID</label>
+          <input name="jd_code" value="{{ jd.code if jd else '' }}" {{ 'readonly' if jd and jd.code else '' }}
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                 placeholder="e.g., SWE-001">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Department / Team</label>
+          <input name="jd_department" value="{{ jd.department or '' }}"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                 placeholder="e.g., Engineering">
+          <input type="hidden" name="jd_team" value="{{ jd.team or '' }}">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Location</label>
+          <input name="jd_location" value="{{ jd.location or '' }}"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                 placeholder="e.g., SF, CA (Remote)">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Start Date</label>
+          <input type="date" name="jd_start"
+                 value="{{ jd.start_date and jd.start_date.strftime('%Y-%m-%d') or '' }}"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">End Date</label>
+          <input type="date" name="jd_end"
+                 value="{{ jd.end_date and jd.end_date.strftime('%Y-%m-%d') or '' }}"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Employment Type</label>
+          {% set et = (jd.employment_type or '') if jd else '' %}
+          <select name="jd_employment_type"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            {% for opt in ['Full-time','Part-time','Contract','Internship','Temporary'] %}
+              <option value="{{ opt }}" {{ 'selected' if et==opt else '' }}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Salary Range</label>
+          <input name="jd_salary_range" value="{{ jd.salary_range or '' }}"
+                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                 placeholder="e.g., $90,000 – $120,000">
+        </div>
+      </div>
     </div>
 
-    <div class="col-md-3">
-      <label class="form-label">Status</label>
-      <select name="jd_status" class="form-select">
-        <option value="draft"     {% if jd.status=='draft' %}selected{% endif %}>Draft</option>
-        <option value="published" {% if jd.status=='published' %}selected{% endif %}>Published</option>
-      </select>
+    <!-- Role Description -->
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
+      <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900">Role Description</h2>
+        <div class="text-xs text-gray-500">Rich text supported</div>
+      </div>
+      <div class="p-4">
+        <div id="quill" class="rounded-lg border border-gray-300 min-h-[240px] bg-white">
+          {{ (jd.html|safe) if jd and jd.html else '' }}
+        </div>
+        <textarea name="jd_text" id="jd_text" class="hidden"></textarea>
+      </div>
     </div>
 
-    <div class="col-md-3">
-      <label class="form-label">Department</label>
-      <input name="jd_department" class="form-control" value="{{ jd.department or '' }}">
-    </div>
-
-    <div class="col-md-3">
-      <label class="form-label">Team</label>
-      <input name="jd_team" class="form-control" value="{{ jd.team or '' }}">
-    </div>
-
-    <div class="col-md-3">
-      <label class="form-label">Location</label>
-      <input name="jd_location" class="form-control" value="{{ jd.location or '' }}">
-    </div>
-
-    <div class="col-md-3">
-      <label class="form-label">Employment Type</label>
-      <input name="jd_employment_type" class="form-control" value="{{ jd.employment_type or '' }}">
-    </div>
-
-    <div class="col-md-3">
-      <label class="form-label">Salary Range</label>
-      <input name="jd_salary_range" class="form-control" value="{{ jd.salary_range or '' }}">
-    </div>
-
-    <div class="col-md-3">
-      <label class="form-label">Start Date</label>
-      <input name="jd_start" type="date" class="form-control"
-             value="{{ jd.start_date.date() if jd.start_date else '' }}">
-    </div>
-
-    <div class="col-md-3">
-      <label class="form-label">End Date</label>
-      <input name="jd_end" type="date" class="form-control"
-             value="{{ jd.end_date.date() if jd.end_date else '' }}">
-    </div>
-
-    <!-- NEW: per-JD controls -->
-    <div class="col-md-4">
-      <div class="form-check mt-4">
-        <input class="form-check-input" type="checkbox"
-               name="id_surveys_enabled" id="id_surveys_enabled"
-               {% if jd.id_surveys_enabled %}checked{% endif %}>
-        <label class="form-check-label" for="id_surveys_enabled">
-          Require self-identification surveys
+    <!-- Self-ID + Question Settings -->
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl">
+      <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900">Self-Identification Survey</h2>
+        <label class="inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="id_surveys_enabled" value="1"
+                 class="peer sr-only"
+                 {{ 'checked' if (jd.id_surveys_enabled if jd else False) else '' }}>
+          <span class="w-10 h-6 bg-gray-200 rounded-full relative transition-all
+                      after:content-[''] after:absolute after:left-0.5 after:top-0.5
+                      after:w-5 after:h-5 after:bg-white after:rounded-full after:transition-all
+                      peer-checked:bg-blue-600 peer-checked:after:translate-x-4"></span>
         </label>
       </div>
-    </div>
-
-    <div class="col-md-4">
-      <label for="question_count" class="form-label mt-3 mt-md-0">Number of application questions</label>
-      <select class="form-select" name="question_count" id="question_count">
-        {% for i in range(1,6) %}
-          <option value="{{ i }}" {% if (jd.question_count or 4) == i %}selected{% endif %}>{{ i }}</option>
-        {% endfor %}
-      </select>
-      <div class="form-text">Choose 1–5 (default 4).</div>
-    </div>
-
-    <!-- Rich Text JD -->
-    <div class="col-12">
-      <label class="form-label">Job Description</label>
-
-      <!-- Hidden field that will receive the editor HTML -->
-      <textarea name="jd_text" id="jd_text" class="d-none"></textarea>
-
-      <!-- Quill toolbar + editor -->
-      <div id="jd_toolbar" class="mb-2">
-        <span class="ql-formats">
-          <select class="ql-font"></select>
-        </span>
-        <span class="ql-formats">
-          <button type="button" class="ql-bold"></button>
-          <button type="button" class="ql-underline"></button>
-        </span>
-        <span class="ql-formats">
-          <button type="button" class="ql-list" value="bullet"></button>
-          <button type="button" class="ql-list" value="ordered"></button>
-        </span>
+      <div class="p-4">
+        <label class="block text-xs text-gray-600 mb-1">Question Settings</label>
+        {% set qc = (jd.question_count or 4) if jd else 4 %}
+        <select name="question_count" class="w-48 rounded-lg border border-gray-300 px-3 py-2 text-sm">
+          {% for n in [3,4,5] %}
+            <option value="{{ n }}" {{ 'selected' if qc==n else '' }}>{{ n }} questions (default)</option>
+          {% endfor %}
+        </select>
       </div>
-      <div id="jd_editor" style="min-height:240px; background:#fff; border:1px solid #dee2e6; border-radius:12px;"></div>
     </div>
 
-  </div>
+    <!-- Footer actions -->
+    <div class="flex items-center justify-end gap-2">
+      <a href="{{ url_for('recruiter', tenant=tenant.slug) }}"
+         class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-gray-50">Cancel</a>
+      <input type="hidden" name="jd_status" id="statusField" value="{{ jd.status if jd else 'draft' }}">
+      <button type="submit"
+              class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black"
+              onclick="document.getElementById('statusField').value='draft'">Save as Draft</button>
+      <button type="submit"
+              class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              onclick="document.getElementById('statusField').value='published'">Publish Job</button>
+    </div>
+  </form>
+</div>
 
-  <!-- Sticky action bar so it never hides behind the footer -->
-  <div class="jd-actions d-flex justify-content-end gap-2 mt-4">
-    <a class="btn btn-outline-secondary" href="{{ url_for('recruiter', tenant=tenant_slug) }}">Cancel</a>
-    <button class="btn btn-primary" type="submit">Save</button>
-  </div>
-</form>
-
-<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
-
+<!-- Quill (kept to avoid regressions) -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
-  (function(){
-    const Font = Quill.import('formats/font');
-    Font.whitelist = ['arial','sans-serif','times-new-roman','courier-new'];
-    Quill.register(Font, true);
-
-    const editor = new Quill('#jd_editor', {
-      theme: 'snow',
-      modules: { toolbar: '#jd_toolbar', clipboard: { matchVisual: true } }
+(function(){
+  var quill = new Quill('#quill', { theme: 'snow' });
+  var form = document.getElementById('jdForm');
+  form.addEventListener('submit', function(){
+    document.getElementById('jd_text').value = quill.root.innerHTML;
+  });
+  var copy = document.getElementById('copyLinkBtn');
+  if (copy) {
+    copy.addEventListener('click', function(){
+      var inp = document.getElementById('applyLink');
+      inp.select(); inp.setSelectionRange(0, 99999);
+      try { document.execCommand('copy'); copy.textContent='Copied'; setTimeout(()=>copy.textContent='Copy',1200); } catch(e){}
     });
-
-    const initial = {{ (jd.html or '')|tojson }};
-    editor.clipboard.dangerouslyPasteHTML(initial);
-
-    document.getElementById('jd-form').addEventListener('submit', function(){
-      document.getElementById('jd_text').value = editor.root.innerHTML;
-    });
-  })();
-</script>
-
-<style>
-  .ql-font-arial           { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; }
-  .ql-font-sans-serif      { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-  .ql-font-times-new-roman { font-family: "Times New Roman", Times, serif; }
-  .ql-font-courier-new     { font-family: "Courier New", Courier, monospace; }
-  .jd-actions{
-    position: sticky;
-    bottom: 72px;
-    background: var(--bs-body-bg, #fff);
-    padding: 12px 0;
-    z-index: 2;
   }
-</style>
-
+})();
+</script>
 {% endblock %}
