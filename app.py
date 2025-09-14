@@ -884,55 +884,42 @@ def candidates_overview(tenant=None):
             ))
 
         rows = list(qry.all())
-        for c in rows:
-            # claim validity (0–5)
-            scores = getattr(c, "answer_scores", None) or []
-            c._claim_validity = (sum(scores) / len(scores)) if scores else None
 
-            # relevancy (prefer c.relevancy, else c.fit_score). Scale to 0–5 if needed.
+        # Precompute fields per row
+        for c in rows:
+            # Claim Validity (0–5)
+            scores = getattr(c, "answer_scores", None) or []
+            try:
+                c.score = (sum(scores) / len(scores)) if scores else None
+            except Exception:
+                c.score = None
+
+            # Relevancy (normalize to 0–5). Prefer explicit 'relevancy', else 'fit_score', else resume_json.fit_score
             raw_r = getattr(c, "relevancy", None)
             if raw_r is None:
                 raw_r = getattr(c, "fit_score", None)
             if raw_r is None:
-                raw_r = 0.0
-            c._relevancy_5 = (raw_r / 20.0) if raw_r and raw_r > 5 else (raw_r or 0.0)
+                raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
 
-            # applied_at fallback
+            if raw_r is None:
+                c.relevancy = 0.0
+            else:
+                # If a percent slipped in (e.g., 65–100), map back to 0–5; otherwise assume 0–5 already
+                c.relevancy = (float(raw_r) / 20.0) if float(raw_r) > 5 else float(raw_r)
+
+            # Applied date: created_at fallback
             c.applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None) or getattr(c, "date_applied", None)
-
-
-                # Precompute Claim Validity (avg answer_scores), Relevancy (fallback to fit_score), Applied date
-        for c in rows:
-            scores = getattr(c, "answer_scores", None) or []
-            c.score = (sum(scores) / len(scores)) if scores else None  # Claim Validity
-            # Relevancy: prefer explicit 'relevancy', else 'fit_score', else value from resume_json
-# Replace this block in candidates_overview
-        rel = getattr(c, "relevancy", None)
-        if rel is None:
-            fs = getattr(c, "fit_score", None)
-            if fs is not None:
-                rel = round((fs / 5) * 100, 1)   # map 1–5 fit_score to 0–100 scale
-        if rel is None:
-            rj = getattr(c, "resume_json", None) or {}
-            fs2 = rj.get("fit_score")
-            if fs2 is not None:
-                rel = round((fs2 / 5) * 100, 1)
-        c.relevancy = rel if rel is not None else 0.0
-
-        c.applied_at = getattr(c, "created_at", None)
 
         reverse = (dir_ == "desc")
         key_map = {
             "name":      lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
             "job":       lambda x: (getattr(x, "job_title", "") or ""),
             "dept":      lambda x: (getattr(x, "department", "") or ""),
-            "score":     lambda x: (x._claim_validity is None, x._claim_validity or 0),
-            "relevancy": lambda x: (x._relevancy_5 is None, x._relevancy_5 or 0),
+            "score":     lambda x: (x.score is None, x.score or 0),
+            "relevancy": lambda x: (x.relevancy is None, x.relevancy or 0),
             "applied":   lambda x: (x.applied_at or datetime.min),
         }
-
         rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
-
 
         total = len(rows)
         pages = max(1, math.ceil(total / per_page))
@@ -951,8 +938,8 @@ def candidates_overview(tenant=None):
             page=page,
             pages=pages,
             q=q, sort=sort, dir=dir_,
-            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,
-            REL_GREEN=65, REL_YELLOW=40,
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,   # claim validity thresholds (0–5)
+            REL_GREEN=4.0, REL_YELLOW=3.0,       # relevancy thresholds (0–5)
             has_candidate_detail=True,
         )
     finally:
@@ -1089,6 +1076,7 @@ def export_jobs(tenant=None):
 
 # ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
 # ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
+# ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
 @app.route("/recruiter/jd/<code>")
 @app.route("/<tenant>/recruiter/jd/<code>")
 @login_required
@@ -1122,29 +1110,35 @@ def view_candidates(code, tenant=None):
 
         rows = list(qry.all())
         for c in rows:
+            # Claim Validity (0–5)
             scores = getattr(c, "answer_scores", None) or []
-            c.score = (sum(scores)/len(scores)) if scores else None
-            rel = getattr(c, "relevancy", None)
-            if rel is None:
-                fs = getattr(c, "fit_score", None)
-                if fs is not None:
-                    rel = round((fs / 5) * 100, 1)
-            if rel is None:
-                rj = getattr(c, "resume_json", None) or {}
-                fs2 = rj.get("fit_score")
-                if fs2 is not None:
-                    rel = round((fs2 / 5) * 100, 1)
-            c.relevancy = rel if rel is not None else 0.0
-            c.applied_at = getattr(c, "created_at", None)
+            try:
+                c.score = (sum(scores)/len(scores)) if scores else None
+            except Exception:
+                c.score = None
+
+            # Relevancy normalize to 0–5 (NO percent)
+            raw_r = getattr(c, "relevancy", None)
+            if raw_r is None:
+                raw_r = getattr(c, "fit_score", None)
+            if raw_r is None:
+                raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
+            if raw_r is None:
+                c.relevancy = 0.0
+            else:
+                c.relevancy = (float(raw_r) / 20.0) if float(raw_r) > 5 else float(raw_r)
+
+            # Applied date
+            c.applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None)
 
         reverse = (dir_ == "desc")
         key_map = {
-            "name":    lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
-            "job": lambda x: getattr(x, "job_title", None) or (x.resume_json or {}).get("job_title", "") or "",
-            "dept":    lambda x: (x.department or ""),
-            "score":   lambda x: (x.score is None, x.score or 0),
+            "name":      lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
+            "job":       lambda x: getattr(x, "job_title", None) or (x.resume_json or {}).get("job_title", "") or "",
+            "dept":      lambda x: (x.department or ""),
+            "score":     lambda x: (x.score is None, x.score or 0),
             "relevancy": lambda x: (x.relevancy is None, x.relevancy or 0),
-            "applied": lambda x: (x.applied_at or datetime.min)
+            "applied":   lambda x: (x.applied_at or datetime.min)
         }
         rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
 
@@ -1165,12 +1159,13 @@ def view_candidates(code, tenant=None):
             page=page,
             pages=pages,
             q=q, sort=sort, dir=dir_,
-            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,
-            REL_GREEN=65, REL_YELLOW=40,
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,  # claim validity thresholds (0–5)
+            REL_GREEN=4.0, REL_YELLOW=3.0,      # relevancy thresholds (0–5)
             has_candidate_detail=True,
         )
     finally:
         db.close()
+
 
 # ---------- Candidate Detail ----------
 # ---------- Candidate Detail ----------
@@ -1200,7 +1195,7 @@ def candidate_detail(id, tenant=None):
         claim_validity = (sum(scores) / len(scores)) if scores else None
 
         # Build zipped Q&A: list of {q, a, s}
-        qs = list(getattr(c, "questions", None) or [])
+        qs  = list(getattr(c, "questions", None) or [])
         ans = list(getattr(c, "answers", None) or [])
         scs = list(getattr(c, "answer_scores", None) or [])
         qa = []
@@ -1212,21 +1207,27 @@ def candidate_detail(id, tenant=None):
                 "s": scs[i] if i < len(scs) else None,
             })
 
-        # Thresholds for chips
-        SCORE_GREEN = 3.8
+        # Thresholds (0–5 scales)
+        SCORE_GREEN  = 3.8
         SCORE_YELLOW = 3.3
-        REL_GREEN = 65
-        REL_YELLOW = 40
+        REL_GREEN    = 4.0
+        REL_YELLOW   = 3.0
 
         # Resume preview URL
         resume_url = getattr(c, "resume_url", None) or getattr(c, "resume_pdf", None) or ""
 
-        # Optional relevancy (default to 0.0 if None)
-        relevancy = getattr(c, "relevancy", None)
-        if relevancy is None:
+        # Relevancy normalized to 0–5
+        raw_r = getattr(c, "relevancy", None)
+        if raw_r is None:
+            raw_r = getattr(c, "fit_score", None)
+        if raw_r is None:
+            raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
+        if raw_r is None:
             relevancy = 0.0
+        else:
+            relevancy = (float(raw_r) / 20.0) if float(raw_r) > 5 else float(raw_r)
 
-        # Focus/tab switches (anti-cheat counter)
+        # Tab/focus switches
         focus_changes = getattr(c, "left_tab_count", 0) or 0
 
         self_id = (c.resume_json or {}).get("_self_id", {})
