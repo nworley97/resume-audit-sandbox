@@ -107,9 +107,18 @@
               </p>
             </div>
             <div class="flex items-center gap-2">
-              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-700">
-                {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}
-              </span>
+              {% if s is not none %}
+                {% set chip = 'bg-emerald-100 text-emerald-700' if s >= SCORE_GREEN
+                              else ('bg-amber-100 text-amber-700' if s >= SCORE_YELLOW
+                                    else 'bg-rose-100 text-rose-700') %}
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ chip }}">
+                  {{ '%.1f'|format(s) }}
+                </span>
+              {% else %}
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-500">
+                  N/A
+                </span>
+              {% endif %}
               <button type="button"
                       class="toggle-qa inline-flex items-center rounded-md border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                       aria-expanded="false">
