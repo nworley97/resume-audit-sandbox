@@ -1250,7 +1250,7 @@ def candidate_detail(id, tenant=None):
 @app.route("/candidates")
 @app.route("/<tenant>/candidates")
 @login_required
-def candidates_overview(tenant):
+def candidates_overview_legacy(tenant):
     tenant_obj = load_tenant_by_slug(tenant)
     q = request.args.get("q", "").strip()
     sort = request.args.get("sort", "applied_at")
