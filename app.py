@@ -1231,6 +1231,8 @@ def candidate_detail(id, tenant=None):
 
         resume_url = getattr(c, "resume_url", None) or getattr(c, "resume_pdf", None) or ""
         relevancy = getattr(c, "relevancy", None)
+        if relevancy is None:
+           relevancy = 0.0
 
         return render_template(
             "candidate_detail.html",
