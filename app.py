@@ -895,12 +895,13 @@ def candidates_overview(tenant=None):
         reverse = (dir_ == "desc")
         key_map = {
             "name":    lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
-            "job":     lambda x: (x.job_title or ""),
+            "job":     lambda x: getattr(x, "job_title", None) or (getattr(x, "jd_code", None) or ""),
             "dept":    lambda x: (x.department or ""),
             "score":   lambda x: (x.score is None, x.score or 0),
             "relevancy": lambda x: (x.relevancy is None, x.relevancy or 0),
             "applied": lambda x: (x.applied_at or datetime.min)
         }
+
         rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
 
         total = len(rows)
