@@ -852,7 +852,6 @@ def recruiter(tenant=None):
         db.close()
 
 # ---- Candidates Overview (all candidates across tenant) ----
-# ---- Candidates Overview (all candidates across tenant) ----
 @app.route("/recruiter/candidates")
 @app.route("/<tenant>/recruiter/candidates")
 @login_required
@@ -864,100 +863,69 @@ def candidates_overview(tenant=None):
             return redirect(url_for("candidates_overview", tenant=slug))
         return redirect(url_for("login"))
 
-    # URL params
-    q         = (request.args.get("q") or "").strip()
-    sort_key  = (request.args.get("sort") or "applied").lower()
-    direction = (request.args.get("dir")  or "desc").lower()
-    page      = max(int(request.args.get("page") or 1), 1)
-    per_page  = max(min(int(request.args.get("per_page") or 25), 200), 5)
-
-    # Color thresholds
-    SCORE_GREEN, SCORE_YELLOW = 4.0, 3.0
-    REL_GREEN,   REL_YELLOW   = 90, 70
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "applied")      # name | job | dept | score | relevancy | applied
+    dir_ = request.args.get("dir", "desc")
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = 10
 
     db = SessionLocal()
     try:
-        C, J = Candidate, JobDescription
-        qset = (
-            db.query(
-                C.id.label("id"),
-                C.name.label("name"),
-                C.jd_code.label("jd_code"),
-                C.fit_score.label("fit_score"),
-                C.answer_scores.label("answer_scores"),
-                getattr(C, "relevancy", None).label("relevancy") if hasattr(C, "relevancy") else literal_column("NULL").label("relevancy"),
-                C.created_at.label("created_at"),
-                J.title.label("job_title"),
-                J.department.label("department"),
-            )
-            .join(J, J.code == C.jd_code, isouter=True)
-            .filter(C.tenant_id == t.id)
-        )
+        qry = db.query(Candidate).filter_by(tenant_id=t.id)
 
         if q:
             like = f"%{q}%"
-            qset = qset.filter(or_(
-                C.name.ilike(like),
-                J.title.ilike(like),
-                C.jd_code.ilike(like),
-                J.department.ilike(like),
+            qry = qry.filter(or_(
+                Candidate.first_name.ilike(like),
+                Candidate.last_name.ilike(like),
+                Candidate.job_title.ilike(like),
+                Candidate.jd_code.ilike(like),
+                Candidate.department.ilike(like)
             ))
 
-        sortmap = {
-            "name":"name", "job":"job_title", "dept":"department",
-            "score":"fit_score", "relevancy":"relevancy",
-            "applied":"created_at", "id":"id",
+        rows = list(qry.all())
+
+        # Precompute Claim Validity (avg answer_scores) and safe Relevancy
+        for c in rows:
+            scores = getattr(c, "answer_scores", None) or []
+            c.score = (sum(scores)/len(scores)) if scores else None
+            c.relevancy = getattr(c, "relevancy", None) or 0.0
+            c.applied_at = getattr(c, "created_at", None)
+
+        reverse = (dir_ == "desc")
+        key_map = {
+            "name":    lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
+            "job":     lambda x: (x.job_title or ""),
+            "dept":    lambda x: (x.department or ""),
+            "score":   lambda x: (x.score is None, x.score or 0),
+            "relevancy": lambda x: (x.relevancy is None, x.relevancy or 0),
+            "applied": lambda x: (x.applied_at or datetime.min)
         }
-        col = sortmap.get(sort_key, "created_at")
-        col_expr = {
-            "name": C.name, "job_title": J.title, "department": J.department,
-            "fit_score": C.fit_score,
-            "relevancy": getattr(C, "relevancy", None) if hasattr(C, "relevancy") else literal_column("NULL"),
-            "created_at": C.created_at, "id": C.id,
-        }.get(col if col in ("name","job_title","department","fit_score","relevancy","created_at","id") else "created_at")
+        rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
 
-        qset = qset.order_by(col_expr.asc().nullslast() if direction=="asc" else col_expr.desc().nullslast())
-
-        total = qset.count()
-        rows  = qset.offset((page - 1) * per_page).limit(per_page).all()
-
-        items = []
-        for r in rows:
-            score = float(r.fit_score) if r.fit_score is not None else None
-            if score is None and r.answer_scores:
-                try:
-                    vals = [float(x) for x in r.answer_scores]
-                    score = (sum(vals)/len(vals)) if vals else None
-                except Exception:
-                    score = None
-            rel = None
-            if hasattr(r, "relevancy") and r.relevancy is not None:
-                try:    rel = int(r.relevancy)
-                except: rel = int(float(r.relevancy)) if str(r.relevancy).replace('.','',1).isdigit() else None
-
-            items.append({
-                "id": r.id, "name": r.name or "", "job_title": r.job_title or "",
-                "department": r.department or "", "score": score, "relevancy": rel,
-                "applied_at": r.created_at, "jd_code": r.jd_code or "",
-            })
-
-        pages = max(math.ceil(total / per_page), 1)
-        has_candidate_detail = 'candidate_detail' in current_app.view_functions
+        total = len(rows)
+        pages = max(1, math.ceil(total / per_page))
+        start = (page - 1) * per_page
+        end = start + per_page
+        items = rows[start:end]
 
         return render_template(
             "candidates.html",
             tenant=t,
-            brand_name=getattr(t, "display_name", None) or getattr(t, "slug", None) or "AL",
-            items=items, total=total,
-            q=q, sort=sort_key, dir=direction,
-            page=page, pages=pages, per_page=per_page,
-            SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
-            REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
-            has_candidate_detail=has_candidate_detail,
+            brand_name=(t.brand_name if hasattr(t, "brand_name") else "ALTERA"),
+            tenant_slug=t.slug,
+            jd=None,
+            items=items,
+            total=total,
+            page=page,
+            pages=pages,
+            q=q, sort=sort, dir=dir_,
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,
+            REL_GREEN=65, REL_YELLOW=40,
+            has_candidate_detail=True,
         )
     finally:
         db.close()
-
 
 # ---- Export CSV for candidates ----
 @app.route("/recruiter/candidates/export")
@@ -1101,96 +1069,64 @@ def view_candidates(code, tenant=None):
             return redirect(url_for("view_candidates", tenant=slug, code=code))
         return redirect(url_for("login"))
 
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "applied")
+    dir_ = request.args.get("dir", "desc")
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = 10
+
     db = SessionLocal()
     try:
         jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
 
-        # Query args
-        q         = (request.args.get("q") or "").strip()
-        sort      = (request.args.get("sort") or "created").lower()
-        direction = (request.args.get("dir")  or "desc").lower()
-        page      = max(int(request.args.get("page") or 1), 1)
-        per_page  = max(min(int(request.args.get("per_page") or 25), 100), 5)
-
-        # Base query
-        qset = db.query(Candidate).filter_by(tenant_id=t.id, jd_code=code)
-
-        # Search
+        qry = db.query(Candidate).filter_by(tenant_id=t.id, jd_code=code)
         if q:
             like = f"%{q}%"
-            qset = qset.filter(or_(
-                Candidate.name.ilike(like) if hasattr(Candidate, "name") else false(),
-                Candidate.first_name.ilike(like) if hasattr(Candidate, "first_name") else false(),
-                Candidate.last_name.ilike(like) if hasattr(Candidate, "last_name") else false(),
-                Candidate.job_title.ilike(like) if hasattr(Candidate, "job_title") else false(),
-                Candidate.department.ilike(like) if hasattr(Candidate, "department") else false(),
-                Candidate.email.ilike(like) if hasattr(Candidate, "email") else false(),
+            qry = qry.filter(or_(
+                Candidate.first_name.ilike(like),
+                Candidate.last_name.ilike(like),
+                Candidate.job_title.ilike(like),
+                Candidate.department.ilike(like)
             ))
 
-        # SQL-side sort
-        sortable = {
-            "name":      Candidate.name if hasattr(Candidate, "name") else Candidate.created_at,
-            "job":       Candidate.job_title if hasattr(Candidate, "job_title") else Candidate.created_at,
-            "dept":      Candidate.department if hasattr(Candidate, "department") else Candidate.created_at,
-            "score":     Candidate.fit_score if hasattr(Candidate, "fit_score") else Candidate.created_at,
-            "relevancy": Candidate.relevancy if hasattr(Candidate, "relevancy") else Candidate.created_at,
-            "applied":   Candidate.created_at,
-            "created":   Candidate.created_at,
-            "id":        Candidate.id,
+        rows = list(qry.all())
+        for c in rows:
+            scores = getattr(c, "answer_scores", None) or []
+            c.score = (sum(scores)/len(scores)) if scores else None
+            c.relevancy = getattr(c, "relevancy", None) or 0.0
+            c.applied_at = getattr(c, "created_at", None)
+
+        reverse = (dir_ == "desc")
+        key_map = {
+            "name":    lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
+            "job":     lambda x: (x.job_title or ""),
+            "dept":    lambda x: (x.department or ""),
+            "score":   lambda x: (x.score is None, x.score or 0),
+            "relevancy": lambda x: (x.relevancy is None, x.relevancy or 0),
+            "applied": lambda x: (x.applied_at or datetime.min)
         }
-        col = sortable.get(sort, Candidate.created_at)
-        qset = qset.order_by(col.asc() if direction == "asc" else col.desc())
+        rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
 
-        items = qset.all()
-
-        # Optional Python-side sort for claim validity
-        if sort == "claim":
-            def claim_avg(c):
-                arr = getattr(c, "answer_scores", None) or []
-                return (sum(arr)/len(arr)) if arr else -9999
-            items = sorted(items, key=claim_avg, reverse=(direction == "desc"))
-
-        total = len(items)
-        pages = max((total + per_page - 1)//per_page, 1)
+        total = len(rows)
+        pages = max(1, math.ceil(total / per_page))
         start = (page - 1) * per_page
-        end   = start + per_page
-        page_items = items[start:end]
-
-        # Map to rows for the template (non-mutating)
-        rows = []
-        for c in page_items:
-            nm = getattr(c, "name", None)
-            if not nm:
-                fn = getattr(c, "first_name", "") or ""
-                ln = getattr(c, "last_name", "") or ""
-                nm = (f"{fn} {ln}").strip() or "Candidate"
-
-            rows.append({
-                "id":         c.id,
-                "name":       nm,
-                "job_title":  getattr(c, "job_title", "") or "",
-                "department": getattr(c, "department", "") or "",
-                "score":      getattr(c, "fit_score", None),
-                "relevancy":  getattr(c, "relevancy", None),
-                "applied_at": getattr(c, "created_at", None),
-            })
+        end = start + per_page
+        items = rows[start:end]
 
         return render_template(
-            "candidates_jd.html",
+            "candidates.html",
             tenant=t,
+            brand_name=(t.brand_name if hasattr(t, "brand_name") else "ALTERA"),
+            tenant_slug=t.slug,
             jd=jd,
-            code=code,
-            items=rows,
+            items=items,
             total=total,
             page=page,
             pages=pages,
-            per_page=per_page,
-            q=q,
-            sort=sort,
-            dir=direction,
-            # thresholds to match Figma chips
+            q=q, sort=sort, dir=dir_,
             SCORE_GREEN=3.8, SCORE_YELLOW=3.3,
             REL_GREEN=65, REL_YELLOW=40,
+            has_candidate_detail=True,
         )
     finally:
         db.close()
