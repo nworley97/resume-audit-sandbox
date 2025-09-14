@@ -1,0 +1,32 @@
+{# templates/partials/candidate_bits.html #}
+{% macro score_chip(label, value) %}
+  {# value is numeric (e.g., 3.5). thresholds: >4 green, >3 yellow, >2 red #}
+  {% set color =
+    'bg-green-100 text-green-700 ring-1 ring-green-200' if value > 4 else
+    'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-200' if value > 3 else
+    'bg-red-100 text-red-700 ring-1 ring-red-200'
+  %}
+  <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ color }}">
+    {{ label }}: {{ '%.1f' % value if value|string|float != value|string|int else value }}/5
+  </span>
+{% endmacro %}
+
+{% macro initials_bubbles(cands) %}
+  {# cands: list of {first_name, last_name}. shows up to 3 bubbles then +N #}
+  {% set shown = cands[:3] %}
+  <div class="flex -space-x-2">
+    {% for p in shown %}
+      {% set f = (p.first_name or '')[:1] %}
+      {% set l = (p.last_name or '')[:1] %}
+      {% set initial = (f ~ l) if (f or l) else '?' %}
+      <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-700 ring-2 ring-white">
+        {{ initial }}
+      </span>
+    {% endfor %}
+    {% if cands|length > 3 %}
+      <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-600 ring-2 ring-white">
+        +{{ cands|length - 3 }}
+      </span>
+    {% endif %}
+  </div>
+{% endmacro %}
