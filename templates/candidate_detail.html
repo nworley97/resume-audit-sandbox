@@ -198,12 +198,12 @@
 <script>
 document.querySelectorAll('.toggle-qa').forEach(btn => {
   btn.addEventListener('click', () => {
-    const wrapper = btn.closest('.px-4.py-3');
-    const body = wrapper ? wrapper.nextElementSibling : null;
-    if (!body) return;
-    const expanded = btn.getAttribute('aria-expanded') === 'true';
-    btn.setAttribute('aria-expanded', String(!expanded));
-    body.classList.toggle('hidden');
+	const wrapper = btn.closest('.px-4.py-3');
+	const body = wrapper ? wrapper.querySelector('.qa-body') : null;  // <-- look inside the row
+	if (!body) return;
+	const expanded = btn.getAttribute('aria-expanded') === 'true';
+	btn.setAttribute('aria-expanded', String(!expanded));
+	body.classList.toggle('hidden', expanded); // explicit state: show when not expanded
   });
 });
 </script>
