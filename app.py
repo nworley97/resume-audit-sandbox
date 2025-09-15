@@ -119,24 +119,53 @@ def inject_brand():
     t = current_tenant()
     slug = t.slug if t else None
     display = t.display_name if t else "Altera"
-
-    # Make “Support” use the same page as “Forgot your password?”
-    from flask import current_app, url_for
-    support = "#"
-    for ep in ("forgot_password", "reset_password_request", "forgot", "password_reset"):
-        if ep in current_app.view_functions:
-            try:
-                support = url_for(ep)
-                break
-            except Exception:
-                pass
-
     return {
         "tenant": t,
         "tenant_slug": slug,
         "brand_name": display,
-        "support_url": support,
     }
+
+@app.context_processor
+def inject_public_links():
+    # Helper builders so templates don’t need to know endpoint names
+    from flask import current_app, request, url_for
+
+    def _has(ep: str) -> bool:
+        return ep in current_app.view_functions
+
+    # Try to detect tenant slug from the current route
+    tenant_slug = None
+    try:
+        if request and request.view_args:
+            tenant_slug = request.view_args.get("tenant")
+    except Exception:
+        pass
+
+    def link_privacy():
+        if tenant_slug and _has("privacy_t"):
+            return url_for("privacy_t", tenant=tenant_slug)
+        return url_for("privacy") if _has("privacy") else "#"
+
+    def link_terms():
+        if tenant_slug and _has("terms_t"):
+            return url_for("terms_t", tenant=tenant_slug)
+        return url_for("terms") if _has("terms") else "#"
+
+    def link_support():
+        # Use the same page as “Forgot your password?”
+        if tenant_slug and _has("forgot_tenant"):
+            return url_for("forgot_tenant", tenant=tenant_slug)
+        if _has("forgot"):
+            return url_for("forgot")
+        # Fallback
+        return url_for("login") if _has("login") else "#"
+
+    return dict(
+        link_privacy=link_privacy,
+        link_terms=link_terms,
+        link_support=link_support,
+    )
+
 
 
 # ─── Unauthorized redirect respects tenant ───────────────────────
