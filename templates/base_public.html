@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}{{ title or "Apply" }}{% endblock %}</title>
+
+  <!-- Tailwind build -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}"/>
+
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="min-h-screen bg-gray-100 text-gray-900">
+  <!-- Public (no sidebar) shell -->
+  <header class="border-b border-gray-200 bg-white">
+    <div class="max-w-5xl mx-auto px-4 py-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white font-semibold">
+            {{ (brand_name or 'ALTERA')[0] }}
+          </span>
+          <div class="text-sm text-gray-600">
+            {{ brand_name or 'ALTERA' }}
+          </div>
+        </div>
+        <!-- leave right side empty for public pages -->
+        <div></div>
+      </div>
+    </div>
+  </header>
+
+  {% with msgs = get_flashed_messages() %}
+    {% if msgs %}
+      <div class="max-w-5xl mx-auto px-4 mt-4">
+        {% for m in msgs %}
+          <div class="mb-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">{{ m }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='js/loader.js') }}"></script>
+  {% block body_extra %}{% endblock %}
+</body>
+</html>
