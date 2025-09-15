@@ -1445,42 +1445,68 @@ def apply(tenant, code):
 
 # ─── Camera gate ─────────────────────────────────────────────────
 # Camera gate (intro/instructions + camera permission)
+# ── Camera / Interview setup ───────────────────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/camera", methods=["GET"])
 def camera_gate(tenant, code, cid):
     t = load_tenant_by_slug(tenant)
-    if not t: abort(404)
+    if not t:
+        abort(404)
 
     db = SessionLocal()
     try:
-        jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
-        c  = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
     finally:
         db.close()
-    if not jd or not c:
+
+    if not c:
         abort(404)
 
-    # Derive a safe first_name (your Candidate model may not have first_name)
-    raw_name = (getattr(c, "first_name", None) or getattr(c, "name", "") or "").strip()
+    # First name (Candidate has a single 'name' field in your DB)
+    raw_name = (c.name or "").strip()
     first_name = raw_name.split()[0] if raw_name else "there"
 
-    # Decide where the "Start" button should take the candidate
+    # Build the correct "next" URL by trying your known endpoints
     from flask import current_app
-    if "start_quiz" in current_app.view_functions:
-        next_url = url_for("start_quiz", tenant=t.slug, code=code, cid=cid)
-    elif "question_paged" in current_app.view_functions:
-        next_url = url_for("question_paged", tenant=t.slug, code=code, cid=cid, page=1)
-    elif "questions" in current_app.view_functions:
-        next_url = url_for("questions", tenant=t.slug, code=code, cid=cid)
-    else:
-        abort(500, description="No question route found")
+    from werkzeug.routing import BuildError
+    vfs = current_app.view_functions
 
-    # Pass everything the template needs; do NOT rely on Jinja-only split filters
+    next_url = None
+    # 1) Paged question route requires idx
+    if "question_paged" in vfs:
+        try:
+            next_url = url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=0)
+        except BuildError:
+            # Some variants also take a 'page' param, try a sensible fallback
+            try:
+                next_url = url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=0, page=1)
+            except BuildError:
+                pass
+    # 2) Non-paged route (if present)
+    if not next_url and "questions" in vfs:
+        try:
+            next_url = url_for("questions", tenant=t.slug, code=code, cid=cid)
+        except BuildError:
+            pass
+    # 3) Older start handler
+    if not next_url and "start_quiz" in vfs:
+        try:
+            next_url = url_for("start_quiz", tenant=t.slug, code=code, cid=cid)
+        except BuildError:
+            pass
+    # Final guaranteed fallback to paged with idx
+    if not next_url:
+        next_url = url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=0)
+
     return render_template(
         "camera_gate.html",
-        t=t, jd=jd, c=c,
+        title="Interview Setup",
+        c=c,
+        tenant=t,
+        tenant_slug=t.slug,
         first_name=first_name,
-        next_url=next_url
+        next_url=next_url,
     )
+
 
 
 # ─── Questions (paged) ───────────────────────────────────────────
