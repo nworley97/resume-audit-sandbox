@@ -16,10 +16,10 @@
       <div class="flex items-center justify-center">
         <div class="inline-flex items-center gap-2">
           <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white font-semibold">
-            {{ (brand_name or (tenant.display_name if tenant else None) or 'Altera')[0] }}
+            {{ (brand_name or (tenant and tenant.display_name) or 'Altera')[0] }}
           </span>
           <div class="text-sm text-gray-700">
-            {{ brand_name or (tenant.display_name if tenant else None) or 'Altera' }}
+            {{ brand_name or (tenant and tenant.display_name) or 'Altera' }}
           </div>
         </div>
       </div>
@@ -43,20 +43,30 @@
   <!-- Public footer (links) -->
   <footer class="border-t border-gray-200 bg-white">
     <div class="max-w-5xl mx-auto px-4 py-4 text-center text-xs text-gray-500">
-      <a class="text-blue-600 hover:text-blue-700 underline"
-         href="{{ url_for('privacy', tenant=(tenant_slug or (tenant.slug if tenant else None))) }}">
-        Privacy Policy
-      </a>
+      <!-- Mark downloads to bypass loader -->
+      <a
+        class="text-blue-600 hover:text-blue-700 underline"
+        href="{{ link_privacy() }}"
+        download
+        target="_blank"
+        rel="noopener"
+        data-noload
+      >Privacy Policy</a>
       <span class="mx-2 text-gray-300">•</span>
-      <a class="text-blue-600 hover:text-blue-700 underline"
-         href="{{ url_for('terms', tenant=(tenant_slug or (tenant.slug if tenant else None))) }}">
-        Terms of Service
-      </a>
+      <a
+        class="text-blue-600 hover:text-blue-700 underline"
+        href="{{ link_terms() }}"
+        download
+        target="_blank"
+        rel="noopener"
+        data-noload
+      >Terms of Service</a>
       <span class="mx-2 text-gray-300">•</span>
-      <a class="text-blue-600 hover:text-blue-700 underline"
-         href="mailto:support@altera.ai">
-        Support
-      </a>
+      <a
+        class="text-blue-600 hover:text-blue-700 underline"
+        href="{{ link_support() }}"
+        data-noload
+      >Support</a>
     </div>
   </footer>
 
