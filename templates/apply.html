@@ -1,83 +1,140 @@
 {% extends "base_public.html" %}
-{% block title %}{{ jd.title }} – Apply{% endblock %}
+{% block title %}Apply – {{ jd.title }}{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* make the upload area feel sleek */
+  .dropzone:hover { background-color: rgba(15, 23, 42, .02); }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-3xl mx-auto py-10 px-4">
 
-  <!-- Header -->
-  <div class="text-center mb-8">
-    <div class="inline-flex items-center gap-2 rounded-full bg-gray-100 text-gray-700 text-xs px-2 py-0.5">
-      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> New
-    </div>
-    <h1 class="mt-2 text-2xl font-semibold text-gray-900">{{ jd.title }}</h1>
-    <div class="mt-2 flex items-center justify-center gap-3 text-sm text-gray-500">
-      {% if jd.location %}<span>{{ jd.location }}</span>{% endif %}
-      {% if jd.employment_type %}<span>• {{ jd.employment_type }}</span>{% endif %}
-      {% if jd.start_date %}<span>• Start: {{ jd.start_date.strftime("%b %-d, %Y") }}</span>{% endif %}
-      {% if jd.end_date %}<span>• End Date: {{ jd.end_date.strftime("%b %-d, %Y") }}</span>{% endif %}
-    </div>
-  </div>
+<!-- Top meta -->
+<div class="text-center mb-6">
+  <!-- Status chip: show “Now hiring” when open -->
+  {% set s = (jd.status or 'open')|lower %}
+  {% if s == 'open' %}
+    <span class="inline-flex items-center rounded-full bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 text-[11px] font-medium">Now hiring</span>
+  {% elif s == 'draft' %}
+    <span class="inline-flex items-center rounded-full bg-gray-50 text-gray-700 border border-gray-200 px-2 py-0.5 text-[11px] font-medium">Draft</span>
+  {% elif s in ['closed','archived'] %}
+    <span class="inline-flex items-center rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 text-[11px] font-medium">Closed</span>
+  {% endif %}
 
-  <!-- JD content -->
-  <section class="bg-white rounded-xl ring-1 ring-gray-200 p-5 mb-10">
-    <h2 class="text-sm font-semibold text-gray-900 mb-3">About the role</h2>
-    <div class="prose prose-sm max-w-none">
-      {{ jd.html|safe }}
-    </div>
-  </section>
+  <h1 class="mt-2 text-xl md:text-2xl font-semibold text-gray-900">
+    {{ jd.title }}
+  </h1>
 
-  <!-- Apply form intro -->
-  <div class="text-center mb-4">
-    <h3 class="text-sm font-semibold text-gray-900">Ready to Apply?</h3>
-    <p class="text-xs text-gray-500">Join our team and make an impact.</p>
-  </div>
+  {# equal spacing between bullet separators #}
+  {% set meta = [] %}
+  {% if jd.location %}{% set _ = meta.append(jd.location) %}{% endif %}
+  {% if jd.work_arrangement %}{% set _ = meta.append(jd.work_arrangement) %}{% endif %}
+  {% if jd.employment_type %}{% set _ = meta.append(jd.employment_type) %}{% endif %}
 
-  <!-- Apply form -->
-  <form method="post" enctype="multipart/form-data" class="bg-white rounded-xl ring-1 ring-gray-200 p-5 space-y-5">
-    {{ csrf_token() if csrf_token is defined }}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div>
-        <label class="block text-xs text-gray-600 mb-1">First Name*</label>
-        <input required name="first_name" type="text" class="w-full rounded-lg border-gray-300 text-sm">
-      </div>
-      <div>
-        <label class="block text-xs text-gray-600 mb-1">Middle Name</label>
-        <input name="middle_name" type="text" class="w-full rounded-lg border-gray-300 text-sm">
-      </div>
-      <div>
-        <label class="block text-xs text-gray-600 mb-1">Last Name*</label>
-        <input required name="last_name" type="text" class="w-full rounded-lg border-gray-300 text-sm">
-      </div>
-      <div class="sm:col-span-1">
-        <label class="block text-xs text-gray-600 mb-1">Phone</label>
-        <input name="phone" type="tel" class="w-full rounded-lg border-gray-300 text-sm">
-      </div>
-      <div class="sm:col-span-2">
-        <label class="block text-xs text-gray-600 mb-1">Email*</label>
-        <input required name="email" type="email" class="w-full rounded-lg border-gray-300 text-sm">
-      </div>
+  {% if meta %}
+    <div class="mt-1 flex items-center justify-center gap-2 text-xs text-gray-600">
+      {% for part in meta %}
+        <span>{{ part }}</span>
+        {% if not loop.last %}<span aria-hidden="true" class="mx-0.5 select-none">•</span>{% endif %}
+      {% endfor %}
     </div>
-
-    <!-- Resume drop zone -->
-    <div>
-      <label class="block text-xs text-gray-600 mb-2">Resume</label>
-      <div
-        class="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-        <div class="mx-auto mb-2 w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-          <svg class="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <p class="text-xs text-gray-600">Drop your resume here<br><span class="text-gray-400">or click to browse</span></p>
-        <input name="resume" accept=".pdf,.doc,.docx" type="file" class="mt-3 block w-full text-xs text-gray-600" />
-        <p class="mt-1 text-[11px] text-gray-400">PDF or DOCX · Max 5MB</p>
-      </div>
-    </div>
-
-    <div class="text-center">
-      <button class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-        Submit Application
-      </button>
-    </div>
-  </form>
+  {% endif %}
 </div>
+
+<!-- JD body -->
+<div class="bg-white rounded-xl ring-1 ring-gray-200 p-5 md:p-6 mb-8">
+  <div class="prose prose-sm max-w-none">
+    {{ jd.html|safe }}
+  </div>
+</div>
+
+<!-- Application form -->
+<form method="post" enctype="multipart/form-data" class="space-y-6">
+  {{ csrf_field() if csrf_field is defined }}
+
+  <div class="text-center">
+    <div class="text-base md:text-lg font-semibold text-gray-900">Ready to Apply?</div>
+    <div class="text-xs text-gray-500">Join our team and make an impact.</div>
+  </div>
+
+  <div class="bg-white rounded-xl ring-1 ring-gray-200">
+    <div class="p-4 md:p-6 space-y-6">
+
+      <!-- Personal info -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">First Name<span class="text-rose-600">*</span></label>
+          <input name="first_name" required
+                 class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Middle Name</label>
+          <input name="middle_name"
+                 class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Last Name<span class="text-rose-600">*</span></label>
+          <input name="last_name" required
+                 class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Phone</label>
+          <input name="phone"
+                 class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Email<span class="text-rose-600">*</span></label>
+          <input type="email" name="email" required
+                 class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+        </div>
+      </div>
+
+      <!-- Resume upload (sleek choose file) -->
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Resume<span class="text-rose-600">*</span></label>
+
+        <input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx" required class="sr-only">
+        <label for="resume" class="dropzone block cursor-pointer rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
+          <div class="inline-flex h-10 w-10 items-center justify-center rounded-full ring-1 ring-gray-300 bg-white mb-2">
+            <!-- upload icon -->
+            <svg class="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+            </svg>
+          </div>
+          <div class="text-sm text-gray-800">
+            <span class="font-medium underline">Click to browse</span> or drop your resume here
+          </div>
+          <div class="mt-1 text-[11px] text-gray-500">PDF or DOCX • Max 5MB</div>
+          <div id="fileName" class="mt-2 text-xs text-gray-700"></div>
+        </label>
+      </div>
+
+      <!-- Submit -->
+      <div class="pt-2 text-center">
+        <button type="submit"
+                class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+          Submit Application
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  // show chosen file name
+  const resumeInput = document.getElementById('resume');
+  const fileNameEl  = document.getElementById('fileName');
+  if (resumeInput) {
+    resumeInput.addEventListener('change', () => {
+      const f = resumeInput.files && resumeInput.files[0];
+      fileNameEl.textContent = f ? f.name : '';
+    });
+  }
+</script>
 {% endblock %}
