@@ -1,67 +1,169 @@
 {% extends "base_public.html" %}
 {% block title %}Interview Setup{% endblock %}
+
 {% block content %}
-<div class="max-w-3xl mx-auto py-12 px-4">
+{% set first_name =
+      (c.first_name if c and c.first_name else
+       ((c.name or '')|trim|split(' ')|first)) %}
+<div class="max-w-4xl mx-auto">
+
+  <!-- Heading -->
   <div class="text-center mb-8">
-    <div class="text-xs text-gray-500">{{ applicant_name }}</div>
-    <h1 class="text-xl font-semibold text-gray-900 mt-1">Hi {{ applicant_first or applicant_name }}!</h1>
-    <p class="text-gray-700 text-sm mt-1">To help us get to know you better, please answer a few short questions.</p>
-    <p class="text-xs text-gray-400">Follow the guidelines below to ensure the best possible experience.</p>
+    <h1 class="text-2xl md:text-3xl font-semibold text-gray-900">
+      Hi {{ first_name or 'there' }}!
+    </h1>
+    <p class="mt-2 text-lg md:text-xl text-gray-900">
+      To help us get to know you better, <br class="hidden md:block"/>
+      please answer a few short questions.
+    </p>
+    <p class="mt-2 text-xs text-gray-500">
+      Get ready to your AI-powered interview experience.<br/>
+      Follow the guidelines below to ensure the best possible session.
+    </p>
   </div>
 
-  <!-- Tips -->
-  <div class="space-y-3">
-    <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4">
-      <div class="text-xs font-semibold text-gray-900 mb-1">Preparation Tips</div>
-      <ul class="text-xs text-gray-600 space-y-1">
-        <li>• Stable Internet Connection</li>
-        <li>• Quiet Environment</li>
-      </ul>
-    </div>
+  <!-- Preparation Tips -->
+  <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4 md:p-5 mb-4">
+    <div class="font-semibold text-gray-900 mb-3">Preparation Tips</div>
 
-    <!-- Camera Access -->
-    <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4">
-      <div class="text-xs font-semibold text-gray-900 mb-1">Allow Camera Access</div>
-      <p class="text-xs text-gray-500 mb-3">To ensure fairness and authenticity for all candidates, please allow access to your camera before starting.</p>
+    <div class="divide-y divide-gray-200">
+      <div class="py-3 flex items-start gap-3">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 ring-1 ring-blue-200">
+          <svg class="h-3.5 w-3.5 text-blue-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 00-1.408-1.418L8.5 10.67 5.7 7.87a1 1 0 10-1.4 1.43l3.5 3.5a1 1 0 001.42 0l7.484-7.51z" clip-rule="evenodd"/>
+          </svg>
+        </span>
+        <div>
+          <div class="text-blue-600 text-sm font-medium">Stable Internet Connection</div>
+          <div class="text-xs text-gray-500">
+            Ensure you have a reliable internet connection to avoid interruptions during the interview.
+          </div>
+        </div>
+      </div>
 
-      <div class="flex items-center justify-between">
-        <button id="allowCam"
-          class="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
-          Allow camera access
-        </button>
-        <span id="camStatus" class="text-xs text-gray-500">Camera permission: <span class="font-medium">Pending</span></span>
+      <div class="py-3 flex items-start gap-3">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 ring-1 ring-blue-200">
+          <svg class="h-3.5 w-3.5 text-blue-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 00-1.408-1.418L8.5 10.67 5.7 7.87a1 1 0 10-1.4 1.43l3.5 3.5a1 1 0 001.42 0l7.484-7.51z" clip-rule="evenodd"/>
+          </svg>
+        </span>
+        <div>
+          <div class="text-blue-600 text-sm font-medium">Quiet Environment</div>
+          <div class="text-xs text-gray-500">
+            Choose a quiet place to minimize background noise and distractions.
+          </div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- Policy notice -->
-    <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4">
-      <p class="text-xs text-gray-600">Failure to answer questions may result in removal from consideration for this role.</p>
+  <!-- Camera Access -->
+  <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4 md:p-5 mb-4">
+    <div class="flex items-center justify-between">
+      <div class="font-semibold text-gray-900">Allow Camera Access</div>
+      <div id="camStatus" class="text-xs text-gray-600">
+        Camera permission: <span class="font-medium">Pending</span>
+      </div>
+    </div>
+    <p class="mt-1 text-xs text-gray-500">
+      To ensure fairness and authenticity for all candidates, please allow access to your camera before starting.
+      Your video and activity data will only be used for identity verification and evaluation integrity purposes and
+      will not be shared externally.
+    </p>
+
+    <!-- Mock browser prompt image -->
+    <div class="mt-4 flex justify-center">
+      <img
+        src="{{ url_for('static', filename='img/camera-allow.png') }}"
+        alt="Browser camera permission prompt"
+        class="max-w-xs w-full rounded-lg ring-1 ring-gray-200"
+      >
+    </div>
+
+    <!-- Action -->
+    <div class="mt-4 flex flex-col items-center gap-3">
+      <button id="btnAllow"
+              type="button"
+              class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+        Allow camera access
+      </button>
+      <a id="btnRetry" href="#" class="hidden text-xs text-blue-600 hover:text-blue-700 underline">
+        Allow camera access
+      </a>
     </div>
   </div>
 
-  <div class="text-center mt-8">
-    <a href="{{ next_url }}"
-       class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-      Start
-    </a>
+  <!-- Agreement -->
+  <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4 md:p-5 mb-6">
+    <div class="text-xs text-gray-700 font-medium mb-2">
+      Failure to answer questions may result in removal from consideration for this role.
+    </div>
+    <label class="flex items-start gap-2 text-xs text-gray-700">
+      <input id="agree" type="checkbox" class="mt-0.5 rounded border-gray-300">
+      <span>I understand that not responding to questions may forfeit my opportunity</span>
+    </label>
   </div>
-</div>
 
+  <!-- Start -->
+  <form method="post" action="{{ url_for('start_quiz', tenant=t.slug, code=jd.code, cid=c.id) if 'start_quiz' in current_app.view_functions else url_for('questions', tenant=t.slug, code=jd.code, cid=c.id) }}">
+    <div class="text-center">
+      <button id="btnStart" type="submit"
+              class="inline-flex items-center justify-center rounded-lg bg-gray-300 px-4 py-2 text-sm font-semibold text-white cursor-not-allowed"
+              disabled>
+        Start
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block body_extra %}
 <script>
-  const btn = document.getElementById('allowCam');
-  const statusEl = document.getElementById('camStatus').querySelector('span');
-  if (btn) {
-    btn.addEventListener('click', async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        stream.getTracks().forEach(t => t.stop());
-        statusEl.textContent = 'Allowed';
-        statusEl.classList.add('text-emerald-600');
-      } catch (e) {
-        statusEl.textContent = 'Blocked';
-        statusEl.classList.add('text-rose-600');
-      }
-    });
+  // --- UI handles
+  const btnAllow  = document.getElementById('btnAllow');
+  const btnRetry  = document.getElementById('btnRetry');
+  const camStatus = document.getElementById('camStatus').querySelector('span');
+  const agree     = document.getElementById('agree');
+  const btnStart  = document.getElementById('btnStart');
+
+  let camAllowed = false;
+
+  function updateStartState() {
+    const ok = camAllowed && !!agree.checked;
+    btnStart.disabled = !ok;
+    btnStart.className =
+      'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold ' +
+      (ok ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer' : 'bg-gray-300 text-white cursor-not-allowed');
   }
+
+  async function requestCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      camStatus.textContent = 'Not supported';
+      return;
+    }
+    try {
+      camStatus.textContent = 'Requesting…';
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      // Immediately stop to conserve resources; we just needed the grant.
+      stream.getTracks().forEach(t => t.stop());
+      camAllowed = true;
+      camStatus.textContent = 'Allowed';
+      btnRetry.classList.add('hidden');
+      updateStartState();
+    } catch (e) {
+      camAllowed = false;
+      camStatus.textContent = 'Blocked';
+      // Show retry link with instructions if blocked
+      btnRetry.classList.remove('hidden');
+      updateStartState();
+    }
+  }
+
+  btnAllow?.addEventListener('click', requestCamera);
+  btnRetry?.addEventListener('click', (e) => { e.preventDefault(); requestCamera(); });
+  agree?.addEventListener('change', updateStartState);
+
+  // Initialize
+  updateStartState();
 </script>
 {% endblock %}
