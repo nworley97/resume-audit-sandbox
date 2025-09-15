@@ -4,8 +4,9 @@ from datetime import datetime
 from pathlib import Path
 from functools import wraps
 import math
+import glob
 from io import StringIO
-from flask import current_app
+from flask import current_app, send_from_directory, abort
 from flask import (
     Flask, request, redirect, url_for,
     render_template, flash, send_file, abort, make_response, session, g
@@ -96,6 +97,14 @@ def load_tenant_by_slug(slug: str):
 def current_tenant():
     slug = getattr(g, "route_tenant_slug", None) or session.get("tenant_slug")
     return load_tenant_by_slug(slug) if slug else None
+
+
+def _latest_match(base_dir, patterns):
+    for pat in patterns:
+        matches = sorted(glob.glob(os.path.join(base_dir, pat)))
+        if matches:
+            return os.path.basename(matches[-1])
+    return None
 
 @app.before_request
 def _capture_route_tenant():
@@ -317,34 +326,6 @@ def home():
         return redirect(url_for("recruiter", tenant=slug))
     return redirect(url_for("login"))
 
-# ─── Privacy / Terms — download DOCX (plus tenant variants) ─────
-@app.route("/privacy")
-def privacy():
-    path = LEGAL_DIR / "20250811_Privacy.docx"
-    if not path.exists():
-        return make_response("Privacy policy coming soon.", 200)
-    return send_file(str(path),
-                     mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                     as_attachment=True,
-                     download_name="Privacy.docx")
-
-@app.route("/<tenant>/privacy")
-def privacy_t(tenant):
-    return privacy()
-
-@app.route("/terms")
-def terms():
-    path = LEGAL_DIR / "20250811_Terms.docx"
-    if not path.exists():
-        return make_response("Terms of Service coming soon.", 200)
-    return send_file(str(path),
-                     mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                     as_attachment=True,
-                     download_name="Terms.docx")
-
-@app.route("/<tenant>/terms")
-def terms_t(tenant):
-    return terms()
 
 # ─── CSV Export (All or Current View), tenant-scoped ─────────────
 @app.route("/candidates/export.csv")
@@ -1756,6 +1737,41 @@ def detail(cid, tenant=None):
     finally:
         db.close()
 
+@app.route("/privacy")
+@app.route("/<tenant>/privacy")
+def privacy(tenant=None):
+    base = os.path.join(app.root_path, "static", "legal")
+    fn = _latest_match(base, ["*Privacy*.pdf", "*Privacy*.docx", "*Privacy*.*"])
+    if not fn:
+        return make_response("Privacy policy coming soon.", 200)
+    mt = ("application/pdf"
+          if fn.lower().endswith(".pdf")
+          else "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    return send_from_directory(
+        directory=base,
+        path=fn,
+        mimetype=mt,
+        as_attachment=True,
+        download_name=fn,
+    )
+
+@app.route("/terms")
+@app.route("/<tenant>/terms")
+def terms(tenant=None):
+    base = os.path.join(app.root_path, "static", "legal")
+    fn = _latest_match(base, ["*Terms*.pdf", "*Terms*.docx", "*Terms*.*"])
+    if not fn:
+        return make_response("Terms of Service coming soon.", 200)
+    mt = ("application/pdf"
+          if fn.lower().endswith(".pdf")
+          else "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    return send_from_directory(
+        directory=base,
+        path=fn,
+        mimetype=mt,
+        as_attachment=True,
+        download_name=fn,
+    )
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT",5000)))

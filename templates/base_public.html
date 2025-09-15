@@ -43,11 +43,12 @@
   <!-- Public footer (links) -->
   <footer class="border-t border-gray-200 bg-white">
     <div class="max-w-5xl mx-auto px-4 py-4 text-center text-xs text-gray-500">
-      <a class="hover:underline" href="{{ url_for('privacy') }}">Privacy Policy</a>
-      <span class="mx-2">•</span>
-      <a class="hover:underline" href="{{ url_for('terms') }}">Terms of Service</a>
-      <span class="mx-2">•</span>
-      <a class="hover:underline" href="{{ support_url }}">Support</a>
+      <a class="text-blue-600 hover:text-blue-700 underline" href="{{ url_for('legal_privacy') }}">Privacy Policy</a>
+<span class="mx-2 text-gray-300">•</span>
+<a class="text-blue-600 hover:text-blue-700 underline" href="{{ url_for('legal_terms') }}">Terms of Service</a>
+<span class="mx-2 text-gray-300">•</span>
+<a class="text-blue-600 hover:text-blue-700 underline" href="{{ url_for('support') if 'support' in view_functions else '#' }}">Support</a>
+
     </div>
   </footer>
 
