@@ -3,18 +3,15 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
-
   <!-- Heading -->
   <div class="text-center mb-8">
-    <h1 class="text-2xl md:text-3xl font-semibold text-gray-900">
-      Hi {{ first_name or 'there' }}!
-    </h1>
+    <h1 class="text-2xl md:text-3xl font-semibold text-gray-900">Hi {{ first_name }}!</h1>
     <p class="mt-2 text-lg md:text-xl text-gray-900">
       To help us get to know you better, <br class="hidden md:block"/>
       please answer a few short questions.
     </p>
     <p class="mt-2 text-xs text-gray-500">
-      Get ready for your AI-powered interview experience.<br/>
+      Get ready to your AI-powered interview experience.<br/>
       Follow the guidelines below to ensure the best possible session.
     </p>
   </div>
@@ -32,9 +29,7 @@
         </span>
         <div>
           <div class="text-blue-600 text-sm font-medium">Stable Internet Connection</div>
-          <div class="text-xs text-gray-500">
-            Ensure you have a reliable internet connection to avoid interruptions during the interview.
-          </div>
+          <div class="text-xs text-gray-500">Ensure you have a reliable internet connection to avoid interruptions during the interview.</div>
         </div>
       </div>
 
@@ -46,9 +41,7 @@
         </span>
         <div>
           <div class="text-blue-600 text-sm font-medium">Quiet Environment</div>
-          <div class="text-xs text-gray-500">
-            Choose a quiet place to minimize background noise and distractions.
-          </div>
+          <div class="text-xs text-gray-500">Choose a quiet place to minimize background noise and distractions.</div>
         </div>
       </div>
     </div>
@@ -64,27 +57,26 @@
     </div>
     <p class="mt-1 text-xs text-gray-500">
       To ensure fairness and authenticity for all candidates, please allow access to your camera before starting.
-      Your video and activity data will only be used for identity verification and evaluation integrity purposes and
-      will not be shared externally.
+      Your video and activity data will only be used for identity verification and evaluation integrity purposes
+      and will not be shared externally.
     </p>
 
+    <!-- Permission prompt image (make sure file is named exactly static/img/camera-allow.png) -->
     <div class="mt-4 flex justify-center">
       <img
-        src="{{ url_for('static', filename='img/camera-allow.png') }}"
+        src="{{ url_for('static', filename='img/camera-allow.jpg') }}"
         alt="Browser camera permission prompt"
         class="max-w-xs w-full rounded-lg ring-1 ring-gray-200"
       >
     </div>
 
+    <!-- Actions -->
     <div class="mt-4 flex flex-col items-center gap-3">
-      <button id="btnAllow"
-              type="button"
+      <button id="btnAllow" type="button"
               class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
         Allow camera access
       </button>
-      <a id="btnRetry" href="#" class="hidden text-xs text-blue-600 hover:text-blue-700 underline">
-        Try again
-      </a>
+      <a id="btnRetry" href="#" class="hidden text-xs text-blue-600 hover:text-blue-700 underline">Try again</a>
     </div>
   </div>
 
@@ -114,7 +106,6 @@
 
 {% block body_extra %}
 <script>
-  // Handles
   const btnAllow  = document.getElementById('btnAllow');
   const btnRetry  = document.getElementById('btnRetry');
   const camStatus = document.getElementById('camStatus').querySelector('span');
@@ -128,7 +119,8 @@
     btnStart.disabled = !ok;
     btnStart.className =
       'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold ' +
-      (ok ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer' : 'bg-gray-300 text-white cursor-not-allowed');
+      (ok ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+          : 'bg-gray-300 text-white cursor-not-allowed');
   }
 
   async function requestCamera() {

@@ -1,45 +1,116 @@
 {% extends "base_public.html" %}
-{% block title %}Question {{ idx }} of {{ total }}{% endblock %}
+{% block title %}Questions{% endblock %}
+
 {% block content %}
-<div class="max-w-3xl mx-auto py-6 px-4">
-  <!-- Top bar -->
-  <div class="flex items-center justify-between text-xs text-gray-600 mb-4">
-    <div class="font-medium">{{ applicant_name }}</div>
-    <div class="flex items-center gap-2">
-      <span>Question {{ idx }} of {{ total }}</span>
-      <div class="w-40 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-        <div class="h-full bg-blue-600" style="width: {{ (idx/total*100)|round(0,'floor') }}%"></div>
-      </div>
+<div class="max-w-3xl mx-auto space-y-4">
+
+  <!-- Header with progress -->
+  <div class="flex items-center justify-between text-sm text-gray-700">
+    <div class="font-medium">{{ name }}</div>
+    <div>Question {{ idx + 1 }} of {{ n }}</div>
+  </div>
+  <div class="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+    <div class="h-full bg-blue-600" style="width: {{ (idx / n * 100)|round(0, 'floor') }}%"></div>
+  </div>
+
+  <!-- Question card -->
+  <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4">
+    <div class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px] mb-2">
+      Discussion • Question {{ idx + 1 }}
+    </div>
+    <div class="text-sm text-gray-900 font-medium">
+      {{ q }}
     </div>
   </div>
 
-  <!-- Card: question -->
-  <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4 mb-4">
-    <div class="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 mb-2">Discussion</div>
-    <p class="text-sm font-medium text-gray-900">{{ question }}</p>
-  </div>
-
-  <!-- Card: response -->
-  <form method="post" class="bg-white rounded-xl ring-1 ring-gray-200 p-4">
-    {{ csrf_token() if csrf_token is defined }}
-    <label class="block text-xs text-gray-600 mb-1">Your Response</label>
-    <textarea name="answer" rows="6" maxlength="1000" required
-              class="w-full rounded-lg border-gray-300 text-sm p-3"
-              oninput="cnt.textContent=this.value.length+'/1000'">{{ draft or '' }}</textarea>
-    <div class="mt-1 text-[11px] text-gray-400" id="cnt">{{ (draft|length if draft else 0) }}/1000</div>
-
-    <div class="mt-3 flex items-center justify-between">
-      <a href="{{ prev_url }}"
-         class="inline-flex items-center rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">← Previous</a>
-      <button class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
-        Next Question →
-      </button>
+  <!-- Answer card -->
+  <form method="post" class="bg-white rounded-xl ring-1 ring-gray-200 p-4 space-y-2">
+    <label class="block text-sm font-medium text-gray-900">Your Response</label>
+    <textarea name="answer" rows="6"
+              class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              maxlength="1000"
+              placeholder="Share your response here.">{{ a }}</textarea>
+    <div class="flex items-center justify-between">
+      <span class="text-xs text-gray-500"><span id="count">{{ a|length }}</span>/1000</span>
+      <div class="flex gap-2">
+        <a href="{{ url_for('question_paged', tenant=tenant_slug or tenant.slug if tenant is defined else None, code=code, cid=cid, idx=idx - 1) }}"
+           class="inline-flex items-center rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 {% if idx == 0 %}pointer-events-none opacity-50{% endif %}">
+          ← Previous
+        </a>
+        <button type="submit"
+                class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">
+          {% if idx + 1 < n %}Next Question →{% else %}Submit →{% endif %}
+        </button>
+      </div>
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block body_extra %}
 <script>
   const ta = document.querySelector('textarea[name="answer"]');
-  const cnt = document.getElementById('cnt');
-  if (ta) ta.addEventListener('input', () => cnt.textContent = ta.value.length + '/1000');
+  const counter = document.getElementById('count');
+  ta?.addEventListener('input', () => {
+    counter.textContent = (ta.value || '').length;
+  });
+</script>
+{% endblock %}
+{% extends "base_public.html" %}
+{% block title %}Questions{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+
+  <!-- Header with progress -->
+  <div class="flex items-center justify-between text-sm text-gray-700">
+    <div class="font-medium">{{ name }}</div>
+    <div>Question {{ idx + 1 }} of {{ n }}</div>
+  </div>
+  <div class="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+    <div class="h-full bg-blue-600" style="width: {{ (idx / n * 100)|round(0, 'floor') }}%"></div>
+  </div>
+
+  <!-- Question card -->
+  <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4">
+    <div class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px] mb-2">
+      Discussion • Question {{ idx + 1 }}
+    </div>
+    <div class="text-sm text-gray-900 font-medium">
+      {{ q }}
+    </div>
+  </div>
+
+  <!-- Answer card -->
+  <form method="post" class="bg-white rounded-xl ring-1 ring-gray-200 p-4 space-y-2">
+    <label class="block text-sm font-medium text-gray-900">Your Response</label>
+    <textarea name="answer" rows="6"
+              class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              maxlength="1000"
+              placeholder="Share your response here.">{{ a }}</textarea>
+    <div class="flex items-center justify-between">
+      <span class="text-xs text-gray-500"><span id="count">{{ a|length }}</span>/1000</span>
+      <div class="flex gap-2">
+        <a href="{{ url_for('question_paged', tenant=tenant_slug or tenant.slug if tenant is defined else None, code=code, cid=cid, idx=idx - 1) }}"
+           class="inline-flex items-center rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 {% if idx == 0 %}pointer-events-none opacity-50{% endif %}">
+          ← Previous
+        </a>
+        <button type="submit"
+                class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">
+          {% if idx + 1 < n %}Next Question →{% else %}Submit →{% endif %}
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script>
+  const ta = document.querySelector('textarea[name="answer"]');
+  const counter = document.getElementById('count');
+  ta?.addEventListener('input', () => {
+    counter.textContent = (ta.value || '').length;
+  });
 </script>
 {% endblock %}
