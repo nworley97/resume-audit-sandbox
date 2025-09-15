@@ -1510,10 +1510,11 @@ def camera_gate(tenant, code, cid):
 
 
 # ─── Questions (paged) ───────────────────────────────────────────
-@app.route("/<tenant>/apply/<code>/<cid>/q/<int:idx>", methods=["GET","POST"])
+@app.route("/<tenant>/apply/<code>/<cid>/q/<int:idx>", methods=["GET", "POST"])
 def question_paged(tenant, code, cid, idx):
     t = load_tenant_by_slug(tenant)
-    if not t: abort(404)
+    if not t:
+        abort(404)
 
     db = SessionLocal()
     try:
@@ -1521,46 +1522,67 @@ def question_paged(tenant, code, cid, idx):
         jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
     finally:
         db.close()
+
     if not c or c.jd_code != code or c.tenant_id != t.id:
-        flash("Application not found"); return redirect(url_for("apply", tenant=t.slug, code=code))
+        flash("Application not found")
+        return redirect(url_for("apply", tenant=t.slug, code=code))
 
     n = len(c.questions or [])
     if n == 0:
-        flash("No questions generated"); return redirect(url_for("apply", tenant=t.slug, code=code))
-    idx = max(0, min(idx, n-1))
+        flash("No questions generated")
+        return redirect(url_for("apply", tenant=t.slug, code=code))
+
+    idx = max(0, min(idx, n - 1))
 
     if request.method == "POST":
-        a = request.form.get("answer","").strip()
+        a = (request.form.get("answer") or "").strip()
+
         db = SessionLocal()
         try:
             c2 = db.get(Candidate, cid)
             if c2:
-                ans = list(c2.answers or [""]*n)
-                ans[idx] = a
-                c2.answers = ans
-                db.merge(c2); db.commit()
+                answers = list(c2.answers or [""] * n)
+                answers[idx] = a
+                c2.answers = answers
+                db.merge(c2)
+                db.commit()
         finally:
             db.close()
 
-        action = request.form.get("action","next")
+        action = request.form.get("action", "next")
         if action == "prev" and idx > 0:
-            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx-1))
-        if action == "next" and idx < n-1:
-            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx+1))
+            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx - 1))
+        if action == "next" and idx < n - 1:
+            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx + 1))
 
-        # LAST: branch based on JD toggle (NEW)
+        # last question -> branch by JD toggle
         if jd and getattr(jd, "id_surveys_enabled", True):
             return redirect(url_for("self_id", tenant=t.slug, code=code, cid=cid))
         else:
             return redirect(url_for("finish_application", tenant=t.slug, code=code, cid=cid))
 
-    current_q = c.questions[idx]
-    current_a = (c.answers or [""]*n)[idx] if c.answers else ""
-    progress  = f"Question {idx+1} of {n}"
-    return render_template("question_paged.html",
-                           title="Questions",
-                           name=c.name, code=code, cid=cid,
-                           q=current_q, a=current_a, idx=idx, n=n, progress=progress)
+    # GET
+    current_q      = c.questions[idx]
+    current_a      = (c.answers or [""] * n)[idx] if c.answers else ""
+    progress       = f"Question {idx + 1} of {n}"
+    # progress bar should show 0% on Q1 -> use idx, not idx+1
+    progress_pct   = int(idx * 100 / n)
+
+    return render_template(
+        "question_paged.html",
+        title="Questions",
+        name=c.name,
+        code=code,
+        cid=cid,
+        q=current_q,
+        a=current_a,
+        idx=idx,
+        n=n,
+        total=n,            # backward-compat for older template variants
+        progress=progress,
+        progress_pct=progress_pct,
+    )
+
 
 # Support page (global)
 @app.route("/forgot-password")
