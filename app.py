@@ -110,11 +110,25 @@ def inject_brand():
     t = current_tenant()
     slug = t.slug if t else None
     display = t.display_name if t else "Altera"
+
+    # Make “Support” use the same page as “Forgot your password?”
+    from flask import current_app, url_for
+    support = "#"
+    for ep in ("forgot_password", "reset_password_request", "forgot", "password_reset"):
+        if ep in current_app.view_functions:
+            try:
+                support = url_for(ep)
+                break
+            except Exception:
+                pass
+
     return {
         "tenant": t,
         "tenant_slug": slug,
         "brand_name": display,
+        "support_url": support,
     }
+
 
 # ─── Unauthorized redirect respects tenant ───────────────────────
 @login_manager.unauthorized_handler
