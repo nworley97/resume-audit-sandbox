@@ -1,66 +1,83 @@
-{% extends "base.html" %}
+{% extends "base_public.html" %}
+{% block title %}{{ jd.title }} – Apply{% endblock %}
 {% block content %}
+<div class="max-w-3xl mx-auto py-10 px-4">
 
-<h3 class="mb-3">Apply — {{ jd.code }}</h3>
-
-<!-- Job details / formatted JD preview -->
-<div class="card p-4 mb-4">
-  <div class="mb-2">
-    <div class="fw-semibold">{{ jd.title or 'Job' }}</div>
-    <div class="text-muted small">
-      {{ jd.department or '' }}{% if jd.team %} · {{ jd.team }}{% endif %}
-      {% if jd.location %} · {{ jd.location }}{% endif %}
-      {% if jd.employment_type %} · {{ jd.employment_type }}{% endif %}
-      {% if jd.salary_range %} · {{ jd.salary_range }}{% endif %}
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <div class="inline-flex items-center gap-2 rounded-full bg-gray-100 text-gray-700 text-xs px-2 py-0.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> New
+    </div>
+    <h1 class="mt-2 text-2xl font-semibold text-gray-900">{{ jd.title }}</h1>
+    <div class="mt-2 flex items-center justify-center gap-3 text-sm text-gray-500">
+      {% if jd.location %}<span>{{ jd.location }}</span>{% endif %}
+      {% if jd.employment_type %}<span>• {{ jd.employment_type }}</span>{% endif %}
+      {% if jd.start_date %}<span>• Start: {{ jd.start_date.strftime("%b %-d, %Y") }}</span>{% endif %}
+      {% if jd.end_date %}<span>• End Date: {{ jd.end_date.strftime("%b %-d, %Y") }}</span>{% endif %}
     </div>
   </div>
-  <hr>
-  <!-- Render stored JD HTML safely (we sanitize on save) -->
-  <div class="job-html">
-    {{ jd.html|safe }}
+
+  <!-- JD content -->
+  <section class="bg-white rounded-xl ring-1 ring-gray-200 p-5 mb-10">
+    <h2 class="text-sm font-semibold text-gray-900 mb-3">About the role</h2>
+    <div class="prose prose-sm max-w-none">
+      {{ jd.html|safe }}
+    </div>
+  </section>
+
+  <!-- Apply form intro -->
+  <div class="text-center mb-4">
+    <h3 class="text-sm font-semibold text-gray-900">Ready to Apply?</h3>
+    <p class="text-xs text-gray-500">Join our team and make an impact.</p>
   </div>
-</div>
 
-<!-- Apply form -->
-<div class="card p-4">
-  <form method="post" enctype="multipart/form-data" id="apply-form">
-    <div class="row g-3">
-      <div class="col-md-6">
-        <label class="form-label">Full Name</label>
-        <input name="name" class="form-control" placeholder="Your name" required>
+  <!-- Apply form -->
+  <form method="post" enctype="multipart/form-data" class="bg-white rounded-xl ring-1 ring-gray-200 p-5 space-y-5">
+    {{ csrf_token() if csrf_token is defined }}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">First Name*</label>
+        <input required name="first_name" type="text" class="w-full rounded-lg border-gray-300 text-sm">
       </div>
-      <div class="col-md-6">
-        <label class="form-label">Email</label>
-        <input name="email" type="email" class="form-control" placeholder="name@work.com">
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Middle Name</label>
+        <input name="middle_name" type="text" class="w-full rounded-lg border-gray-300 text-sm">
       </div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Last Name*</label>
+        <input required name="last_name" type="text" class="w-full rounded-lg border-gray-300 text-sm">
+      </div>
+      <div class="sm:col-span-1">
+        <label class="block text-xs text-gray-600 mb-1">Phone</label>
+        <input name="phone" type="tel" class="w-full rounded-lg border-gray-300 text-sm">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-xs text-gray-600 mb-1">Email*</label>
+        <input required name="email" type="email" class="w-full rounded-lg border-gray-300 text-sm">
+      </div>
+    </div>
 
-      <div class="col-12">
-        <label class="form-label">Résumé (PDF or DOCX)</label>
-        <div class="p-4 rounded-3"
-             style="border:2px dashed #ced4da; background:#fafafa;">
-          <input class="form-control" type="file" name="resume_file"
-                 accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                 required>
-          <div class="form-text">PDF or DOCX • Max 2MB</div>
+    <!-- Resume drop zone -->
+    <div>
+      <label class="block text-xs text-gray-600 mb-2">Resume</label>
+      <div
+        class="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+        <div class="mx-auto mb-2 w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+          <svg class="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
+        <p class="text-xs text-gray-600">Drop your resume here<br><span class="text-gray-400">or click to browse</span></p>
+        <input name="resume" accept=".pdf,.doc,.docx" type="file" class="mt-3 block w-full text-xs text-gray-600" />
+        <p class="mt-1 text-[11px] text-gray-400">PDF or DOCX · Max 5MB</p>
       </div>
     </div>
 
-    <div class="d-flex justify-content-end mt-4">
-      <button class="btn btn-primary">
-        Submit &amp; Continue
+    <div class="text-center">
+      <button class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Submit Application
       </button>
     </div>
   </form>
 </div>
-
-<script>
-  // Show the spinner overlay while we parse the résumé and generate questions
-  document.getElementById('apply-form').addEventListener('submit', function(){
-    if (window.showBusy) {
-      window.showBusy('Preparing questions…', 'This may take a while.');
-    }
-  });
-</script>
-
 {% endblock %}
