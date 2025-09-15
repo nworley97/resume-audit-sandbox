@@ -1626,29 +1626,38 @@ def self_id(tenant, code, cid):
         db.close()
 
 # ─── Finish (thank you) ──────────────────────────────────────────
-@app.route("/<tenant>/apply/<code>/<cid>/finish")
+@app.route("/<tenant>/apply/<code>/<cid>/finish", methods=["GET"])
 def finish_application(tenant, code, cid):
     t = load_tenant_by_slug(tenant)
     if not t: abort(404)
 
     db = SessionLocal()
     try:
-        c  = db.get(Candidate, cid)
-        if not c or c.tenant_id != t.id or c.jd_code != code:
-            flash("App not found"); return redirect(url_for("apply", tenant=t.slug, code=code))
-        scores = score_answers(c.resume_json, c.questions, c.answers or [])
-        c.answer_scores = scores
-        c.created_at    = c.created_at or datetime.utcnow()
-        db.merge(c); db.commit()
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
     finally:
         db.close()
 
-    if not current_user.is_authenticated:
-        return render_template("submit_thanks.html", title="Thanks", name=c.name, code=code, tenant_slug=t.slug)
+    if not c:
+        abort(404)
 
-    avg  = round(sum(scores)/len(scores),2)
-    qa   = list(zip(c.questions, c.answers, c.answer_scores))
-    return render_template("answers_admin.html", title="Done", c=c, avg=avg, qa=qa, tenant_slug=t.slug)
+    # Back URL: send applicants to the JD landing (or wherever you prefer)
+    back_url = url_for("apply", tenant=t.slug, code=code)
+
+    # First/Full name if you want it shown in the header
+    name = (c.name or "").strip()
+
+    return render_template(
+        "submit_thanks.html",
+        title="Application Complete",
+        tenant=t,
+        tenant_slug=t.slug,
+        name=name,
+        back_url=back_url,
+        # Progress UI (top-right)
+        progress_label="Complete",
+        progress_pct=100,
+    )
+
 
 # Legacy bulk submit kept (redirects to finish)
 @app.route("/<tenant>/apply/<code>/<cid>/answers", methods=["POST"])

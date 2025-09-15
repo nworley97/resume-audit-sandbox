@@ -1,21 +1,72 @@
 {% extends "base_public.html" %}
 {% block title %}Application Complete{% endblock %}
+
 {% block content %}
-<div class="max-w-xl mx-auto py-16 px-4 text-center">
-  <div class="mx-auto w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center ring-1 ring-emerald-200">
-    <svg class="w-10 h-10 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-      <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </div>
-  <h1 class="mt-4 text-xl font-semibold text-gray-900">Application Complete</h1>
-  <p class="mt-1 text-sm text-gray-600">Thank you for your time. Your responses have been successfully received.</p>
+<div class="max-w-4xl mx-auto py-10 px-4">
 
-  <div class="mt-6 bg-gray-50 rounded-xl ring-1 ring-gray-200 p-5">
-    <div class="text-sm font-medium text-gray-900 mb-1">What happens next?</div>
-    <p class="text-xs text-gray-600">We’ll review your responses and get back to you soon. You’ll receive an email notification with the next steps.</p>
+  {# Top row: left name + session chip, right 100% progress #}
+  <div class="mb-6 flex items-center justify-between">
+    <div class="flex items-center gap-2 text-sm">
+      {% if name %}
+        <span class="font-medium text-gray-900">{{ name }}</span>
+      {% endif %}
+      <span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px]">
+        Interview Session
+      </span>
+    </div>
+
+    {% if progress_pct is defined %}
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-gray-700">{{ progress_label or 'Progress' }}</span>
+        <div class="w-40 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div class="h-full bg-blue-600" style="width: {{ progress_pct|int }}%"></div>
+        </div>
+        <span class="text-sm font-medium text-gray-900">{{ progress_pct|int }}%</span>
+      </div>
+    {% endif %}
   </div>
 
-  <a href="{{ back_url or '/' }}"
-     class="mt-6 inline-flex items-center rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Go Back</a>
+  {# Main card #}
+  <div class="bg-white rounded-2xl ring-1 ring-gray-200 shadow-sm p-8 md:p-12 text-center">
+    <div class="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center ring-1 ring-blue-200">
+      {# Blue check icon (matches Figma color tone) #}
+      <svg class="w-8 h-8 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <h1 class="mt-5 text-2xl md:text-3xl font-semibold text-gray-900">Application Complete</h1>
+    <p class="mt-2 text-sm text-gray-600">
+      Thank you for your time. Your response has been successfully recorded.
+    </p>
+
+    <div class="mt-8 rounded-xl ring-1 ring-gray-200 bg-gray-50 p-5 md:p-6">
+      <div class="text-sm font-medium text-gray-900 mb-1">What happens next?</div>
+      <p class="text-xs text-gray-600">
+        We will review your responses and get back to you soon.<br class="hidden md:block"/>
+        You’ll receive an email notification with the next steps.
+      </p>
+    </div>
+
+    <a href="{{ back_url or '/' }}"
+       class="mt-8 inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+      Go Back
+    </a>
+  </div>
+
+  {# Footer strip (links should already be blue in base_public, but we echo the “Powered by ALTERA”) #}
+  <div class="mt-8 text-center text-xs text-gray-500">
+    <span class="inline-flex items-center gap-1">
+      Powered by
+      <a class="text-blue-600 hover:text-blue-700 font-medium" href="/" aria-label="ALTERA">ALTERA</a>
+    </span>
+    <div class="mt-2 space-x-3">
+      <a class="text-blue-600 hover:text-blue-700 underline" href="{{ url_for('privacy') if 'privacy' in current_app.view_functions else '#' }}">Privacy Policy</a>
+      <span class="text-gray-300">•</span>
+      <a class="text-blue-600 hover:text-blue-700 underline" href="{{ url_for('terms') if 'terms' in current_app.view_functions else '#' }}">Terms of Service</a>
+      <span class="text-gray-300">•</span>
+      <a class="text-blue-600 hover:text-blue-700 underline" href="{{ url_for('support') if 'support' in current_app.view_functions else '#' }}">Support</a>
+    </div>
+  </div>
 </div>
 {% endblock %}
