@@ -1445,56 +1445,41 @@ def apply(tenant, code):
 
 # ─── Camera gate ─────────────────────────────────────────────────
 # Camera gate (intro/instructions + camera permission)
-@app.route("/<tenant>/apply/<code>/<cid>/camera", methods=["GET", "POST"])
+@app.route("/<tenant>/apply/<code>/<cid>/camera", methods=["GET"])
 def camera_gate(tenant, code, cid):
-    t = load_tenant_by_slug(tenant) or abort(404)
+    t = load_tenant_by_slug(tenant)
+    if not t: abort(404)
 
     db = SessionLocal()
     try:
-        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first() or abort(404)
+        jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
+        c  = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
     finally:
         db.close()
+    if not jd or not c:
+        abort(404)
 
-    if request.method == "POST":
-        # proceed to questions
-        return redirect(url_for("questions", tenant=t.slug, code=code, cid=cid))
+    # Derive a safe first_name (your Candidate model may not have first_name)
+    raw_name = (getattr(c, "first_name", None) or getattr(c, "name", "") or "").strip()
+    first_name = raw_name.split()[0] if raw_name else "there"
 
-    # ---- robust first-name extraction (no reliance on attributes that may not exist)
-    def _first_name_from_candidate(cand):
-        # Explicit attributes if present
-        for attr in ("first_name", "given_name"):
-            v = getattr(cand, attr, None)
-            if v:
-                v = str(v).strip()
-                if v:
-                    return v.split()[0]
+    # Decide where the "Start" button should take the candidate
+    from flask import current_app
+    if "start_quiz" in current_app.view_functions:
+        next_url = url_for("start_quiz", tenant=t.slug, code=code, cid=cid)
+    elif "question_paged" in current_app.view_functions:
+        next_url = url_for("question_paged", tenant=t.slug, code=code, cid=cid, page=1)
+    elif "questions" in current_app.view_functions:
+        next_url = url_for("questions", tenant=t.slug, code=code, cid=cid)
+    else:
+        abort(500, description="No question route found")
 
-        # Try resume_json common keys
-        rjs = getattr(cand, "resume_json", None) or {}
-        for key in ("first_name", "given_name", "name"):
-            v = rjs.get(key)
-            if v:
-                v = str(v).strip()
-                if v:
-                    return v.split()[0]
-
-        # Fall back to the combined name column
-        nm = (getattr(cand, "name", None) or "").strip()
-        if nm:
-            return nm.split()[0]
-
-        return "there"
-
-    first_name = _first_name_from_candidate(c)
-
-    # Build next step URL (questions)
-    next_url = url_for("questions", tenant=t.slug, code=code, cid=cid)
-
+    # Pass everything the template needs; do NOT rely on Jinja-only split filters
     return render_template(
         "camera_gate.html",
-        c=c,
+        t=t, jd=jd, c=c,
         first_name=first_name,
-        next_url=next_url,
+        next_url=next_url
     )
 
 
