@@ -1380,13 +1380,20 @@ def apply(tenant, code):
         return abort(404)
 
     if request.method == "POST":
-        name  = request.form.get("name","").strip()
-        email = request.form.get("email","").strip()
-        f     = request.files.get("resume_file")
+        # Accept either a single "name" or split "first_name"/"last_name"
+        first = (request.form.get("first_name") or request.form.get("firstname") or "").strip()
+        last  = (request.form.get("last_name")  or request.form.get("lastname")  or "").strip()
+        name  = (request.form.get("name") or f"{first} {last}".strip()).strip()
 
-        if not name or not f or not f.filename:
+        email = (request.form.get("email") or "").strip()
+
+        # Accept either "resume_file" or "resume"
+        f = request.files.get("resume_file") or request.files.get("resume")
+
+        if not name or not (f and f.filename):
             flash("Name & file required")
             return redirect(request.url)
+
 
         ext = os.path.splitext(f.filename)[1] or ".pdf"
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
