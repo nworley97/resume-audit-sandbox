@@ -143,18 +143,19 @@
     </div>
 
     <!-- Self-identification survey -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-      <h2 class="text-lg font-semibold text-title mb-3">Self-Identification Survey</h2>
-      <label class="inline-flex items-center gap-2">
-        <input type="checkbox" name="enable_self_id" value="1"
-               class="sr-only" {% if jd.enable_self_id %}checked{% endif %}>
-        <span class="relative inline-block w-9 h-5 bg-gray-200 rounded-full transition">
-          <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition
-            {% if jd.enable_self_id %} translate-x-4 bg-white {% endif %}"></span>
-        </span>
-        <span class="text-sm text-gray-700">Enable self-identification survey</span>
-      </label>
-    </div>
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+  <h2 class="text-lg font-semibold text-title mb-3">Self-Identification Survey</h2>
+  <label class="inline-flex items-center gap-2">
+    <input type="checkbox" name="id_surveys_enabled" value="1"
+           class="sr-only" {% if jd and jd.id_surveys_enabled %}checked{% endif %}>
+    <span class="relative inline-block w-9 h-5 bg-gray-200 rounded-full transition">
+      <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition
+        {% if jd and jd.id_surveys_enabled %} translate-x-4 bg-white {% endif %}"></span>
+    </span>
+    <span class="text-sm text-gray-700">Enable self-identification survey</span>
+  </label>
+</div>
+
 
     <!-- Question Settings (own card) -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -201,7 +202,15 @@
     <!-- Actions -->
     <div class="flex items-center justify-end gap-2">
       <button type="submit" name="action" value="delete"
-              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Delete</button>
+        class="rounded-lg border px-3 py-2 text-sm
+               {{ 'border-gray-300 text-gray-600 hover:bg-gray-50' if not has_candidates else 'border-gray-200 text-gray-300 cursor-not-allowed' }}"
+        {{ 'disabled' if has_candidates }}>
+		  Delete
+		</button>
+		{% if has_candidates %}
+		  <span class="ml-2 text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
+		{% endif %}
+
       <button type="submit" name="action" value="close"
               class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</button>
       <button type="submit" name="action" value="draft"

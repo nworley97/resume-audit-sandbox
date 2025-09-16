@@ -21,6 +21,13 @@
         {% endif %}
       </p>
     </div>
+	
+	<a href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}"
+   class="inline-flex items-center gap-2 rounded-lg border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+   onclick="return confirm('Delete this candidate permanently?');">
+  Delete Candidate
+	</a>
+
 
     <!-- Stat cards to match Figma (white boxes, colored pills) -->
     <div class="flex items-center gap-3">
