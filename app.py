@@ -117,6 +117,13 @@ def _capture_route_tenant():
 @app.context_processor
 def inject_brand():
     t = current_tenant()
+    if not t and current_user.is_authenticated and getattr(current_user, "tenant_id", None):
+        db = SessionLocal()
+        try:
+            t = db.get(Tenant, current_user.tenant_id)
+        finally:
+            db.close()
+
     slug = t.slug if t else None
     display = t.display_name if t else "Altera"
     return {

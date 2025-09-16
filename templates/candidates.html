@@ -64,14 +64,15 @@
           </svg>
           Filter
         </a>
-        <a href="#"
-           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
-          </svg>
-          Export
-        </a>
+{# Newer endpoint #}
+<a href="{{ url_for('export_candidates_csv', tenant=tenant_slug) }}"
+   class="inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+  Export
+</a>
+
+{# If you prefer the legacy endpoint, use this instead: #}
+{# <a href="{{ url_for('candidates_export_csv', tenant=tenant_slug) }}">Export</a> #}
+
       </div>
     </div>
 
@@ -105,7 +106,7 @@
           <thead>
             <tr class="text-slate border-y border-gray-200">
               <th class="text-left font-medium py-3 pl-4 w-10">
-                <input type="checkbox" class="rounded border-gray-300">
+                <input id="select-all" type="checkbox" class="rounded border-gray-300">
               </th>
               <th class="text-left font-medium py-3 w-56">{{ sort_link('Name', 'name') }}</th>
               <th class="text-left font-medium py-3 w-48">{{ sort_link('Job Title', 'job') }}</th>
@@ -121,7 +122,7 @@
             {% for c in items %}
             <tr class="border-t border-gray-200 hover:bg-gray-50/60">
               <td class="py-3 pl-4">
-                <input type="checkbox" class="rounded border-gray-300">
+                  <input type="checkbox" class="rounded border-gray-300 row-check" name="sel" value="{{ c.id }}">
               </td>
 
               <td class="py-3">
@@ -219,4 +220,12 @@
 
   {% endif %}
 </div>
+<script>
+(function () {
+  const all = document.getElementById('select-all');
+  const rows = () => Array.from(document.querySelectorAll('input.row-check'));
+  all?.addEventListener('change', () => rows().forEach(cb => { cb.checked = all.checked; }));
+})();
+</script>
+
 {% endblock %}

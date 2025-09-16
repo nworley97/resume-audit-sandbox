@@ -150,4 +150,16 @@
 
   updateStartState();
 </script>
+<script>
+(function () {
+  const flagUrl = "{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}";
+  function sendFlag() {
+    try { navigator.sendBeacon(flagUrl); }
+    catch { fetch(flagUrl, { method: 'POST', keepalive: true }); }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) sendFlag(); });
+  window.addEventListener('pagehide', sendFlag);
+})();
+</script>
+
 {% endblock %}
