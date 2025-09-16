@@ -667,8 +667,31 @@ ALLOWED_ATTRS = {
 }
 CSS_ALLOWED = CSSSanitizer(allowed_css_properties=["font-family","font-weight","text-decoration"])
 def sanitize_jd(html: str) -> str:
-    linked = bleach.linkify(html or "")
-    return bleach.clean(linked, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, css_sanitizer=CSS_ALLOWED, strip=True)
+    """
+    Preserve author formatting for plaintext job descriptions while still
+    sanitizing real HTML.
+
+    - If the input looks like plaintext (no '<' or '>'), convert:
+        \n\n -> paragraph breaks
+        \n   -> <br>
+    - Then linkify and clean as before.
+    """
+    raw = (html or "")
+    if "<" not in raw and ">" not in raw:
+        # Normalize newlines
+        raw = raw.replace("\r\n", "\n")
+        # Turn paragraphs and line breaks into HTML
+        raw = "<p>" + raw.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+
+    linked = bleach.linkify(raw)
+    return bleach.clean(
+        linked,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        css_sanitizer=CSS_ALLOWED,
+        strip=True,
+    )
+
 
 # ─── JD Management ───────────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
