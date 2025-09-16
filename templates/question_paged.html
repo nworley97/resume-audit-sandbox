@@ -19,8 +19,13 @@
 
   <!-- Question card -->
   <div class="bg-white ring-1 ring-gray-200 rounded-xl p-5 mb-4">
-    <div class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px]">
-      Discussion • Question {{ idx + 1 }}
+    <div class="flex items-start justify-between">
+      <div class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px]">
+        Discussion • Question {{ idx + 1 }}
+      </div>
+      <!-- Timer chip (moved here to match screenshot location) -->
+      <span id="q-timer"
+            class="inline-flex items-center rounded-md bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px] select-none">0:00</span>
     </div>
     <p class="mt-2 text-gray-900 font-medium">
       {{ q }}
@@ -30,6 +35,10 @@
   <!-- Answer card -->
   <form method="post" class="bg-white ring-1 ring-gray-200 rounded-xl p-5">
     <label class="block text-sm font-medium text-gray-900 mb-2">Your Response</label>
+
+	<input type="hidden" name="elapsed_ms" id="elapsed_ms" value="0">
+	{# helps server if route doesn't carry index in the URL #}
+	<input type="hidden" name="q_index" value="{{ i|default(q_index)|default(0) }}">
 
     <textarea
       name="answer"
@@ -90,5 +99,28 @@
   window.addEventListener('pagehide', sendFlag);
 })();
 </script>
+<script>
+(function () {
+  var start = Date.now();
+  var chip  = document.getElementById('q-timer');
+  function render() {
+    var s = Math.floor((Date.now() - start) / 1000);
+    var m = Math.floor(s / 60);
+    var ss = String(s % 60).padStart(2, '0');
+    if (chip) chip.textContent = m + ':' + ss;
+  }
+  render();
+  var iv = setInterval(render, 1000);
 
+  var form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function () {
+      clearInterval(iv);
+      var ms = Math.max(0, Date.now() - start);
+      var fld = document.getElementById('elapsed_ms');
+      if (fld) fld.value = String(ms);
+    });
+  }
+})();
+</script>
 {% endblock %}
