@@ -36,8 +36,10 @@
   </div>
 
   <!-- Form -->
-  <form method="post" class="space-y-6">
-  <input type="hidden" name="jd_status" id="jd_status" value="{{ jd.status or 'draft' }}">
+  <form method="post"
+        action="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) if jd and jd.code else url_for('edit_jd', tenant=tenant_slug) }}"
+        class="space-y-6">
+    <input type="hidden" name="jd_status" id="jd_status" value="{{ jd.status or 'draft' }}">
 
     <!-- Basic Information card -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -49,21 +51,21 @@
           <label class="block text-sm text-gray-700 mb-1">
             Job Title <span class="text-red-500">*</span>
           </label>
-          <input name="title" value="{{ jd.title or '' }}" required
+          <input name="jd_title" value="{{ jd.title or '' }}" required
                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
 
-        <!-- Job ID (label only changed) -->
+        <!-- Job ID -->
         <div>
           <label class="block text-sm text-gray-700 mb-1">Job ID</label>
-          <input name="jd_id" value="{{ jd.jd_id or '' }}"
+          <input name="jd_code" value="{{ jd.jd_id or jd.code or '' }}"
                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
 
-        <!-- Department -->
+        <!-- Department / Team -->
         <div>
           <label class="block text-sm text-gray-700 mb-1">Department / Team</label>
-          <input name="department" value="{{ jd.department or '' }}"
+          <input name="jd_department" value="{{ jd.department or '' }}"
                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
 
@@ -138,30 +140,35 @@
       <!-- Role description -->
       <div class="mt-4">
         <label class="block text-sm text-gray-700 mb-1">Role Description</label>
-        <textarea name="description" rows="7"
-                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">{{ jd.description or '' }}</textarea>
+        <textarea name="jd_text" rows="7"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">{{ jd.description or jd.html or '' }}</textarea>
       </div>
     </div>
 
     <!-- Self-identification survey -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-  <h2 class="text-lg font-semibold text-title mb-3">Self-Identification Survey</h2>
-  <label class="inline-flex items-center gap-2 cursor-pointer">
-    <input type="checkbox" name="id_surveys_enabled" value="1"
-           class="sr-only peer"
-           {% if jd and jd.id_surveys_enabled %}checked{% endif %}>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <h2 class="text-lg font-semibold text-title mb-3">Self-Identification Survey</h2>
 
-    <span class="relative inline-block w-9 h-5 bg-gray-200 rounded-full transition
-                 peer-checked:bg-blue-500">
-      <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition
-                   peer-checked:translate-x-4"></span>
-    </span>
+      <!-- tiny fallback so the knob slides even if Tailwind misses peer-checked -->
+      <style>
+        input.peer:checked + span > span { transform: translateX(1rem); }
+        input.peer:checked + span { background: rgb(59 130 246); }
+      </style>
 
-    <span class="text-sm text-gray-700">Enable self-identification survey</span>
-  </label>
-</div>
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" name="id_surveys_enabled" value="1"
+               class="sr-only peer"
+               {% if jd and jd.id_surveys_enabled %}checked{% endif %}>
 
+        <span class="relative inline-block w-9 h-5 bg-gray-200 rounded-full transition
+                     peer-checked:bg-blue-500">
+          <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition
+                       peer-checked:translate-x-4"></span>
+        </span>
 
+        <span class="text-sm text-gray-700">Enable self-identification survey</span>
+      </label>
+    </div>
 
     <!-- Question Settings (own card) -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -176,7 +183,7 @@
 
       <div class="mt-4 max-w-xs">
         <label class="block text-sm text-gray-700 mb-1">Number of Questions</label>
-        <select name="questions_count"
+        <select name="question_count"
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
           {% set qc = (jd.questions_count if jd and jd.questions_count is not none else 3) %}
           {% for n in [1,2,3,4,5] %}
@@ -206,37 +213,37 @@
     </div>
 
     <!-- Actions -->
-<div class="flex items-center justify-end gap-2">
-  {# Delete: if you want server-side delete, prefer a link to delete_jd #}
-  <a href="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
-     class="rounded-lg border px-3 py-2 text-sm
-            {{ '' if not has_candidates else 'pointer-events-none opacity-50' }}"
-     onclick="return confirm('Delete this job?');">
-    Delete
-  </a>
-  {% if has_candidates %}
-    <span class="ml-2 text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
-  {% endif %}
+    <div class="flex items-center justify-end gap-2">
+      {# Delete: server enforces "no delete if applicants exist" #}
+      <a href="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
+         class="rounded-lg border px-3 py-2 text-sm
+                {{ '' if not has_candidates else 'pointer-events-none opacity-50' }}"
+         onclick="return confirm('Delete this job?');">
+        Delete
+      </a>
+      {% if has_candidates %}
+        <span class="ml-2 text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
+      {% endif %}
 
-  {# Close = simple link back (no post) #}
-  <a href="{{ url_for('recruiter', tenant=tenant_slug) }}"
-     data-noload
-     class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</a>
+      {# Close = simple link back (no post) #}
+      <a href="{{ url_for('recruiter', tenant=tenant_slug) }}"
+         data-noload
+         class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</a>
 
-  {# Save as Draft (sets status) #}
-  <button type="submit"
-          onclick="document.getElementById('jd_status').value='draft'"
-          class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-    Save as Draft
-  </button>
+      {# Save as Draft (sets status) #}
+      <button type="submit"
+              onclick="document.getElementById('jd_status').value='draft'"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+        Save as Draft
+      </button>
 
-  {# Publish (sets status to open) #}
-  <button type="submit"
-          onclick="document.getElementById('jd_status').value='open'"
-          class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">
-    Publish Job
-  </button>
-</div>
+      {# Publish (sets status to open) #}
+      <button type="submit"
+              onclick="document.getElementById('jd_status').value='open'"
+              class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">
+        Publish Job
+      </button>
+    </div>
 
   </form>
 </div>
