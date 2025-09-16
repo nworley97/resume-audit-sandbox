@@ -132,6 +132,29 @@ def inject_brand():
         "brand_name": display,
     }
 
+# ---------- Pagination helper (additive) ----------
+@app.context_processor
+def inject_pagination_helpers():
+    from flask import request, url_for
+
+    def page_url(target_page: int):
+        """Build a link to the current endpoint, preserving route args & query params, with the given page."""
+        ep = request.endpoint
+        params = dict(request.view_args or {})
+        params.update(request.args.to_dict(flat=True))
+        try:
+            p = int(target_page)
+        except Exception:
+            p = 1
+        if p < 1:
+            p = 1
+        params["page"] = p
+        return url_for(ep, **params)
+
+    return {"page_url": page_url}
+# ---------- /Pagination helper ----------
+
+
 @app.context_processor
 def inject_public_links():
     # Helper builders so templates don’t need to know endpoint names
