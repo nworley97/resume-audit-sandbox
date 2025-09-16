@@ -38,7 +38,8 @@
 
 	<input type="hidden" name="elapsed_ms" id="elapsed_ms" value="0">
 	{# helps server if route doesn't carry index in the URL #}
-	<input type="hidden" name="q_index" value="{{ i|default(q_index)|default(0) }}">
+	<input type="hidden" name="q_index" value="{{ idx }}">
+
 
     <textarea
       name="answer"
@@ -91,14 +92,29 @@
 <script>
 (function () {
   const flagUrl = "{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}";
-  function sendFlag() {
+  let internalNav = false; // set true on in-flow form submission
+
+  function sendFlagSafe() {
+    if (internalNav) return;             // don't count Next/Prev submits
+    if (document.visibilityState !== 'hidden') return; // extra safety
     try { navigator.sendBeacon(flagUrl); }
     catch { fetch(flagUrl, { method: 'POST', keepalive: true }); }
   }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) sendFlag(); });
-  window.addEventListener('pagehide', sendFlag);
+
+  // mark internal navigation before unload
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', () => { internalNav = true; }, { capture: true });
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) sendFlagSafe();
+  });
+
+  window.addEventListener('pagehide', sendFlagSafe);
 })();
 </script>
+
 <script>
 (function () {
   var start = Date.now();
@@ -123,4 +139,5 @@
   }
 })();
 </script>
+
 {% endblock %}
