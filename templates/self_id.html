@@ -42,22 +42,14 @@
           <option {% if form_data and form_data.get('hispanic')=='Decline to self-identify' %}selected{% endif %}>Decline to self-identify</option>
         </select>
 
-        <div class="flex items-center gap-2 text-xs mt-2">
-          <a href="https://job-boards.cdn.greenhouse.io/docs/2023/RaceEthnicityDefinitions.pdf"
-             target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">
-            Race &amp; Ethnicity Definitions (PDF)
-          </a>
-          <span class="text-gray-400">|</span>
-          <button type="button"
-                  class="text-blue-600 hover:underline"
-                  @click="open = !open"
-                  x-data="{ open: false }"
-                  x-on:click.prevent
-                  aria-controls="raceEthCollapse"
-                  :aria-expanded="open.toString()">
-            View summary
-          </button>
-        </div>
+<div class="flex items-center gap-2 text-xs mt-2">
+  <a href="{{ url_for('static', filename='pdfs/RaceEthnicityDefinitions.pdf') }}"
+     download
+     class="text-blue-600 hover:underline">
+    Race &amp; Ethnicity Definitions (PDF)
+  </a>
+</div>
+
 
         <!-- Collapsible summary (Alpine-less fallback using details) -->
         <details id="raceEthCollapse" class="mt-2">

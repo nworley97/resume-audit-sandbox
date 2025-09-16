@@ -245,6 +245,24 @@
   {% endif %}
 </div>
 
+<script>
+(function () {
+  // Scope to the first data table on this page
+  const table = document.querySelector('table.w-full.text-sm');
+  if (!table) return;
+
+  const headerCb = table.querySelector('thead th input[type="checkbox"]');
+  const rowCbs = () =>
+    Array.from(table.querySelectorAll('tbody td input[type="checkbox"]'));
+
+  headerCb?.addEventListener('change', () => {
+    const checked = headerCb.checked;
+    rowCbs().forEach(cb => { cb.checked = checked; });
+  });
+})();
+</script>
+
+
   </div>
   
 </div>
