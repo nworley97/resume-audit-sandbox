@@ -166,10 +166,10 @@
     </div>
 
     <div class="px-4 py-3 flex items-center justify-between">
-      <a href="{{ url_for('candidates_overview', tenant=tenant.slug) }}"
-         class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-        ← Back to Candidates
-      </a>
+<a href="{{ url_for('view_candidates', tenant=tenant.slug, code=jd.code) if jd else url_for('candidates_overview', tenant=tenant.slug) }}"
+   class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+  ← Back to Candidates
+</a>
     </div>
   </div>
 

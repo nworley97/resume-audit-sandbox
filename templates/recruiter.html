@@ -156,8 +156,25 @@
   </td>
 
   {# NEW: fixed-width actions cell to stop layout jumps #}
-  <td class="py-3 pr-4">
-    <div class="flex items-center justify-end gap-2 shrink-0">
+{# Fixed-width actions + restored initials stack #}
+<td class="py-3 pr-4">
+  <div class="flex items-center justify-between gap-3">
+    <!-- Initials (+N) stack with width cap so buttons don't jump -->
+    <div class="flex -space-x-2 max-w-[9rem] overflow-hidden">
+      {% for ini in (cand_peeks.get(jd.code) or []) %}
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-700 ring-2 ring-white">
+          {{ ini }}
+        </span>
+      {% endfor %}
+      {% if cand_more.get(jd.code) %}
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-600 ring-2 ring-white">
+          +{{ cand_more.get(jd.code) }}
+        </span>
+      {% endif %}
+    </div>
+
+    <!-- Buttons with fixed width; prevent shrinking -->
+    <div class="flex items-center gap-2 justify-end shrink-0">
       <a href="{{ url_for('view_candidates', tenant=tenant_slug, code=jd.code) }}"
          class="inline-flex items-center justify-center rounded-lg border border-gray-300
                 px-2.5 py-1.5 text-xs hover:bg-gray-50 w-32">
@@ -169,7 +186,9 @@
         Edit
       </a>
     </div>
-  </td>
+  </div>
+</td>
+
 </tr>
 
           {% endfor %}

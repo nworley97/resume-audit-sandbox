@@ -37,6 +37,7 @@
 
   <!-- Form -->
   <form method="post" class="space-y-6">
+  <input type="hidden" name="jd_status" id="jd_status" value="{{ jd.status or 'draft' }}">
 
     <!-- Basic Information card -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -145,16 +146,21 @@
     <!-- Self-identification survey -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
   <h2 class="text-lg font-semibold text-title mb-3">Self-Identification Survey</h2>
-  <label class="inline-flex items-center gap-2">
+  <label class="inline-flex items-center gap-2 cursor-pointer">
     <input type="checkbox" name="id_surveys_enabled" value="1"
-           class="sr-only" {% if jd and jd.id_surveys_enabled %}checked{% endif %}>
-    <span class="relative inline-block w-9 h-5 bg-gray-200 rounded-full transition">
+           class="sr-only peer"
+           {% if jd and jd.id_surveys_enabled %}checked{% endif %}>
+
+    <span class="relative inline-block w-9 h-5 bg-gray-200 rounded-full transition
+                 peer-checked:bg-blue-500">
       <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition
-        {% if jd and jd.id_surveys_enabled %} translate-x-4 bg-white {% endif %}"></span>
+                   peer-checked:translate-x-4"></span>
     </span>
+
     <span class="text-sm text-gray-700">Enable self-identification survey</span>
   </label>
 </div>
+
 
 
     <!-- Question Settings (own card) -->
@@ -200,24 +206,38 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-2">
-      <button type="submit" name="action" value="delete"
-        class="rounded-lg border px-3 py-2 text-sm
-               {{ 'border-gray-300 text-gray-600 hover:bg-gray-50' if not has_candidates else 'border-gray-200 text-gray-300 cursor-not-allowed' }}"
-        {{ 'disabled' if has_candidates }}>
-		  Delete
-		</button>
-		{% if has_candidates %}
-		  <span class="ml-2 text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
-		{% endif %}
+<div class="flex items-center justify-end gap-2">
+  {# Delete: if you want server-side delete, prefer a link to delete_jd #}
+  <a href="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
+     class="rounded-lg border px-3 py-2 text-sm
+            {{ '' if not has_candidates else 'pointer-events-none opacity-50' }}"
+     onclick="return confirm('Delete this job?');">
+    Delete
+  </a>
+  {% if has_candidates %}
+    <span class="ml-2 text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
+  {% endif %}
 
-      <button type="submit" name="action" value="close"
-              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</button>
-      <button type="submit" name="action" value="draft"
-              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Save as Draft</button>
-      <button type="submit" name="action" value="publish"
-              class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">Publish Job</button>
-    </div>
+  {# Close = simple link back (no post) #}
+  <a href="{{ url_for('recruiter', tenant=tenant_slug) }}"
+     data-noload
+     class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</a>
+
+  {# Save as Draft (sets status) #}
+  <button type="submit"
+          onclick="document.getElementById('jd_status').value='draft'"
+          class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+    Save as Draft
+  </button>
+
+  {# Publish (sets status to open) #}
+  <button type="submit"
+          onclick="document.getElementById('jd_status').value='open'"
+          class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">
+    Publish Job
+  </button>
+</div>
+
   </form>
 </div>
 

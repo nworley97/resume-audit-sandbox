@@ -1,13 +1,11 @@
 <header class="w-full bg-white border-b border-gray-200">
-  <div class="flex items-center justify-end px-4 py-3">
-    <!-- Right side avatar only (no brand text to avoid the extra header label) -->
+  <div class="flex items-center justify-end gap-3 px-4 py-3">
+    <a href="{{ url_for('logout') }}" data-noload
+       class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
+      Sign out
+    </a>
     <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
       {{ (current_user.username[:2] if current_user and current_user.username else 'JD') | upper }}
     </div>
   </div>
-  <a href="{{ url_for('logout') }}" data-noload
-   class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
-  Sign out
-</a>
-
 </header>
