@@ -844,7 +844,7 @@ def recruiter(tenant=None):
         # Base query
         q = db.query(JobDescription).filter_by(tenant_id=t.id)
 
-        # Search filter: title/code (and department additively; harmless if present)
+        # Search filter (title / code / department)  ⬅️ additive
         if q_str:
             like = f"%{q_str}%"
             q = q.filter(or_(
@@ -889,7 +889,7 @@ def recruiter(tenant=None):
             if key in status_counts:
                 status_counts[key] = c
 
-        # initials peeks for View Candidates column (unchanged)
+        # === initials peeks for the "View Candidates" column (unchanged) ===
         def _initials_from_candidate(c):
             fn = getattr(c, "first_name", None) or ""
             ln = getattr(c, "last_name", None) or ""
@@ -899,11 +899,15 @@ def recruiter(tenant=None):
             if not name:
                 return "?"
             parts = [p for p in name.split() if p]
+            if not parts:
+                return "?"
             if len(parts) == 1:
                 return parts[0][:1].upper()
             return (parts[0][:1] + parts[-1][:1]).upper()
 
-        cand_peeks, cand_more = {}, {}
+        cand_peeks = {}
+        cand_more  = {}
+
         for jd in items:
             cq = (
                 db.query(Candidate)
@@ -912,12 +916,14 @@ def recruiter(tenant=None):
             )
             cands = cq.all()
             initials = [_initials_from_candidate(c) for c in cands]
-            cand_peeks[jd.code] = initials[:3]
-            extra = max(0, len(initials) - 3)
+            cand_peeks[jd.code] = initials[:3]            # up to 3 circles
+            extra = max(0, len(initials) - 3)             # remainder as +N
             if extra:
                 cand_more[jd.code] = extra
 
-        brand_name = getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
+        brand_name = (
+            getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
+        )
 
         return render_template(
             "recruiter.html",
@@ -933,6 +939,8 @@ def recruiter(tenant=None):
         db.close()
 
 
+
+# ---- Candidates Overview (all candidates across tenant) ----
 # ---- Candidates Overview (all candidates across tenant) ----
 # ---- Candidates Overview (all candidates across tenant) ----
 @app.route("/recruiter/candidates")
@@ -946,7 +954,7 @@ def candidates_overview(tenant=None):
             return redirect(url_for("candidates_overview", tenant=slug))
         return redirect(url_for("login"))
 
-    q = (request.args.get("q", "")).strip()
+    q = request.args.get("q", "").strip()
     sort = request.args.get("sort", "applied")      # name | job | dept | score | relevancy | applied
     dir_ = request.args.get("dir", "desc")
     page = max(int(request.args.get("page", 1)), 1)
@@ -956,45 +964,64 @@ def candidates_overview(tenant=None):
     try:
         qry = db.query(Candidate).filter_by(tenant_id=t.id)
 
-        # Free-text search across name/title/dept/jd_code (+ optional Candidate.name)
+        # Free-text search across available columns (defensive)
         if q:
             like = f"%{q}%"
-            qry = qry.filter(or_(
-                Candidate.first_name.ilike(like),
-                Candidate.last_name.ilike(like),
-                Candidate.job_title.ilike(like),
-                Candidate.department.ilike(like),
-                Candidate.jd_code.ilike(like),
-                Candidate.name.ilike(like),  # if column exists; harmless otherwise if mapped
-                func.concat(Candidate.first_name, " ", Candidate.last_name).ilike(like),
-            ))
+            conds = []
+            if hasattr(Candidate, "name"):
+                conds.append(Candidate.name.ilike(like))
+            if hasattr(Candidate, "job_title"):
+                conds.append(Candidate.job_title.ilike(like))
+            if hasattr(Candidate, "department"):
+                conds.append(Candidate.department.ilike(like))
+            if hasattr(Candidate, "jd_code"):
+                conds.append(Candidate.jd_code.ilike(like))
+            if hasattr(Candidate, "first_name"):
+                conds.append(Candidate.first_name.ilike(like))
+            if hasattr(Candidate, "last_name"):
+                conds.append(Candidate.last_name.ilike(like))
+                if hasattr(Candidate, "first_name"):
+                    conds.append(func.concat(Candidate.first_name, " ", Candidate.last_name).ilike(like))
+            if conds:
+                qry = qry.filter(or_(*conds))
 
         rows = list(qry.all())
 
         # Precompute fields per row (unchanged)
         for c in rows:
+            # Claim Validity (0–5)
             scores = getattr(c, "answer_scores", None) or []
             try:
                 c.score = (sum(scores) / len(scores)) if scores else None
             except Exception:
                 c.score = None
 
+            # Relevancy normalize to 0–5
             raw_r = getattr(c, "relevancy", None)
             if raw_r is None:
                 raw_r = getattr(c, "fit_score", None)
             if raw_r is None:
                 raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
-
             if raw_r is None:
                 c.relevancy = 0.0
             else:
                 c.relevancy = (float(raw_r) / 20.0) if float(raw_r) > 5 else float(raw_r)
 
+            # Applied date: created_at fallback
             c.applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None) or getattr(c, "date_applied", None)
 
         reverse = (dir_ == "desc")
+
+        def _name_key(x):
+            full = (getattr(x, "name", "") or "").strip()
+            if not full:
+                first = getattr(x, "first_name", "") or ""
+                last  = getattr(x, "last_name", "") or ""
+                full = f"{first} {last}".strip()
+            return full.lower()
+
         key_map = {
-            "name":      lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
+            "name":      _name_key,
             "job":       lambda x: (getattr(x, "job_title", "") or ""),
             "dept":      lambda x: (getattr(x, "department", "") or ""),
             "score":     lambda x: (x.score is None, x.score or 0),
@@ -1022,12 +1049,13 @@ def candidates_overview(tenant=None):
             page=page,
             pages=pages,
             q=q, sort=sort, dir=dir_,
-            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,
-            REL_GREEN=4.0, REL_YELLOW=3.0,
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,   # claim validity thresholds (0–5)
+            REL_GREEN=4.0, REL_YELLOW=3.0,       # relevancy thresholds (0–5)
             has_candidate_detail=True,
         )
     finally:
         db.close()
+
 
 
 # ---- Export CSV for candidates ----
@@ -1173,7 +1201,7 @@ def view_candidates(code, tenant=None):
             return redirect(url_for("view_candidates", tenant=slug, code=code))
         return redirect(url_for("login"))
 
-    q = (request.args.get("q", "")).strip()
+    q = request.args.get("q", "").strip()
     sort = request.args.get("sort", "applied")
     dir_ = request.args.get("dir", "desc")
     page = max(int(request.args.get("page", 1)), 1)
@@ -1185,29 +1213,37 @@ def view_candidates(code, tenant=None):
 
         qry = db.query(Candidate).filter_by(tenant_id=t.id, jd_code=code)
 
-        # Free-text search across name/title/dept/jd_code (+ optional Candidate.name)
+        # Free-text search across available columns (defensive)
         if q:
             like = f"%{q}%"
-            qry = qry.filter(or_(
-                Candidate.first_name.ilike(like),
-                Candidate.last_name.ilike(like),
-                Candidate.job_title.ilike(like),
-                Candidate.department.ilike(like),
-                Candidate.jd_code.ilike(like),
-                Candidate.name.ilike(like),
-                func.concat(Candidate.first_name, " ", Candidate.last_name).ilike(like),
-            ))
+            conds = []
+            if hasattr(Candidate, "name"):
+                conds.append(Candidate.name.ilike(like))
+            if hasattr(Candidate, "job_title"):
+                conds.append(Candidate.job_title.ilike(like))
+            if hasattr(Candidate, "department"):
+                conds.append(Candidate.department.ilike(like))
+            if hasattr(Candidate, "jd_code"):
+                conds.append(Candidate.jd_code.ilike(like))
+            if hasattr(Candidate, "first_name"):
+                conds.append(Candidate.first_name.ilike(like))
+            if hasattr(Candidate, "last_name"):
+                conds.append(Candidate.last_name.ilike(like))
+                if hasattr(Candidate, "first_name"):
+                    conds.append(func.concat(Candidate.first_name, " ", Candidate.last_name).ilike(like))
+            if conds:
+                qry = qry.filter(or_(*conds))
 
         rows = list(qry.all())
-
-        # Precompute fields per row (unchanged)
         for c in rows:
+            # Claim Validity (0–5)
             scores = getattr(c, "answer_scores", None) or []
             try:
                 c.score = (sum(scores)/len(scores)) if scores else None
             except Exception:
                 c.score = None
 
+            # Relevancy normalize to 0–5 (NO percent)
             raw_r = getattr(c, "relevancy", None)
             if raw_r is None:
                 raw_r = getattr(c, "fit_score", None)
@@ -1218,11 +1254,21 @@ def view_candidates(code, tenant=None):
             else:
                 c.relevancy = (float(raw_r) / 20.0) if float(raw_r) > 5 else float(raw_r)
 
+            # Applied date
             c.applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None)
 
         reverse = (dir_ == "desc")
+
+        def _name_key(x):
+            full = (getattr(x, "name", "") or "").strip()
+            if not full:
+                first = getattr(x, "first_name", "") or ""
+                last  = getattr(x, "last_name", "") or ""
+                full = f"{first} {last}".strip()
+            return full.lower()
+
         key_map = {
-            "name":      lambda x: (((x.first_name or "") + " " + (x.last_name or "")).lower()),
+            "name":      _name_key,
             "job":       lambda x: getattr(x, "job_title", None) or (x.resume_json or {}).get("job_title", "") or "",
             "dept":      lambda x: (x.department or ""),
             "score":     lambda x: (x.score is None, x.score or 0),
@@ -1236,7 +1282,6 @@ def view_candidates(code, tenant=None):
         start = (page - 1) * per_page
         end = start + per_page
         items = rows[start:end]
-
         brand_name = getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
 
         return render_template(
@@ -1250,8 +1295,8 @@ def view_candidates(code, tenant=None):
             page=page,
             pages=pages,
             q=q, sort=sort, dir=dir_,
-            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,
-            REL_GREEN=4.0, REL_YELLOW=3.0,
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,  # claim validity thresholds (0–5)
+            REL_GREEN=4.0, REL_YELLOW=3.0,      # relevancy thresholds (0–5)
             has_candidate_detail=True,
         )
     finally:
