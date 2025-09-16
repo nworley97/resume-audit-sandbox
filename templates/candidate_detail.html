@@ -99,10 +99,28 @@
     <div class="px-4 py-3 flex items-center justify-between">
       <h2 class="text-lg font-semibold text-gray-900">AI Q&amp;A Assessment</h2>
 
+      {# --- timing calc + helper (additive, local to this template) --- #}
+      {% macro _mmss(ms) -%}
+        {%- set _s = (ms|string)|int // 1000 -%}
+        {%- set _m = _s // 60 -%}
+        {%- set _ss = '%02d' % (_s % 60) -%}
+        {{ _m }}:{{ _ss }}
+      {%- endmacro %}
+      {% set _qt = ((c.resume_json or {}).get('_q_times') or {}) %}
+      {% set _total_ms = 0 %}
+      {% for _v in _qt.values() %}
+        {% set _total_ms = _total_ms + (_v|int) %}
+      {% endfor %}
+
       <!-- right aligned mini stat strip (white boxes, colored score pills) -->
       <div class="flex items-center gap-2 text-xs">
         <div class="bg-white ring-1 ring-gray-200 rounded-md px-2 py-1 text-gray-700">
           {{ (qa or answers or [])|length }} Questions
+        </div>
+
+        <!-- Total time chip (mm:ss) -->
+        <div class="bg-white ring-1 ring-gray-200 rounded-md px-2 py-1 text-gray-700">
+          {{ _mmss(_total_ms) }}
         </div>
 
         {% set rel = relevancy or 0 %}
@@ -149,6 +167,14 @@
               <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium min-w-[2.1rem] justify-center {{ chip }}">
                 {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
               </span>
+
+              {# per-question time chip (mm:ss), right side like screenshot #}
+              {% set _key = loop.index0 ~ '' %}
+              {% set _ms  = (_qt.get(_key) or 0) %}
+              <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px]">
+                {{ _mmss(_ms) }}
+              </span>
+
               <button type="button"
                       class="toggle-qa inline-flex items-center rounded-md border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                       aria-expanded="false">

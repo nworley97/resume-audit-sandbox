@@ -153,6 +153,18 @@ def inject_pagination_helpers():
 
     return {"page_url": page_url}
 # ---------- /Pagination helper ----------
+# --- time formatting helper (mm:ss) ---
+@app.context_processor
+def inject_time_format():
+    def fmt_mmss(ms):
+        try:
+            s = int(ms) // 1000
+            m, s = divmod(s, 60)
+            return f"{m}:{s:02d}"
+        except Exception:
+            return ""
+    return {"fmt_mmss": fmt_mmss}
+# --- /time formatting helper ---
 
 
 @app.context_processor
@@ -1552,7 +1564,6 @@ def camera_gate(tenant, code, cid):
 
 
 
-# ─── Questions (paged) ───────────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/q/<int:idx>", methods=["GET", "POST"])
 def question_paged(tenant, code, cid, idx):
     t = load_tenant_by_slug(tenant)
@@ -1580,13 +1591,32 @@ def question_paged(tenant, code, cid, idx):
     if request.method == "POST":
         a = (request.form.get("answer") or "").strip()
 
+        # open a session to save answer + timing in one commit
         db = SessionLocal()
         try:
             c2 = db.get(Candidate, cid)
             if c2:
+                # --- save answer (existing behavior) ---
                 answers = list(c2.answers or [""] * n)
                 answers[idx] = a
                 c2.answers = answers
+
+                # --- per-question timing (additive) ---
+                elapsed_ms = int(request.form.get("elapsed_ms", "0") or 0)
+                # prefer hidden field; fall back to current idx
+                try:
+                    q_index = int(request.form.get("q_index", idx) or idx)
+                except Exception:
+                    q_index = idx
+                if elapsed_ms > 0:
+                    rj = dict(c2.resume_json or {})
+                    qt = dict(rj.get("_q_times") or {})   # {"0": ms, "1": ms, ...}
+                    k = str(q_index)
+                    qt[k] = int(qt.get(k, 0) or 0) + elapsed_ms
+                    rj["_q_times"] = qt
+                    c2.resume_json = rj
+                # --- /per-question timing ---
+
                 db.merge(c2)
                 db.commit()
         finally:
@@ -1625,6 +1655,7 @@ def question_paged(tenant, code, cid, idx):
         progress=progress,
         progress_pct=progress_pct,
     )
+
 
 
 # Support page (global)
