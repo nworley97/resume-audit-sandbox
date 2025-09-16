@@ -1,0 +1,49 @@
+{% macro pager(page, pages, window=2) -%}
+  {# Guard: nothing to show #}
+  {% if not pages or pages|int <= 1 %}
+    {# no pagination needed #}
+  {% else %}
+  <nav class="mt-4 flex items-center justify-center gap-2" role="navigation" aria-label="Pagination">
+
+    {# Prev #}
+    {% if page|int > 1 %}
+      <a href="{{ page_url(page-1) }}"
+         class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50"
+         aria-label="Previous page">Prev</a>
+    {% else %}
+      <span class="inline-flex items-center rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-400 cursor-not-allowed"
+            aria-disabled="true">Prev</span>
+    {% endif %}
+
+    {# Number buttons with ellipses #}
+    {% set ns = namespace(last=0) %}
+    {% for i in range(1, pages|int + 1) %}
+      {% if i == 1 or i == pages or (i >= page|int - window and i <= page|int + window) %}
+        {% if ns.last and i - ns.last > 1 %}
+          <span class="px-1 text-gray-400 select-none">…</span>
+        {% endif %}
+        {% if i == page|int %}
+          <span class="inline-flex items-center rounded-md bg-blue-600 text-white px-2.5 py-1.5 text-xs">{{ i }}</span>
+        {% else %}
+          <a href="{{ page_url(i) }}"
+             class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50">
+            {{ i }}
+          </a>
+        {% endif %}
+        {% set ns.last = i %}
+      {% endif %}
+    {% endfor %}
+
+    {# Next #}
+    {% if page|int < pages|int %}
+      <a href="{{ page_url(page+1) }}"
+         class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50"
+         aria-label="Next page">Next</a>
+    {% else %}
+      <span class="inline-flex items-center rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-400 cursor-not-allowed"
+            aria-disabled="true">Next</span>
+    {% endif %}
+
+  </nav>
+  {% endif %}
+{%- endmacro %}
