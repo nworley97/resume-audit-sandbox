@@ -65,10 +65,18 @@
           Filter
         </a>
 {# Newer endpoint #}
-<a href="{{ url_for('export_candidates_csv', tenant=tenant_slug) }}"
-   class="inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-  Export
-</a>
+{% if jd %}
+  <a href="{{ url_for('export_candidates_csv', tenant=tenant_slug, q=jd.code) }}"
+     class="inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+    Export
+  </a>
+{% else %}
+  <a href="{{ url_for('export_candidates_csv', tenant=tenant_slug) }}"
+     class="inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+    Export
+  </a>
+{% endif %}
+
 
 {# If you prefer the legacy endpoint, use this instead: #}
 {# <a href="{{ url_for('candidates_export_csv', tenant=tenant_slug) }}">Export</a> #}

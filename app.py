@@ -6,7 +6,7 @@ from functools import wraps
 import math
 import glob
 from io import StringIO
-from flask import current_app, send_from_directory, abort
+from flask import current_app, send_from_directory, abort 
 from flask import (
     Flask, request, redirect, url_for,
     render_template, flash, send_file, abort, make_response, session, g
@@ -978,10 +978,12 @@ def candidates_overview(tenant=None):
         end = start + per_page
         items = rows[start:end]
 
+        brand_name = getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
+
         return render_template(
             "candidates.html",
             tenant=t,
-            brand_name=(t.brand_name if hasattr(t, "brand_name") else "ALTERA"),
+            brand_name=brand_name,
             tenant_slug=t.slug,
             jd=None,
             items=items,
@@ -1198,11 +1200,12 @@ def view_candidates(code, tenant=None):
         start = (page - 1) * per_page
         end = start + per_page
         items = rows[start:end]
+        brand_name = getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
 
         return render_template(
             "candidates.html",
             tenant=t,
-            brand_name=(t.brand_name if hasattr(t, "brand_name") else "ALTERA"),
+            brand_name=brand_name,
             tenant_slug=t.slug,
             jd=jd,
             items=items,
