@@ -1,30 +1,54 @@
-{% extends "base.html" %}
+{% extends "base_public.html" %}
+{% block title %}Application Complete{% endblock %}
+
 {% block content %}
+<div class="max-w-4xl mx-auto py-10 px-4">
 
-<div class="card p-5 mb-4 text-center">
-  <div class="mb-3">
-    <svg class="complete-check" viewBox="0 0 72 72" width="72" height="72" aria-hidden="true">
-      <circle cx="36" cy="36" r="30" fill="none" stroke="#0b5cff" stroke-width="4"/>
-      <path d="M24 37.5l8 8 16-20" fill="none" stroke="#0b5cff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </div>
+  <!-- Top row: name + chip (left), progress (right) -->
+  <div class="mb-6 flex items-center justify-between">
+    <div class="flex items-center gap-2 text-sm">
+      {% if name %}
+        <span class="font-medium text-gray-900">{{ name }}</span>
+      {% endif %}
+      <span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px]">
+        Interview Session
+      </span>
+    </div>
 
-  <h2 class="fw-bold display-6 mb-2">Application Complete</h2>
-  <p class="text-muted mb-4">Thank you for your time. Your responses have been successfully recorded.</p>
-
-  <div class="soft-panel text-start mx-auto mb-4">
-    <div class="fw-semibold text-center mb-2">What happens next?</div>
-    <div class="text-muted small">
-      <div class="mb-1">• We will review your responses and get back to you soon.</div>
-      <div>• You will receive an email notification with the next steps.</div>
+    <div class="flex items-center gap-3">
+      <span class="text-sm text-gray-700">{{ progress_label or 'Complete' }}</span>
+      <div class="w-40 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+        <div class="h-full bg-blue-600" style="width: {{ (progress_pct or 100)|int }}%"></div>
+      </div>
+      <span class="text-sm font-medium text-gray-900">{{ (progress_pct or 100)|int }}%</span>
     </div>
   </div>
 
-  <div class="text-center py-5">
-    <h3>Thanks, {{ name }}!</h3>
-    <p class="text-muted mb-4">Your application has been submitted.</p>
-    <a class="btn btn-outline-secondary" href="{{ url_for('apply', tenant=tenant_slug, code=code) }}">Go back</a>
+  <!-- Main card -->
+  <div class="bg-white rounded-2xl ring-1 ring-gray-200 shadow-sm p-8 md:p-12 text-center">
+    <div class="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center ring-1 ring-blue-200">
+      <svg class="w-8 h-8 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <h1 class="mt-5 text-2xl md:text-3xl font-semibold text-gray-900">Application Complete</h1>
+    <p class="mt-2 text-sm text-gray-600">
+      Thank you for your time. Your response has been successfully recorded.
+    </p>
+
+    <div class="mt-8 rounded-xl ring-1 ring-gray-200 bg-gray-50 p-5 md:p-6">
+      <div class="text-sm font-medium text-gray-900 mb-1">What happens next?</div>
+      <p class="text-xs text-gray-600">
+        We will review your responses and get back to you soon.<br class="hidden md:block"/>
+        You’ll receive an email notification with the next steps.
+      </p>
+    </div>
+
+    <a href="{{ back_url or '/' }}"
+       class="mt-8 inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+      Go Back
+    </a>
   </div>
 </div>
-
 {% endblock %}

@@ -3,7 +3,10 @@ import os, json, uuid, logging, tempfile, mimetypes, re, io, csv
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
-
+import math
+import glob
+from io import StringIO
+from flask import current_app, send_from_directory, abort 
 from flask import (
     Flask, request, redirect, url_for,
     render_template, flash, send_file, abort, make_response, session, g
@@ -17,7 +20,7 @@ from flask_login import (
 import PyPDF2, docx, bleach
 from bleach.css_sanitizer import CSSSanitizer
 from openai import OpenAI
-from sqlalchemy import or_, text, inspect, func
+from sqlalchemy import or_, text, inspect, func, literal_column
 from sqlalchemy.exc import SQLAlchemyError
 from dateutil import parser as dtparse
 
@@ -95,6 +98,14 @@ def current_tenant():
     slug = getattr(g, "route_tenant_slug", None) or session.get("tenant_slug")
     return load_tenant_by_slug(slug) if slug else None
 
+
+def _latest_match(base_dir, patterns):
+    for pat in patterns:
+        matches = sorted(glob.glob(os.path.join(base_dir, pat)))
+        if matches:
+            return os.path.basename(matches[-1])
+    return None
+
 @app.before_request
 def _capture_route_tenant():
     va = getattr(request, "view_args", None) or {}
@@ -106,6 +117,13 @@ def _capture_route_tenant():
 @app.context_processor
 def inject_brand():
     t = current_tenant()
+    if not t and current_user.is_authenticated and getattr(current_user, "tenant_id", None):
+        db = SessionLocal()
+        try:
+            t = db.get(Tenant, current_user.tenant_id)
+        finally:
+            db.close()
+
     slug = t.slug if t else None
     display = t.display_name if t else "Altera"
     return {
@@ -113,6 +131,84 @@ def inject_brand():
         "tenant_slug": slug,
         "brand_name": display,
     }
+
+# ---------- Pagination helper (additive) ----------
+@app.context_processor
+def inject_pagination_helpers():
+    from flask import request, url_for
+
+    def page_url(target_page: int):
+        """Build a link to the current endpoint, preserving route args & query params, with the given page."""
+        ep = request.endpoint
+        params = dict(request.view_args or {})
+        params.update(request.args.to_dict(flat=True))
+        try:
+            p = int(target_page)
+        except Exception:
+            p = 1
+        if p < 1:
+            p = 1
+        params["page"] = p
+        return url_for(ep, **params)
+
+    return {"page_url": page_url}
+# ---------- /Pagination helper ----------
+# --- time formatting helper (mm:ss) ---
+@app.context_processor
+def inject_time_format():
+    def fmt_mmss(ms):
+        try:
+            s = int(ms) // 1000
+            m, s = divmod(s, 60)
+            return f"{m}:{s:02d}"
+        except Exception:
+            return ""
+    return {"fmt_mmss": fmt_mmss}
+# --- /time formatting helper ---
+
+
+@app.context_processor
+def inject_public_links():
+    # Helper builders so templates don’t need to know endpoint names
+    from flask import current_app, request, url_for
+
+    def _has(ep: str) -> bool:
+        return ep in current_app.view_functions
+
+    # Try to detect tenant slug from the current route
+    tenant_slug = None
+    try:
+        if request and request.view_args:
+            tenant_slug = request.view_args.get("tenant")
+    except Exception:
+        pass
+
+    def link_privacy():
+        if tenant_slug and _has("privacy_t"):
+            return url_for("privacy_t", tenant=tenant_slug)
+        return url_for("privacy") if _has("privacy") else "#"
+
+    def link_terms():
+        if tenant_slug and _has("terms_t"):
+            return url_for("terms_t", tenant=tenant_slug)
+        return url_for("terms") if _has("terms") else "#"
+
+    def link_support():
+        # Use the same page as “Forgot your password?”
+        if tenant_slug and _has("forgot_tenant"):
+            return url_for("forgot_tenant", tenant=tenant_slug)
+        if _has("forgot"):
+            return url_for("forgot")
+        # Fallback
+        return url_for("login") if _has("login") else "#"
+
+    return dict(
+        link_privacy=link_privacy,
+        link_terms=link_terms,
+        link_support=link_support,
+    )
+
+
 
 # ─── Unauthorized redirect respects tenant ───────────────────────
 @login_manager.unauthorized_handler
@@ -301,34 +397,6 @@ def home():
         return redirect(url_for("recruiter", tenant=slug))
     return redirect(url_for("login"))
 
-# ─── Privacy / Terms — download DOCX (plus tenant variants) ─────
-@app.route("/privacy")
-def privacy():
-    path = LEGAL_DIR / "20250811_Privacy.docx"
-    if not path.exists():
-        return make_response("Privacy policy coming soon.", 200)
-    return send_file(str(path),
-                     mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                     as_attachment=True,
-                     download_name="Privacy.docx")
-
-@app.route("/<tenant>/privacy")
-def privacy_t(tenant):
-    return privacy()
-
-@app.route("/terms")
-def terms():
-    path = LEGAL_DIR / "20250811_Terms.docx"
-    if not path.exists():
-        return make_response("Terms of Service coming soon.", 200)
-    return send_file(str(path),
-                     mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                     as_attachment=True,
-                     download_name="Terms.docx")
-
-@app.route("/<tenant>/terms")
-def terms_t(tenant):
-    return terms()
 
 # ─── CSV Export (All or Current View), tenant-scoped ─────────────
 @app.route("/candidates/export.csv")
@@ -599,8 +667,31 @@ ALLOWED_ATTRS = {
 }
 CSS_ALLOWED = CSSSanitizer(allowed_css_properties=["font-family","font-weight","text-decoration"])
 def sanitize_jd(html: str) -> str:
-    linked = bleach.linkify(html or "")
-    return bleach.clean(linked, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, css_sanitizer=CSS_ALLOWED, strip=True)
+    """
+    Preserve author formatting for plaintext job descriptions while still
+    sanitizing real HTML.
+
+    - If the input looks like plaintext (no '<' or '>'), convert:
+        \n\n -> paragraph breaks
+        \n   -> <br>
+    - Then linkify and clean as before.
+    """
+    raw = (html or "")
+    if "<" not in raw and ">" not in raw:
+        # Normalize newlines
+        raw = raw.replace("\r\n", "\n")
+        # Turn paragraphs and line breaks into HTML
+        raw = "<p>" + raw.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+
+    linked = bleach.linkify(raw)
+    return bleach.clean(
+        linked,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        css_sanitizer=CSS_ALLOWED,
+        strip=True,
+    )
+
 
 # ─── JD Management ───────────────────────────────────────────────
 @app.route("/edit-jd", methods=["GET","POST"])
@@ -612,7 +703,7 @@ def edit_jd(tenant=None):
         slug = session.get("tenant_slug")
         if slug: return redirect(url_for("edit_jd", tenant=slug, **request.args))
         return redirect(url_for("login"))
-
+    
     db = SessionLocal()
     try:
         code_qs = request.args.get("code")
@@ -700,8 +791,28 @@ def edit_jd(tenant=None):
                 db.add(jd); db.commit()
                 flash("JD saved")
                 return redirect(url_for("recruiter", tenant=t.slug))
+        # Build Application Link (robust: tries known endpoints, then falls back to /<tenant>/apply/<code>)
+        apply_url = ""
+        if jd and getattr(jd, "code", None):
+            from flask import current_app
+            for ep in ("public_apply", "apply_job", "apply", "job_apply"):
+                if ep in current_app.view_functions:
+                    try:
+                        apply_url = url_for(ep, tenant=t.slug, code=jd.code, _external=True)
+                        break
+                    except Exception:
+                        pass
+            if not apply_url:
+                apply_url = f"{request.url_root.rstrip('/')}/{t.slug}/apply/{jd.code}"
 
-        return render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=has_candidates)
+        # Applicant count (reuse the same db session)
+        applicant_count = 0
+        if jd and getattr(jd, "code", None):
+            applicant_count = db.query(func.count(Candidate.id))\
+                .filter(Candidate.tenant_id == t.id, Candidate.jd_code == jd.code)\
+                .scalar() or 0
+
+        return render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=has_candidates,tenant=t, apply_url=apply_url ,applicant_count=applicant_count)
     finally:
         db.close()
 
@@ -731,25 +842,410 @@ def delete_jd(code, tenant=None):
     finally:
         db.close()
 
-# ─── Recruiter Dashboard ─────────────────────────────────────────
 @app.route("/recruiter")
 @app.route("/<tenant>/recruiter")
 @login_required
 def recruiter(tenant=None):
+    # Resolve tenant or bounce to login
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
-        if slug: return redirect(url_for("recruiter", tenant=slug))
+        if slug:
+            return redirect(url_for("recruiter", tenant=slug))
         return redirect(url_for("login"))
 
     db = SessionLocal()
     try:
-        jds = db.query(JobDescription).filter(JobDescription.tenant_id == t.id).order_by(JobDescription.created_at.desc()).all()
-        counts = { jd.code: db.query(func.count(Candidate.id)).filter(Candidate.jd_code==jd.code, Candidate.tenant_id==t.id).scalar() for jd in jds }
-        return render_template("recruiter.html", title="Recruiter", jds=jds, counts=counts)
+        # Query params
+        q_str     = (request.args.get("q") or "").strip()
+        status    = (request.args.get("status") or "").strip().lower()
+        sort      = (request.args.get("sort") or "created").lower()
+        direction = (request.args.get("dir")  or "desc").lower()
+        page      = max(int(request.args.get("page", 1)), 1)
+        per_page  = min(max(int(request.args.get("per_page", 25)), 5), 100)
+
+        # Base query
+        q = db.query(JobDescription).filter_by(tenant_id=t.id)
+
+        # Search filter (title / code / department)  ⬅️ additive
+        if q_str:
+            like = f"%{q_str}%"
+            q = q.filter(or_(
+                JobDescription.title.ilike(like),
+                JobDescription.code.ilike(like),
+                JobDescription.department.ilike(like),
+            ))
+
+        # Status filter (only if provided)
+        if status in ("open", "pending", "draft", "closed", "published"):
+            q = q.filter(JobDescription.status.ilike(status))
+
+        # Sort
+        sortable = {
+            "job_id":     JobDescription.code,
+            "job_title":  JobDescription.title,
+            "department": JobDescription.department,
+            "start_date": JobDescription.start_date,
+            "end_date":   JobDescription.end_date,
+            "status":     JobDescription.status,
+            "created":    JobDescription.created_at,
+        }
+        col = sortable.get(sort, JobDescription.created_at)
+        q = q.order_by(col.asc() if direction == "asc" else col.desc())
+
+        # Pagination
+        total = q.count()
+        pages = max((total + per_page - 1) // per_page, 1)
+        if page > pages:
+            page = pages
+        items = q.offset((page - 1) * per_page).limit(per_page).all()
+
+        # Status counts (Open / Pending / Draft)
+        status_counts = {"open": 0, "pending": 0, "draft": 0}
+        for s, c in (
+            db.query(JobDescription.status, func.count(JobDescription.id))
+              .filter_by(tenant_id=t.id)
+              .group_by(JobDescription.status)
+              .all()
+        ):
+            key = (s or "").lower()
+            if key in status_counts:
+                status_counts[key] = c
+
+        # === initials peeks for the "View Candidates" column (unchanged) ===
+        def _initials_from_candidate(c):
+            fn = getattr(c, "first_name", None) or ""
+            ln = getattr(c, "last_name", None) or ""
+            if fn or ln:
+                return (fn[:1] + ln[:1]).upper()
+            name = (getattr(c, "name", "") or "").strip()
+            if not name:
+                return "?"
+            parts = [p for p in name.split() if p]
+            if not parts:
+                return "?"
+            if len(parts) == 1:
+                return parts[0][:1].upper()
+            return (parts[0][:1] + parts[-1][:1]).upper()
+
+        cand_peeks = {}
+        cand_more  = {}
+
+        for jd in items:
+            cq = (
+                db.query(Candidate)
+                  .filter_by(tenant_id=t.id, jd_code=jd.code)
+                  .order_by(Candidate.created_at.desc())
+            )
+            cands = cq.all()
+            initials = [_initials_from_candidate(c) for c in cands]
+            cand_peeks[jd.code] = initials[:3]            # up to 3 circles
+            extra = max(0, len(initials) - 3)             # remainder as +N
+            if extra:
+                cand_more[jd.code] = extra
+
+        brand_name = (
+            getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
+        )
+
+        return render_template(
+            "recruiter.html",
+            tenant=t,
+            brand_name=brand_name,
+            q=q_str, status=status, sort=sort, dir=direction,
+            page=page, pages=pages, per_page=per_page,
+            items=items, total=total,
+            status_counts=status_counts,
+            cand_peeks=cand_peeks, cand_more=cand_more,
+        )
     finally:
         db.close()
 
+
+
+# ---- Candidates Overview (all candidates across tenant) ----
+# ---- Candidates Overview (all candidates across tenant) ----
+# ---- Candidates Overview (all candidates across tenant) ----
+@app.route("/recruiter/candidates")
+@app.route("/<tenant>/recruiter/candidates")
+@login_required
+def candidates_overview(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("candidates_overview", tenant=slug))
+        return redirect(url_for("login"))
+
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "applied")      # name | job | dept | score | relevancy | applied
+    dir_ = request.args.get("dir", "desc")
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = 10
+
+    db = SessionLocal()
+    try:
+        qry = db.query(Candidate).filter_by(tenant_id=t.id)
+
+        # Free-text search across available columns (defensive)
+        if q:
+            like = f"%{q}%"
+            conds = []
+            if hasattr(Candidate, "name"):
+                conds.append(Candidate.name.ilike(like))
+            if hasattr(Candidate, "job_title"):
+                conds.append(Candidate.job_title.ilike(like))
+            if hasattr(Candidate, "department"):
+                conds.append(Candidate.department.ilike(like))
+            if hasattr(Candidate, "jd_code"):
+                conds.append(Candidate.jd_code.ilike(like))
+            if hasattr(Candidate, "first_name"):
+                conds.append(Candidate.first_name.ilike(like))
+            if hasattr(Candidate, "last_name"):
+                conds.append(Candidate.last_name.ilike(like))
+                if hasattr(Candidate, "first_name"):
+                    conds.append(func.concat(Candidate.first_name, " ", Candidate.last_name).ilike(like))
+            if conds:
+                qry = qry.filter(or_(*conds))
+
+        rows = list(qry.all())
+
+        # Precompute fields per row (unchanged except we record _rel_missing/_score_missing)
+        for c in rows:
+            # Claim Validity (0–5)
+            scores = getattr(c, "answer_scores", None) or []
+            try:
+                c.score = (sum(scores) / len(scores)) if scores else None
+            except Exception:
+                c.score = None
+            c._score_missing = (c.score is None)  # <-- NEW: mark missing score
+
+            # Relevancy normalize to 0–5 and remember if missing
+            raw_r = getattr(c, "relevancy", None)
+            if raw_r is None:
+                raw_r = getattr(c, "fit_score", None)
+            if raw_r is None:
+                raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
+
+            _missing = (raw_r is None) or (isinstance(raw_r, str) and raw_r.strip() == "")
+            c._rel_missing = bool(_missing)  # mark missing
+
+            try:
+                val = 0.0 if _missing else float(raw_r)
+            except Exception:
+                val = 0.0
+
+            # If a percent slipped in (>5), map back to 0–5; else assume 0–5 already
+            c.relevancy = (val / 20.0) if (not _missing and val > 5.0) else (0.0 if _missing else val)
+
+            # Applied date: created_at fallback
+            c.applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None) or getattr(c, "date_applied", None)
+
+        reverse = (dir_ == "desc")
+
+        def _name_key(x):
+            full = (getattr(x, "name", "") or "").strip()
+            if not full:
+                first = getattr(x, "first_name", "") or ""
+                last  = getattr(x, "last_name", "") or ""
+                full = f"{first} {last}".strip()
+            return full.lower()
+
+        key_map = {
+            "name":      _name_key,
+            "job":       lambda x: (getattr(x, "job_title", "") or ""),
+            "dept":      lambda x: (getattr(x, "department", "") or ""),
+            "score":     lambda x: (x._score_missing, x.score or 0),   # keep entry; overridden below when sort=='score'
+            "relevancy": lambda x: (x._rel_missing, x.relevancy or 0), # keep entry; overridden below when sort=='relevancy'
+            "applied":   lambda x: (x.applied_at or datetime.min),
+        }
+
+        # --- Blanks-last sorts for 'relevancy' and 'score' (additive) ---
+        if sort == "relevancy":
+            desc = (dir_ == "desc")
+            def _rel_key(x):
+                missing = getattr(x, "_rel_missing", False) or (x.relevancy is None)
+                try:
+                    val = float(x.relevancy or 0.0)
+                except Exception:
+                    val = 0.0
+                return (missing, -val) if desc else (missing, val)
+            rows.sort(key=_rel_key)
+        elif sort == "score":
+            desc = (dir_ == "desc")
+            def _score_key(x):
+                missing = getattr(x, "_score_missing", False) or (x.score is None)
+                try:
+                    val = float(x.score or 0.0)
+                except Exception:
+                    val = 0.0
+                return (missing, -val) if desc else (missing, val)
+            rows.sort(key=_score_key)
+        else:
+            rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
+        # --- /blanks-last ---
+
+        total = len(rows)
+        pages = max(1, math.ceil(total / per_page))
+        start = (page - 1) * per_page
+        end = start + per_page
+        items = rows[start:end]
+
+        brand_name = getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
+
+        return render_template(
+            "candidates.html",
+            tenant=t,
+            brand_name=brand_name,
+            tenant_slug=t.slug,
+            jd=None,
+            items=items,
+            total=total,
+            page=page,
+            pages=pages,
+            q=q, sort=sort, dir=dir_,
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,   # claim validity thresholds (0–5)
+            REL_GREEN=4.0, REL_YELLOW=3.0,       # relevancy thresholds (0–5)
+            has_candidate_detail=True,
+        )
+    finally:
+        db.close()
+
+
+
+
+# ---- Export CSV for candidates ----
+@app.route("/recruiter/candidates/export")
+@app.route("/<tenant>/recruiter/candidates/export")
+@login_required
+def export_candidates_csv(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("export_candidates_csv", tenant=slug))
+        return redirect(url_for("login"))
+
+    db = SessionLocal()
+    try:
+        C = Candidate
+        J = JobDescription
+        qset = (
+            db.query(
+                C.id, C.name, C.jd_code, C.fit_score, C.answer_scores,
+                getattr(C, "relevancy", None).label("relevancy") if hasattr(C, "relevancy") else literal_column("NULL").label("relevancy"),
+                C.created_at,
+                J.title.label("job_title"),
+                J.department.label("department"),
+            ).join(J, J.code == C.jd_code, isouter=True)
+             .filter(C.tenant_id == t.id)
+        )
+
+        # optional search filter
+        q = (request.args.get("q") or "").strip()
+        if q:
+            like = f"%{q}%"
+            qset = qset.filter(or_(C.name.ilike(like), J.title.ilike(like), C.jd_code.ilike(like), J.department.ilike(like)))
+
+        rows = qset.all()
+
+        # build CSV
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["ID", "Name", "Job Title", "Department", "JD Code", "Score", "Relevancy", "Applied At"])
+        for r in rows:
+            # score calc mirrors view
+            score = r.fit_score
+            if score is None and r.answer_scores:
+                try:
+                    vals = [float(x) for x in r.answer_scores]
+                    score = (sum(vals) / len(vals)) if vals else None
+                except Exception:
+                    score = None
+            w.writerow([
+                r.id, r.name or "", r.job_title or "", r.department or "",
+                r.jd_code or "", f"{score:.2f}" if score is not None else "",
+                r.relevancy if r.relevancy is not None else "",
+                r.created_at.isoformat() if r.created_at else "",
+            ])
+
+        mem = io.BytesIO(out.getvalue().encode("utf-8"))
+        filename = f"candidates_{t.slug}.csv"
+        return send_file(mem, mimetype="text/csv", as_attachment=True, download_name=filename)
+    finally:
+        db.close()
+
+
+@app.route("/export/jobs.csv")
+@app.route("/<tenant>/export/jobs.csv")
+@login_required
+def export_jobs(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        return redirect(url_for("export_jobs", tenant=slug)) if slug else redirect(url_for("login"))
+
+    q         = (request.args.get("q") or "").strip()
+    status    = (request.args.get("status") or "").strip().lower()
+    sort      = (request.args.get("sort") or "created").lower()
+    direction = (request.args.get("dir") or "desc").lower()
+
+    db = SessionLocal()
+    try:
+        qset = db.query(JobDescription).filter(JobDescription.tenant_id == t.id)
+
+        if q:
+            like = f"%{q}%"
+            qset = qset.filter(
+                or_(JobDescription.title.ilike(like),
+                    JobDescription.code.ilike(like),
+                    JobDescription.department.ilike(like))
+            )
+        if status in {"open","pending","draft","closed"}:
+            qset = qset.filter(JobDescription.status == status)
+
+        sortables = {
+            "job_id":     JobDescription.code,
+            "job_title":  JobDescription.title,
+            "department": JobDescription.department,
+            "start_date": JobDescription.start_date,
+            "end_date":   JobDescription.end_date,
+            "status":     JobDescription.status,
+            "created":    JobDescription.created_at if hasattr(JobDescription, "created_at") else JobDescription.id,
+        }
+        col = sortables.get(sort, sortables["created"])
+        qset = qset.order_by(col.asc() if direction == "asc" else col.desc())
+
+        rows = qset.all()
+
+        out = StringIO()
+        w   = csv.writer(out)
+        w.writerow(["Job ID","Title","Department","Start Date","End Date","Status","Updated At"])
+        for jd in rows:
+            w.writerow([
+                jd.code or "",
+                jd.title or "",
+                jd.department or "",
+                jd.start_date.isoformat() if jd.start_date else "",
+                jd.end_date.isoformat() if jd.end_date else "",
+                (jd.status or "").capitalize(),
+                jd.updated_at.isoformat() if getattr(jd, "updated_at", None) else "",
+            ])
+        out.seek(0)
+        return send_file(
+            io.BytesIO(out.getvalue().encode("utf-8")),
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="jobs.csv",
+        )
+    finally:
+        db.close()
+
+
+
+# ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
+# ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
+# ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
 @app.route("/recruiter/jd/<code>")
 @app.route("/<tenant>/recruiter/jd/<code>")
 @login_required
@@ -757,74 +1253,288 @@ def view_candidates(code, tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
-        if slug: return redirect(url_for("view_candidates", tenant=slug, code=code))
+        if slug:
+            return redirect(url_for("view_candidates", tenant=slug, code=code))
         return redirect(url_for("login"))
+
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "applied")
+    dir_ = request.args.get("dir", "desc")
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = 10
+
     db = SessionLocal()
     try:
-        sort_field = (request.args.get("sort") or "created").lower()
-        sort_dir   = (request.args.get("dir")  or "desc").lower()
-        q = db.query(Candidate).filter_by(jd_code=code, tenant_id=t.id)
+        jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
 
-        # Default SQL-side sort
-        sortable = {
-            "name":    Candidate.name,
-            "fit":     Candidate.fit_score,
-            "created": Candidate.created_at,
-            "id":      Candidate.id,
+        qry = db.query(Candidate).filter_by(tenant_id=t.id, jd_code=code)
+
+        # Free-text search across available columns (defensive)
+        if q:
+            like = f"%{q}%"
+            conds = []
+            if hasattr(Candidate, "name"):
+                conds.append(Candidate.name.ilike(like))
+            if hasattr(Candidate, "job_title"):
+                conds.append(Candidate.job_title.ilike(like))
+            if hasattr(Candidate, "department"):
+                conds.append(Candidate.department.ilike(like))
+            if hasattr(Candidate, "jd_code"):
+                conds.append(Candidate.jd_code.ilike(like))
+            if hasattr(Candidate, "first_name"):
+                conds.append(Candidate.first_name.ilike(like))
+            if hasattr(Candidate, "last_name"):
+                conds.append(Candidate.last_name.ilike(like))
+                if hasattr(Candidate, "first_name"):
+                    conds.append(func.concat(Candidate.first_name, " ", Candidate.last_name).ilike(like))
+            if conds:
+                qry = qry.filter(or_(*conds))
+
+        rows = list(qry.all())
+        for c in rows:
+            # Claim Validity (0–5)
+            scores = getattr(c, "answer_scores", None) or []
+            try:
+                c.score = (sum(scores)/len(scores)) if scores else None
+            except Exception:
+                c.score = None
+            c._score_missing = (c.score is None)  # <-- NEW: mark missing score
+
+            # Relevancy normalize to 0–5 (NO percent) and remember if missing
+            raw_r = getattr(c, "relevancy", None)
+            if raw_r is None:
+                raw_r = getattr(c, "fit_score", None)
+            if raw_r is None:
+                raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
+
+            _missing = (raw_r is None) or (isinstance(raw_r, str) and raw_r.strip() == "")
+            c._rel_missing = bool(_missing)
+
+            try:
+                val = 0.0 if _missing else float(raw_r)
+            except Exception:
+                val = 0.0
+
+            c.relevancy = (val / 20.0) if (not _missing and val > 5.0) else (0.0 if _missing else val)
+
+            # Applied date
+            c.applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None)
+
+        reverse = (dir_ == "desc")
+
+        def _name_key(x):
+            full = (getattr(x, "name", "") or "").strip()
+            if not full:
+                first = getattr(x, "first_name", "") or ""
+                last  = getattr(x, "last_name", "") or ""
+                full = f"{first} {last}".strip()
+            return full.lower()
+
+        key_map = {
+            "name":      _name_key,
+            "job":       lambda x: getattr(x, "job_title", None) or (x.resume_json or {}).get("job_title", "") or "",
+            "dept":      lambda x: (x.department or ""),
+            "score":     lambda x: (x._score_missing, x.score or 0),    # keep entry; overridden below when sort=='score'
+            "relevancy": lambda x: (x._rel_missing, x.relevancy or 0),  # keep entry; overridden below when sort=='relevancy'
+            "applied":   lambda x: (x.applied_at or datetime.min)
         }
-        col = sortable.get(sort_field, Candidate.created_at)
-        q = q.order_by(col.asc() if sort_dir == "asc" else col.desc())
 
-        apps = q.all()
+        # --- Blanks-last sorts for 'relevancy' and 'score' (additive) ---
+        if sort == "relevancy":
+            desc = (dir_ == "desc")
+            def _rel_key(x):
+                missing = getattr(x, "_rel_missing", False) or (x.relevancy is None)
+                try:
+                    val = float(x.relevancy or 0.0)
+                except Exception:
+                    val = 0.0
+                return (missing, -val) if desc else (missing, val)
+            rows.sort(key=_rel_key)
+        elif sort == "score":
+            desc = (dir_ == "desc")
+            def _score_key(x):
+                missing = getattr(x, "_score_missing", False) or (x.score is None)
+                try:
+                    val = float(x.score or 0.0)
+                except Exception:
+                    val = 0.0
+                return (missing, -val) if desc else (missing, val)
+            rows.sort(key=_score_key)
+        else:
+            rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
+        # --- /blanks-last ---
 
-        # NEW: Python-side sort for claim validity
-        if sort_field == "claim":
-            def claim_avg(c):
-                if c.answer_scores and len(c.answer_scores) > 0:
-                    return sum(c.answer_scores)/len(c.answer_scores)
-                return -9999  # put empty at bottom
-            apps = sorted(apps, key=claim_avg, reverse=(sort_dir=="desc"))
+        total = len(rows)
+        pages = max(1, math.ceil(total / per_page))
+        start = (page - 1) * per_page
+        end = start + per_page
+        items = rows[start:end]
+        brand_name = getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
 
         return render_template(
-            "view_candidates.html",
-            title=f"Candidates – {code}",
-            code=code,
-            apps=apps,
-            tenant_slug=t.slug
+            "candidates.html",
+            tenant=t,
+            brand_name=brand_name,
+            tenant_slug=t.slug,
+            jd=jd,
+            items=items,
+            total=total,
+            page=page,
+            pages=pages,
+            q=q, sort=sort, dir=dir_,
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,  # claim validity thresholds (0–5)
+            REL_GREEN=4.0, REL_YELLOW=3.0,      # relevancy thresholds (0–5)
+            has_candidate_detail=True,
         )
     finally:
         db.close()
+
+
+
+
+# ---------- Candidate Detail ----------
+# ---------- Candidate Detail ----------
+@app.route("/recruiter/candidate/<id>")
+@app.route("/<tenant>/recruiter/candidate/<id>")
+@login_required
+def candidate_detail(id, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("candidate_detail", tenant=slug, id=id))
+        return redirect(url_for("login"))
+
+    db = SessionLocal()
+    try:
+        c = db.query(Candidate).filter_by(id=id, tenant_id=t.id).first()
+        if not c:
+            abort(404)
+
+        jd = None
+        if getattr(c, "jd_code", None):
+            jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first()
+
+        # Compute claim validity (average of answer_scores if present)
+        scores = list(getattr(c, "answer_scores", None) or [])
+        claim_validity = (sum(scores) / len(scores)) if scores else None
+
+        # Build zipped Q&A: list of {q, a, s}
+        qs  = list(getattr(c, "questions", None) or [])
+        ans = list(getattr(c, "answers", None) or [])
+        scs = list(getattr(c, "answer_scores", None) or [])
+        qa = []
+        n = max(len(qs), len(ans), len(scs))
+        for i in range(n):
+            qa.append({
+                "q": qs[i] if i < len(qs) else "",
+                "a": ans[i] if i < len(ans) else "",
+                "s": scs[i] if i < len(scs) else None,
+            })
+
+        # Thresholds (0–5 scales)
+        SCORE_GREEN  = 3.8
+        SCORE_YELLOW = 3.3
+        REL_GREEN    = 4.0
+        REL_YELLOW   = 3.0
+
+        # Resume preview URL
+        resume_url = getattr(c, "resume_url", None) or getattr(c, "resume_pdf", None) or ""
+
+        # Relevancy normalized to 0–5
+        raw_r = getattr(c, "relevancy", None)
+        if raw_r is None:
+            raw_r = getattr(c, "fit_score", None)
+        if raw_r is None:
+            raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
+        if raw_r is None:
+            relevancy = 0.0
+        else:
+            relevancy = (float(raw_r) / 20.0) if float(raw_r) > 5 else float(raw_r)
+
+        # Tab/focus switches
+        focus_changes = getattr(c, "left_tab_count", 0) or 0
+
+        self_id = (c.resume_json or {}).get("_self_id", {})
+
+        return render_template(
+            "candidate_detail.html",
+            tenant=t,
+            jd=jd,
+            c=c,
+            relevancy=relevancy,
+            resume_url=resume_url,
+            claim_validity=claim_validity,
+            qa=qa,
+            focus_changes=focus_changes,
+            self_id=self_id,   # <-- NEW
+            SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
+            REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
+        )
+
+    finally:
+        db.close()
+
 
 
 # ─── Global Candidates (legacy) ──────────────────────────────────
 @app.route("/candidates")
 @app.route("/<tenant>/candidates")
 @login_required
-def global_candidates(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
-    if not t:
-        slug = session.get("tenant_slug")
-        if slug: return redirect(url_for("global_candidates", tenant=slug, **request.args))
-        return redirect(url_for("login"))
+def candidates_overview_legacy(tenant):
+    tenant_obj = load_tenant_by_slug(tenant)
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "applied_at")
+    dir_ = request.args.get("dir", "desc")
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = 25
 
-    q  = request.args.get("q","").strip()
-    jd = request.args.get("jd","").strip()
+    # Build filters safely
+    filters = {}
+    if q:
+        filters["q"] = q  # your DAO should interpret across name/title/jd_code
 
-    db = SessionLocal()
-    try:
-        apps_q = db.query(Candidate).filter(Candidate.tenant_id == t.id)
-        if jd: apps_q = apps_q.filter(Candidate.jd_code==jd)
-        if q:
-            apps_q = apps_q.filter(or_(Candidate.name.ilike(f"%{q}%"), Candidate.id.ilike(f"%{q}%")))
-        apps = apps_q.order_by(Candidate.created_at.desc()).all()
-        jd_list = db.query(JobDescription).filter(JobDescription.tenant_id == t.id).order_by(JobDescription.code.asc()).all()
+    rows, total = Candidate.search_for_tenant(
+        tenant_slug=tenant_obj.slug,
+        filters=filters,
+        sort=sort,
+        direction=dir_,
+        page=page,
+        per_page=per_page,
+    )
 
-        export_url = url_for("export_candidates", tenant=t.slug) + ("?q="+q if q else "") + ("&jd="+jd if jd else "")
-        return render_template("global_candidates.html",
-            title="Candidates",
-            q=q, jd=jd, apps=apps, jd_list=jd_list, export_url=export_url)
-    finally:
-        db.close()
+    def _page_url(p):
+        args = dict(request.args)
+        args["page"] = p
+        return url_for("candidates_overview", tenant=tenant_obj.slug, **args)
+
+    def _sort_url(key):
+        args = dict(request.args)
+        if args.get("sort") == key:
+            args["dir"] = "asc" if args.get("dir") == "desc" else "desc"
+        else:
+            args["sort"] = key
+            args["dir"] = "asc"
+        return url_for("candidates_overview", tenant=tenant_obj.slug, **args)
+
+    return render_template(
+        "candidates.html",
+        tenant=tenant_obj,
+        tenant_slug=tenant_obj.slug if tenant_obj else None,
+        brand_name=current_tenant().brand_name if current_tenant() else "ALTERA",
+        rows=rows,
+        total=total,
+        page=page,
+        pages=math.ceil(total / per_page) if total else 1,
+        q=q,
+        sort=sort,
+        dir=dir_,
+        sort_url=_sort_url,
+        page_url=_page_url,
+        export_endpoint="export_candidates_csv",  # optional
+        has_candidate_detail=True,
+    )
+
 
 @app.route("/export/candidates.csv")
 @app.route("/<tenant>/export/candidates.csv")
@@ -861,13 +1571,20 @@ def apply(tenant, code):
         return abort(404)
 
     if request.method == "POST":
-        name  = request.form.get("name","").strip()
-        email = request.form.get("email","").strip()
-        f     = request.files.get("resume_file")
+        # Accept either a single "name" or split "first_name"/"last_name"
+        first = (request.form.get("first_name") or request.form.get("firstname") or "").strip()
+        last  = (request.form.get("last_name")  or request.form.get("lastname")  or "").strip()
+        name  = (request.form.get("name") or f"{first} {last}".strip()).strip()
 
-        if not name or not f or not f.filename:
+        email = (request.form.get("email") or "").strip()
+
+        # Accept either "resume_file" or "resume"
+        f = request.files.get("resume_file") or request.files.get("resume")
+
+        if not name or not (f and f.filename):
             flash("Name & file required")
             return redirect(request.url)
+
 
         ext = os.path.splitext(f.filename)[1] or ".pdf"
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
@@ -918,32 +1635,76 @@ def apply(tenant, code):
     return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd, tenant_slug=t.slug)
 
 # ─── Camera gate ─────────────────────────────────────────────────
-@app.route("/<tenant>/apply/<code>/<cid>/camera", methods=["GET","POST"])
+# Camera gate (intro/instructions + camera permission)
+# ── Camera / Interview setup ───────────────────────────────────────────────────
+@app.route("/<tenant>/apply/<code>/<cid>/camera", methods=["GET"])
 def camera_gate(tenant, code, cid):
     t = load_tenant_by_slug(tenant)
-    if not t: abort(404)
+    if not t:
+        abort(404)
 
     db = SessionLocal()
     try:
-        c  = db.get(Candidate, cid)
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
     finally:
         db.close()
-    if not c or c.jd_code != code or c.tenant_id != t.id:
-        flash("Application not found"); return redirect(url_for("apply", tenant=t.slug, code=code))
 
-    if request.method == "POST":
-        if not request.form.get("ack"):
-            flash("Please acknowledge the warning to continue.")
-            return render_template("camera_gate.html", title="Camera Check", c=c)
-        return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=0))
+    if not c:
+        abort(404)
 
-    return render_template("camera_gate.html", title="Camera Check", c=c)
+    # First name (Candidate has a single 'name' field in your DB)
+    raw_name = (c.name or "").strip()
+    first_name = raw_name.split()[0] if raw_name else "there"
 
-# ─── Questions (paged) ───────────────────────────────────────────
-@app.route("/<tenant>/apply/<code>/<cid>/q/<int:idx>", methods=["GET","POST"])
+    # Build the correct "next" URL by trying your known endpoints
+    from flask import current_app
+    from werkzeug.routing import BuildError
+    vfs = current_app.view_functions
+
+    next_url = None
+    # 1) Paged question route requires idx
+    if "question_paged" in vfs:
+        try:
+            next_url = url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=0)
+        except BuildError:
+            # Some variants also take a 'page' param, try a sensible fallback
+            try:
+                next_url = url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=0, page=1)
+            except BuildError:
+                pass
+    # 2) Non-paged route (if present)
+    if not next_url and "questions" in vfs:
+        try:
+            next_url = url_for("questions", tenant=t.slug, code=code, cid=cid)
+        except BuildError:
+            pass
+    # 3) Older start handler
+    if not next_url and "start_quiz" in vfs:
+        try:
+            next_url = url_for("start_quiz", tenant=t.slug, code=code, cid=cid)
+        except BuildError:
+            pass
+    # Final guaranteed fallback to paged with idx
+    if not next_url:
+        next_url = url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=0)
+
+    return render_template(
+        "camera_gate.html",
+        title="Interview Setup",
+        c=c,
+        tenant=t,
+        tenant_slug=t.slug,
+        first_name=first_name,
+        next_url=next_url,
+    )
+
+
+
+@app.route("/<tenant>/apply/<code>/<cid>/q/<int:idx>", methods=["GET", "POST"])
 def question_paged(tenant, code, cid, idx):
     t = load_tenant_by_slug(tenant)
-    if not t: abort(404)
+    if not t:
+        abort(404)
 
     db = SessionLocal()
     try:
@@ -951,51 +1712,92 @@ def question_paged(tenant, code, cid, idx):
         jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
     finally:
         db.close()
+
     if not c or c.jd_code != code or c.tenant_id != t.id:
-        flash("Application not found"); return redirect(url_for("apply", tenant=t.slug, code=code))
+        flash("Application not found")
+        return redirect(url_for("apply", tenant=t.slug, code=code))
 
     n = len(c.questions or [])
     if n == 0:
-        flash("No questions generated"); return redirect(url_for("apply", tenant=t.slug, code=code))
-    idx = max(0, min(idx, n-1))
+        flash("No questions generated")
+        return redirect(url_for("apply", tenant=t.slug, code=code))
+
+    idx = max(0, min(idx, n - 1))
 
     if request.method == "POST":
-        a = request.form.get("answer","").strip()
+        a = (request.form.get("answer") or "").strip()
+
+        # open a session to save answer + timing in one commit
         db = SessionLocal()
         try:
             c2 = db.get(Candidate, cid)
             if c2:
-                ans = list(c2.answers or [""]*n)
-                ans[idx] = a
-                c2.answers = ans
-                db.merge(c2); db.commit()
+                # --- save answer (existing behavior) ---
+                answers = list(c2.answers or [""] * n)
+                answers[idx] = a
+                c2.answers = answers
+
+                # --- per-question timing (additive) ---
+                elapsed_ms = int(request.form.get("elapsed_ms", "0") or 0)
+                # prefer hidden field; fall back to current idx
+                try:
+                    q_index = int(request.form.get("q_index", idx) or idx)
+                except Exception:
+                    q_index = idx
+                if elapsed_ms > 0:
+                    rj = dict(c2.resume_json or {})
+                    qt = dict(rj.get("_q_times") or {})   # {"0": ms, "1": ms, ...}
+                    k = str(q_index)
+                    qt[k] = int(qt.get(k, 0) or 0) + elapsed_ms
+                    rj["_q_times"] = qt
+                    c2.resume_json = rj
+                # --- /per-question timing ---
+
+                db.merge(c2)
+                db.commit()
         finally:
             db.close()
 
-        action = request.form.get("action","next")
+        action = request.form.get("action", "next")
         if action == "prev" and idx > 0:
-            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx-1))
-        if action == "next" and idx < n-1:
-            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx+1))
+            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx - 1))
+        if action == "next" and idx < n - 1:
+            return redirect(url_for("question_paged", tenant=t.slug, code=code, cid=cid, idx=idx + 1))
 
-        # LAST: branch based on JD toggle (NEW)
+        # last question -> branch by JD toggle
         if jd and getattr(jd, "id_surveys_enabled", True):
             return redirect(url_for("self_id", tenant=t.slug, code=code, cid=cid))
         else:
             return redirect(url_for("finish_application", tenant=t.slug, code=code, cid=cid))
 
-    current_q = c.questions[idx]
-    current_a = (c.answers or [""]*n)[idx] if c.answers else ""
-    progress  = f"Question {idx+1} of {n}"
-    return render_template("question_paged.html",
-                           title="Questions",
-                           name=c.name, code=code, cid=cid,
-                           q=current_q, a=current_a, idx=idx, n=n, progress=progress)
+    # GET
+    current_q      = c.questions[idx]
+    current_a      = (c.answers or [""] * n)[idx] if c.answers else ""
+    progress       = f"Question {idx + 1} of {n}"
+    # progress bar should show 0% on Q1 -> use idx, not idx+1
+    progress_pct   = int(idx * 100 / n)
+
+    return render_template(
+        "question_paged.html",
+        title="Questions",
+        name=c.name,
+        code=code,
+        cid=cid,
+        q=current_q,
+        a=current_a,
+        idx=idx,
+        n=n,
+        total=n,            # backward-compat for older template variants
+        progress=progress,
+        progress_pct=progress_pct,
+    )
+
+
 
 # Support page (global)
-@app.route("/forgot")
+@app.route("/forgot-password")
 def forgot():
-    return render_template("forgot.html", title="Support")
+    return render_template("forgot.html", title="Forgot Password")
 
 # Optional: tenant-scoped support page
 @app.route("/<tenant>/forgot")
@@ -1034,29 +1836,38 @@ def self_id(tenant, code, cid):
         db.close()
 
 # ─── Finish (thank you) ──────────────────────────────────────────
-@app.route("/<tenant>/apply/<code>/<cid>/finish")
+@app.route("/<tenant>/apply/<code>/<cid>/finish", methods=["GET"])
 def finish_application(tenant, code, cid):
     t = load_tenant_by_slug(tenant)
     if not t: abort(404)
 
     db = SessionLocal()
     try:
-        c  = db.get(Candidate, cid)
-        if not c or c.tenant_id != t.id or c.jd_code != code:
-            flash("App not found"); return redirect(url_for("apply", tenant=t.slug, code=code))
-        scores = score_answers(c.resume_json, c.questions, c.answers or [])
-        c.answer_scores = scores
-        c.created_at    = c.created_at or datetime.utcnow()
-        db.merge(c); db.commit()
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
     finally:
         db.close()
 
-    if not current_user.is_authenticated:
-        return render_template("submit_thanks.html", title="Thanks", name=c.name, code=code, tenant_slug=t.slug)
+    if not c:
+        abort(404)
 
-    avg  = round(sum(scores)/len(scores),2)
-    qa   = list(zip(c.questions, c.answers, c.answer_scores))
-    return render_template("answers_admin.html", title="Done", c=c, avg=avg, qa=qa, tenant_slug=t.slug)
+    # Back URL: send applicants to the JD landing (or wherever you prefer)
+    back_url = url_for("apply", tenant=t.slug, code=code)
+
+    # First/Full name if you want it shown in the header
+    name = (c.name or "").strip()
+
+    return render_template(
+        "submit_thanks.html",
+        title="Application Complete",
+        tenant=t,
+        tenant_slug=t.slug,
+        name=name,
+        back_url=back_url,
+        # Progress UI (top-right)
+        progress_label="Complete",
+        progress_pct=100,
+    )
+
 
 # Legacy bulk submit kept (redirects to finish)
 @app.route("/<tenant>/apply/<code>/<cid>/answers", methods=["POST"])
@@ -1155,6 +1966,41 @@ def detail(cid, tenant=None):
     finally:
         db.close()
 
+@app.route("/privacy")
+@app.route("/<tenant>/privacy")
+def privacy(tenant=None):
+    base = os.path.join(app.root_path, "static", "legal")
+    fn = _latest_match(base, ["*Privacy*.pdf", "*Privacy*.docx", "*Privacy*.*"])
+    if not fn:
+        return make_response("Privacy policy coming soon.", 200)
+    mt = ("application/pdf"
+          if fn.lower().endswith(".pdf")
+          else "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    return send_from_directory(
+        directory=base,
+        path=fn,
+        mimetype=mt,
+        as_attachment=True,
+        download_name=fn,
+    )
+
+@app.route("/terms")
+@app.route("/<tenant>/terms")
+def terms(tenant=None):
+    base = os.path.join(app.root_path, "static", "legal")
+    fn = _latest_match(base, ["*Terms*.pdf", "*Terms*.docx", "*Terms*.*"])
+    if not fn:
+        return make_response("Terms of Service coming soon.", 200)
+    mt = ("application/pdf"
+          if fn.lower().endswith(".pdf")
+          else "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    return send_from_directory(
+        directory=base,
+        path=fn,
+        mimetype=mt,
+        as_attachment=True,
+        download_name=fn,
+    )
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT",5000)))

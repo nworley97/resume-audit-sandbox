@@ -1,184 +1,53 @@
-:root{
-  --brand:        #0b5cff;
-  --brand-600:    #155cfa;
-  --bg:           #f9fbfd;
-  --card:         #ffffff;
-  --text:         #1a1c1f;
-  --muted:        #475569;
+/* 1. Tailwind core layers */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  --success:      #27ae60;
-  --warning:      #f2994a;
-  --danger:       #eb5757;
+/* 2. Custom additions */
 
-  --radius-card:  14px;
-  --radius-btn:   14px;
-  --shadow-1:     0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.1);
-  --font-sans:    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-
-  --bs-primary:   var(--brand);
+/* Spinner fade helpers */
+#loading-overlay {
+  transition: opacity 0.2s ease-in-out;
 }
 
-/* ------- Base ------- */
-html, body{
-  height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
+/* These classes work with the loader.js script */
+.opacity-0 { opacity: 0; }
+.opacity-100 { opacity: 1; }
+
+/* If you want to force the spinner blue to match Figma (#085CFF), add: */
+.border-\[\#085CFF\] {
+  border-color: #085CFF;
 }
-.container-narrow{ max-width: 960px; margin: 0 auto; }
-
-/* ------- Navbar ------- */
-.navbar-brand{ font-weight: 700; letter-spacing: .2px; }
-
-/* ------- Cards ------- */
-.card{ background: var(--card); border: 1px solid #e5e7eb; border-radius: var(--radius-card); box-shadow: var(--shadow-1); }
-.card-flat{ background: var(--card); border: 1px solid #e5e7eb; border-radius: var(--radius-card); }
-
-/* ------- Buttons ------- */
-.btn{ border-radius: var(--radius-btn); box-shadow: none !important; }
-.btn-primary{ background: var(--brand); border-color: var(--brand); }
-.btn-primary:hover,.btn-primary:focus{ background: var(--brand-600); border-color: var(--brand-600); }
-
-/* ------- Flat export links (no Bootstrap .btn) ------- */
-.export-link{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 38px;                 /* matches default btn height */
-  padding: 0 .75rem;
-  border: 1px solid #e5e7eb;    /* light border */
-  border-radius: 8px;           /* smaller, not pill */
-  background: #ffffff;          /* flat */
-  color: #374151;               /* slate-700 */
-  text-decoration: none;
-  font-weight: 600;
-  line-height: 1;
+/* page loader overlay */
+#page-loader{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s ease;
 }
-.export-link:hover{
-  background: #f3f4f6;          /* subtle hover */
-  color: #111827;
+#page-loader.on{
+  opacity: 1;
+  pointer-events: auto;
 }
-.export-link:active,
-.export-link:focus{
-  outline: none;
-  box-shadow: inset 0 0 0 1px #d1d5db; /* minimal focus feedback */
-}
-
-/* ------- Forms ------- */
-.form-label{ font-weight: 600; letter-spacing: .2px; color: var(--muted); font-size: 0.9rem; }
-
-/* ------- Badges ------- */
-.badge-score{ display:inline-block; border-radius:999px; font-weight:600; padding:.35em .6em; letter-spacing:.2px; }
-.badge-green{  background: var(--success); color:#fff; }
-.badge-yellow{ background: var(--warning); color:#111; }
-.badge-red{    background: var(--danger);  color:#fff; }
-
-/* ------- Misc helpers ------- */
-.text-muted{ color: var(--muted) !important; }
-.border-soft{ border: 1px solid #e5e7eb; border-radius: var(--radius-card); }
-
-/* Apply/JD helpers */
-.file-drop{ border:2px dashed #e5e7eb; padding:1.25rem; border-radius: var(--radius-card); background:#fafafa; }
-.file-drop:hover{ background:#f5f7fb; }
-.step-label{ font-weight:600; letter-spacing:.2px; color:#6b7280; font-size:.9rem; }
-.job-html{ white-space: pre-line; }
-
-/* Optional vertical nav readiness */
-.has-vnav .container-narrow { max-width: 1200px; margin-left: 260px; }
-@media (max-width: 992px){ .has-vnav .container-narrow { margin-left: 0; } }
-
-/* Legal pages */
-.legal-copy p { margin-bottom: .75rem; }
-.legal-copy h2, .legal-copy h3, .legal-copy h4 { margin-top: 1.25rem; margin-bottom: .5rem; }
-
-/* Brand sizing */
-.brand-logo { height: 36px; width: auto; }
-.brand-title { font-weight: 800; font-size: 1.375rem; letter-spacing: .2px; } /* ~22px, bold */
-@media (min-width: 992px){
-  .brand-title { font-size: 1.5rem; } /* ~24px on desktop */
-  
-  /* Navbar: left logo + centered title */
-.brand-logo-left {
-  height: 44px;           /* make logo bigger */
-  width: auto;
-  margin-left: .25rem;    /* hug the left edge */
-}
-
-.navbar-center-title {
+#page-loader .loader-backdrop{
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-weight: 800;
-  letter-spacing: .2px;
-  white-space: nowrap;
-  font-size: 1.35rem;     /* ~21.6px on mobile/tablet */
+  inset: 0;
+  background: rgba(255,255,255,.6);
+  backdrop-filter: blur(1px);
 }
-
-@media (min-width: 768px){
-  .navbar-center-title { font-size: 1.6rem; }   /* ~25.6px */
-}
-@media (min-width: 1200px){
-  .navbar-center-title { font-size: 1.75rem; }  /* ~28px */
-}
-
-}
-/* Camera gate niceties */
-.card .lead { font-weight: 600; color: #334155; }
-
-/* Completion page tweaks */
-.complete-check { display:inline-block; }
-.soft-panel{
-  background:#f5f7fb;
-  border:1px solid #e5e7eb;
-  border-radius:14px;
-  padding:1rem 1.25rem;
-  max-width:640px;
-}
-
-/* Footer “Powered by” */
-.powered-by{
-  color:#64748b;
-  font-size:.95rem;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.powered-by a { color:#0b5cff; }
-
-.powered-by a { margin-left: .15rem; } /* ensure visible space even if HTML collapses */
-
-/* Navbar: left logo + centered title */
-.brand-logo-left{
-  height: 44px;
-  width: auto;
-  margin-left: .25rem;
-}
-.navbar-center-title{
+#page-loader .loader-spinner{
   position: absolute;
-  left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
-  font-weight: 800;
-  letter-spacing: .2px;
-  white-space: nowrap;
-  font-size: 1.35rem;
-  z-index: 1; /* ensure it sits above the logo area */
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 3px solid rgba(47,107,255,.2);
+  border-top-color: #2F6BFF; /* Altera blue */
+  animation: altera-spin .8s linear infinite;
 }
-@media (min-width: 768px){ .navbar-center-title{ font-size: 1.6rem; } }
-@media (min-width: 1200px){ .navbar-center-title{ font-size: 1.75rem; } }
-
-/* Footer 'Powered by' spacing safety */
-.powered-by a{ margin-left: .15rem; }
-
-/* Center brand title uses Arial (no other elements affected) */
-.navbar-center-title{
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
-}
-
-.export-group .btn { white-space: nowrap; }   /* belt & suspenders */
-
-
-
-
+@keyframes altera-spin { to { transform: rotate(360deg); } }
 

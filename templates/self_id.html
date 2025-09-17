@@ -1,168 +1,166 @@
-{% extends "base.html" %}
+{% extends "base_public.html" %}
+{% block title %}Voluntary Self-Identification{% endblock %}
+
 {% block content %}
+<form method="post" class="max-w-3xl mx-auto space-y-6">
 
-<form method="post" class="container-narrow" style="max-width:860px;">
-  <!-- Section: Voluntary Self-Identification -->
-  <div class="card mb-4 shadow-sm">
-    <div class="card-body">
-      <h5 class="mb-3">Voluntary Self-Identification</h5>
-      <p class="text-muted small">
-        For government reporting purposes, we ask candidates to respond to the below self-identification survey.
-        Completion of the form is entirely voluntary. Whatever your decision, it will not be considered in the hiring
-        process or thereafter. Any information that you do provide will be recorded and maintained in a confidential file.
-      </p>
-      <p class="text-muted small mb-4">
-        As set forth in our Equal Employment Opportunity policy, we do not discriminate on the basis of any
-        protected group status under any applicable law.
-      </p>
+  <!-- Voluntary Self-Identification -->
+  <div class="bg-white ring-1 ring-gray-200 rounded-xl p-5">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Voluntary Self-Identification</h2>
 
-      <div class="row g-3">
-        <!-- Gender -->
-        <div class="col-md-6">
-          <label class="form-label">Gender</label>
-          <select class="form-select" name="gender">
-            <option value="" selected>Select…</option>
-            <option>Male</option>
-            <option>Female</option>
-            <option>Decline to self-identify</option>
-          </select>
-        </div>
+    <p class="text-xs text-gray-600">
+      For government reporting purposes, we ask candidates to respond to the below self-identification survey.
+      Completion of the form is entirely voluntary. Whatever your decision, it will not be considered in the hiring
+      process or thereafter. Any information that you do provide will be recorded and maintained in a confidential file.
+    </p>
+    <p class="text-xs text-gray-600 mt-2">
+      As set forth in our Equal Employment Opportunity policy, we do not discriminate on the basis of any
+      protected group status under any applicable law.
+    </p>
 
-        <!-- Hispanic / Latino -->
-        <div class="col-md-6">
-          <label class="form-label">Are you Hispanic or Latino?</label>
-          <select class="form-select" name="hispanic">
-            <option value="" selected>Select…</option>
-            <option>Yes</option>
-            <option>No</option>
-            <option>Decline to self-identify</option>
-          </select>
-          <div class="small mt-1">
-            <a
-              href="https://job-boards.cdn.greenhouse.io/docs/2023/RaceEthnicityDefinitions.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="link-primary"
-            >
-              Race &amp; Ethnicity Definitions (PDF)
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <!-- Race & Ethnicity Definitions (collapsible) -->
-      <div class="collapse mt-3" id="raceEthCollapse">
-        <div class="border rounded p-3 bg-light small">
-          <p class="mb-2"><strong>Definitions</strong></p>
-          <ul class="mb-0">
-            <li><strong>Hispanic or Latino:</strong> A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.</li>
-            <li><strong>White (Not Hispanic or Latino):</strong> A person having origins in any of the original peoples of Europe, the Middle East, or North Africa.</li>
-            <li><strong>Black or African American (Not Hispanic or Latino):</strong> A person having origins in any of the Black racial groups of Africa.</li>
-            <li><strong>Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino):</strong> Origins in any of the peoples of Hawaii, Guam, Samoa, or other Pacific Islands.</li>
-            <li><strong>Asian (Not Hispanic or Latino):</strong> Origins in the Far East, Southeast Asia, or the Indian subcontinent.</li>
-            <li><strong>American Indian or Alaska Native (Not Hispanic or Latino):</strong> Origins in any of the original peoples of North and South America (including Central America) who maintain tribal affiliation or community attachment.</li>
-            <li><strong>Two or More Races (Not Hispanic or Latino).</strong></li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Veteran Status blurb + select -->
-      <div class="mt-4">
-        <p class="text-muted small mb-2">
-          If you believe you belong to any of the categories of protected veterans listed below, please indicate by making the appropriate selection.
-          As a government contractor subject to the Vietnam Era Veterans Readjustment Assistance Act (VEVRAA), we request this information in order to
-          measure the effectiveness of the outreach and positive recruitment efforts we undertake pursuant to VEVRAA. Classification of protected
-          categories is as follows:
-        </p>
-        <ul class="text-muted small mb-2">
-          <li><em>Disabled veteran</em>: a veteran entitled to VA compensation (or who would be entitled but for the receipt of military retired pay), or released from active duty because of a service-connected disability.</li>
-          <li><em>Recently separated veteran</em>: within three years of discharge or release from active duty.</li>
-          <li><em>Active duty wartime or campaign badge veteran</em>: served on active duty during a war or in a campaign/expedition with an authorized campaign badge.</li>
-          <li><em>Armed forces service medal veteran</em>: participated in a U.S. military operation for which an Armed Forces service medal was awarded.</li>
-        </ul>
-
-        <label class="form-label">Veteran Status</label>
-        <select class="form-select" name="veteran">
-          <option value="" selected>Select…</option>
-          <option>I am not a protected veteran</option>
-          <option>I identify as one or more of the classifications</option>
-          <option>I don't wish to answer</option>
+    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Gender -->
+      <div>
+        <label for="gender" class="block text-xs text-gray-600 mb-1">Gender</label>
+        <select id="gender" name="gender"
+                class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+          <option value="" {% if not form_data or not form_data.get('gender') %}selected{% endif %}>Select…</option>
+          <option {% if form_data and form_data.get('gender')=='Male' %}selected{% endif %}>Male</option>
+          <option {% if form_data and form_data.get('gender')=='Female' %}selected{% endif %}>Female</option>
+          <option {% if form_data and form_data.get('gender')=='Decline to self-identify' %}selected{% endif %}>Decline to self-identify</option>
         </select>
       </div>
+
+      <!-- Hispanic / Latino -->
+      <div>
+        <label for="hispanic" class="block text-xs text-gray-600 mb-1">Are you Hispanic or Latino?</label>
+        <select id="hispanic" name="hispanic"
+                class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+          <option value="" {% if not form_data or not form_data.get('hispanic') %}selected{% endif %}>Select…</option>
+          <option {% if form_data and form_data.get('hispanic')=='Yes' %}selected{% endif %}>Yes</option>
+          <option {% if form_data and form_data.get('hispanic')=='No' %}selected{% endif %}>No</option>
+          <option {% if form_data and form_data.get('hispanic')=='Decline to self-identify' %}selected{% endif %}>Decline to self-identify</option>
+        </select>
+
+<div class="flex items-center gap-2 text-xs mt-2">
+  <a href="{{ url_for('static', filename='pdfs/RaceEthnicityDefinitions.pdf') }}"
+     download
+     class="text-blue-600 hover:underline">
+    Race &amp; Ethnicity Definitions (PDF)
+  </a>
+</div>
+
+
+        <!-- Collapsible summary (Alpine-less fallback using details) -->
+        <details id="raceEthCollapse" class="mt-2">
+          <summary class="text-xs text-gray-600 cursor-pointer">Quick summary</summary>
+          <div class="mt-2 rounded-lg ring-1 ring-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+            <p class="font-medium mb-1">Definitions</p>
+            <ul class="list-disc pl-4 space-y-1">
+              <li><span class="font-medium">Hispanic or Latino:</span> A person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.</li>
+              <li><span class="font-medium">White (Not Hispanic or Latino):</span> Origins in Europe, the Middle East, or North Africa.</li>
+              <li><span class="font-medium">Black or African American:</span> Origins in any of the Black racial groups of Africa.</li>
+              <li><span class="font-medium">Native Hawaiian or Other Pacific Islander:</span> Origins in peoples of Hawaii, Guam, Samoa, or other Pacific Islands.</li>
+              <li><span class="font-medium">Asian:</span> Origins in the Far East, Southeast Asia, or the Indian subcontinent.</li>
+              <li><span class="font-medium">American Indian or Alaska Native:</span> Origins in the original peoples of North and South America who maintain tribal affiliation or community attachment.</li>
+              <li><span class="font-medium">Two or More Races.</span></li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Veteran status -->
+    <div class="mt-5">
+      <p class="text-xs text-gray-600">
+        If you believe you belong to any of the categories of protected veterans listed below, please indicate by making the appropriate selection.
+        As a government contractor subject to VEVRAA, we request this information to measure the effectiveness of our outreach and positive recruitment efforts.
+      </p>
+      <ul class="text-xs text-gray-600 list-disc pl-5 mt-2 space-y-1">
+        <li><em>Disabled veteran</em>: entitled to VA compensation (or would be but for military retired pay), or released from active duty because of a service-connected disability.</li>
+        <li><em>Recently separated veteran</em>: within three years of discharge or release from active duty.</li>
+        <li><em>Active duty wartime or campaign badge veteran</em>: served on active duty during a war or in a campaign/expedition with an authorized campaign badge.</li>
+        <li><em>Armed forces service medal veteran</em>: participated in a U.S. military operation for which an Armed Forces service medal was awarded.</li>
+      </ul>
+
+      <label for="veteran" class="block text-xs text-gray-600 mt-3 mb-1">Veteran Status</label>
+      <select id="veteran" name="veteran"
+              class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+        <option value="" {% if not form_data or not form_data.get('veteran') %}selected{% endif %}>Select…</option>
+        <option {% if form_data and form_data.get('veteran')=='I am not a protected veteran' %}selected{% endif %}>I am not a protected veteran</option>
+        <option {% if form_data and form_data.get('veteran')=='I identify as one or more of the classifications' %}selected{% endif %}>I identify as one or more of the classifications</option>
+        <option {% if form_data and form_data.get('veteran')=="I don't wish to answer" %}selected{% endif %}>I don't wish to answer</option>
+      </select>
     </div>
   </div>
 
-  <!-- Section: Voluntary Self-Identification of Disability -->
-  <div class="card mb-4 shadow-sm">
-    <div class="card-body">
-      <h5 class="mb-2">Voluntary Self-Identification of Disability</h5>
-      <div class="text-muted small mb-2">Form CC-305, Page 1 of 1 • OMB Control Number 1250-0005 • Expires 04/30/2026</div>
+  <!-- Disability -->
+  <div class="bg-white ring-1 ring-gray-200 rounded-xl p-5">
+    <h2 class="text-lg font-semibold text-gray-900">Voluntary Self-Identification of Disability</h2>
+    <div class="text-[11px] text-gray-500 mt-1">Form CC-305, Page 1 of 1 • OMB Control Number 1250-0005 • Expires 04/30/2026</div>
 
-      <h6 class="mt-3">Why are you being asked to complete this form?</h6>
-      <p class="text-muted small">
-        We are a federal contractor or subcontractor. The law requires us to provide equal employment opportunity to qualified people with disabilities.
-        We have a goal of having at least 7% of our workers as people with disabilities. The law says we must measure our progress towards this goal.
-        To do this, we must ask applicants and employees if they have a disability or have ever had one. People can become disabled, so we need to ask
-        this question at least every five years. Completing this form is voluntary, and we hope that you will choose to do so. Your answer is
-        confidential. No one who makes hiring decisions will see it. Your decision to complete the form and your answer will not harm you in any way.
-        If you want to learn more about the law or this form, visit the U.S. Department of Labor’s Office of Federal Contract Compliance Programs (OFCCP)
-        website at <a href="https://www.dol.gov/ofccp" target="_blank" rel="noopener">www.dol.gov/ofccp</a>.
-      </p>
+    <h3 class="mt-3 text-sm font-semibold text-gray-900">Why are you being asked to complete this form?</h3>
+    <p class="text-xs text-gray-600">
+      We are a federal contractor or subcontractor. The law requires us to provide equal employment opportunity to qualified people with disabilities.
+      We have a goal of having at least 7% of our workers as people with disabilities. The law says we must measure our progress towards this goal.
+      Completing this form is voluntary and confidential, and your decision will not harm you in any way.
+      Learn more at <a href="https://www.dol.gov/ofccp" target="_blank" rel="noopener" class="text-blue-600 hover:underline">www.dol.gov/ofccp</a>.
+    </p>
 
-      <h6 class="mt-3">How do you know if you have a disability?</h6>
-      <p class="text-muted small mb-2">
-        A disability is a condition that substantially limits one or more of your “major life activities.” If you have or have ever had such a condition,
-        you are a person with a disability. Disabilities include, but are not limited to:
-      </p>
-      <ul class="text-muted small">
-        <li>Alcohol or other substance use disorder (not currently using drugs illegally)</li>
-        <li>Autoimmune disorders (lupus, fibromyalgia, rheumatoid arthritis, HIV/AIDS)</li>
-        <li>Blind or low vision</li>
-        <li>Cancer (past or present)</li>
-        <li>Cardiovascular or heart disease</li>
-        <li>Celiac disease</li>
-        <li>Cerebral palsy</li>
-        <li>Deaf or serious difficulty hearing</li>
-        <li>Diabetes</li>
-        <li>Disfigurement (burns, wounds, accidents, congenital disorders)</li>
-        <li>Epilepsy or other seizure disorder</li>
-        <li>Gastrointestinal disorders (Crohn’s, IBS)</li>
-        <li>Intellectual or developmental disability</li>
-        <li>Mental health conditions (depression, bipolar disorder, anxiety disorder, schizophrenia, PTSD)</li>
-        <li>Missing limbs or partially missing limbs</li>
-        <li>Mobility impairment (wheelchair, scooter, walker, leg brace[s], other supports)</li>
-        <li>Nervous system conditions (migraines, Parkinson’s, MS)</li>
-        <li>Neurodivergence (ADHD, autism spectrum disorder, dyslexia, dyspraxia, other learning disabilities)</li>
-        <li>Partial or complete paralysis (any cause)</li>
-        <li>Pulmonary or respiratory conditions (tuberculosis, asthma, emphysema)</li>
-        <li>Short stature (dwarfism)</li>
-        <li>Traumatic brain injury</li>
-      </ul>
+    <h3 class="mt-3 text-sm font-semibold text-gray-900">How do you know if you have a disability?</h3>
+    <p class="text-xs text-gray-600">
+      A disability is a condition that substantially limits one or more major life activities. Disabilities include, but are not limited to:
+    </p>
+    <ul class="text-xs text-gray-600 list-disc pl-5 mt-1 space-y-1 max-h-52 overflow-auto">
+      <li>Alcohol or other substance use disorder (not currently using drugs illegally)</li>
+      <li>Autoimmune disorders (lupus, fibromyalgia, rheumatoid arthritis, HIV/AIDS)</li>
+      <li>Blind or low vision</li>
+      <li>Cancer (past or present)</li>
+      <li>Cardiovascular or heart disease</li>
+      <li>Celiac disease</li>
+      <li>Cerebral palsy</li>
+      <li>Deaf or serious difficulty hearing</li>
+      <li>Diabetes</li>
+      <li>Disfigurement (burns, wounds, accidents, congenital disorders)</li>
+      <li>Epilepsy or other seizure disorder</li>
+      <li>Gastrointestinal disorders (Crohn’s, IBS)</li>
+      <li>Intellectual or developmental disability</li>
+      <li>Mental health conditions (depression, bipolar disorder, anxiety disorder, schizophrenia, PTSD)</li>
+      <li>Missing limbs or partially missing limbs</li>
+      <li>Mobility impairment (wheelchair, scooter, walker, leg brace[s], other supports)</li>
+      <li>Nervous system conditions (migraines, Parkinson’s, MS)</li>
+      <li>Neurodivergence (ADHD, autism spectrum disorder, dyslexia, dyspraxia, other learning disabilities)</li>
+      <li>Partial or complete paralysis (any cause)</li>
+      <li>Pulmonary or respiratory conditions (tuberculosis, asthma, emphysema)</li>
+      <li>Short stature (dwarfism)</li>
+      <li>Traumatic brain injury</li>
+    </ul>
 
-      <div class="mt-3">
-        <label class="form-label">Disability Status</label>
-        <select class="form-select" name="disability">
-          <option value="" selected>Select…</option>
-          <option>Yes, I have a disability</option>
-          <option>No, I don't have a disability</option>
-          <option>I don't want to answer</option>
-        </select>
-      </div>
+    <div class="mt-3">
+      <label for="disability" class="block text-xs text-gray-600 mb-1">Disability Status</label>
+      <select id="disability" name="disability"
+              class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/60">
+        <option value="" {% if not form_data or not form_data.get('disability') %}selected{% endif %}>Select…</option>
+        <option {% if form_data and form_data.get('disability')=='Yes, I have a disability' %}selected{% endif %}>Yes, I have a disability</option>
+        <option {% if form_data and form_data.get('disability')=="No, I don't have a disability" %}selected{% endif %}>No, I don't have a disability</option>
+        <option {% if form_data and form_data.get('disability')=="I don't want to answer" %}selected{% endif %}>I don't want to answer</option>
+      </select>
     </div>
   </div>
 
   <!-- Public Burden Statement -->
-  <div class="card mb-4 shadow-sm">
-    <div class="card-body small text-muted">
-      <h6 class="mb-2">PUBLIC BURDEN STATEMENT</h6>
+  <div class="bg-white ring-1 ring-gray-200 rounded-xl p-5">
+    <h3 class="text-sm font-semibold text-gray-900 mb-1">Public Burden Statement</h3>
+    <p class="text-xs text-gray-600">
       According to the Paperwork Reduction Act of 1995 no persons are required to respond to a collection of information
       unless such collection displays a valid OMB control number. This survey should take about 5 minutes to complete.
-    </div>
+    </p>
   </div>
 
   <div class="text-center">
-    <button class="btn btn-primary px-4" type="submit">Submit Survey</button>
+    <button class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700" type="submit">
+      Submit Survey
+    </button>
   </div>
 </form>
-
 {% endblock %}
