@@ -1010,7 +1010,7 @@ def candidates_overview(tenant=None):
 
         rows = list(qry.all())
 
-        # Precompute fields per row (unchanged except we record _rel_missing)
+        # Precompute fields per row (unchanged except we record _rel_missing/_score_missing)
         for c in rows:
             # Claim Validity (0–5)
             scores = getattr(c, "answer_scores", None) or []
@@ -1018,6 +1018,7 @@ def candidates_overview(tenant=None):
                 c.score = (sum(scores) / len(scores)) if scores else None
             except Exception:
                 c.score = None
+            c._score_missing = (c.score is None)  # <-- NEW: mark missing score
 
             # Relevancy normalize to 0–5 and remember if missing
             raw_r = getattr(c, "relevancy", None)
@@ -1027,7 +1028,7 @@ def candidates_overview(tenant=None):
                 raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
 
             _missing = (raw_r is None) or (isinstance(raw_r, str) and raw_r.strip() == "")
-            c._rel_missing = bool(_missing)  # <-- NEW: mark missing
+            c._rel_missing = bool(_missing)  # mark missing
 
             try:
                 val = 0.0 if _missing else float(raw_r)
@@ -1054,13 +1055,12 @@ def candidates_overview(tenant=None):
             "name":      _name_key,
             "job":       lambda x: (getattr(x, "job_title", "") or ""),
             "dept":      lambda x: (getattr(x, "department", "") or ""),
-            "score":     lambda x: (x.score is None, x.score or 0),
-            # keep entry for completeness; we override sort logic just below
-            "relevancy": lambda x: (getattr(x, "_rel_missing", False), x.relevancy or 0.0),
+            "score":     lambda x: (x._score_missing, x.score or 0),   # keep entry; overridden below when sort=='score'
+            "relevancy": lambda x: (x._rel_missing, x.relevancy or 0), # keep entry; overridden below when sort=='relevancy'
             "applied":   lambda x: (x.applied_at or datetime.min),
         }
 
-        # --- NEW: Relevancy sort with blanks always last ---
+        # --- Blanks-last sorts for 'relevancy' and 'score' (additive) ---
         if sort == "relevancy":
             desc = (dir_ == "desc")
             def _rel_key(x):
@@ -1069,12 +1069,21 @@ def candidates_overview(tenant=None):
                     val = float(x.relevancy or 0.0)
                 except Exception:
                     val = 0.0
-                # For desc: higher first, blanks last; For asc: lower first, blanks last
                 return (missing, -val) if desc else (missing, val)
-            rows.sort(key=_rel_key)  # don't use reverse; key handles direction
+            rows.sort(key=_rel_key)
+        elif sort == "score":
+            desc = (dir_ == "desc")
+            def _score_key(x):
+                missing = getattr(x, "_score_missing", False) or (x.score is None)
+                try:
+                    val = float(x.score or 0.0)
+                except Exception:
+                    val = 0.0
+                return (missing, -val) if desc else (missing, val)
+            rows.sort(key=_score_key)
         else:
             rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
-        # --- /NEW ---
+        # --- /blanks-last ---
 
         total = len(rows)
         pages = max(1, math.ceil(total / per_page))
@@ -1101,6 +1110,7 @@ def candidates_overview(tenant=None):
         )
     finally:
         db.close()
+
 
 
 
@@ -1288,6 +1298,7 @@ def view_candidates(code, tenant=None):
                 c.score = (sum(scores)/len(scores)) if scores else None
             except Exception:
                 c.score = None
+            c._score_missing = (c.score is None)  # <-- NEW: mark missing score
 
             # Relevancy normalize to 0–5 (NO percent) and remember if missing
             raw_r = getattr(c, "relevancy", None)
@@ -1297,7 +1308,7 @@ def view_candidates(code, tenant=None):
                 raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
 
             _missing = (raw_r is None) or (isinstance(raw_r, str) and raw_r.strip() == "")
-            c._rel_missing = bool(_missing)  # <-- NEW: mark missing
+            c._rel_missing = bool(_missing)
 
             try:
                 val = 0.0 if _missing else float(raw_r)
@@ -1323,13 +1334,12 @@ def view_candidates(code, tenant=None):
             "name":      _name_key,
             "job":       lambda x: getattr(x, "job_title", None) or (x.resume_json or {}).get("job_title", "") or "",
             "dept":      lambda x: (x.department or ""),
-            "score":     lambda x: (x.score is None, x.score or 0),
-            # keep entry; we override relevancy sort below
-            "relevancy": lambda x: (getattr(x, "_rel_missing", False), x.relevancy or 0.0),
+            "score":     lambda x: (x._score_missing, x.score or 0),    # keep entry; overridden below when sort=='score'
+            "relevancy": lambda x: (x._rel_missing, x.relevancy or 0),  # keep entry; overridden below when sort=='relevancy'
             "applied":   lambda x: (x.applied_at or datetime.min)
         }
 
-        # --- NEW: Relevancy sort with blanks always last ---
+        # --- Blanks-last sorts for 'relevancy' and 'score' (additive) ---
         if sort == "relevancy":
             desc = (dir_ == "desc")
             def _rel_key(x):
@@ -1340,9 +1350,19 @@ def view_candidates(code, tenant=None):
                     val = 0.0
                 return (missing, -val) if desc else (missing, val)
             rows.sort(key=_rel_key)
+        elif sort == "score":
+            desc = (dir_ == "desc")
+            def _score_key(x):
+                missing = getattr(x, "_score_missing", False) or (x.score is None)
+                try:
+                    val = float(x.score or 0.0)
+                except Exception:
+                    val = 0.0
+                return (missing, -val) if desc else (missing, val)
+            rows.sort(key=_score_key)
         else:
             rows.sort(key=key_map.get(sort, key_map["applied"]), reverse=reverse)
-        # --- /NEW ---
+        # --- /blanks-last ---
 
         total = len(rows)
         pages = max(1, math.ceil(total / per_page))
@@ -1368,6 +1388,7 @@ def view_candidates(code, tenant=None):
         )
     finally:
         db.close()
+
 
 
 
