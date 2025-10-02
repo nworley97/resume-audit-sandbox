@@ -26,11 +26,11 @@
 {% set export_base = url_for('candidates_export_csv') %}
 <!-- add a tiny left margin so it doesn't touch the Filter button -->
 <div class="export-group d-inline-flex align-items-center gap-2 ms-2">
-  <a class="btn btn-outline-secondary text-nowrap"
+  <a class="btn btn-outline-secondary text-nowrap" download
      href="{{ export_base }}{% if q or jd %}?{% endif %}{% if q %}q={{ q|urlencode }}{% endif %}{% if q and jd %}&{% endif %}{% if jd %}jd={{ jd|urlencode }}{% endif %}">
     Export Current View
   </a>
-  <a class="btn btn-outline-secondary text-nowrap" href="{{ export_base }}?all=1">
+  <a class="btn btn-outline-secondary text-nowrap" download href="{{ export_base }}?all=1">
     Export All
   </a>
 </div>

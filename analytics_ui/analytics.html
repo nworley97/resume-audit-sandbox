@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Analytics – AlteraSF</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; margin: 24px; }
+  h1,h2 { margin: 0 0 12px; }
+  .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin: 12px 0; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .col { flex: 1 1 320px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+  .muted { color: #6b7280; }
+  .grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 4px; }
+  .cell { border: 1px solid #e5e7eb; padding: 8px; text-align: center; border-radius: 8px; }
+</style>
+<body>
+
+<h1>Analytics</h1>
+<div class="muted">Select a job to view detailed analytics</div>
+
+<div id="jobs"></div>
+
+<hr style="margin:24px 0" />
+
+<div id="detail"></div>
+
+<script>
+const API = (path) => `${location.origin.replace(/:\\d+$/, '')}:5055${path}`; // assumes analytics_service runs on :5055
+const TENANT = new URLSearchParams(location.search).get("tenant") || "default";
+
+async function loadSummary() {
+  const res = await fetch(API(`/analytics/summary?tenant=${encodeURIComponent(TENANT)}`));
+  const data = await res.json();
+  const wrap = document.getElementById('jobs');
+  wrap.innerHTML = "";
+
+  data.forEach(j => {
+    const card = document.createElement('div');
+    card.className = 'card row';
+    card.innerHTML = `
+      <div class="col">
+        <h2>${j.jd_title || j.jd_code}</h2>
+        <div class="muted">${j.department || ''} ${j.team ? '• ' + j.team : ''} ${j.status ? '• ' + j.status : ''}</div>
+        <div class="muted">${j.posted ? 'Posted: ' + j.posted : ''}</div>
+      </div>
+      <div class="col">
+        <div><strong>${j.applicants}</strong> Applicants</div>
+        <div><strong>${j.diamonds_found}</strong> Diamonds Found</div>
+      </div>
+      <div class="col" style="align-self:center">
+        <button data-code="${j.jd_code}">Open</button>
+      </div>
+    `;
+    card.querySelector('button').onclick = () => loadDetail(j.jd_code);
+    wrap.appendChild(card);
+  });
+}
+
+function renderBars(arr, label) {
+  const total = arr.reduce((a,b)=>a+b,0) || 1;
+  const rows = arr.map((v,i)=> {
+    const pct = Math.round((v/total)*100);
+    return `<tr><td>${i+1}/5</td><td>${v}</td><td>${pct}%</td></tr>`;
+  }).join('');
+  return `
+    <div class="card">
+      <h3>${label}</h3>
+      <table><thead><tr><th>Score</th><th>Count</th><th>%</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+  `;
+}
+
+function renderHeatmap(m) {
+  const rows = m.map((row, rIdx) => row.map((v, cIdx) => {
+    return `<div class="cell" title="Rel ${rIdx+1} × Claim ${cIdx+1}">${v}</div>`;
+  }).join('')).join('');
+  return `
+    <div class="card">
+      <h3>Cross Validation Matrix</h3>
+      <div class="muted">Relevancy (rows) × Claim Validity (cols)</div>
+      <div class="grid">${rows}</div>
+    </div>
+  `;
+}
+
+async function loadDetail(code) {
+  const res = await fetch(API(`/analytics/job/${encodeURIComponent(code)}?tenant=${encodeURIComponent(TENANT)}`));
+  const d = await res.json();
+  const el = document.getElementById('detail');
+  el.innerHTML = `
+    <h2>${d.jd.title || d.jd.code}</h2>
+    <div class="row">
+      <div class="card col"><strong>${d.totals.applied}</strong><div class="muted">Total Applications</div></div>
+      <div class="card col"><strong>${d.totals.diamonds_found}</strong><div class="muted">Diamonds Found</div></div>
+      <div class="card col"><strong>${d.totals.completion_pct}%</strong><div class="muted">Completion Rate</div></div>
+    </div>
+    ${renderHeatmap(d.heatmap.matrix)}
+    <div class="row">
+      <div class="col">${renderBars(d.distributions.claim_validity, 'Claim Validity Distribution')}</div>
+      <div class="col">${renderBars(d.distributions.relevancy, 'Relevancy Distribution')}</div>
+    </div>
+  `;
+}
+
+loadSummary();
+</script>
+</body>
+</html>
