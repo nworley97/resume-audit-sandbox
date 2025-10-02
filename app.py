@@ -1,5 +1,5 @@
 # app.py
-import os, json, uuid, logging, tempfile, mimetypes, re, io, csv
+import os, json, uuid, logging, tempfile, mimetypes, re, io, csv, html
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
@@ -691,6 +691,25 @@ def sanitize_jd(html: str) -> str:
         css_sanitizer=CSS_ALLOWED,
         strip=True,
     )
+
+
+@app.template_filter("jd_plaintext")
+def jd_plaintext_filter(value: str) -> str:
+    if not value:
+        return ""
+
+    # Normalize common block/line-break tags back to newline characters first
+    text = re.sub(r"<br\s*/?>", "\n", value, flags=re.IGNORECASE)
+    text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</div\s*>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</li\s*>", "\n", text, flags=re.IGNORECASE)
+
+    # Strip remaining tags, collapse spacing, and unescape entities
+    text = Markup(text).striptags()
+    text = html.unescape(text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
 
 
 # ─── JD Management ───────────────────────────────────────────────
@@ -1892,6 +1911,7 @@ def flag_tab_switch(tenant, code, cid):
         db.close()
 
 # ─── Download & Delete résumé (tenant scoped) ────────────────────
+# ─── Download & Delete résumé (tenant scoped) ────────────────────
 @app.route("/resume/<cid>")
 @app.route("/<tenant>/resume/<cid>")
 @login_required
@@ -1899,21 +1919,42 @@ def download_resume(cid, tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
-        if slug: return redirect(url_for("download_resume", tenant=slug, cid=cid))
+        if slug:
+            return redirect(url_for("download_resume", tenant=slug, cid=cid))
         return redirect(url_for("login"))
 
     db = SessionLocal()
     try:
-        c = db.get(Candidate,cid)
+        c = db.get(Candidate, cid)
     finally:
         db.close()
-    if not c or c.tenant_id != t.id: abort(404)
+    if not c or c.tenant_id != t.id:
+        abort(404)
+
+    if not c.resume_url:
+        abort(404)
 
     fn = os.path.basename(c.resume_url)
-    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if fn.lower().endswith(".docx") else "application/pdf"
+    ext = fn.rsplit(".", 1)[-1].lower() if "." in fn else ""
+    mime = (
+        "application/pdf" if ext == "pdf"
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if ext == "docx"
+        else "application/octet-stream"
+    )
+
+    # S3 stays a redirect to a presigned URL (iframe-friendly for PDFs)
     if S3_ENABLED and c.resume_url.startswith("s3://"):
         return redirect(presign(c.resume_url))
-    return send_file(c.resume_url, as_attachment=True, download_name=fn, mimetype=mime)
+
+    # NEW: allow inline previews when explicitly requested
+    inline = request.args.get("inline") == "1"
+    return send_file(
+        c.resume_url,
+        as_attachment=not inline,   # previously always True
+        download_name=fn,
+        mimetype=mime
+    )
+
 
 @app.route("/delete/<cid>")
 @app.route("/<tenant>/delete/<cid>")
@@ -1960,11 +2001,31 @@ def detail(cid, tenant=None):
         jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first() if c else None
         if not c or c.tenant_id != t.id:
             flash("Not found"); return redirect(url_for("recruiter", tenant=t.slug))
+
         qa = list(zip(c.questions, c.answers, c.answer_scores))
-        return render_template("candidate_detail.html",
-                               title=f"Candidate – {c.name}", c=c, jd=jd, qa=qa, tenant_slug=t.slug)
+
+        # NEW: provide a browser-loadable resume_url for the template preview
+        if c and c.resume_url:
+            if S3_ENABLED and c.resume_url.startswith("s3://"):
+                resume_url = presign(c.resume_url)  # presigned HTTPS URL for S3
+            else:
+                # local file: use inline=1 so PDFs render inside the iframe
+                resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1)
+        else:
+            resume_url = None
+
+        return render_template(
+            "candidate_detail.html",
+            title=f"Candidate – {c.name}",
+            c=c,
+            jd=jd,
+            qa=qa,
+            tenant_slug=t.slug,
+            resume_url=resume_url,   # <-- additive only
+        )
     finally:
         db.close()
+
 
 @app.route("/privacy")
 @app.route("/<tenant>/privacy")

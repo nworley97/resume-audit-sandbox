@@ -23,7 +23,7 @@
       <button id="filters-btn" class="inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
         Filter
       </button>
-      <a href="{{ url_for('export_candidates_csv', tenant=tenant_slug) if export_endpoint else '#' }}"
+      <a download href="{{ url_for('export_candidates_csv', tenant=tenant_slug) if export_endpoint else '#' }}"
          class="inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
         Export
       </a>
