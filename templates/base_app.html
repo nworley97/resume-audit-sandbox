@@ -8,6 +8,7 @@
   <!-- Tailwind build -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}" />
   <script src="{{ url_for('static', filename='js/loader.js') }}" defer></script>
+  {% block head_extra %}{% endblock %}
 </head>
 <body class="bg-background text-title font-sans">
 
@@ -26,5 +27,6 @@
       </main>
     </div>
   </div>
+  {% block body_extra %}{% endblock %}
 </body>
 </html>

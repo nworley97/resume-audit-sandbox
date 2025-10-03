@@ -50,4 +50,3 @@
   animation: altera-spin .8s linear infinite;
 }
 @keyframes altera-spin { to { transform: rotate(360deg); } }
-

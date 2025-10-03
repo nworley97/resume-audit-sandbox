@@ -18,6 +18,7 @@ from flask_login import (
 )
 
 import PyPDF2, docx, bleach
+import markdown as md
 from bleach.css_sanitizer import CSSSanitizer
 from openai import OpenAI
 from sqlalchemy import or_, text, inspect, func, literal_column
@@ -51,36 +52,49 @@ MODEL  = "gpt-4o"
 
 # ─── One-time schema upgrade (idempotent) ─────────────────────────
 def ensure_schema():
+    from models import Base
+    
+    # Create all tables if they don't exist
+    Base.metadata.create_all(bind=models_engine)
+    
     insp = inspect(models_engine)
-    # Existing JD upgrade block
-    cols = {c["name"] for c in insp.get_columns("job_description")}
-    adds = []
-    if "status" not in cols:          adds.append("ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'draft'")
-    if "department" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS department TEXT")
-    if "team" not in cols:            adds.append("ADD COLUMN IF NOT EXISTS team TEXT")
-    if "location" not in cols:        adds.append("ADD COLUMN IF NOT EXISTS location TEXT")
-    if "employment_type" not in cols: adds.append("ADD COLUMN IF NOT EXISTS employment_type TEXT")
-    if "salary_range" not in cols:    adds.append("ADD COLUMN IF NOT EXISTS salary_range TEXT")
-    if "updated_at" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ")
-    if "start_date" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ")
-    if "end_date" not in cols:        adds.append("ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ")
-    # NEW: per-JD toggles
-    if "id_surveys_enabled" not in cols: adds.append("ADD COLUMN IF NOT EXISTS id_surveys_enabled BOOLEAN DEFAULT TRUE")
-    if "question_count" not in cols:     adds.append("ADD COLUMN IF NOT EXISTS question_count INTEGER DEFAULT 4")
-    if adds:
-        ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
-        with models_engine.begin() as conn:
-            conn.execute(text(ddl))
+    
+    # Check if job_description table exists before inspecting columns
+    if insp.has_table("job_description"):
+        # Existing JD upgrade block
+        cols = {c["name"] for c in insp.get_columns("job_description")}
+        adds = []
+        # ET-23: add raw markdown column
+        if "markdown" not in cols:
+            adds.append("ADD COLUMN markdown TEXT")
+        if "status" not in cols:          adds.append("ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'")
+        if "department" not in cols:      adds.append("ADD COLUMN department TEXT")
+        if "team" not in cols:            adds.append("ADD COLUMN team TEXT")
+        if "location" not in cols:        adds.append("ADD COLUMN location TEXT")
+        if "employment_type" not in cols: adds.append("ADD COLUMN employment_type TEXT")
+        if "salary_range" not in cols:    adds.append("ADD COLUMN salary_range TEXT")
+        if "updated_at" not in cols:      adds.append("ADD COLUMN updated_at TIMESTAMPTZ")
+        if "start_date" not in cols:      adds.append("ADD COLUMN start_date TIMESTAMPTZ")
+        if "end_date" not in cols:        adds.append("ADD COLUMN end_date TIMESTAMPTZ")
+        # NEW: per-JD toggles
+        if "id_surveys_enabled" not in cols: adds.append("ADD COLUMN id_surveys_enabled BOOLEAN DEFAULT TRUE")
+        if "question_count" not in cols:     adds.append("ADD COLUMN question_count INTEGER DEFAULT 4")
+        if adds:
+            ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
+            with models_engine.begin() as conn:
+                conn.execute(text(ddl))
 
-    # NEW: candidate anti-cheat counter
-    ccols = {c["name"] for c in insp.get_columns("candidate")}
-    cadds = []
-    if "left_tab_count" not in ccols:
-        cadds.append("ADD COLUMN IF NOT EXISTS left_tab_count INTEGER DEFAULT 0")
-    if cadds:
-        ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
-        with models_engine.begin() as conn:
-            conn.execute(text(ddl2))
+    # Check if candidate table exists before inspecting columns
+    if insp.has_table("candidate"):
+        # NEW: candidate anti-cheat counter
+        ccols = {c["name"] for c in insp.get_columns("candidate")}
+        cadds = []
+        if "left_tab_count" not in ccols:
+            cadds.append("ADD COLUMN left_tab_count INTEGER DEFAULT 0")
+        if cadds:
+            ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
+            with models_engine.begin() as conn:
+                conn.execute(text(ddl2))
 
 ensure_schema()
 
@@ -653,7 +667,14 @@ def super_tenant_delete(tid):
 
 # --- JD HTML sanitizer (Bleach ≥6) ---
 ALLOWED_TAGS = set(bleach.sanitizer.ALLOWED_TAGS) | {
-    "p","br","div","span","ul","ol","li","strong","b","em","i","u","h2","h3","h4","a"
+    # Basic formatting
+    "p","br","div","span","ul","ol","li","strong","b","em","i","u","a",
+    # Headings (markdown output)
+    "h1","h2","h3","h4","h5","h6",
+    # Code and quotes (markdown output)
+    "pre","code","blockquote",
+    # Tables (markdown extra)
+    "table","thead","tbody","tr","th","td"
 }
 ALLOWED_ATTRS = {
     **bleach.sanitizer.ALLOWED_ATTRIBUTES,
@@ -666,26 +687,46 @@ ALLOWED_ATTRS = {
     "ol":   ["class"],
 }
 CSS_ALLOWED = CSSSanitizer(allowed_css_properties=["font-family","font-weight","text-decoration"])
-def sanitize_jd(html: str) -> str:
+def sanitize_jd(input_text: str) -> str:
     """
-    Preserve author formatting for plaintext job descriptions while still
-    sanitizing real HTML.
+    ET-23: Accept Markdown or HTML; convert Markdown to HTML, then sanitize.
+    """
+    raw = (input_text or "")
 
-    - If the input looks like plaintext (no '<' or '>'), convert:
-        \n\n -> paragraph breaks
-        \n   -> <br>
-    - Then linkify and clean as before.
-    """
-    raw = (html or "")
-    if "<" not in raw and ">" not in raw:
-        # Normalize newlines
-        raw = raw.replace("\r\n", "\n")
-        # Turn paragraphs and line breaks into HTML
-        raw = "<p>" + raw.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    # Heuristic: treat as Markdown unless it looks like real HTML with tags
+    looks_like_html = ("<" in raw and ">" in raw)
+    if not looks_like_html:
+        # Convert Markdown → HTML using python-markdown with safe extensions
+        md_converter = md.Markdown(extensions=[
+            "extra",        # tables, etc.
+            "codehilite",   # code blocks (adds classes only)
+            "toc"
+        ])
+        try:
+            raw = md_converter.convert(raw)
+        except Exception:
+            # Fallback to simple paragraph/linebreak handling
+            raw = raw.replace("\r\n", "\n")
+            raw = "<p>" + raw.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
 
     linked = bleach.linkify(raw)
     return bleach.clean(
         linked,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        css_sanitizer=CSS_ALLOWED,
+        strip=True,
+    )
+
+@app.template_filter("markdown_to_html")
+def markdown_to_html_filter(text: str) -> str:
+    if not text:
+        return ""
+    conv = md.Markdown(extensions=["extra","codehilite","toc"])
+    html_out = conv.convert(text)
+    # Sanitize the generated HTML as defense-in-depth
+    return bleach.clean(
+        bleach.linkify(html_out),
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRS,
         css_sanitizer=CSS_ALLOWED,
@@ -734,7 +775,8 @@ def edit_jd(tenant=None):
 
         if request.method=="POST":
             posted_code     = request.form["jd_code"].strip()
-            html_sanitized  = sanitize_jd(request.form.get("jd_text",""))
+            raw_markdown    = (request.form.get("jd_text","") or "").strip()
+            html_sanitized  = sanitize_jd(raw_markdown)
             title           = request.form.get("jd_title","").strip()
             status          = request.form.get("jd_status","draft")
             department      = (request.form.get("jd_department","") or "").strip() or None
@@ -764,6 +806,7 @@ def edit_jd(tenant=None):
                     existing.code = posted_code
 
                 existing.title           = title
+                existing.markdown        = raw_markdown
                 existing.html            = html_sanitized
                 existing.status          = status
                 existing.department      = department
@@ -792,6 +835,7 @@ def edit_jd(tenant=None):
 
                 jd.code            = posted_code
                 jd.title           = title
+                jd.markdown        = raw_markdown
                 jd.html            = html_sanitized
                 jd.status          = status
                 jd.department      = department
@@ -831,7 +875,22 @@ def edit_jd(tenant=None):
                 .filter(Candidate.tenant_id == t.id, Candidate.jd_code == jd.code)\
                 .scalar() or 0
 
-        return render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=has_candidates,tenant=t, apply_url=apply_url ,applicant_count=applicant_count)
+        # Prefill editor with raw markdown if available; otherwise derive from html
+        prefill_markdown = getattr(jd, "markdown", None) or ""
+        if not prefill_markdown and getattr(jd, "html", None):
+            # best-effort plaintext from HTML for initial migration
+            prefill_markdown = jd_plaintext_filter(jd.html)
+
+        return render_template(
+            "edit_jd.html",
+            title="Edit Job",
+            jd=jd,
+            has_candidates=has_candidates,
+            tenant=t,
+            apply_url=apply_url,
+            applicant_count=applicant_count,
+            prefill_markdown=prefill_markdown,
+        )
     finally:
         db.close()
 
