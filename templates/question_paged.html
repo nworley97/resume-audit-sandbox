@@ -91,29 +91,50 @@
 </script>
 <script>
 (function () {
-  const flagUrl = "{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}";
-  let internalNav = false; // set true on in-flow form submission
+  // Only render a URL if all pieces exist; otherwise leave it blank.
+  const flagUrl = "{% if tenant_slug and code and cid %}{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}{% else %}{% endif %}";
+
+  // Bail if we don't have a safe, absolute-ish path (prevents /apply///flag).
+  if (!flagUrl || !flagUrl.startsWith("/")) return;
+
+  let internalNav = false;   // set true on in-flow form submission (Next/Prev)
+  let sent = false;          // one-shot guard
 
   function sendFlagSafe() {
-    if (internalNav) return;             // don't count Next/Prev submits
-    if (document.visibilityState !== 'hidden') return; // extra safety
-    try { navigator.sendBeacon(flagUrl); }
-    catch { fetch(flagUrl, { method: 'POST', keepalive: true }); }
+    if (sent) return;
+    if (internalNav) return;                                  // ignore in-flow submits
+    if (document.visibilityState && document.visibilityState !== "hidden") return;
+
+    sent = true;
+    try {
+      if (navigator.sendBeacon) {
+        // tiny empty payload keeps it fast & reliable
+        const blob = new Blob([], { type: "application/octet-stream" });
+        navigator.sendBeacon(flagUrl, blob);
+      } else {
+        fetch(flagUrl, { method: "POST", keepalive: true, body: "" }).catch(() => {});
+      }
+    } catch (_) { /* best-effort telemetry; swallow */ }
   }
 
-  // mark internal navigation before unload
-  const form = document.querySelector('form');
-  if (form) {
-    form.addEventListener('submit', () => { internalNav = true; }, { capture: true });
-  }
+  // Mark internal navigation before unload (handles any form on the page)
+  document.addEventListener("submit", function (e) {
+    if (e.target && e.target.tagName === "FORM") internalNav = true;
+  }, { capture: true });
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) sendFlagSafe();
+  // Prefer pagehide (fires on bfcache too); visibilitychange as backup
+  window.addEventListener("pagehide", function (ev) {
+    // For Safari bfcache restores, skip if persisted
+    if (typeof ev.persisted === "boolean" && ev.persisted) return;
+    sendFlagSafe();
   });
 
-  window.addEventListener('pagehide', sendFlagSafe);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") sendFlagSafe();
+  });
 })();
 </script>
+
 
 <script>
 (function () {
