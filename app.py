@@ -1928,6 +1928,25 @@ def finish_application(tenant, code, cid):
     if not c:
         abort(404)
 
+        # after: c = db.query(Candidate)...first()
+    # and before: return render_template("submit_thanks.html", ...)
+
+    # If we don't have scores yet (or lengths don't match), compute them now
+    qs  = list(c.questions or [])
+    ans = list(c.answers   or [""] * len(qs))
+
+    need_scores = (not c.answer_scores) or (len(c.answer_scores) != len(qs))
+    if need_scores and qs:
+        try:
+            # Uses your existing function
+            scores = score_answers(dict(c.resume_json or {}), qs, ans)  # returns list[int]
+            c.answer_scores = scores
+            db.commit()
+        except Exception as e:
+            current_app.logger.warning(f"Could not score answers for cid={c.id}: {e}")
+            # Leave answer_scores as-is (empty) on failure; UI will show N/A
+
+
     # Back URL: send applicants to the JD landing (or wherever you prefer)
     back_url = url_for("apply", tenant=t.slug, code=code)
 
