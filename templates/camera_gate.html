@@ -10,10 +10,6 @@
       To help us get to know you better, <br class="hidden md:block"/>
       please answer a few short questions.
     </p>
-    <p class="mt-2 text-xs text-gray-500">
-      Get ready to your AI-powered interview experience.<br/>
-      Follow the guidelines below to ensure the best possible session.
-    </p>
   </div>
 
   <!-- Preparation Tips -->
@@ -152,14 +148,43 @@
 </script>
 <script>
 (function () {
-  const flagUrl = "{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}";
-  function sendFlag() {
-    try { navigator.sendBeacon(flagUrl); }
-    catch { fetch(flagUrl, { method: 'POST', keepalive: true }); }
+  // Build the URL only if all template vars exist. Otherwise leave empty.
+  const flagUrl = "{% if tenant_slug and code and cid %}{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}{% else %}{% endif %}";
+
+  // Hard guard: bail if empty or malformed (prevents /apply///flag).
+  if (!flagUrl || !flagUrl.startsWith("/")) return;
+
+  // One-shot send; throttle duplicate events across visibility/pagehide.
+  let sent = false;
+  function sendFlagOnce() {
+    if (sent) return;
+    sent = true;
+    try {
+      if (navigator.sendBeacon) {
+        // empty body is fine; keep it tiny
+        const blob = new Blob([], { type: "application/octet-stream" });
+        navigator.sendBeacon(flagUrl, blob);
+      } else {
+        // Fallback for older browsers
+        fetch(flagUrl, { method: "POST", keepalive: true, body: "" }).catch(() => {});
+      }
+    } catch (_) {
+      // swallow; this is best-effort telemetry
+    }
   }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) sendFlag(); });
-  window.addEventListener('pagehide', sendFlag);
+
+  // Prefer pagehide (fires on bfcache too); visibilitychange as a backup.
+  window.addEventListener("pagehide", function (ev) {
+    // only send on real unloads, not bfcache persists (Safari)
+    if (typeof ev.persisted === "boolean" && ev.persisted) return;
+    sendFlagOnce();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") sendFlagOnce();
+  });
 })();
 </script>
+
 
 {% endblock %}

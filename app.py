@@ -1,5 +1,5 @@
 # app.py
-import os, json, uuid, logging, tempfile, mimetypes, re, io, csv
+import os, json, uuid, logging, tempfile, mimetypes, re, io, csv, html
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
@@ -18,6 +18,7 @@ from flask_login import (
 )
 
 import PyPDF2, docx, bleach
+import markdown as md
 from bleach.css_sanitizer import CSSSanitizer
 from openai import OpenAI
 from sqlalchemy import or_, text, inspect, func, literal_column
@@ -51,36 +52,49 @@ MODEL  = "gpt-4o"
 
 # ─── One-time schema upgrade (idempotent) ─────────────────────────
 def ensure_schema():
+    from models import Base
+    
+    # Create all tables if they don't exist
+    Base.metadata.create_all(bind=models_engine)
+    
     insp = inspect(models_engine)
-    # Existing JD upgrade block
-    cols = {c["name"] for c in insp.get_columns("job_description")}
-    adds = []
-    if "status" not in cols:          adds.append("ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'draft'")
-    if "department" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS department TEXT")
-    if "team" not in cols:            adds.append("ADD COLUMN IF NOT EXISTS team TEXT")
-    if "location" not in cols:        adds.append("ADD COLUMN IF NOT EXISTS location TEXT")
-    if "employment_type" not in cols: adds.append("ADD COLUMN IF NOT EXISTS employment_type TEXT")
-    if "salary_range" not in cols:    adds.append("ADD COLUMN IF NOT EXISTS salary_range TEXT")
-    if "updated_at" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ")
-    if "start_date" not in cols:      adds.append("ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ")
-    if "end_date" not in cols:        adds.append("ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ")
-    # NEW: per-JD toggles
-    if "id_surveys_enabled" not in cols: adds.append("ADD COLUMN IF NOT EXISTS id_surveys_enabled BOOLEAN DEFAULT TRUE")
-    if "question_count" not in cols:     adds.append("ADD COLUMN IF NOT EXISTS question_count INTEGER DEFAULT 4")
-    if adds:
-        ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
-        with models_engine.begin() as conn:
-            conn.execute(text(ddl))
+    
+    # Check if job_description table exists before inspecting columns
+    if insp.has_table("job_description"):
+        # Existing JD upgrade block
+        cols = {c["name"] for c in insp.get_columns("job_description")}
+        adds = []
+        # ET-23: add raw markdown column
+        if "markdown" not in cols:
+            adds.append("ADD COLUMN markdown TEXT")
+        if "status" not in cols:          adds.append("ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'")
+        if "department" not in cols:      adds.append("ADD COLUMN department TEXT")
+        if "team" not in cols:            adds.append("ADD COLUMN team TEXT")
+        if "location" not in cols:        adds.append("ADD COLUMN location TEXT")
+        if "employment_type" not in cols: adds.append("ADD COLUMN employment_type TEXT")
+        if "salary_range" not in cols:    adds.append("ADD COLUMN salary_range TEXT")
+        if "updated_at" not in cols:      adds.append("ADD COLUMN updated_at TIMESTAMPTZ")
+        if "start_date" not in cols:      adds.append("ADD COLUMN start_date TIMESTAMPTZ")
+        if "end_date" not in cols:        adds.append("ADD COLUMN end_date TIMESTAMPTZ")
+        # NEW: per-JD toggles
+        if "id_surveys_enabled" not in cols: adds.append("ADD COLUMN id_surveys_enabled BOOLEAN DEFAULT TRUE")
+        if "question_count" not in cols:     adds.append("ADD COLUMN question_count INTEGER DEFAULT 4")
+        if adds:
+            ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
+            with models_engine.begin() as conn:
+                conn.execute(text(ddl))
 
-    # NEW: candidate anti-cheat counter
-    ccols = {c["name"] for c in insp.get_columns("candidate")}
-    cadds = []
-    if "left_tab_count" not in ccols:
-        cadds.append("ADD COLUMN IF NOT EXISTS left_tab_count INTEGER DEFAULT 0")
-    if cadds:
-        ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
-        with models_engine.begin() as conn:
-            conn.execute(text(ddl2))
+    # Check if candidate table exists before inspecting columns
+    if insp.has_table("candidate"):
+        # NEW: candidate anti-cheat counter
+        ccols = {c["name"] for c in insp.get_columns("candidate")}
+        cadds = []
+        if "left_tab_count" not in ccols:
+            cadds.append("ADD COLUMN left_tab_count INTEGER DEFAULT 0")
+        if cadds:
+            ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
+            with models_engine.begin() as conn:
+                conn.execute(text(ddl2))
 
 ensure_schema()
 
@@ -653,7 +667,14 @@ def super_tenant_delete(tid):
 
 # --- JD HTML sanitizer (Bleach ≥6) ---
 ALLOWED_TAGS = set(bleach.sanitizer.ALLOWED_TAGS) | {
-    "p","br","div","span","ul","ol","li","strong","b","em","i","u","h2","h3","h4","a"
+    # Basic formatting
+    "p","br","div","span","ul","ol","li","strong","b","em","i","u","a",
+    # Headings (markdown output)
+    "h1","h2","h3","h4","h5","h6",
+    # Code and quotes (markdown output)
+    "pre","code","blockquote",
+    # Tables (markdown extra)
+    "table","thead","tbody","tr","th","td"
 }
 ALLOWED_ATTRS = {
     **bleach.sanitizer.ALLOWED_ATTRIBUTES,
@@ -666,22 +687,27 @@ ALLOWED_ATTRS = {
     "ol":   ["class"],
 }
 CSS_ALLOWED = CSSSanitizer(allowed_css_properties=["font-family","font-weight","text-decoration"])
-def sanitize_jd(html: str) -> str:
+def sanitize_jd(input_text: str) -> str:
     """
-    Preserve author formatting for plaintext job descriptions while still
-    sanitizing real HTML.
+    ET-23: Accept Markdown or HTML; convert Markdown to HTML, then sanitize.
+    """
+    raw = (input_text or "")
 
-    - If the input looks like plaintext (no '<' or '>'), convert:
-        \n\n -> paragraph breaks
-        \n   -> <br>
-    - Then linkify and clean as before.
-    """
-    raw = (html or "")
-    if "<" not in raw and ">" not in raw:
-        # Normalize newlines
-        raw = raw.replace("\r\n", "\n")
-        # Turn paragraphs and line breaks into HTML
-        raw = "<p>" + raw.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    # Heuristic: treat as Markdown unless it looks like real HTML with tags
+    looks_like_html = ("<" in raw and ">" in raw)
+    if not looks_like_html:
+        # Convert Markdown → HTML using python-markdown with safe extensions
+        md_converter = md.Markdown(extensions=[
+            "extra",        # tables, etc.
+            "codehilite",   # code blocks (adds classes only)
+            "toc"
+        ])
+        try:
+            raw = md_converter.convert(raw)
+        except Exception:
+            # Fallback to simple paragraph/linebreak handling
+            raw = raw.replace("\r\n", "\n")
+            raw = "<p>" + raw.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
 
     linked = bleach.linkify(raw)
     return bleach.clean(
@@ -691,6 +717,40 @@ def sanitize_jd(html: str) -> str:
         css_sanitizer=CSS_ALLOWED,
         strip=True,
     )
+
+@app.template_filter("markdown_to_html")
+def markdown_to_html_filter(text: str) -> str:
+    if not text:
+        return ""
+    conv = md.Markdown(extensions=["extra","codehilite","toc"])
+    html_out = conv.convert(text)
+    # Sanitize the generated HTML as defense-in-depth
+    return bleach.clean(
+        bleach.linkify(html_out),
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        css_sanitizer=CSS_ALLOWED,
+        strip=True,
+    )
+
+
+@app.template_filter("jd_plaintext")
+def jd_plaintext_filter(value: str) -> str:
+    if not value:
+        return ""
+
+    # Normalize common block/line-break tags back to newline characters first
+    text = re.sub(r"<br\s*/?>", "\n", value, flags=re.IGNORECASE)
+    text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</div\s*>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</li\s*>", "\n", text, flags=re.IGNORECASE)
+
+    # Strip remaining tags, collapse spacing, and unescape entities
+    text = Markup(text).striptags()
+    text = html.unescape(text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
 
 
 # ─── JD Management ───────────────────────────────────────────────
@@ -715,7 +775,8 @@ def edit_jd(tenant=None):
 
         if request.method=="POST":
             posted_code     = request.form["jd_code"].strip()
-            html_sanitized  = sanitize_jd(request.form.get("jd_text",""))
+            raw_markdown    = (request.form.get("jd_text","") or "").strip()
+            html_sanitized  = sanitize_jd(raw_markdown)
             title           = request.form.get("jd_title","").strip()
             status          = request.form.get("jd_status","draft")
             department      = (request.form.get("jd_department","") or "").strip() or None
@@ -745,6 +806,7 @@ def edit_jd(tenant=None):
                     existing.code = posted_code
 
                 existing.title           = title
+                existing.markdown        = raw_markdown
                 existing.html            = html_sanitized
                 existing.status          = status
                 existing.department      = department
@@ -773,6 +835,7 @@ def edit_jd(tenant=None):
 
                 jd.code            = posted_code
                 jd.title           = title
+                jd.markdown        = raw_markdown
                 jd.html            = html_sanitized
                 jd.status          = status
                 jd.department      = department
@@ -812,7 +875,22 @@ def edit_jd(tenant=None):
                 .filter(Candidate.tenant_id == t.id, Candidate.jd_code == jd.code)\
                 .scalar() or 0
 
-        return render_template("edit_jd.html", title="Edit Job", jd=jd, has_candidates=has_candidates,tenant=t, apply_url=apply_url ,applicant_count=applicant_count)
+        # Prefill editor with raw markdown if available; otherwise derive from html
+        prefill_markdown = getattr(jd, "markdown", None) or ""
+        if not prefill_markdown and getattr(jd, "html", None):
+            # best-effort plaintext from HTML for initial migration
+            prefill_markdown = jd_plaintext_filter(jd.html)
+
+        return render_template(
+            "edit_jd.html",
+            title="Edit Job",
+            jd=jd,
+            has_candidates=has_candidates,
+            tenant=t,
+            apply_url=apply_url,
+            applicant_count=applicant_count,
+            prefill_markdown=prefill_markdown,
+        )
     finally:
         db.close()
 
@@ -1836,19 +1914,48 @@ def self_id(tenant, code, cid):
         db.close()
 
 # ─── Finish (thank you) ──────────────────────────────────────────
+# ─── Finish (thank you) ──────────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/finish", methods=["GET"])
 def finish_application(tenant, code, cid):
     t = load_tenant_by_slug(tenant)
-    if not t: abort(404)
+    if not t:
+        abort(404)
 
     db = SessionLocal()
     try:
-        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
+        c = (
+            db.query(Candidate)
+              .filter_by(id=cid, tenant_id=t.id, jd_code=code)
+              .first()
+        )
+        if not c:
+            abort(404)
+
+        # If we don't have scores yet (or lengths don't match), compute them now
+        qs  = list(c.questions or [])
+        ans = list(c.answers  or [""] * len(qs))
+
+        need_scores = (
+            not c.answer_scores
+            or len(c.answer_scores) != len(qs)
+            or any(v is None for v in (c.answer_scores or []))
+        )
+
+        if qs and need_scores:
+            try:
+                scores = score_answers(dict(c.resume_json or {}), qs, ans)  # list[int]
+                # normalize & cap to question count
+                scores = [int(x) for x in scores][:len(qs)]
+                c.answer_scores = scores
+                db.add(c)
+                db.commit()
+            except Exception as e:
+                current_app.logger.warning(
+                    f"Could not score answers for cid={c.id}: {e}"
+                )
+                # leave as-is; UI will display N/A
     finally:
         db.close()
-
-    if not c:
-        abort(404)
 
     # Back URL: send applicants to the JD landing (or wherever you prefer)
     back_url = url_for("apply", tenant=t.slug, code=code)
@@ -1863,10 +1970,10 @@ def finish_application(tenant, code, cid):
         tenant_slug=t.slug,
         name=name,
         back_url=back_url,
-        # Progress UI (top-right)
         progress_label="Complete",
         progress_pct=100,
     )
+
 
 
 # Legacy bulk submit kept (redirects to finish)
@@ -1892,6 +1999,7 @@ def flag_tab_switch(tenant, code, cid):
         db.close()
 
 # ─── Download & Delete résumé (tenant scoped) ────────────────────
+# ─── Download & Delete résumé (tenant scoped) ────────────────────
 @app.route("/resume/<cid>")
 @app.route("/<tenant>/resume/<cid>")
 @login_required
@@ -1899,21 +2007,42 @@ def download_resume(cid, tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
-        if slug: return redirect(url_for("download_resume", tenant=slug, cid=cid))
+        if slug:
+            return redirect(url_for("download_resume", tenant=slug, cid=cid))
         return redirect(url_for("login"))
 
     db = SessionLocal()
     try:
-        c = db.get(Candidate,cid)
+        c = db.get(Candidate, cid)
     finally:
         db.close()
-    if not c or c.tenant_id != t.id: abort(404)
+    if not c or c.tenant_id != t.id:
+        abort(404)
+
+    if not c.resume_url:
+        abort(404)
 
     fn = os.path.basename(c.resume_url)
-    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if fn.lower().endswith(".docx") else "application/pdf"
+    ext = fn.rsplit(".", 1)[-1].lower() if "." in fn else ""
+    mime = (
+        "application/pdf" if ext == "pdf"
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if ext == "docx"
+        else "application/octet-stream"
+    )
+
+    # S3 stays a redirect to a presigned URL (iframe-friendly for PDFs)
     if S3_ENABLED and c.resume_url.startswith("s3://"):
         return redirect(presign(c.resume_url))
-    return send_file(c.resume_url, as_attachment=True, download_name=fn, mimetype=mime)
+
+    # NEW: allow inline previews when explicitly requested
+    inline = request.args.get("inline") == "1"
+    return send_file(
+        c.resume_url,
+        as_attachment=not inline,   # previously always True
+        download_name=fn,
+        mimetype=mime
+    )
+
 
 @app.route("/delete/<cid>")
 @app.route("/<tenant>/delete/<cid>")
@@ -1960,11 +2089,31 @@ def detail(cid, tenant=None):
         jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first() if c else None
         if not c or c.tenant_id != t.id:
             flash("Not found"); return redirect(url_for("recruiter", tenant=t.slug))
+
         qa = list(zip(c.questions, c.answers, c.answer_scores))
-        return render_template("candidate_detail.html",
-                               title=f"Candidate – {c.name}", c=c, jd=jd, qa=qa, tenant_slug=t.slug)
+
+        # NEW: provide a browser-loadable resume_url for the template preview
+        if c and c.resume_url:
+            if S3_ENABLED and c.resume_url.startswith("s3://"):
+                resume_url = presign(c.resume_url)  # presigned HTTPS URL for S3
+            else:
+                # local file: use inline=1 so PDFs render inside the iframe
+                resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1)
+        else:
+            resume_url = None
+
+        return render_template(
+            "candidate_detail.html",
+            title=f"Candidate – {c.name}",
+            c=c,
+            jd=jd,
+            qa=qa,
+            tenant_slug=t.slug,
+            resume_url=resume_url,   # <-- additive only
+        )
     finally:
         db.close()
+
 
 @app.route("/privacy")
 @app.route("/<tenant>/privacy")

@@ -47,6 +47,8 @@ class JobDescription(Base):
     code = Column(String(20), unique=True, nullable=False)
 
     title = Column(String(200), nullable=False)
+    # ET-23: Raw Markdown (source of truth) and sanitized HTML (rendered)
+    markdown = Column(Text, nullable=True)
     html = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 

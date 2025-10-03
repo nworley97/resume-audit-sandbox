@@ -1,0 +1,92 @@
+# Environment & secrets
+.env
+.env.*
+.envrc
+.python-version
+.tool-versions
+
+# Virtual environments
+venv/
+venv_x86/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Python bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.pytype/
+.pyre/
+.hypothesis/
+.ruff_cache/
+.cache/
+.ipynb_checkpoints/
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+nosetests.xml
+
+# Python packaging artifacts
+build/
+dist/
+develop-eggs/
+.eggs/
+wheels/
+share/python-wheels/
+pip-wheel-metadata/
+*.egg-info/
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Databases
+dev.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs & runtime files
+*.log
+*.pid
+
+# Frontend & Node artifacts
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+.next/
+out/
+.cache-loader/
+*.tsbuildinfo
+.turbo/
+.parcel-cache/
+.sass-cache/
+
+# OS & editor files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Icon?
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*.tmp
+*.orig
+*.rej
+*~
