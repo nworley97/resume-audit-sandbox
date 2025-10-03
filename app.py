@@ -1914,38 +1914,48 @@ def self_id(tenant, code, cid):
         db.close()
 
 # ─── Finish (thank you) ──────────────────────────────────────────
+# ─── Finish (thank you) ──────────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/finish", methods=["GET"])
 def finish_application(tenant, code, cid):
     t = load_tenant_by_slug(tenant)
-    if not t: abort(404)
+    if not t:
+        abort(404)
 
     db = SessionLocal()
     try:
-        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
+        c = (
+            db.query(Candidate)
+              .filter_by(id=cid, tenant_id=t.id, jd_code=code)
+              .first()
+        )
+        if not c:
+            abort(404)
+
+        # If we don't have scores yet (or lengths don't match), compute them now
+        qs  = list(c.questions or [])
+        ans = list(c.answers  or [""] * len(qs))
+
+        need_scores = (
+            not c.answer_scores
+            or len(c.answer_scores) != len(qs)
+            or any(v is None for v in (c.answer_scores or []))
+        )
+
+        if qs and need_scores:
+            try:
+                scores = score_answers(dict(c.resume_json or {}), qs, ans)  # list[int]
+                # normalize & cap to question count
+                scores = [int(x) for x in scores][:len(qs)]
+                c.answer_scores = scores
+                db.add(c)
+                db.commit()
+            except Exception as e:
+                current_app.logger.warning(
+                    f"Could not score answers for cid={c.id}: {e}"
+                )
+                # leave as-is; UI will display N/A
     finally:
         db.close()
-
-    if not c:
-        abort(404)
-
-        # after: c = db.query(Candidate)...first()
-    # and before: return render_template("submit_thanks.html", ...)
-
-    # If we don't have scores yet (or lengths don't match), compute them now
-    qs  = list(c.questions or [])
-    ans = list(c.answers   or [""] * len(qs))
-
-    need_scores = (not c.answer_scores) or (len(c.answer_scores) != len(qs))
-    if need_scores and qs:
-        try:
-            # Uses your existing function
-            scores = score_answers(dict(c.resume_json or {}), qs, ans)  # returns list[int]
-            c.answer_scores = scores
-            db.commit()
-        except Exception as e:
-            current_app.logger.warning(f"Could not score answers for cid={c.id}: {e}")
-            # Leave answer_scores as-is (empty) on failure; UI will show N/A
-
 
     # Back URL: send applicants to the JD landing (or wherever you prefer)
     back_url = url_for("apply", tenant=t.slug, code=code)
@@ -1960,10 +1970,10 @@ def finish_application(tenant, code, cid):
         tenant_slug=t.slug,
         name=name,
         back_url=back_url,
-        # Progress UI (top-right)
         progress_label="Complete",
         progress_pct=100,
     )
+
 
 
 # Legacy bulk submit kept (redirects to finish)
