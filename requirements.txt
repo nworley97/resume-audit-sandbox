@@ -14,3 +14,6 @@ python-dateutil>=2.8
 bleach>=6.1.0
 tinycss2>=1.2.1
 
+
+# ET-23: Markdown rendering for JD editor
+markdown>=3.4

@@ -6,17 +6,285 @@
   <title>{% block title %}{{ title or "Apply" }}{% endblock %}</title>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .toast-enter {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.96);
+    }
+    .toast-enter-active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .toast-exit {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    .toast-exit-active {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.96);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    /* ET-23: Markdown Styling for Applicant View */
+    .prose {
+      color: #374151;
+      max-width: none;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    .prose h1 {
+      font-size: 1.5rem !important;
+      font-weight: 500 !important;
+      line-height: 1.25;
+      margin-top: 0;
+      margin-bottom: 0.85rem;
+      color: #1f2937;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .prose h2 {
+      font-size: 1.25rem !important;
+      font-weight: 500 !important;
+      line-height: 1.3;
+      margin-top: 1.1rem;
+      margin-bottom: 0.6rem;
+      color: #1f2937;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .prose h3 {
+      font-size: 1.125rem !important;
+      font-weight: 400 !important;
+      line-height: 1.3;
+      margin-top: 1rem;
+      margin-bottom: 0.45rem;
+      color: #1f2937;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose h4 {
+      font-size: 1rem !important;
+      font-weight: 400 !important;
+      line-height: 1.3;
+      margin-top: 0.85rem;
+      margin-bottom: 0.4rem;
+      color: #1f2937;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose h5 {
+      font-size: 0.875rem !important;
+      font-weight: 400 !important;
+      line-height: 1.3;
+      margin-top: 0.7rem;
+      margin-bottom: 0.35rem;
+      color: #1f2937;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose h6 {
+      font-size: 0.8rem !important;
+      font-weight: 400 !important;
+      line-height: 1.3;
+      margin-top: 0.6rem;
+      margin-bottom: 0.3rem;
+      color: #1f2937;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose p {
+      margin-top: 0;
+      margin-bottom: 0.9rem;
+      line-height: 1.6;
+      color: #374151;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose ul {
+      margin-top: 0;
+      margin-bottom: 0.9rem;
+      padding-left: 1.5rem;
+      list-style-type: disc;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose ol {
+      margin-top: 0;
+      margin-bottom: 0.9rem;
+      padding-left: 1.5rem;
+      list-style-type: decimal;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose li {
+      margin-bottom: 0.5rem;
+      line-height: 1.6;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose li p {
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose strong {
+      font-weight: 600;
+      color: #1f2937;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose em {
+      font-style: italic;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose a {
+      color: #0d9488;
+      text-decoration: underline;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .prose a:hover {
+      color: #0f766e;
+    }
+
+    .prose blockquote {
+      border-left: 4px solid #e5e7eb;
+      padding-left: 1rem;
+      margin-left: 0;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+      font-style: italic;
+      color: #6b7280;
+      background-color: #f9fafb;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .prose code {
+      background-color: #f3f4f6;
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
+      font-family: 'Inter', 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+      font-size: 0.875em;
+      color: #1f2937;
+    }
+
+    .prose pre {
+      background-color: #1f2937;
+      color: #f9fafb;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .prose pre code {
+      background-color: transparent;
+      padding: 0;
+      color: inherit;
+      font-size: 0.875rem;
+      font-family: 'Inter', 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+    }
+
+    .prose hr {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 2rem 0;
+    }
+
+    .prose table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .prose th {
+      background-color: #f9fafb;
+      font-weight: 600;
+      text-align: left;
+      padding: 0.75rem;
+      border: 1px solid #e5e7eb;
+    }
+
+    .prose td {
+      padding: 0.75rem;
+      border: 1px solid #e5e7eb;
+    }
+
+    .prose img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 0.5rem;
+      margin: 1rem 0;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .prose h1 {
+        font-size: 1.5rem;
+      }
+      .prose h2 {
+        font-size: 1.25rem;
+      }
+      .prose h3 {
+        font-size: 1.125rem;
+      }
+    }
+
+    /* ET-23: Tab Navigation Styling */
+    .tab-button {
+      color: #6b7280;
+      background-color: transparent;
+      border: none;
+      cursor: pointer;
+    }
+
+    .tab-button.active {
+      color: #1f2937;
+      background-color: white;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    .tab-button:hover:not(.active) {
+      color: #374151;
+      background-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .tab-button:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #0d9488;
+    }
+  </style>
   {% block head_extra %}{% endblock %}
 </head>
-<body class="min-h-screen bg-gray-100 text-gray-900">
+<body class="min-h-screen bg-background text-slate">
+
+  <div id="toast-root" class="pointer-events-none fixed inset-x-0 top-5 flex flex-col items-center gap-2 z-50 px-4"></div>
 
   <!-- Public header (brand centered) -->
-  <header class="border-b border-gray-200 bg-white">
-    <div class="max-w-5xl mx-auto px-4 py-3">
+  <header class="border-b border-gray-200 bg-transparent">
+    <div class="max-w-4xl mx-auto px-4 py-3">
       <div class="flex items-center justify-center">
         <div class="inline-flex items-center gap-2">
-          <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white font-semibold">
-            {{ (brand_name or (tenant and tenant.display_name) or 'Altera')[0] }}
+          <!-- 2025-10-02 corrected: Show tenant logo in public header if available -->
+          <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white font-semibold overflow-hidden">
+            {% if tenant and tenant.logo_url %}
+              <img src="{{ tenant.logo_url }}" alt="{{ tenant.display_name }} logo" class="w-full h-full object-cover rounded-lg">
+            {% else %}
+              {{ (brand_name or (tenant and tenant.display_name) or 'Altera')[0] }}
+            {% endif %}
           </span>
           <div class="text-sm text-gray-700">
             {{ brand_name or (tenant and tenant.display_name) or 'Altera' }}
@@ -26,26 +294,26 @@
     </div>
   </header>
 
-  {% with msgs = get_flashed_messages() %}
+  {% with msgs = get_flashed_messages(category_filter=['applicant']) %}
     {% if msgs %}
-      <div class="max-w-5xl mx-auto px-4 mt-4">
+      <div class="max-w-4xl mx-auto px-4 mt-4">
         {% for m in msgs %}
-          <div class="mb-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">{{ m }}</div>
+          <div class="mb-2 rounded-lg border border-primary/40 bg-[#ecfdf5] px-3 py-2 text-sm text-primary">{{ m }}</div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
 
-  <main class="max-w-5xl mx-auto px-4 py-8">
+  <main class="max-w-4xl mx-auto px-4 py-8">
     {% block content %}{% endblock %}
   </main>
 
   <!-- Public footer (links) -->
   <footer class="border-t border-gray-200 bg-white">
-    <div class="max-w-5xl mx-auto px-4 py-4 text-center text-xs text-gray-500">
+    <div class="max-w-4xl mx-auto px-4 py-4 text-center text-xs text-gray-500">
       <!-- Mark downloads to bypass loader -->
       <a
-        class="text-blue-600 hover:text-blue-700 underline"
+        class="text-primary hover:text-teal-700 underline"
         href="{{ link_privacy() }}"
         download
         target="_blank"
@@ -54,7 +322,7 @@
       >Privacy Policy</a>
       <span class="mx-2 text-gray-300">•</span>
       <a
-        class="text-blue-600 hover:text-blue-700 underline"
+        class="text-primary hover:text-teal-700 underline"
         href="{{ link_terms() }}"
         download
         target="_blank"
@@ -63,7 +331,7 @@
       >Terms of Service</a>
       <span class="mx-2 text-gray-300">•</span>
       <a
-        class="text-blue-600 hover:text-blue-700 underline"
+        class="text-primary hover:text-teal-700 underline"
         href="{{ link_support() }}"
         data-noload
       >Support</a>
@@ -71,6 +339,94 @@
   </footer>
 
   <script src="{{ url_for('static', filename='js/loader.js') }}"></script>
+  <script>
+    (function () {
+      if (window.showToast) return;
+      const root = document.getElementById('toast-root');
+      function showToast(message, variant = 'success', opts = {}) {
+        if (!root) return;
+        const node = document.createElement('div');
+        node.className = 'toast-enter pointer-events-auto w-full max-w-sm rounded-lg border px-4 py-3 shadow-lg text-sm flex items-start gap-3';
+        const palette = {
+          success: ['bg-white', 'border-primary/30', 'text-title'],
+          info: ['bg-white', 'border-slate/40', 'text-title'],
+          error: ['bg-white', 'border-rose-300', 'text-rose-700']
+        };
+        (palette[variant] || palette.success).forEach(cls => node.classList.add(cls));
+        const icon = {
+          success: '<path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"></path>',
+          info: '<circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="12"></line><circle cx="12" cy="16" r="1"></circle>',
+          error: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>'
+        };
+        const iconBg = variant === 'error' ? 'bg-rose-50 text-rose-600' : 'bg-primary/10 text-primary';
+        const iconPath = icon[variant] || icon.success;
+
+        node.innerHTML = `
+          <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full ${iconBg}">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              ${iconPath}
+            </svg>
+          </span>
+          <span class="flex-1">${message}</span>
+        `;
+
+        root.appendChild(node);
+        requestAnimationFrame(() => node.classList.add('toast-enter-active'));
+
+        const delay = opts.duration ?? 2600;
+        let removed = false;
+        function remove() {
+          if (removed) return;
+          removed = true;
+          node.classList.remove('toast-enter-active');
+          node.classList.add('toast-exit');
+          requestAnimationFrame(() => node.classList.add('toast-exit-active'));
+          setTimeout(() => node.remove(), 180);
+        }
+
+        setTimeout(remove, delay);
+      }
+      window.showToast = showToast;
+    })();
+
+    // ET-23: Tab Navigation Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const overviewTab = document.getElementById('overview-tab');
+      const applicationTab = document.getElementById('application-tab');
+      const overviewSection = document.getElementById('overview-section');
+      const applicationSection = document.getElementById('application-section');
+
+      if (overviewTab && applicationTab && overviewSection && applicationSection) {
+        // Overview tab click handler
+        overviewTab.addEventListener('click', function() {
+          // Update tab states
+          overviewTab.classList.add('active');
+          applicationTab.classList.remove('active');
+          
+          // Show/hide sections
+          overviewSection.classList.remove('hidden');
+          applicationSection.classList.add('hidden');
+        });
+
+        // Application tab click handler
+        applicationTab.addEventListener('click', function() {
+          // Update tab states
+          applicationTab.classList.add('active');
+          overviewTab.classList.remove('active');
+          
+          // Show/hide sections
+          applicationSection.classList.remove('hidden');
+          overviewSection.classList.add('hidden');
+          
+          // Smooth scroll to application section
+          applicationSection.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'start'
+          });
+        });
+      }
+    });
+  </script>
   {% block body_extra %}{% endblock %}
 </body>
 </html>
