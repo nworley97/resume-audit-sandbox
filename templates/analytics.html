@@ -1,0 +1,11 @@
+{% extends "base_app.html" %}
+{% block title %}Analytics – ALTERA{% endblock %}
+
+{% block content %}
+<div
+  id="analytics-root"
+  class="space-y-6"
+  data-config='{{ config|tojson }}'
+></div>
+<script type="module" src="{{ url_for('static', filename='js/analytics/analytics.bundle.js') }}" data-noload></script>
+{% endblock %}

@@ -18,25 +18,25 @@
 
     <div class="divide-y divide-gray-200">
       <div class="py-3 flex items-start gap-3">
-        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 ring-1 ring-blue-200">
-          <svg class="h-3.5 w-3.5 text-blue-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#ecfdf5] ring-1 ring-[#99f6e4]">
+          <svg class="h-3.5 w-3.5 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 00-1.408-1.418L8.5 10.67 5.7 7.87a1 1 0 10-1.4 1.43l3.5 3.5a1 1 0 001.42 0l7.484-7.51z" clip-rule="evenodd"/>
           </svg>
         </span>
         <div>
-          <div class="text-blue-600 text-sm font-medium">Stable Internet Connection</div>
+          <div class="text-primary text-sm font-medium">Stable Internet Connection</div>
           <div class="text-xs text-gray-500">Ensure you have a reliable internet connection to avoid interruptions during the interview.</div>
         </div>
       </div>
 
       <div class="py-3 flex items-start gap-3">
-        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 ring-1 ring-blue-200">
-          <svg class="h-3.5 w-3.5 text-blue-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#ecfdf5] ring-1 ring-[#99f6e4]">
+          <svg class="h-3.5 w-3.5 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 00-1.408-1.418L8.5 10.67 5.7 7.87a1 1 0 10-1.4 1.43l3.5 3.5a1 1 0 001.42 0l7.484-7.51z" clip-rule="evenodd"/>
           </svg>
         </span>
         <div>
-          <div class="text-blue-600 text-sm font-medium">Quiet Environment</div>
+          <div class="text-primary text-sm font-medium">Quiet Environment</div>
           <div class="text-xs text-gray-500">Choose a quiet place to minimize background noise and distractions.</div>
         </div>
       </div>
@@ -45,12 +45,7 @@
 
   <!-- Camera Access -->
   <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4 md:p-5 mb-4">
-    <div class="flex items-center justify-between">
-      <div class="font-semibold text-gray-900">Allow Camera Access</div>
-      <div id="camStatus" class="text-xs text-gray-600">
-        Camera permission: <span class="font-medium">Pending</span>
-      </div>
-    </div>
+    <div class="font-semibold text-gray-900">Allow Camera Access</div>
     <p class="mt-1 text-xs text-gray-500">
       To ensure fairness and authenticity for all candidates, please allow access to your camera before starting.
       Your video and activity data will only be used for identity verification and evaluation integrity purposes
@@ -66,13 +61,22 @@
       >
     </div>
 
+    <div class="mt-4 flex justify-center">
+      <div id="camStatus" class="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-[#ecfdf5] px-3 py-2 text-xs text-primary font-medium">
+        <span class="inline-flex h-2.5 w-2.5 items-center justify-center">
+          <span class="block h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+        </span>
+        <span class="tracking-wide">Camera permission: <span data-status>Pending</span></span>
+      </div>
+    </div>
+
     <!-- Actions -->
     <div class="mt-4 flex flex-col items-center gap-3">
       <button id="btnAllow" type="button"
-              class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+              class="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b7c70]">
         Allow camera access
       </button>
-      <a id="btnRetry" href="#" class="hidden text-xs text-blue-600 hover:text-blue-700 underline">Try again</a>
+      <a id="btnRetry" href="#" class="hidden text-xs text-primary hover:text-[#0b7c70] underline">Try again</a>
     </div>
   </div>
 
@@ -102,11 +106,12 @@
 
 {% block body_extra %}
 <script>
-  const btnAllow  = document.getElementById('btnAllow');
-  const btnRetry  = document.getElementById('btnRetry');
-  const camStatus = document.getElementById('camStatus').querySelector('span');
-  const agree     = document.getElementById('agree');
-  const btnStart  = document.getElementById('btnStart');
+  const btnAllow   = document.getElementById('btnAllow');
+  const btnRetry   = document.getElementById('btnRetry');
+  const camStatus  = document.getElementById('camStatus');
+  const statusText = camStatus?.querySelector('[data-status]');
+  const agree      = document.getElementById('agree');
+  const btnStart   = document.getElementById('btnStart');
 
   let camAllowed = false;
 
@@ -115,26 +120,36 @@
     btnStart.disabled = !ok;
     btnStart.className =
       'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold ' +
-      (ok ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+      (ok ? 'bg-primary text-white hover:bg-[#0b7c70] cursor-pointer'
           : 'bg-gray-300 text-white cursor-not-allowed');
   }
 
   async function requestCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      camStatus.textContent = 'Not supported';
+      if (statusText) statusText.textContent = 'Not supported';
       return;
     }
     try {
-      camStatus.textContent = 'Requesting…';
+      if (statusText) statusText.textContent = 'Requesting…';
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       stream.getTracks().forEach(t => t.stop());
       camAllowed = true;
-      camStatus.textContent = 'Allowed';
+      if (statusText) statusText.textContent = 'Allowed';
+      camStatus?.classList.remove('border-primary/40', 'border-rose-300');
+      camStatus?.classList.add('border-primary');
       btnRetry.classList.add('hidden');
+      if (window.showToast) {
+        window.showToast('Camera access granted.');
+      }
       updateStartState();
     } catch (e) {
       camAllowed = false;
-      camStatus.textContent = 'Blocked';
+      if (statusText) statusText.textContent = 'Blocked';
+      camStatus?.classList.remove('border-primary', 'border-primary/40');
+      camStatus?.classList.add('border-rose-300');
+      if (window.showToast) {
+        window.showToast('Camera access was blocked. Please allow access to continue.', 'error', { duration: 3200 });
+      }
       btnRetry.classList.remove('hidden');
       updateStartState();
     }
@@ -148,43 +163,14 @@
 </script>
 <script>
 (function () {
-  // Build the URL only if all template vars exist. Otherwise leave empty.
-  const flagUrl = "{% if tenant_slug and code and cid %}{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}{% else %}{% endif %}";
-
-  // Hard guard: bail if empty or malformed (prevents /apply///flag).
-  if (!flagUrl || !flagUrl.startsWith("/")) return;
-
-  // One-shot send; throttle duplicate events across visibility/pagehide.
-  let sent = false;
-  function sendFlagOnce() {
-    if (sent) return;
-    sent = true;
-    try {
-      if (navigator.sendBeacon) {
-        // empty body is fine; keep it tiny
-        const blob = new Blob([], { type: "application/octet-stream" });
-        navigator.sendBeacon(flagUrl, blob);
-      } else {
-        // Fallback for older browsers
-        fetch(flagUrl, { method: "POST", keepalive: true, body: "" }).catch(() => {});
-      }
-    } catch (_) {
-      // swallow; this is best-effort telemetry
-    }
+  const flagUrl = "{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}";
+  function sendFlag() {
+    try { navigator.sendBeacon(flagUrl); }
+    catch { fetch(flagUrl, { method: 'POST', keepalive: true }); }
   }
-
-  // Prefer pagehide (fires on bfcache too); visibilitychange as a backup.
-  window.addEventListener("pagehide", function (ev) {
-    // only send on real unloads, not bfcache persists (Safari)
-    if (typeof ev.persisted === "boolean" && ev.persisted) return;
-    sendFlagOnce();
-  });
-
-  document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") sendFlagOnce();
-  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) sendFlag(); });
+  window.addEventListener('pagehide', sendFlag);
 })();
 </script>
-
 
 {% endblock %}
