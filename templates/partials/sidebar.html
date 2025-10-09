@@ -10,7 +10,7 @@
       {% endif %}
     </div>
     <div class="min-w-0 flex items-center">
-      <span class="text-sm font-medium text-title leading-tight truncate max-w-[9rem]">
+      <span class="text-sm font-medium text-slate-900 leading-tight truncate max-w-[9rem]">
         {{ brand_name or 'Altera' }}
       </span>
     </div>
@@ -19,8 +19,9 @@
   <!-- Nav -->
   <nav class="px-2">
     <!-- Job Posting -->
+    {% set base_classes = 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition' %}
     <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
-       class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if request.endpoint=='recruiter' else 'text-title hover:bg-gray-50' }}">
+       class="{{ base_classes }} {{ 'bg-primary/10 text-primary' if request.endpoint=='recruiter' else 'text-slate-900 hover:bg-gray-50' }}">
       <!-- Lucide layout-grid icon -->
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="3" width="7" height="7" rx="1"></rect>
@@ -33,48 +34,34 @@
 
 <!-- Sidebar Candidates link (drop-in) -->
 <a href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}"
-   class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if request.endpoint in ['candidates_overview', 'candidate_detail', 'view_candidates'] else 'text-title hover:bg-gray-50' }}">
+   class="{{ base_classes }} mt-1 {{ 'bg-primary/10 text-primary' if request.endpoint in ['candidates_overview', 'candidate_detail', 'view_candidates'] else 'text-slate-900 hover:bg-gray-50' }}">
   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-    <circle cx="9" cy="7" r="4"></circle>
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+    <path d="M18 21a8 8 0 0 0-16 0"></path>
+    <circle cx="10" cy="8" r="5"></circle>
+    <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"></path>
   </svg>
   <span>Candidates</span>
 </a>
 
-    {% if tenant and tenant.slug %}
-      {% set analytics_url = '/' ~ tenant.slug ~ '/recruiter/analytics' %}
-    {% else %}
-      {% set analytics_url = '/recruiter/analytics' %}
-    {% endif %}
     {% set is_analytics_active = request.path and '/recruiter/analytics' in request.path %}
 {# Analytics #}
 {% if tenant and tenant.slug %}
   <a href="{{ url_for('analytics_dashboard', tenant=tenant.slug) }}"
-     class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg
-            {{ 'text-ink font-semibold bg-gray-100' if request.endpoint == 'analytics_dashboard'
-               else 'text-title hover:bg-gray-50' }}">
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M3 3v18"></path>
-      <path d="M9 9v12"></path>
-      <path d="M15 5v16"></path>
-      <path d="M21 13v8"></path>
+     class="{{ base_classes }} mt-1 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M5 21v-6"></path>
+      <path d="M12 21V3"></path>
+      <path d="M19 21V9"></path>
     </svg>
     <span>Analytics</span>
   </a>
 {% else %}
   <a href="{{ url_for('analytics_dashboard') }}"
-     class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg
-            {{ 'text-ink font-semibold bg-gray-100' if request.endpoint == 'analytics_dashboard'
-               else 'text-title hover:bg-gray-50' }}">
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M3 3v18"></path>
-      <path d="M9 9v12"></path>
-      <path d="M15 5v16"></path>
-      <path d="M21 13v8"></path>
+     class="{{ base_classes }} mt-1 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M5 21v-6"></path>
+      <path d="M12 21V3"></path>
+      <path d="M19 21V9"></path>
     </svg>
     <span>Analytics</span>
   </a>
@@ -83,7 +70,7 @@
 
 
   <!-- Powered by -->
-  <div class="absolute left-4 bottom-4 flex items-center gap-2 text-xs text-slate">
+  <div class="absolute left-4 bottom-4 flex items-center gap-2 text-xs text-slate-500">
     <img src="{{ url_for('static', filename='img/favicon-16x16.png') }}" alt="Altera mark" class="w-4 h-4 rounded" />
     Powered by AlteraSF
   </div>

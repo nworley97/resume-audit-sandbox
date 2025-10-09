@@ -6,7 +6,18 @@
     </a>
     <!-- 2025-10-01 corrected: Display user initials (not tenant logo) -->
     <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
-      {{ (current_user.username[:2] if current_user and current_user.username else 'JD') | upper }}
+      {% set user_initials = (current_user.username[:2] if current_user and current_user.username else 'JD') | upper %}
+      {{ user_initials }}
     </div>
   </div>
 </header>
+<script>
+  (function() {
+    try {
+      var initials = {{ user_initials | tojson }};
+      window.localStorage && window.localStorage.setItem('analytics-user-initials', initials);
+    } catch (err) {
+      // Ignore storage failures (privacy mode, etc.)
+    }
+  })();
+</script>

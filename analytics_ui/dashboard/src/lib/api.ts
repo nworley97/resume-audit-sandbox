@@ -7,8 +7,16 @@ import {
 } from "@/types/analytics";
 
 function buildUrl(path: string, tenant: string) {
-  const url = new URL(`${env.analyticsBaseUrl}${path}`);
-  url.searchParams.set("tenant", tenant);
+  const base = (env.analyticsBaseUrl || "").trim();
+  const hasCustomBase = base.length > 0;
+  const fallbackOrigin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+  const baseForUrl = hasCustomBase ? (base.endsWith("/") ? base : `${base}/`) : `${fallbackOrigin}/`;
+  const pathForUrl = hasCustomBase ? path.replace(/^\/+/, "") : path.startsWith("/") ? path : `/${path}`;
+
+  const url = new URL(pathForUrl, baseForUrl);
+  if (tenant) {
+    url.searchParams.set("tenant", tenant);
+  }
   return url.toString();
 }
 
