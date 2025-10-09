@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ResponsiveBar } from "@nivo/bar";
 import type { LucideIcon } from "lucide-react";
@@ -157,17 +156,17 @@ function DiamondsCarousel({ detail, tenant }: { detail: AnalyticsJobDetail; tena
                   </Badge>
                 </div>
                 <Button
-                  asChild
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0 bg-[#F7F7F4] hover:bg-[#F2F1EE] rounded-md cursor-pointer"
+                  asChild
                 >
-                  <Link
+                  <a
                     href={`/${tenant}/recruiter/candidate/${diamond.id}`}
                     aria-label={`Review profile for ${diamond.name}`}
                   >
                     <Eye className="size-4 text-gray-600" />
-                  </Link>
+                  </a>
                 </Button>
               </div>
               
@@ -403,7 +402,7 @@ export function AnalyticsDetail({
   tenant: string;
   jobCode: string;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { setSelectedJob, setTenant: persistTenant } = useAnalyticsStore();
 
   useEffect(() => {
@@ -435,7 +434,7 @@ export function AnalyticsDetail({
         showBackButton={true}
         onBackClick={() => {
           setSelectedJob(undefined);
-          router.push(`/${tenant}/recruiter/analytics`);
+          navigate(`/${tenant}/recruiter/analytics`);
         }}
         showRefreshButton={false}
         showDateRange={false}

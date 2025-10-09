@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -37,7 +37,7 @@ function JobCard({
   index: number;
   tenant: string;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { setSelectedJob } = useAnalyticsStore();
 
   return (
@@ -53,7 +53,7 @@ function JobCard({
           type="button"
           onClick={() => {
             setSelectedJob(job.jd_code);
-            router.push(`/${tenant}/recruiter/analytics/${job.jd_code}`);
+            navigate(`/${tenant}/recruiter/analytics/${job.jd_code}`);
           }}
           className="flex h-full w-full flex-col items-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label={`View analytics for ${job.jd_title || job.jd_code}`}

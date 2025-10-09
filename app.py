@@ -9,7 +9,7 @@ from io import StringIO
 from flask import current_app, send_from_directory, abort 
 from flask import (
     Flask, request, redirect, url_for,
-    render_template, flash, send_file, abort, make_response, session, g
+    render_template, flash, send_file, abort, make_response, session, g, jsonify
 )
 from markupsafe import Markup, escape
 try:
@@ -1537,22 +1537,110 @@ def candidates_overview(tenant=None):
 @app.route("/<tenant>/analytics", strict_slashes=False)
 @login_required
 def analytics_dashboard(tenant=None):
+    """Redirect to Next.js analytics dashboard"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
             return redirect(url_for("analytics_dashboard", tenant=slug))
         return redirect(url_for("login"))
+    
+    # Redirect to Next.js analytics route
+    return redirect(f"/{t.slug}/recruiter/analytics")
 
-    config = {
-        "tenantSlug": t.slug,
-        "tenantName": getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug,
-        "summaryEndpoint": "/analytics/summary",
-        "jobDetailEndpoint": "/analytics/job",
-    }
 
-    return render_template("analytics.html", title="Analytics", config=config)
+# ---- Next.js Analytics Dashboard Routes ----
+@app.route("/<tenant>/recruiter/analytics", strict_slashes=False)
+@app.route("/<tenant>/recruiter/analytics/", strict_slashes=False)
+@login_required
+def analytics_overview_nextjs(tenant=None):
+    """Serve Vite static files for analytics overview page"""
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("analytics_overview_nextjs", tenant=slug))
+        return redirect(url_for("login"))
+    
+    return send_from_directory('analytics_ui/dashboard/dist', 'index.html')
 
+@app.route("/<tenant>/recruiter/analytics/<jobCode>", strict_slashes=False)
+@app.route("/<tenant>/recruiter/analytics/<jobCode>/", strict_slashes=False)
+@login_required
+def analytics_detail_nextjs(tenant=None, jobCode=None):
+    """Serve Vite static files for analytics detail page (client-side routing)"""
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("analytics_detail_nextjs", tenant=slug, jobCode=jobCode))
+        return redirect(url_for("login"))
+    
+    return send_from_directory('analytics_ui/dashboard/dist', 'index.html')
+
+@app.route("/assets/<path:path>")
+def vite_static(path):
+    """Serve Vite static assets (assets/*, etc.)"""
+    return send_from_directory('analytics_ui/dashboard/dist/assets', path)
+
+@app.route("/favicon.ico")
+@app.route("/favicon-32x32.png")
+@app.route("/file.svg")
+@app.route("/globe.svg")
+@app.route("/next.svg")
+@app.route("/vercel.svg")
+@app.route("/window.svg")
+def nextjs_public_assets():
+    """Serve Next.js public assets"""
+    filename = request.path.lstrip('/')
+    return send_from_directory('analytics_ui/dashboard/dist', filename)
+
+
+@app.route("/api/tenants/<tenant>/metadata", methods=["GET"], strict_slashes=False)
+@login_required
+def tenant_metadata(tenant):
+    t = load_tenant_by_slug(tenant)
+    if not t:
+        abort(404, "tenant not found")
+
+    return jsonify({
+        "slug": t.slug,
+        "display_name": getattr(t, "display_name", None) or t.slug,
+        "logo_url": getattr(t, "logo_url", None),
+    })
+
+
+@app.route("/api/session/me", methods=["GET"], strict_slashes=False)
+@login_required
+def session_identity():
+    user = current_user
+    if not user:
+        abort(401, "user not authenticated")
+
+    username = getattr(user, "username", None) or "JD"
+    initials = (username or "JD")[:2].upper()
+
+    tenant_slug = None
+    tenant_display = None
+    if getattr(user, "tenant_id", None):
+        tenant = getattr(user, "tenant", None)
+        if tenant is None:
+            db = SessionLocal()
+            try:
+                tenant = db.get(Tenant, user.tenant_id)
+            finally:
+                db.close()
+        if tenant:
+            tenant_slug = getattr(tenant, "slug", None)
+            tenant_display = getattr(tenant, "display_name", None) or tenant_slug
+
+    return jsonify({
+        "username": username,
+        "initials": initials,
+        "is_super": bool(getattr(user, "is_super", False)),
+        "tenant_slug": tenant_slug,
+        "tenant_display_name": tenant_display,
+    })
 
 
 # ---- Export CSV for candidates ----
