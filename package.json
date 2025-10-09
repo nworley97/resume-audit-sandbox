@@ -5,7 +5,11 @@
   "main": "tailwind.config.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:css": "tailwindcss -i ./static/css/app.css -o ./static/css/output.css --minify"
+    "preinstall": "echo 'Installing CSS dependencies...'",
+    "postinstall": "echo 'Dependencies installed. Run: npm run build:css'",
+    "build:css": "npx tailwindcss -i ./static/css/app.css -o ./static/css/output.css --minify",
+    "build:analytics": "analytics_ui/dashboard/node_modules/.bin/esbuild --bundle static/js/analytics/main.tsx --loader:.ts=ts --loader:.tsx=tsx --format=esm --sourcemap --outfile=static/js/analytics/analytics.bundle.js --minify",
+    "setup": "npm install && npm run build:css"
   },
   "keywords": [],
   "author": "",

@@ -7,14 +7,21 @@
 
   <!-- Tailwind build -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}" />
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" />
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   {% block head %}{% endblock %}
   <script src="{{ url_for('static', filename='js/loader.js') }}" defer></script>
 </head>
 <body class="bg-background text-title font-sans">
+  {# silently consume any lingering flashes from previous redirects (admin scope) #}
+  {% set _discard = get_flashed_messages(with_categories=true) %}
   <!-- Loader Overlay -->
   <div id="loading-overlay"
        class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-80 hidden opacity-0 transition-opacity duration-200 z-50">
-    <div class="w-12 h-12 border-4 border-[#085CFF] border-t-transparent rounded-full animate-spin"></div>
+    <div class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
   </div>
 
   {% include 'partials/header.html' %}

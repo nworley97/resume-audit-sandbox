@@ -1,14 +1,18 @@
 <aside class="w-56 bg-white border-r border-gray-200 relative">
   <!-- Brand / tenant -->
   <div class="flex items-center gap-3 px-4 py-4">
-    <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
-      {{ (brand_name[:2] if brand_name else 'AL') | upper }}
+    <!-- 2025-10-01 modified: Display tenant logo if available, otherwise show initials -->
+    <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center overflow-hidden">
+      {% if tenant and tenant.logo_url %}
+        <img src="{{ tenant.logo_url }}" alt="{{ tenant.display_name }} logo" class="w-full h-full object-cover rounded-full">
+      {% else %}
+        {{ (brand_name[:2] if brand_name else 'AL') | upper }}
+      {% endif %}
     </div>
-    <div class="min-w-0">
-      <div class="text-sm font-medium text-title leading-tight truncate max-w-[9rem]">
+    <div class="min-w-0 flex items-center">
+      <span class="text-sm font-medium text-title leading-tight truncate max-w-[9rem]">
         {{ brand_name or 'Altera' }}
-      </div>
-      <div class="text-[11px] text-slate -mt-0.5">HR</div>
+      </span>
     </div>
   </div>
 
@@ -17,32 +21,49 @@
     <!-- Job Posting -->
     <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
        class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if request.endpoint=='recruiter' else 'text-title hover:bg-gray-50' }}">
-      <!-- 4-squares icon -->
-      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-        <rect x="3"  y="3"  width="7" height="7" rx="1.5"></rect>
-        <rect x="14" y="3"  width="7" height="7" rx="1.5"></rect>
-        <rect x="3"  y="14" width="7" height="7" rx="1.5"></rect>
-        <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+      <!-- Lucide layout-grid icon -->
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
       </svg>
       <span>Job Posting</span>
     </a>
 
 <!-- Sidebar Candidates link (drop-in) -->
 <a href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}"
-   class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if request.endpoint == 'candidates_overview' else 'text-title hover:bg-gray-50' }}">
-  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-    <path d="M16 11c1.657 0 3-1.79 3-4s-1.343-4-3-4-3 1.79-3 4 1.343 4 3 4Z"></path>
-    <path d="M8 12c1.657 0 3-1.79 3-4S9.657 4 8 4 5 5.79 5 8s1.343 4 3 4Z"></path>
-    <path d="M2 20c0-2.761 2.91-5 6.5-5S15 17.239 15 20"></path>
-    <path d="M15 15.5c3.59 0 6.5 2.239 6.5 5"></path>
+   class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if request.endpoint in ['candidates_overview', 'candidate_detail', 'view_candidates'] else 'text-title hover:bg-gray-50' }}">
+  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+    <circle cx="9" cy="7" r="4"></circle>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
   </svg>
   <span>Candidates</span>
 </a>
 
+    {% if tenant and tenant.slug %}
+      {% set analytics_url = '/' ~ tenant.slug ~ '/recruiter/analytics' %}
+    {% else %}
+      {% set analytics_url = '/recruiter/analytics' %}
+    {% endif %}
+    {% set is_analytics_active = request.path and '/recruiter/analytics' in request.path %}
+    <a href="{{ analytics_url }}"
+       class="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-title hover:bg-gray-50' }}">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 3v18"></path>
+        <path d="M9 9v12"></path>
+        <path d="M15 5v16"></path>
+        <path d="M21 13v8"></path>
+      </svg>
+      <span>Analytics</span>
+    </a>
+
 
   <!-- Powered by -->
   <div class="absolute left-4 bottom-4 flex items-center gap-2 text-xs text-slate">
-    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-300">A</span>
+    <img src="{{ url_for('static', filename='img/favicon-16x16.png') }}" alt="Altera mark" class="w-4 h-4 rounded" />
     Powered by AlteraSF
   </div>
 </aside>

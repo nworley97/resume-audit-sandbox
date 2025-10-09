@@ -7,7 +7,7 @@
       <h2 class="text-base font-semibold text-gray-900">Candidates Overview</h2>
       <p class="text-sm text-gray-500">Manage and review candidate applications with intelligent insights</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-3">
       <div class="relative">
         <input
           id="candidate-q"
@@ -20,11 +20,18 @@
           <path fill-rule="evenodd" d="M12.9 14.32a8 8 0 111.414-1.414l4.387 4.387a1 1 0 01-1.414 1.414l-4.387-4.387zM14 8a6 6 0 11-12 0 6 6 0 0112 0z" clip-rule="evenodd"/>
         </svg>
       </div>
-      <button id="filters-btn" class="inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+      <button id="filters-btn" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50 text-title">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 5h18M6 12h12M10 19h4" stroke-linecap="round"/>
+        </svg>
         Filter
       </button>
       <a download href="{{ url_for('export_candidates_csv', tenant=tenant_slug) if export_endpoint else '#' }}"
-         class="inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+         class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+        </svg>
         Export
       </a>
     </div>
@@ -103,6 +110,152 @@
   </div>
 </div>
 
+<!-- Filter Overlay -->
+<div id="filter-overlay" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="filter-title">
+  <div data-overlay class="absolute inset-0 bg-slate-900/40"></div>
+  <div class="relative w-full sm:w-11/12 md:w-4/5 lg:w-1/2 xl:w-5/12 max-h-[65vh] rounded-2xl bg-white shadow-lg shadow-slate-900/10 overflow-hidden">
+    <form id="filter-form" class="flex h-full max-h-[65vh] flex-col">
+      <div class="flex items-start justify-between border-b border-gray-200 px-6 py-4">
+        <div>
+          <h2 id="filter-title" class="text-lg font-semibold text-title">Filter Candidates</h2>
+        </div>
+        <button type="button" id="close-filter" class="text-slate hover:text-title">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18"></path>
+            <path d="M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+          <!-- Job Title Filter -->
+          <section class="space-y-3">
+            <div>
+              <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Job Title</h3>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              {% for title in job_titles %}
+                <label class="flex items-center space-x-3 cursor-pointer">
+                  <input type="checkbox" name="job_title" value="{{ title }}" 
+                         class="rounded border-gray-300 text-primary focus:ring-primary"
+                         {{ 'checked' if title in (request.args.getlist('job_title') or []) else '' }}>
+                  <span class="text-sm text-title">{{ title }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </section>
+
+          <!-- Department Filter -->
+          <section class="space-y-3">
+            <div>
+              <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Department</h3>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              {% for dept in departments %}
+                <label class="flex items-center space-x-3 cursor-pointer">
+                  <input type="checkbox" name="department" value="{{ dept }}" 
+                         class="rounded border-gray-300 text-primary focus:ring-primary"
+                         {{ 'checked' if dept in (request.args.getlist('department') or []) else '' }}>
+                  <span class="text-sm text-title">{{ dept }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </section>
+
+          <!-- Claim Validity Score Filter -->
+          <section class="space-y-3">
+            <div>
+              <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Claim Validity Score</h3>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+                <input type="radio" name="claim_validity_min" value="5.0" 
+                       class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                       {{ 'checked' if request.args.get('claim_validity_min') == '5.0' else '' }}>
+                <span class="text-title">5 or higher</span>
+              </label>
+              <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+                <input type="radio" name="claim_validity_min" value="4.0" 
+                       class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                       {{ 'checked' if request.args.get('claim_validity_min') == '4.0' else '' }}>
+                <span class="text-title">4 or higher</span>
+              </label>
+              <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+                <input type="radio" name="claim_validity_min" value="3.0" 
+                       class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                       {{ 'checked' if request.args.get('claim_validity_min') == '3.0' else '' }}>
+                <span class="text-title">3 or higher</span>
+              </label>
+            </div>
+          </section>
+
+          <!-- Relevancy Score Filter -->
+          <section class="space-y-3">
+            <div>
+              <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Relevancy Score</h3>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+                <input type="radio" name="relevancy_min" value="5.0" 
+                       class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                       {{ 'checked' if request.args.get('relevancy_min') == '5.0' else '' }}>
+                <span class="text-title">5 or higher</span>
+              </label>
+              <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+                <input type="radio" name="relevancy_min" value="4.0" 
+                       class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                       {{ 'checked' if request.args.get('relevancy_min') == '4.0' else '' }}>
+                <span class="text-title">4 or higher</span>
+              </label>
+              <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+                <input type="radio" name="relevancy_min" value="3.0" 
+                       class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                       {{ 'checked' if request.args.get('relevancy_min') == '3.0' else '' }}>
+                <span class="text-title">3 or higher</span>
+              </label>
+            </div>
+          </section>
+
+          <!-- Date Range Filter -->
+          <section class="space-y-3">
+            <div>
+              <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Date of Application</h3>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="space-y-2">
+                <label class="text-xs font-medium text-slate uppercase tracking-wide">From</label>
+                <input type="date" name="date_from" value="{{ request.args.get('date_from', '') }}" 
+                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs font-medium text-slate uppercase tracking-wide">To</label>
+                <input type="date" name="date_to" value="{{ request.args.get('date_to', '') }}" 
+                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="date-preset text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50" data-preset="today">Today</button>
+              <button type="button" class="date-preset text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50" data-preset="7">Last 7 days</button>
+              <button type="button" class="date-preset text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50" data-preset="14">Last 14 days</button>
+              <button type="button" class="date-preset text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50" data-preset="30">Last 30 days</button>
+            </div>
+          </section>
+      </div>
+
+      <div class="flex items-center justify-between gap-3 border-t border-gray-200 px-6 py-4 bg-gray-50">
+        <a href="{{ url_for(request.endpoint, tenant=tenant_slug) }}"
+           class="text-sm font-medium text-primary hover:text-primary/80">Reset</a>
+        <div class="flex items-center gap-3">
+          <button type="button" id="clear-filters" class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-title hover:bg-gray-100">Cancel</button>
+          <button type="submit" id="apply-filters" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+            Apply
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
   // keep your global page-loader behavior; just debounce search input
   (function () {
@@ -118,5 +271,64 @@
         window.location = `${window.location.pathname}?${params.toString()}`;
       }, 300);
     });
+  }());
+
+  // Filter overlay functionality
+  (function () {
+    const filterBtn = document.getElementById('filters-btn');
+    const filterOverlay = document.getElementById('filter-overlay');
+    const closeFilter = document.getElementById('close-filter');
+    const clearFilters = document.getElementById('clear-filters');
+    const filterForm = document.getElementById('filter-form');
+
+    if (!filterBtn || !filterOverlay) return;
+
+    const open = () => {
+      filterOverlay.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    };
+    const close = () => {
+      filterOverlay.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    };
+
+    // Show filter overlay
+    filterBtn.addEventListener('click', open);
+
+    // Hide filter overlay
+    closeFilter.addEventListener('click', close);
+    clearFilters.addEventListener('click', close);
+    filterOverlay.querySelector('[data-overlay]')?.addEventListener('click', close);
+
+    // Escape key handling
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !filterOverlay.classList.contains('hidden')) {
+        close();
+      }
+    });
+
+    // Date presets
+    document.querySelectorAll('.date-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const preset = btn.dataset.preset;
+        const today = new Date();
+        const dateFrom = document.querySelector('input[name="date_from"]');
+        const dateTo = document.querySelector('input[name="date_to"]');
+        
+        if (preset === 'today') {
+          const todayStr = today.toISOString().split('T')[0];
+          dateFrom.value = todayStr;
+          dateTo.value = todayStr;
+        } else {
+          const days = parseInt(preset);
+          const fromDate = new Date(today);
+          fromDate.setDate(today.getDate() - days);
+          dateFrom.value = fromDate.toISOString().split('T')[0];
+          dateTo.value = today.toISOString().split('T')[0];
+        }
+      });
+    });
+
+    // No range sliders needed for radio buttons
   }());
 </script>

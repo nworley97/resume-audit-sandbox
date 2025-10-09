@@ -28,12 +28,21 @@
   {% if (total or 0) == 0 %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
       <div class="p-12 text-center text-slate">
-        <div class="text-title text-lg mb-2">No applicants yet</div>
-        <div class="text-sm mb-6">Once candidates apply, they’ll appear here for review and scoring.</div>
-        <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
-           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-          View Job Postings
-        </a>
+        {% if has_active_filters %}
+          <div class="text-title text-lg mb-2">No candidates match these filters</div>
+          <div class="text-sm mb-6">Adjust your filters or reset to view all candidates.</div>
+          <a href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}{% endif %}"
+             class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+            Reset
+          </a>
+        {% else %}
+          <div class="text-title text-lg mb-2">No applicants yet</div>
+          <div class="text-sm mb-6">Once candidates apply, they’ll appear here for review and scoring.</div>
+          <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
+             class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+            View Job Postings
+          </a>
+        {% endif %}
       </div>
     </div>
   {% else %}
@@ -57,25 +66,20 @@
       </form>
 
       <div class="flex items-center gap-2">
-        <a href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=1) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=1) }}{% endif %}"
-           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
+        <button id="filters-btn" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M3 5h18M6 12h12M10 19h4" stroke-linecap="round"/>
           </svg>
           Filter
+        </button>
+        <a href="{% if jd %}{{ url_for('export_candidates_csv', tenant=tenant_slug, q=jd.code) }}{% else %}{{ url_for('export_candidates_csv', tenant=tenant_slug) }}{% endif %}"
+           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+          </svg>
+          Export
         </a>
-{# Newer endpoint #}
-{% if jd %}
-  <a href="{{ url_for('export_candidates_csv', tenant=tenant_slug, q=jd.code) }}"
-     class="inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-    Export
-  </a>
-{% else %}
-  <a href="{{ url_for('export_candidates_csv', tenant=tenant_slug) }}"
-     class="inline-flex items-center rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-    Export
-  </a>
-{% endif %}
 
 
 {# If you prefer the legacy endpoint, use this instead: #}
@@ -136,7 +140,7 @@
               <td class="py-3">
                 {% set display_name = c.name or (((c.first_name or '') ~ ' ' ~ (c.last_name or '')).strip()) %}
                 {% if has_candidate_detail %}
-                  <a class="text-title hover:underline"
+                  <a class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary"
                      href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">
                     {{ display_name }}
                   </a>
@@ -244,11 +248,267 @@
 
   {% endif %}
 </div>
+
+<!-- Filter Overlay -->
+<div id="filter-overlay" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="filter-title">
+  <div data-overlay class="absolute inset-0 bg-slate-900/40"></div>
+  <div class="relative w-full sm:w-11/12 md:w-4/5 lg:w-1/2 xl:w-5/12 max-h-[65vh] rounded-2xl bg-white shadow-lg shadow-slate-900/10 overflow-hidden">
+    <form id="filter-form"
+          action="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}{% endif %}"
+          method="get"
+          class="flex h-full max-h-[65vh] flex-col">
+      <input type="hidden" name="q" value="{{ q or '' }}">
+      <input type="hidden" name="sort" value="{{ sort or '' }}">
+      <input type="hidden" name="dir" value="{{ dir or '' }}">
+      <input type="hidden" name="page" value="1">
+
+      <div class="flex items-start justify-between border-b border-gray-200 px-6 py-4">
+        <div>
+          <h2 id="filter-title" class="text-lg font-semibold text-title">Filter Candidates</h2>
+        </div>
+        <button type="button" id="close-filter" class="text-slate hover:text-title">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18"></path>
+            <path d="M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div data-scrollable class="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+        <!-- Job Title Filter -->
+        <section class="space-y-3">
+          <div>
+            <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Job Title</h3>
+          </div>
+          <div class="rounded-xl border border-gray-200">
+            <div class="max-h-48 overflow-y-auto divide-y divide-gray-100">
+              {% set selected_job_titles = request.args.getlist('job_title') %}
+              {% if job_titles %}
+                {% for title in job_titles|sort %}
+                  <label class="flex items-center justify-between gap-3 px-4 py-3 text-sm text-title hover:bg-gray-50 cursor-pointer">
+                    <span class="inline-flex items-center gap-3">
+                      <input type="checkbox" name="job_title" value="{{ title }}"
+                             class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                             {% if title in selected_job_titles %}checked{% endif %}>
+                      <span>{{ title }}</span>
+                    </span>
+                  </label>
+                {% endfor %}
+              {% else %}
+                <div class="px-4 py-6 text-sm text-slate">No job title metadata yet.</div>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+
+        <!-- Department Filter -->
+        <section class="space-y-3">
+          <div>
+            <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Department</h3>
+          </div>
+          <div class="rounded-xl border border-gray-200">
+            <div class="max-h-48 overflow-y-auto divide-y divide-gray-100">
+              {% set selected_departments = request.args.getlist('department') %}
+              {% if departments %}
+                {% for dept in departments|sort %}
+                  <label class="flex items-center justify-between gap-3 px-4 py-3 text-sm text-title hover:bg-gray-50 cursor-pointer">
+                    <span class="inline-flex items-center gap-3">
+                      <input type="checkbox" name="department" value="{{ dept }}"
+                             class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                             {% if dept in selected_departments %}checked{% endif %}>
+                      <span>{{ dept }}</span>
+                    </span>
+                  </label>
+                {% endfor %}
+              {% else %}
+                <div class="px-4 py-6 text-sm text-slate">No department metadata yet.</div>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+
+        <!-- Claim Validity Score Filter -->
+        <section class="space-y-3">
+          <div>
+            <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Claim Validity Score</h3>
+          </div>
+          <div class="grid gap-2 sm:grid-cols-2">
+            {% set claim_selected = request.args.get('claim_validity_min') %}
+            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+              <input type="radio" name="claim_validity_min" value="5.0"
+                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                     {% if claim_selected == '5.0' %}checked{% endif %}>
+              <span class="text-title">Score 5 or higher</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+              <input type="radio" name="claim_validity_min" value="4.0"
+                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                     {% if claim_selected == '4.0' %}checked{% endif %}>
+              <span class="text-title">Score 4 or higher</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+              <input type="radio" name="claim_validity_min" value="3.0"
+                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                     {% if claim_selected == '3.0' %}checked{% endif %}>
+              <span class="text-title">Score 3 or higher</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Relevancy Score Filter -->
+        <section class="space-y-3">
+          <div>
+            <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Relevancy Score</h3>
+          </div>
+          <div class="grid gap-2 sm:grid-cols-2">
+            {% set relevancy_selected = request.args.get('relevancy_min') %}
+            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+              <input type="radio" name="relevancy_min" value="5.0"
+                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                     {% if relevancy_selected == '5.0' %}checked{% endif %}>
+              <span class="text-title">Score 5 or higher</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+              <input type="radio" name="relevancy_min" value="4.0"
+                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                     {% if relevancy_selected == '4.0' %}checked{% endif %}>
+              <span class="text-title">Score 4 or higher</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
+              <input type="radio" name="relevancy_min" value="3.0"
+                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                     {% if relevancy_selected == '3.0' %}checked{% endif %}>
+              <span class="text-title">Score 3 or higher</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Date Range Filter -->
+        <section class="space-y-3">
+          <div>
+            <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Date of Application</h3>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-slate uppercase tracking-wide">From</label>
+              <input type="date" name="date_from" value="{{ request.args.get('date_from', '') }}"
+                     class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-slate uppercase tracking-wide">To</label>
+              <input type="date" name="date_to" value="{{ request.args.get('date_to', '') }}"
+                     class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="date-preset text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50" data-preset="today">Today</button>
+            <button type="button" class="date-preset text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50" data-preset="7">Last 7 days</button>
+            <button type="button" class="date-preset text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50" data-preset="14">Last 14 days</button>
+            <button type="button" class="date-preset text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50" data-preset="30">Last 30 days</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="flex items-center justify-between gap-3 border-t border-gray-200 px-6 py-4 bg-gray-50">
+        <a href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir) }}{% endif %}"
+           class="text-sm font-medium text-primary hover:text-primary/80">Reset</a>
+        <div class="flex items-center gap-3">
+          <button type="button" id="cancel-filter"
+                  class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-title hover:bg-gray-100">Cancel</button>
+          <button type="submit" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+            Apply
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 (function () {
   const all = document.getElementById('select-all');
   const rows = () => Array.from(document.querySelectorAll('input.row-check'));
   all?.addEventListener('change', () => rows().forEach(cb => { cb.checked = all.checked; }));
+})();
+
+// Filter overlay functionality
+(function () {
+  const filterBtn = document.getElementById('filters-btn');
+  const filterOverlay = document.getElementById('filter-overlay');
+  const closeFilter = document.getElementById('close-filter');
+  const cancelFilter = document.getElementById('cancel-filter');
+  const filterForm = document.getElementById('filter-form');
+  const overlayBackdrop = filterOverlay?.querySelector('[data-overlay]');
+  const scrollRegion = filterOverlay?.querySelector('[data-scrollable]');
+
+  if (!filterBtn || !filterOverlay) return;
+
+  const lockScroll = () => {
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.dataset.scrollY = String(scrollY);
+    document.body.style.top = `-${scrollY}px`;
+    document.body.classList.add('fixed', 'w-full', 'overflow-hidden');
+  };
+
+  const unlockScroll = () => {
+    const scrollY = parseInt(document.body.dataset.scrollY || '0', 10);
+    document.body.classList.remove('fixed', 'w-full', 'overflow-hidden');
+    document.body.style.removeProperty('top');
+    window.scrollTo(0, scrollY);
+    delete document.body.dataset.scrollY;
+  };
+
+  const open = (event) => {
+    event?.preventDefault();
+    filterOverlay.classList.remove('hidden');
+    lockScroll();
+  };
+
+  const close = () => {
+    filterOverlay.classList.add('hidden');
+    unlockScroll();
+  };
+
+  filterBtn.addEventListener('click', open);
+  closeFilter?.addEventListener('click', close);
+  cancelFilter?.addEventListener('click', close);
+  overlayBackdrop?.addEventListener('click', close);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !filterOverlay.classList.contains('hidden')) {
+      close();
+    }
+  });
+
+  if (scrollRegion) {
+    const stop = (event) => event.stopPropagation();
+    scrollRegion.addEventListener('wheel', stop, { passive: true });
+    scrollRegion.addEventListener('touchmove', stop, { passive: true });
+  }
+
+  filterOverlay.querySelectorAll('.date-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!filterForm) return;
+      const preset = btn.dataset.preset;
+      const today = new Date();
+      const dateFrom = filterForm.querySelector('input[name="date_from"]');
+      const dateTo = filterForm.querySelector('input[name="date_to"]');
+      if (!dateFrom || !dateTo) return;
+
+      if (preset === 'today') {
+        const todayStr = today.toISOString().split('T')[0];
+        dateFrom.value = todayStr;
+        dateTo.value = todayStr;
+      } else {
+        const days = parseInt(preset || '0', 10);
+        if (Number.isNaN(days)) return;
+        const fromDate = new Date(today);
+        fromDate.setDate(today.getDate() - days);
+        dateFrom.value = fromDate.toISOString().split('T')[0];
+        dateTo.value = today.toISOString().split('T')[0];
+      }
+    });
+  });
 })();
 </script>
 

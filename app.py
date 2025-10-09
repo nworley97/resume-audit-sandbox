@@ -1,6 +1,6 @@
 # app.py
 import os, json, uuid, logging, tempfile, mimetypes, re, io, csv, html
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
 import math
@@ -12,6 +12,10 @@ from flask import (
     render_template, flash, send_file, abort, make_response, session, g
 )
 from markupsafe import Markup, escape
+try:
+    from markdown import markdown as md_to_html
+except ImportError:  # pragma: no cover - optional dependency
+    md_to_html = None
 from flask_login import (
     LoginManager, login_user, login_required,
     logout_user, current_user
@@ -25,7 +29,7 @@ from sqlalchemy import or_, text, inspect, func, literal_column
 from sqlalchemy.exc import SQLAlchemyError
 from dateutil import parser as dtparse
 
-from db import SessionLocal
+from db import SessionLocal, Base, DATABASE_URL
 from models import (
     Tenant, User, JobDescription, Candidate,
     engine as models_engine
@@ -36,6 +40,9 @@ from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
+
+logger = logging.getLogger(__name__)
+_markdown_fallback_warned = False
 
 # Superadmin credentials (simple form)
 SUPERADMIN_USER = os.getenv("SUPERADMIN_USER", "Altera")
@@ -58,43 +65,60 @@ def ensure_schema():
     Base.metadata.create_all(bind=models_engine)
     
     insp = inspect(models_engine)
-    
-    # Check if job_description table exists before inspecting columns
-    if insp.has_table("job_description"):
-        # Existing JD upgrade block
-        cols = {c["name"] for c in insp.get_columns("job_description")}
-        adds = []
-        # ET-23: add raw markdown column
-        if "markdown" not in cols:
-            adds.append("ADD COLUMN markdown TEXT")
-        if "status" not in cols:          adds.append("ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'")
-        if "department" not in cols:      adds.append("ADD COLUMN department TEXT")
-        if "team" not in cols:            adds.append("ADD COLUMN team TEXT")
-        if "location" not in cols:        adds.append("ADD COLUMN location TEXT")
-        if "employment_type" not in cols: adds.append("ADD COLUMN employment_type TEXT")
-        if "salary_range" not in cols:    adds.append("ADD COLUMN salary_range TEXT")
-        if "updated_at" not in cols:      adds.append("ADD COLUMN updated_at TIMESTAMPTZ")
-        if "start_date" not in cols:      adds.append("ADD COLUMN start_date TIMESTAMPTZ")
-        if "end_date" not in cols:        adds.append("ADD COLUMN end_date TIMESTAMPTZ")
-        # NEW: per-JD toggles
-        if "id_surveys_enabled" not in cols: adds.append("ADD COLUMN id_surveys_enabled BOOLEAN DEFAULT TRUE")
-        if "question_count" not in cols:     adds.append("ADD COLUMN question_count INTEGER DEFAULT 4")
-        if adds:
-            ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
-            with models_engine.begin() as conn:
+    tables = insp.get_table_names()
+    if "job_description" not in tables:
+        Base.metadata.create_all(models_engine)
+        tables = insp.get_table_names()
+
+    # Existing JD upgrade block
+    cols = {c["name"] for c in insp.get_columns("job_description")}
+    adds = []
+    if "status" not in cols:          adds.append("ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'")
+    if "department" not in cols:      adds.append("ADD COLUMN department TEXT")
+    if "team" not in cols:            adds.append("ADD COLUMN team TEXT")
+    if "location" not in cols:        adds.append("ADD COLUMN location TEXT")
+    if "employment_type" not in cols: adds.append("ADD COLUMN employment_type TEXT")
+    if "salary_range" not in cols:    adds.append("ADD COLUMN salary_range TEXT")
+    if "updated_at" not in cols:      adds.append("ADD COLUMN updated_at TIMESTAMPTZ")
+    if "start_date" not in cols:      adds.append("ADD COLUMN start_date TIMESTAMPTZ")
+    if "end_date" not in cols:        adds.append("ADD COLUMN end_date TIMESTAMPTZ")
+    # NEW: feature/ET-12-FE(Jen)
+    if "start_time" not in cols:      adds.append("ADD COLUMN start_time TIME")
+    if "end_time" not in cols:        adds.append("ADD COLUMN end_time TIME")
+    if "work_arrangement" not in cols: adds.append("ADD COLUMN work_arrangement TEXT")
+    if "markdown" not in cols:   adds.append("ADD COLUMN markdown TEXT")
+    # NEW: per-JD toggles
+    if "id_surveys_enabled" not in cols: adds.append("ADD COLUMN id_surveys_enabled BOOLEAN DEFAULT TRUE")
+    if "question_count" not in cols:     adds.append("ADD COLUMN question_count INTEGER DEFAULT 4")
+    if adds:
+    # Original PostgreSQL-optimized code
+    # ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
+    # with models_engine.begin() as conn:
+    #     conn.execute(text(ddl))
+
+    # NEW: Cross-database compatibility added with ET-12-FE (Jen)
+    # Problem: SQLite syntax doesn't support multiple ADD COLUMN in single statement
+    # Solution: Environment-specific execution strategy
+        with models_engine.begin() as conn:
+            if DATABASE_URL.startswith("sqlite"):
+                # SQLite: Individual execution (compatibility)
+                for add in adds:
+                    ddl = f"ALTER TABLE job_description {add};"
+                    conn.execute(text(ddl))
+            else:
+                # PostgreSQL: Batch execution (performance optimization)
+                ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
                 conn.execute(text(ddl))
 
-    # Check if candidate table exists before inspecting columns
-    if insp.has_table("candidate"):
-        # NEW: candidate anti-cheat counter
-        ccols = {c["name"] for c in insp.get_columns("candidate")}
-        cadds = []
-        if "left_tab_count" not in ccols:
-            cadds.append("ADD COLUMN left_tab_count INTEGER DEFAULT 0")
-        if cadds:
-            ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
-            with models_engine.begin() as conn:
-                conn.execute(text(ddl2))
+    # NEW: candidate anti-cheat counter
+    ccols = {c["name"] for c in insp.get_columns("candidate")}
+    cadds = []
+    if "left_tab_count" not in ccols:
+        cadds.append("ADD COLUMN left_tab_count INTEGER DEFAULT 0")
+    if cadds:
+        ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
+        with models_engine.begin() as conn:
+            conn.execute(text(ddl2))
 
 ensure_schema()
 
@@ -373,6 +397,17 @@ def _parse_dt(val: str):
     except Exception:
         return None
 
+# 2025-10-01: added (Jen)
+def _parse_time(time_str):
+    """Parse time string to time object"""
+    if not time_str or not time_str.strip():
+        return None
+    try:
+        from datetime import time
+        return time.fromisoformat(time_str.strip())
+    except (ValueError, TypeError):
+        return None
+
 # --- Legal files (download DOCX) ---------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 LEGAL_DIR = BASE_DIR / "static" / "legal"
@@ -613,6 +648,44 @@ def super_tenant_add_user(tid):
     finally:
         db.close()
 
+# NEW: update tenant logo
+@app.post("/super/tenants/<int:tid>/logo")
+@super_required
+def super_tenant_update_logo(tid):
+    logo_url = (request.form.get("logo_url") or "").strip() or None
+
+    db = SessionLocal()
+    try:
+        t = db.get(Tenant, tid)
+        if not t:
+            flash("Tenant not found")
+            return redirect(url_for("super_tenants"))
+
+        t.logo_url = logo_url
+        db.commit()
+        flash(f"Logo updated for tenant '{t.slug}'.")
+        return redirect(url_for("super_tenants") + f"#t-{tid}")
+    finally:
+        db.close()
+
+# NEW: remove tenant logo
+@app.post("/super/tenants/<int:tid>/logo/remove")
+@super_required
+def super_tenant_remove_logo(tid):
+    db = SessionLocal()
+    try:
+        t = db.get(Tenant, tid)
+        if not t:
+            flash("Tenant not found")
+            return redirect(url_for("super_tenants"))
+
+        t.logo_url = None
+        db.commit()
+        flash(f"Logo removed for tenant '{t.slug}'.")
+        return redirect(url_for("super_tenants") + f"#t-{tid}")
+    finally:
+        db.close()
+
 # Confirm delete
 @app.get("/super/tenants/<int:tid>/delete")
 @super_required
@@ -667,13 +740,9 @@ def super_tenant_delete(tid):
 
 # --- JD HTML sanitizer (Bleach ≥6) ---
 ALLOWED_TAGS = set(bleach.sanitizer.ALLOWED_TAGS) | {
-    # Basic formatting
-    "p","br","div","span","ul","ol","li","strong","b","em","i","u","a",
-    # Headings (markdown output)
+    "p","br","div","span","ul","ol","li","strong","b","em","i","u",
     "h1","h2","h3","h4","h5","h6",
-    # Code and quotes (markdown output)
-    "pre","code","blockquote",
-    # Tables (markdown extra)
+    "a","blockquote","code","pre","hr",
     "table","thead","tbody","tr","th","td"
 }
 ALLOWED_ATTRS = {
@@ -685,29 +754,71 @@ ALLOWED_ATTRS = {
     "li":   ["style","class"],
     "ul":   ["class"],
     "ol":   ["class"],
+    "code": ["class"],
+    "pre":  ["class"],
 }
 CSS_ALLOWED = CSSSanitizer(allowed_css_properties=["font-family","font-weight","text-decoration"])
-def sanitize_jd(input_text: str) -> str:
-    """
-    ET-23: Accept Markdown or HTML; convert Markdown to HTML, then sanitize.
-    """
-    raw = (input_text or "")
+MARKDOWN_EXTENSIONS = ["extra", "sane_lists"]
 
-    # Heuristic: treat as Markdown unless it looks like real HTML with tags
-    looks_like_html = ("<" in raw and ">" in raw)
-    if not looks_like_html:
-        # Convert Markdown → HTML using python-markdown with safe extensions
-        md_converter = md.Markdown(extensions=[
-            "extra",        # tables, etc.
-            "codehilite",   # code blocks (adds classes only)
-            "toc"
-        ])
-        try:
-            raw = md_converter.convert(raw)
-        except Exception:
-            # Fallback to simple paragraph/linebreak handling
-            raw = raw.replace("\r\n", "\n")
-            raw = "<p>" + raw.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+def render_markdown(md_text: str) -> str:
+    """Convert recruiter-authored markdown into HTML before sanitization."""
+    text = (md_text or "").replace("\r\n", "\n").replace("\r", "\n")
+    if md_to_html:
+        return md_to_html(text, extensions=MARKDOWN_EXTENSIONS)
+
+    # Fallback: behave similar to the legacy plaintext handling so the
+    # application keeps working even if python-Markdown is missing.
+    global _markdown_fallback_warned
+    if not _markdown_fallback_warned:
+        logger.warning("python-Markdown package not installed; falling back to plain-text rendering for JDs.")
+        _markdown_fallback_warned = True
+
+    escaped = html.escape(text)
+    parts = [
+        "<p>{}</p>".format(segment.replace("\n", "<br>"))
+        for segment in escaped.split("\n\n")
+        if segment.strip()
+    ]
+    return "".join(parts) or "<p></p>"
+
+def html_to_markdown_guess(html_value: str) -> str:
+    """Best-effort fallback so legacy HTML loads into the markdown editor sensibly."""
+    if not html_value:
+        return ""
+
+    text = html_value
+    replacements = [
+        (r"(?i)<br\s*/?>", "\n"),
+        (r"(?i)</li>", "\n"),
+        (r"(?i)<li[^>]*>", "- "),
+        (r"(?i)</p>", "\n\n"),
+        (r"(?i)<p[^>]*>", ""),
+        (r"(?i)</h[1-6]>", "\n\n"),
+        (r"(?i)<h1[^>]*>", "# "),
+        (r"(?i)<h2[^>]*>", "## "),
+        (r"(?i)<h3[^>]*>", "### "),
+        (r"(?i)<h4[^>]*>", "#### "),
+        (r"(?i)<h5[^>]*>", "##### "),
+        (r"(?i)<h6[^>]*>", "###### "),
+        (r"(?i)</?(ul|ol)[^>]*>", "\n"),
+        (r"(?i)</?strong>", "**"),
+        (r"(?i)</?b>", "**"),
+        (r"(?i)</?em>", "*"),
+        (r"(?i)</?i>", "*"),
+    ]
+    for pattern, repl in replacements:
+        text = re.sub(pattern, repl, text)
+
+    stripped = bleach.clean(text, tags=[], strip=True)
+    return html.unescape(stripped).strip()
+def sanitize_jd(html_value: str) -> str:
+    """Linkify + sanitize job description HTML while preserving Markdown output."""
+    raw = (html_value or "")
+    if "<" not in raw and ">" not in raw:
+        # Normalize newlines
+        raw = raw.replace("\r\n", "\n")
+        # Turn paragraphs and line breaks into HTML
+        raw = "<p>" + raw.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
 
     linked = bleach.linkify(raw)
     return bleach.clean(
@@ -768,15 +879,18 @@ def edit_jd(tenant=None):
     try:
         code_qs = request.args.get("code")
         existing = db.query(JobDescription).filter_by(code=code_qs, tenant_id=t.id).first() if code_qs else None
-        jd = existing or JobDescription(code="", title="", html="", status="draft", tenant_id=t.id)
+        jd = existing or JobDescription(code="", title="", html="", markdown="", status="draft", tenant_id=t.id) # NEW: markdown
         has_candidates = False
         if existing:
             has_candidates = db.query(func.count(Candidate.id)).filter(Candidate.jd_code == existing.code, Candidate.tenant_id == t.id).scalar() > 0
+        else:
+            has_candidates = False
 
         if request.method=="POST":
             posted_code     = request.form["jd_code"].strip()
             raw_markdown    = (request.form.get("jd_text","") or "").strip()
-            html_sanitized  = sanitize_jd(raw_markdown)
+            html_rendered   = render_markdown(raw_markdown)
+            html_sanitized  = sanitize_jd(html_rendered)
             title           = request.form.get("jd_title","").strip()
             status          = request.form.get("jd_status","draft")
             department      = (request.form.get("jd_department","") or "").strip() or None
@@ -786,7 +900,12 @@ def edit_jd(tenant=None):
             salary_range    = (request.form.get("jd_salary_range","") or "").strip() or None
             start_date      = _parse_dt(request.form.get("jd_start",""))
             end_date        = _parse_dt(request.form.get("jd_end",""))
-
+            # NEW: feature/ET-12-FE(Jen) - Fix form data persistence issue
+            # Problem: start_time, end_time, work_arrangement fields were not being saved
+            # Solution: Add proper form data extraction and parsing
+            start_time      = _parse_time(request.form.get("start_time", ""))
+            end_time        = _parse_time(request.form.get("end_time", ""))
+            work_arrangement = (request.form.get("work_arrangement","") or "").strip() or None
             # NEW fields
             id_surveys_enabled = "id_surveys_enabled" in request.form
             try:
@@ -808,6 +927,7 @@ def edit_jd(tenant=None):
                 existing.title           = title
                 existing.markdown        = raw_markdown
                 existing.html            = html_sanitized
+                existing.markdown        = raw_markdown
                 existing.status          = status
                 existing.department      = department
                 existing.team            = team
@@ -816,18 +936,21 @@ def edit_jd(tenant=None):
                 existing.salary_range    = salary_range
                 existing.start_date      = start_date
                 existing.end_date        = end_date
+                existing.start_time      = start_time  # NEW: Fix missing field update with ET-12-FE(Jen)
+                existing.end_time        = end_time    # NEW: Fix missing field update with ET-12-FE(Jen)
+                existing.work_arrangement = work_arrangement  # NEW: Fix missing field update with ET-12-FE(Jen)
                 existing.updated_at      = datetime.utcnow()
                 # NEW
                 existing.id_surveys_enabled = id_surveys_enabled
                 existing.question_count     = question_count
 
                 db.add(existing); db.commit()
-                flash("JD saved")
+                flash("JD saved", "recruiter")
                 return redirect(url_for("recruiter", tenant=t.slug))
 
             else:
                 if not posted_code:
-                    flash("Job code is required"); return redirect(request.url)
+                    flash("Job code is required", "recruiter"); return redirect(request.url)
                 conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                 if conflict:
                     flash(f"Code {posted_code} is already in use for this tenant.")
@@ -837,6 +960,7 @@ def edit_jd(tenant=None):
                 jd.title           = title
                 jd.markdown        = raw_markdown
                 jd.html            = html_sanitized
+                jd.markdown   = raw_markdown
                 jd.status          = status
                 jd.department      = department
                 jd.team            = team
@@ -845,6 +969,9 @@ def edit_jd(tenant=None):
                 jd.salary_range    = salary_range
                 jd.start_date      = start_date
                 jd.end_date        = end_date
+                jd.start_time      = start_time # NEW: update with ET-12-FE(Jen)
+                jd.end_time        = end_time # NEW: update with ET-12-FE(Jen)
+                jd.work_arrangement = work_arrangement # NEW: update with ET-12-FE(Jen)
                 jd.updated_at      = datetime.utcnow()
                 jd.tenant_id       = t.id
                 # NEW
@@ -852,7 +979,7 @@ def edit_jd(tenant=None):
                 jd.question_count     = question_count
 
                 db.add(jd); db.commit()
-                flash("JD saved")
+                flash("JD saved", "recruiter")
                 return redirect(url_for("recruiter", tenant=t.slug))
         # Build Application Link (robust: tries known endpoints, then falls back to /<tenant>/apply/<code>)
         apply_url = ""
@@ -875,11 +1002,7 @@ def edit_jd(tenant=None):
                 .filter(Candidate.tenant_id == t.id, Candidate.jd_code == jd.code)\
                 .scalar() or 0
 
-        # Prefill editor with raw markdown if available; otherwise derive from html
-        prefill_markdown = getattr(jd, "markdown", None) or ""
-        if not prefill_markdown and getattr(jd, "html", None):
-            # best-effort plaintext from HTML for initial migration
-            prefill_markdown = jd_plaintext_filter(jd.html)
+        prefill_markdown = jd.markdown or html_to_markdown_guess(jd.html)
 
         return render_template(
             "edit_jd.html",
@@ -908,20 +1031,20 @@ def delete_jd(code, tenant=None):
     try:
         jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
         if not jd:
-            flash("Job not found"); return redirect(url_for("recruiter", tenant=t.slug))
+            flash("Job not found", "recruiter"); return redirect(url_for("recruiter", tenant=t.slug))
 
         cnt = db.query(func.count(Candidate.id)).filter(Candidate.jd_code == jd.code, Candidate.tenant_id == t.id).scalar()
         if cnt > 0:
-            flash("You can’t delete this job because candidates already exist for it.")
+            flash("You can't delete this job because candidates already exist for it.", "recruiter")
             return redirect(url_for("recruiter", tenant=t.slug))
 
-        db.delete(jd); db.commit(); flash(f"Deleted {code}")
+        db.delete(jd); db.commit(); flash(f"Deleted {code}", "recruiter")
         return redirect(url_for("recruiter", tenant=t.slug))
     finally:
         db.close()
 
-@app.route("/recruiter")
-@app.route("/<tenant>/recruiter")
+@app.route("/recruiter", strict_slashes=False)
+@app.route("/<tenant>/recruiter", strict_slashes=False)
 @login_required
 def recruiter(tenant=None):
     # Resolve tenant or bounce to login
@@ -937,6 +1060,21 @@ def recruiter(tenant=None):
         # Query params
         q_str     = (request.args.get("q") or "").strip()
         status    = (request.args.get("status") or "").strip().lower()
+        raw_departments = [d for d in request.args.getlist("department") if d]
+        departments = []
+        include_blank_department = False
+        for dep in raw_departments:
+            val = dep.strip()
+            if not val:
+                continue
+            if val == "__BLANK__":
+                include_blank_department = True
+            else:
+                departments.append(val)
+        start_from = (request.args.get("start_from") or "").strip()
+        start_to   = (request.args.get("start_to") or "").strip()
+        end_from   = (request.args.get("end_from") or "").strip()
+        end_to     = (request.args.get("end_to") or "").strip()
         sort      = (request.args.get("sort") or "created").lower()
         direction = (request.args.get("dir")  or "desc").lower()
         page      = max(int(request.args.get("page", 1)), 1)
@@ -957,6 +1095,38 @@ def recruiter(tenant=None):
         # Status filter (only if provided)
         if status in ("open", "pending", "draft", "closed", "published"):
             q = q.filter(JobDescription.status.ilike(status))
+
+        # Department filter (supports multiple values)
+        if departments or include_blank_department:
+            conds = []
+            if departments:
+                conds.append(JobDescription.department.in_(departments))
+            if include_blank_department:
+                conds.append(or_(JobDescription.department == "", JobDescription.department.is_(None)))
+            if conds:
+                q = q.filter(or_(*conds))
+
+        def _parse_date(value):
+            if not value:
+                return None
+            try:
+                return datetime.strptime(value, "%Y-%m-%d").date()
+            except Exception:
+                return None
+
+        start_from_dt = _parse_date(start_from)
+        start_to_dt   = _parse_date(start_to)
+        end_from_dt   = _parse_date(end_from)
+        end_to_dt     = _parse_date(end_to)
+
+        if start_from_dt:
+            q = q.filter(JobDescription.start_date >= start_from_dt)
+        if start_to_dt:
+            q = q.filter(JobDescription.start_date <= start_to_dt)
+        if end_from_dt:
+            q = q.filter(JobDescription.end_date >= end_from_dt)
+        if end_to_dt:
+            q = q.filter(JobDescription.end_date <= end_to_dt)
 
         # Sort
         sortable = {
@@ -989,6 +1159,23 @@ def recruiter(tenant=None):
             key = (s or "").lower()
             if key in status_counts:
                 status_counts[key] = c
+
+        # Filter options source lists
+        dept_counts = (
+            db.query(JobDescription.department, func.count(JobDescription.id))
+              .filter_by(tenant_id=t.id)
+              .group_by(JobDescription.department)
+              .order_by(func.lower(JobDescription.department))
+              .all()
+        )
+        department_options = []
+        for dept, count in dept_counts:
+            label = dept or "Unassigned"
+            department_options.append({
+                "value": "__BLANK__" if not dept else dept,
+                "label": label,
+                "count": count,
+            })
 
         # === initials peeks for the "View Candidates" column (unchanged) ===
         def _initials_from_candidate(c):
@@ -1026,6 +1213,21 @@ def recruiter(tenant=None):
             getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
         )
 
+        active_filter_count = 0
+        if status:
+            active_filter_count += 1
+        active_filter_count += len(departments)
+        if include_blank_department:
+            active_filter_count += 1
+        if start_from:
+            active_filter_count += 1
+        if start_to:
+            active_filter_count += 1
+        if end_from:
+            active_filter_count += 1
+        if end_to:
+            active_filter_count += 1
+
         return render_template(
             "recruiter.html",
             tenant=t,
@@ -1035,6 +1237,13 @@ def recruiter(tenant=None):
             items=items, total=total,
             status_counts=status_counts,
             cand_peeks=cand_peeks, cand_more=cand_more,
+            departments_query_values=raw_departments,
+            department_options=department_options,
+            start_from=start_from,
+            start_to=start_to,
+            end_from=end_from,
+            end_to=end_to,
+            active_filter_count=active_filter_count,
         )
     finally:
         db.close()
@@ -1044,8 +1253,8 @@ def recruiter(tenant=None):
 # ---- Candidates Overview (all candidates across tenant) ----
 # ---- Candidates Overview (all candidates across tenant) ----
 # ---- Candidates Overview (all candidates across tenant) ----
-@app.route("/recruiter/candidates")
-@app.route("/<tenant>/recruiter/candidates")
+@app.route("/recruiter/candidates", strict_slashes=False)
+@app.route("/<tenant>/recruiter/candidates", strict_slashes=False)
 @login_required
 def candidates_overview(tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1060,6 +1269,27 @@ def candidates_overview(tenant=None):
     dir_ = request.args.get("dir", "desc")
     page = max(int(request.args.get("page", 1)), 1)
     per_page = 10
+    
+    # Filter parameters with ET-12(Jen)
+    job_title_filter = request.args.get("job_title", "").strip()
+    department_filter = request.args.get("department", "").strip()
+    claim_validity_min = request.args.get("claim_validity_min")
+    claim_validity_max = request.args.get("claim_validity_max")
+    relevancy_min = request.args.get("relevancy_min")
+    relevancy_max = request.args.get("relevancy_max")
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+
+    def _parse_date(value):
+        if not value:
+            return None
+        try:
+            return dtparse.parse(value).date()
+        except (ValueError, TypeError):
+            return None
+
+    date_from_parsed = _parse_date(date_from)
+    date_to_parsed = _parse_date(date_to)
 
     db = SessionLocal()
     try:
@@ -1085,10 +1315,43 @@ def candidates_overview(tenant=None):
                     conds.append(func.concat(Candidate.first_name, " ", Candidate.last_name).ilike(like))
             if conds:
                 qry = qry.filter(or_(*conds))
+        
+        # Apply filters - need to join with JobDescription for job_title and department with ET-12(Jen)
+        job_title_filters = request.args.getlist('job_title')
+        department_filters = request.args.getlist('department')
+        
+        has_active_filters = bool(
+            job_title_filters
+            or department_filters
+            or claim_validity_min
+            or claim_validity_max
+            or relevancy_min
+            or relevancy_max
+            or date_from_parsed
+            or date_to_parsed
+        )
+
+        if job_title_filters or department_filters:
+            qry = qry.join(JobDescription, Candidate.jd_code == JobDescription.code)
+            if job_title_filters:
+                qry = qry.filter(JobDescription.title.in_(job_title_filters))
+            if department_filters:
+                qry = qry.filter(JobDescription.department.in_(department_filters))
+        
+        # Date filtering (inclusive range) on created_at to minimise result set
+        if date_from_parsed:
+            start_dt = datetime.combine(date_from_parsed, datetime.min.time())
+            qry = qry.filter(Candidate.created_at >= start_dt)
+        if date_to_parsed:
+            next_day = date_to_parsed + timedelta(days=1)
+            end_dt = datetime.combine(next_day, datetime.min.time())
+            qry = qry.filter(Candidate.created_at < end_dt)
 
         rows = list(qry.all())
 
         # Precompute fields per row (unchanged except we record _rel_missing/_score_missing)
+        # Also add job_title and department from JobDescription
+        jd_cache = {}
         for c in rows:
             # Claim Validity (0–5)
             scores = getattr(c, "answer_scores", None) or []
@@ -1101,7 +1364,7 @@ def candidates_overview(tenant=None):
             # Relevancy normalize to 0–5 and remember if missing
             raw_r = getattr(c, "relevancy", None)
             if raw_r is None:
-                raw_r = getattr(c, "fit_score", None)
+                raw_r = getattr(c, "fit_score", None)  # ET-12: Use fit_score as fallback
             if raw_r is None:
                 raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
 
@@ -1118,6 +1381,65 @@ def candidates_overview(tenant=None):
 
             # Applied date: created_at fallback
             c.applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None) or getattr(c, "date_applied", None)
+            
+            # Add job_title and department from JobDescription
+            if c.jd_code:
+                if c.jd_code not in jd_cache:
+                    jd = db.query(JobDescription).filter(JobDescription.code == c.jd_code).first()
+                    jd_cache[c.jd_code] = jd
+                else:
+                    jd = jd_cache[c.jd_code]
+                
+                if jd:
+                    c.job_title = jd.title
+                    c.department = jd.department
+                else:
+                    c.job_title = None
+                    c.department = None
+            else:
+                c.job_title = None
+                c.department = None
+
+        # Apply date filtering again using applied_at to catch any records missed by SQL (parsing fallbacks)
+        if date_from_parsed or date_to_parsed:
+            filtered_rows = []
+            for c in rows:
+                applied_at = getattr(c, "applied_at", None) or getattr(c, "created_at", None)
+                if not applied_at:
+                    continue
+                if isinstance(applied_at, datetime):
+                    applied_dt = applied_at
+                else:
+                    try:
+                        applied_dt = dtparse.parse(str(applied_at))
+                    except Exception:
+                        continue
+                applied_date = applied_dt.date()
+                if date_from_parsed and applied_date < date_from_parsed:
+                    continue
+                if date_to_parsed and applied_date > date_to_parsed:
+                    continue
+                filtered_rows.append(c)
+            rows = filtered_rows
+
+        # Apply score filters after computing scores with ET-12(Jen)
+        if claim_validity_min:
+            filtered_rows = []
+            min_val = float(claim_validity_min)
+            for c in rows:
+                score = getattr(c, 'score', None) or 0
+                if score >= min_val:
+                    filtered_rows.append(c)
+            rows = filtered_rows
+
+        if relevancy_min:
+            filtered_rows = []
+            min_val = float(relevancy_min)
+            for c in rows:
+                relevancy = getattr(c, 'relevancy', None) or 0
+                if relevancy >= min_val:
+                    filtered_rows.append(c)
+            rows = filtered_rows
 
         reverse = (dir_ == "desc")
 
@@ -1171,30 +1493,65 @@ def candidates_overview(tenant=None):
 
         brand_name = getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
 
+        # Get unique job titles and departments for filter dropdowns
+        # Need to join with JobDescription to get job titles and departments
+        job_titles = []
+        departments = []
+        
+        # Get job descriptions for the candidates
+        jd_codes = list(set([c.jd_code for c in rows if c.jd_code]))
+        if jd_codes:
+            job_descriptions = db.query(JobDescription).filter(JobDescription.code.in_(jd_codes)).all()
+            job_titles = list(set([jd.title for jd in job_descriptions if jd.title]))
+            departments = list(set([jd.department for jd in job_descriptions if jd.department]))
+        
         return render_template(
             "candidates.html",
             tenant=t,
             brand_name=brand_name,
             tenant_slug=t.slug,
             jd=None,
-            items=items,
+            items=items,  # Keep as items for template compatibility
             total=total,
             page=page,
             pages=pages,
             q=q, sort=sort, dir=dir_,
+            job_titles=job_titles,
+            departments=departments,
             SCORE_GREEN=3.8, SCORE_YELLOW=3.3,   # claim validity thresholds (0–5)
             REL_GREEN=4.0, REL_YELLOW=3.0,       # relevancy thresholds (0–5)
             has_candidate_detail=True,
+            has_active_filters=has_active_filters,
         )
     finally:
         db.close()
 
 
+@app.route("/analytics", strict_slashes=False)
+@app.route("/<tenant>/analytics", strict_slashes=False)
+@login_required
+def analytics_dashboard(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("analytics_dashboard", tenant=slug))
+        return redirect(url_for("login"))
+
+    config = {
+        "tenantSlug": t.slug,
+        "tenantName": getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug,
+        "summaryEndpoint": "/analytics/summary",
+        "jobDetailEndpoint": "/analytics/job",
+    }
+
+    return render_template("analytics.html", title="Analytics", config=config)
+
 
 
 # ---- Export CSV for candidates ----
-@app.route("/recruiter/candidates/export")
-@app.route("/<tenant>/recruiter/candidates/export")
+@app.route("/recruiter/candidates/export", strict_slashes=False)
+@app.route("/<tenant>/recruiter/candidates/export", strict_slashes=False)
 @login_required
 def export_candidates_csv(tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1324,8 +1681,8 @@ def export_jobs(tenant=None):
 # ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
 # ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
 # ---------- JD-scoped candidates list (keeps endpoint name: view_candidates) ----------
-@app.route("/recruiter/jd/<code>")
-@app.route("/<tenant>/recruiter/jd/<code>")
+@app.route("/recruiter/jd/<code>", strict_slashes=False)
+@app.route("/<tenant>/recruiter/jd/<code>", strict_slashes=False)
 @login_required
 def view_candidates(code, tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1381,7 +1738,7 @@ def view_candidates(code, tenant=None):
             # Relevancy normalize to 0–5 (NO percent) and remember if missing
             raw_r = getattr(c, "relevancy", None)
             if raw_r is None:
-                raw_r = getattr(c, "fit_score", None)
+                raw_r = getattr(c, "fit_score", None)  # ET-12: Use fit_score as fallback
             if raw_r is None:
                 raw_r = (getattr(c, "resume_json", None) or {}).get("fit_score")
 
@@ -1463,6 +1820,7 @@ def view_candidates(code, tenant=None):
             SCORE_GREEN=3.8, SCORE_YELLOW=3.3,  # claim validity thresholds (0–5)
             REL_GREEN=4.0, REL_YELLOW=3.0,      # relevancy thresholds (0–5)
             has_candidate_detail=True,
+            has_active_filters=False,
         )
     finally:
         db.close()
@@ -1472,8 +1830,8 @@ def view_candidates(code, tenant=None):
 
 # ---------- Candidate Detail ----------
 # ---------- Candidate Detail ----------
-@app.route("/recruiter/candidate/<id>")
-@app.route("/<tenant>/recruiter/candidate/<id>")
+@app.route("/recruiter/candidate/<id>", strict_slashes=False)
+@app.route("/<tenant>/recruiter/candidate/<id>", strict_slashes=False)
 @login_required
 def candidate_detail(id, tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1492,6 +1850,14 @@ def candidate_detail(id, tenant=None):
         jd = None
         if getattr(c, "jd_code", None):
             jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first()
+            
+        # Add job_title and department to candidate object
+        if jd:
+            c.job_title = jd.title
+            c.department = jd.department
+        else:
+            c.job_title = None
+            c.department = None
 
         # Compute claim validity (average of answer_scores if present)
         scores = list(getattr(c, "answer_scores", None) or [])
@@ -1516,8 +1882,11 @@ def candidate_detail(id, tenant=None):
         REL_GREEN    = 4.0
         REL_YELLOW   = 3.0
 
-        # Resume preview URL
-        resume_url = getattr(c, "resume_url", None) or getattr(c, "resume_pdf", None) or ""
+        # Resume preview URL - use download_resume endpoint for iframe compatibility
+        if c.resume_url:
+            resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1, _external=False)
+        else:
+            resume_url = None
 
         # Relevancy normalized to 0–5
         raw_r = getattr(c, "relevancy", None)
@@ -1538,6 +1907,7 @@ def candidate_detail(id, tenant=None):
         return render_template(
             "candidate_detail.html",
             tenant=t,
+            tenant_slug=t.slug,
             jd=jd,
             c=c,
             relevancy=relevancy,
@@ -1568,18 +1938,90 @@ def candidates_overview_legacy(tenant):
     per_page = 25
 
     # Build filters safely
-    filters = {}
-    if q:
-        filters["q"] = q  # your DAO should interpret across name/title/jd_code
+    db = SessionLocal()
+    try:
+        qry = db.query(Candidate).filter_by(tenant_id=tenant_obj.id)
+        
+        # Free-text search
+        if q:
+            like = f"%{q}%"
+            conds = []
+            if hasattr(Candidate, "name"):
+                conds.append(Candidate.name.ilike(like))
+            if hasattr(Candidate, "jd_code"):
+                conds.append(Candidate.jd_code.ilike(like))
+            if hasattr(Candidate, "first_name"):
+                conds.append(Candidate.first_name.ilike(like))
+            if hasattr(Candidate, "last_name"):
+                conds.append(Candidate.last_name.ilike(like))
+                if hasattr(Candidate, "first_name"):
+                    conds.append(func.concat(Candidate.first_name, " ", Candidate.last_name).ilike(like))
+            if conds:
+                qry = qry.filter(or_(*conds))
+        
+        # Apply filters - need to join with JobDescription for job_title and department
+        job_title_filters = request.args.getlist('job_title')
+        department_filters = request.args.getlist('department')
+        
+        if job_title_filters or department_filters:
+            qry = qry.join(JobDescription, Candidate.jd_code == JobDescription.code)
+            if job_title_filters:
+                qry = qry.filter(JobDescription.title.in_(job_title_filters))
+            if department_filters:
+                qry = qry.filter(JobDescription.department.in_(department_filters))
+        
+        rows = list(qry.all())
+        total = len(rows)
+        
+        # Add job_title and department from JobDescription
+        jd_cache = {}
+        for c in rows:
+            if c.jd_code:
+                if c.jd_code not in jd_cache:
+                    jd = db.query(JobDescription).filter(JobDescription.code == c.jd_code).first()
+                    jd_cache[c.jd_code] = jd
+                else:
+                    jd = jd_cache[c.jd_code]
+                
+                if jd:
+                    c.job_title = jd.title
+                    c.department = jd.department
+                else:
+                    c.job_title = None
+                    c.department = None
+            else:
+                c.job_title = None
+                c.department = None
+        
+        # Apply score filters after computing scores
+        claim_validity_min = request.args.get('claim_validity_min')
+        relevancy_min = request.args.get('relevancy_min')
+        
+        if claim_validity_min:
+            filtered_rows = []
+            min_val = float(claim_validity_min)
+            for c in rows:
+                score = getattr(c, 'score', None) or 0
+                if score >= min_val:
+                    filtered_rows.append(c)
+            rows = filtered_rows
 
-    rows, total = Candidate.search_for_tenant(
-        tenant_slug=tenant_obj.slug,
-        filters=filters,
-        sort=sort,
-        direction=dir_,
-        page=page,
-        per_page=per_page,
-    )
+        if relevancy_min:
+            filtered_rows = []
+            min_val = float(relevancy_min)
+            for c in rows:
+                relevancy = getattr(c, 'relevancy', None) or 0
+                if relevancy >= min_val:
+                    filtered_rows.append(c)
+            rows = filtered_rows
+        
+        # Pagination
+        start = (page - 1) * per_page
+        end = start + per_page
+        items = rows[start:end]
+        
+    finally:
+        db.close()
 
     def _page_url(p):
         args = dict(request.args)
@@ -1600,7 +2042,7 @@ def candidates_overview_legacy(tenant):
         tenant=tenant_obj,
         tenant_slug=tenant_obj.slug if tenant_obj else None,
         brand_name=current_tenant().brand_name if current_tenant() else "ALTERA",
-        rows=rows,
+        items=items,
         total=total,
         page=page,
         pages=math.ceil(total / per_page) if total else 1,
@@ -1660,7 +2102,7 @@ def apply(tenant, code):
         f = request.files.get("resume_file") or request.files.get("resume")
 
         if not name or not (f and f.filename):
-            flash("Name & file required")
+            flash("Name & file required", "applicant")
             return redirect(request.url)
 
 
@@ -1673,7 +2115,7 @@ def apply(tenant, code):
             mime_guess = mimetypes.guess_type(f.filename)[0] or f.mimetype
             text = file_to_text(path, mime_guess)
         except ValueError:
-            flash("PDF or DOCX only")
+            flash("PDF or DOCX only", "applicant")
             return redirect(request.url)
 
         rjs = resume_json(text)
@@ -1710,7 +2152,49 @@ def apply(tenant, code):
 
         return redirect(url_for("camera_gate", tenant=t.slug, code=code, cid=cid))
 
-    return render_template("apply.html", title=f"Apply – {jd.code}", jd=jd, tenant_slug=t.slug)
+    # NEW: Debug raw JD fields for visibility - added with ET-12-FE Jen
+    app.logger.info(
+        f"[ET-12] Apply JD meta code={jd.code} "
+        f"start_date={getattr(jd,'start_date',None)} start_time={getattr(jd,'start_time',None)} "
+        f"end_date={getattr(jd,'end_date',None)} end_time={getattr(jd,'end_time',None)} "
+        f"location={getattr(jd,'location',None)} work_arrangement={getattr(jd,'work_arrangement',None)} "
+        f"employment_type={getattr(jd,'employment_type',None)}"
+    )
+
+    # NEW: Format Posted/End date-time labels for Apply header - added with ET-12-FE Jen
+    def _fmt_date(d):
+        try:
+            return d.strftime("%B %-d, %Y") if d else None
+        except Exception:
+            return d.strftime("%B %d, %Y") if d else None
+
+    def _fmt_time(t):
+        try:
+            return t.strftime("%-I:%M %p") if t else None
+        except Exception:
+            return t.strftime("%I:%M %p") if t else None
+
+    def _join_dt(d, t):
+        ds = _fmt_date(d)
+        ts = _fmt_time(t)
+        if ds and ts:
+            return f"{ds} {ts}"
+        return ds or ts
+
+    posted_label = _join_dt(getattr(jd, "start_date", None), getattr(jd, "start_time", None))
+    end_label    = _join_dt(getattr(jd, "end_date", None), getattr(jd, "end_time", None))
+
+    app.logger.info(f"[ET-12] Apply labels posted={posted_label} end={end_label} for jd={jd.code}")
+
+    return render_template(
+        "apply.html",
+        title=f"Apply – {jd.code}",
+        jd=jd,
+        tenant_slug=t.slug,
+        tenant=t,
+        posted_label=posted_label,  # NEW: posted label for header - added with ET-12-FE Jen
+        end_label=end_label,        # NEW: end label for header - added with ET-12-FE Jen
+    )  # 2025-10-01 added: Pass tenant object to template for logo display
 
 # ─── Camera gate ─────────────────────────────────────────────────
 # Camera gate (intro/instructions + camera permission)
@@ -1792,12 +2276,12 @@ def question_paged(tenant, code, cid, idx):
         db.close()
 
     if not c or c.jd_code != code or c.tenant_id != t.id:
-        flash("Application not found")
+        flash("Application not found", "applicant")
         return redirect(url_for("apply", tenant=t.slug, code=code))
 
     n = len(c.questions or [])
     if n == 0:
-        flash("No questions generated")
+        flash("No questions generated", "applicant")
         return redirect(url_for("apply", tenant=t.slug, code=code))
 
     idx = max(0, min(idx, n - 1))
@@ -1822,14 +2306,62 @@ def question_paged(tenant, code, cid, idx):
                     q_index = int(request.form.get("q_index", idx) or idx)
                 except Exception:
                     q_index = idx
+                
+                # ET-7: Debug log - received time
+                app.logger.info(f"ET-7: ⏱️  Received time for Q{q_index}: elapsed_ms={elapsed_ms}ms ({elapsed_ms/1000:.1f}s)")
+                
                 if elapsed_ms > 0:
                     rj = dict(c2.resume_json or {})
                     qt = dict(rj.get("_q_times") or {})   # {"0": ms, "1": ms, ...}
                     k = str(q_index)
-                    qt[k] = int(qt.get(k, 0) or 0) + elapsed_ms
+                    previous_time = int(qt.get(k, 0) or 0)
+                    new_time = previous_time + elapsed_ms
+                    qt[k] = new_time
                     rj["_q_times"] = qt
                     c2.resume_json = rj
+                    
+                    # ET-7: Debug log - saved time
+                    app.logger.info(f"ET-7: 💾 Saved Q{k}: previous={previous_time}ms + new={elapsed_ms}ms = total={new_time}ms ({new_time/1000:.1f}s)")
+                    app.logger.info(f"ET-7: 📊 All times: {qt}")
+                else:
+                    app.logger.warning(f"ET-7: ⚠️  No time recorded for Q{q_index} (elapsed_ms={elapsed_ms})")
                 # --- /per-question timing ---
+
+
+                # --- ET-7: Track paste events per question ---
+                paste_detected = int(request.form.get("paste_detected", "0") or 0)
+                if paste_detected:
+                    rj = dict(c2.resume_json or {})
+                    paste_flags = dict(rj.get("_paste_flags") or {})   # {"0": 1, "1": 0, ...}
+                    k = str(q_index)
+                    paste_flags[k] = 1
+                    rj["_paste_flags"] = paste_flags
+                    
+                    # ET-7: Store paste ranges (positions of pasted text)
+                    paste_ranges_str = request.form.get("paste_ranges", "[]")
+                    try:
+                        import json
+                        paste_ranges = json.loads(paste_ranges_str)
+                        if paste_ranges:
+                            all_paste_ranges = dict(rj.get("_paste_ranges") or {})
+                            all_paste_ranges[k] = paste_ranges
+                            rj["_paste_ranges"] = all_paste_ranges
+                    except Exception as e:
+                        app.logger.warning(f"ET-7: Failed to parse paste_ranges: {e}")
+                    
+                    c2.resume_json = rj
+                # --- /ET-7: Track paste events ---
+
+                # --- ET-12: per-question immediate scoring (restore legacy behavior) ---
+                try:
+                    qs  = list(c2.questions or [])
+                    ans = list(answers)
+                    rjs = dict(getattr(c2, "resume_json", None) or {})
+                    if qs and any(((a or "").strip() != "") for a in ans):
+                        c2.answer_scores = score_answers(rjs, qs, ans)
+                except Exception as e:
+                    app.logger.warning(f"[ET-12] Immediate scoring failed for candidate {c2.id}: {e}")
+                # --- /per-question immediate scoring ---
 
                 db.merge(c2)
                 db.commit()
@@ -1891,7 +2423,7 @@ def self_id(tenant, code, cid):
     try:
         c = db.get(Candidate, cid)
         if not c or c.jd_code != code or c.tenant_id != t.id:
-            flash("Application not found")
+            flash("Application not found", "applicant")
             return redirect(url_for("apply", tenant=t.slug, code=code))
 
         if request.method == "POST":
@@ -1914,48 +2446,42 @@ def self_id(tenant, code, cid):
         db.close()
 
 # ─── Finish (thank you) ──────────────────────────────────────────
-# ─── Finish (thank you) ──────────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/finish", methods=["GET"])
 def finish_application(tenant, code, cid):
     t = load_tenant_by_slug(tenant)
-    if not t:
-        abort(404)
+    if not t: abort(404)
 
+    # ET-12: Ensure answers are scored before showing the thank-you page
     db = SessionLocal()
     try:
-        c = (
-            db.query(Candidate)
-              .filter_by(id=cid, tenant_id=t.id, jd_code=code)
-              .first()
-        )
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
         if not c:
+            db.close()
             abort(404)
 
-        # If we don't have scores yet (or lengths don't match), compute them now
-        qs  = list(c.questions or [])
-        ans = list(c.answers  or [""] * len(qs))
+        qs  = list(getattr(c, "questions", None) or [])
+        ans = list(getattr(c, "answers", None) or [])
+        cur = list(getattr(c, "answer_scores", None) or [])
 
-        need_scores = (
-            not c.answer_scores
-            or len(c.answer_scores) != len(qs)
-            or any(v is None for v in (c.answer_scores or []))
-        )
+        has_any_answer = any(((a or "").strip() != "") for a in ans)
+        needs_scoring  = (len(cur) != len(qs)) or any(x is None for x in cur) or (len(cur) == 0)
 
-        if qs and need_scores:
+        if qs and has_any_answer and needs_scoring:
             try:
-                scores = score_answers(dict(c.resume_json or {}), qs, ans)  # list[int]
-                # normalize & cap to question count
-                scores = [int(x) for x in scores][:len(qs)]
-                c.answer_scores = scores
-                db.add(c)
+                rjs = dict(getattr(c, "resume_json", None) or {})
+                # Use existing scoring with heuristic + LLM guard-rails
+                new_scores = score_answers(rjs, qs, ans)
+                c.answer_scores = new_scores
+                db.merge(c)
                 db.commit()
             except Exception as e:
-                current_app.logger.warning(
-                    f"Could not score answers for cid={c.id}: {e}"
-                )
-                # leave as-is; UI will display N/A
+                # Fail-safe: keep empty scores; analytics will treat as No Score (0)
+                app.logger.warning(f"[ET-12] Scoring failed for candidate {c.id}: {e}")
     finally:
         db.close()
+
+    if not c:
+        abort(404)
 
     # Back URL: send applicants to the JD landing (or wherever you prefer)
     back_url = url_for("apply", tenant=t.slug, code=code)
@@ -1970,10 +2496,10 @@ def finish_application(tenant, code, cid):
         tenant_slug=t.slug,
         name=name,
         back_url=back_url,
+        # Progress UI (top-right)
         progress_label="Complete",
         progress_pct=100,
     )
-
 
 
 # Legacy bulk submit kept (redirects to finish)
@@ -2067,14 +2593,14 @@ def delete_candidate(cid, tenant=None):
                     os.remove(c.resume_url)
             except Exception:
                 pass
-            db.delete(c); db.commit(); flash("Deleted app")
+            db.delete(c); db.commit(); flash("Deleted app", "recruiter")
         return redirect(url_for("view_candidates", tenant=t.slug, code=code or ""))
     finally:
         db.close()
 
 # ─── Candidate Detail (admin) ────────────────────────────────────
-@app.route("/recruiter/<cid>")
-@app.route("/<tenant>/recruiter/<cid>")
+@app.route("/recruiter/<cid>", strict_slashes=False)
+@app.route("/<tenant>/recruiter/<cid>", strict_slashes=False)
 @login_required
 def detail(cid, tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -2088,7 +2614,7 @@ def detail(cid, tenant=None):
         c  = db.get(Candidate, cid)
         jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first() if c else None
         if not c or c.tenant_id != t.id:
-            flash("Not found"); return redirect(url_for("recruiter", tenant=t.slug))
+            flash("Not found", "recruiter"); return redirect(url_for("recruiter", tenant=t.slug))
 
         qa = list(zip(c.questions, c.answers, c.answer_scores))
 
