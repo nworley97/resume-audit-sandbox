@@ -4,12 +4,11 @@
   "description": "",
   "main": "tailwind.config.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "preinstall": "echo 'Installing CSS dependencies...'",
-    "postinstall": "echo 'Dependencies installed. Run: npm run build:css'",
+    "postinstall": "echo 'Dependencies installed. Building assets...'",
     "build:css": "npx tailwindcss -i ./static/css/app.css -o ./static/css/output.css --minify",
-    "build:analytics": "analytics_ui/dashboard/node_modules/.bin/esbuild --bundle static/js/analytics/main.tsx --loader:.ts=ts --loader:.tsx=tsx --format=esm --sourcemap --outfile=static/js/analytics/analytics.bundle.js --minify",
-    "setup": "npm install && npm run build:css"
+    "build:analytics": "npx esbuild static/js/analytics/main.tsx --bundle --sourcemap --minify --loader:.ts=ts --loader:.tsx=tsx --jsx=automatic --outfile=static/js/analytics/analytics.bundle.js",
+    "build": "npm run build:css && npm run build:analytics"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +16,7 @@
   "devDependencies": {
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.10"
+    "tailwindcss": "^3.4.10",
+    "esbuild": "^0.23.0"
   }
 }
