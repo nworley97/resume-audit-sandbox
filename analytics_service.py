@@ -13,7 +13,7 @@ from sqlalchemy import func
 from db import SessionLocal
 from models import JobDescription, Candidate, Tenant
 
-app = Flask(__name__)
+bp = Blueprint("analytics_api", __name__)
 
 # Axis metadata for Cross Validation Matrix. Exposed so the frontend can
 # render human-readable labels while still reasoning about numeric buckets.
@@ -37,7 +37,7 @@ CLAIM_VALIDITY_AXIS = [
 ]
 
 
-@app.before_request
+@bp.before_app_request
 def handle_cors_preflight():
     if request.method == "OPTIONS":
         response = make_response("", 200)
@@ -53,8 +53,7 @@ def handle_cors_preflight():
         )
         return response
 
-
-@app.after_request
+@bp.after_app_request
 def add_cors(response):
     response.headers.setdefault("Access-Control-Allow-Origin", request.headers.get("Origin", "*"))
     response.headers.setdefault("Access-Control-Allow-Methods", "GET, OPTIONS")
@@ -289,7 +288,7 @@ def _calc_stats(values):
         "std_dev": round(pstdev(values), 2),
     }
 
-@app.get("/analytics/summary")
+@bp.get("/analytics/summary")
 def analytics_summary():
     """
     Returns a list of jobs with applicant counts and 'diamonds found'.
@@ -351,7 +350,7 @@ def analytics_summary():
     finally:
         db.close()
 
-@app.get("/analytics/job/<jd_code>")
+@bp.get("/analytics/job/<jd_code>")
 def analytics_job_detail(jd_code):
     """
     Detailed metrics for one job:
@@ -639,14 +638,4 @@ def analytics_job_detail(jd_code):
     finally:
         db.close()
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, help="Port to bind")
-    parser.add_argument("--host", type=str, help="Host interface to bind")
-    args = parser.parse_args()
 
-    host = args.host or os.getenv("HOST", "0.0.0.0")
-    port_env = os.getenv("PORT")
-    port = args.port if args.port is not None else int(port_env) if port_env else 5055
-
-    app.run(host=host, port=port, debug=False)

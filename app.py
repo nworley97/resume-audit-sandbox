@@ -35,11 +35,17 @@ from models import (
     engine as models_engine
 )
 from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
+# app.py
+
+
 
 # ─── Config ───────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
+
+from analytics_service import bp as analytics_bp
+app.register_blueprint(analytics_bp)
 
 logger = logging.getLogger(__name__)
 _markdown_fallback_warned = False
