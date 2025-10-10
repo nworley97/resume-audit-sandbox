@@ -92,6 +92,39 @@ def _claim_validity_bucket(ans_scores):
     except Exception as e:
         return None
 
+
+def _claim_average(ans_scores):
+    if not ans_scores:
+        return None
+    try:
+        vals = [float(x) for x in ans_scores if x is not None]
+        if not vals:
+            return None
+        avg = sum(vals) / len(vals)
+        if avg > 5:
+            avg = avg / 20  # Normalize 0-100 scale back to 0-5 like bucket helper
+        return max(0.0, min(5.0, avg))
+    except Exception:
+        return None
+
+
+def _relevancy_score(cand: Candidate):
+    rel = getattr(cand, "relevancy", None)
+    if rel is None:
+        rel = getattr(cand, "fit_score", None)
+    if rel is None:
+        return None
+    try:
+        return float(rel)
+    except Exception:
+        return None
+
+
+def _is_diamond_candidate(claim_avg, relevancy_score) -> bool:
+    if claim_avg is None or relevancy_score is None:
+        return False
+    return (claim_avg > 4.0) and (relevancy_score >= 5.0 - 1e-6)
+
 def _relevancy_bucket(cand: Candidate):
     """
     Prefer explicit 'relevancy' if present; fall back to 'fit_score' if your
@@ -327,10 +360,10 @@ def analytics_summary():
 
             diamonds = 0
             for c in bucket:
-                claim_b = _claim_validity_bucket(getattr(c, "answer_scores", None))
-                rel_b   = _relevancy_bucket(c)
+                claim_avg = _claim_average(getattr(c, "answer_scores", None))
+                rel_score = _relevancy_score(c)
 
-                if claim_b is not None and rel_b is not None and claim_b >= 4 and rel_b >= 5:
+                if _is_diamond_candidate(claim_avg, rel_score):
                     diamonds += 1
 
             out.append({
@@ -398,28 +431,9 @@ def analytics_job_detail(jd_code):
             if _is_completed(c):
                 completed += 1
 
-            # ET-12: Calculate actual average scores for statistics (before bucketing)
-            # Claim validity actual average (0-5 scale)
-            claim_avg = None
             ans_scores = getattr(c, "answer_scores", None)
-            if ans_scores:
-                try:
-                    vals = [float(x) for x in ans_scores if x is not None]
-                    if vals:
-                        claim_avg = sum(vals) / len(vals)
-                except Exception:
-                    pass
-            
-            # Relevancy actual score (1-5 scale)
-            rel_score = None
-            rel_raw = getattr(c, "relevancy", None)
-            if rel_raw is None:
-                rel_raw = getattr(c, "fit_score", None)
-            if rel_raw is not None:
-                try:
-                    rel_score = float(rel_raw)
-                except Exception:
-                    pass
+            claim_avg = _claim_average(ans_scores)
+            rel_score = _relevancy_score(c)
 
             # ET-12: Calculate buckets for heatmap and distributions (1..5 or None)
             claim_b = _claim_validity_bucket(ans_scores)
@@ -485,23 +499,22 @@ def analytics_job_detail(jd_code):
             rel_matrix_idx = _get_fit_range_for_matrix(rel_score)
             heatmap[rel_matrix_idx][claim_matrix_idx] += 1
 
-            # Diamonds logic (only for valid scores >= 4)
-            if claim_b is not None and rel_b is not None:
-                if claim_b >= 4 and rel_b >= 5:
-                    diamonds += 1
-                    diamonds_roster.append({
-                        "id": c.id,
-                        "name": c.name,
-                        "initials": _initials(c.name),
-                        "claim_validity_score": claim_display,
-                        "relevancy_score": relevancy_display,
-                        "combined_score": combined_display,
-                        "_sort": {
-                            "combined": combined_numeric,
-                            "claim": claim_numeric if claim_numeric is not None else 0.0,
-                            "relevancy": relevancy_numeric if relevancy_numeric is not None else 0.0,
-                        },
-                    })
+            # Diamonds logic (Claim >4 and Relevancy == 5)
+            if _is_diamond_candidate(claim_avg, rel_score):
+                diamonds += 1
+                diamonds_roster.append({
+                    "id": c.id,
+                    "name": c.name,
+                    "initials": _initials(c.name),
+                    "claim_validity_score": claim_display,
+                    "relevancy_score": relevancy_display,
+                    "combined_score": combined_display,
+                    "_sort": {
+                        "combined": combined_numeric,
+                        "claim": claim_numeric if claim_numeric is not None else 0.0,
+                        "relevancy": relevancy_numeric if relevancy_numeric is not None else 0.0,
+                    },
+                })
             # ET-12: Cell members for heatmap using matrix range indices
             cell_members[(rel_matrix_idx, claim_matrix_idx)].append({
                 "id": c.id,
@@ -637,5 +650,3 @@ def analytics_job_detail(jd_code):
         return jsonify(payload)
     finally:
         db.close()
-
-
