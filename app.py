@@ -2730,15 +2730,36 @@ def download_resume(cid, tenant=None):
 
     # S3: redirect to a presigned URL with explicit Content-Disposition
     if S3_ENABLED and c.resume_url.startswith("s3://"):
-        if inline and ext == "pdf":
-            return redirect(presign(
-                c.resume_url,
-                content_disposition="inline",
-                content_type="application/pdf",
-            ))
-        # Fallback to attachment for non-PDF or explicit download
-        cd = f"attachment; filename=\"{fn}\""
-        return redirect(presign(c.resume_url, content_disposition=cd))
+        try:
+            if inline and ext == "pdf":
+                # Prefer inline for PDFs so the iframe can render
+                url = presign(
+                    c.resume_url,
+                    content_disposition="inline",
+                    content_type="application/pdf",
+                )
+                return redirect(url)
+            # Fallback to attachment for non-PDF or explicit download
+            cd = f"attachment; filename=\"{fn}\""
+            return redirect(presign(c.resume_url, content_disposition=cd))
+        except Exception as e:
+            logging.exception("S3 presign failed for %s", c.resume_url)
+            # Last-resort: try plain presign without response headers
+            try:
+                return redirect(presign(c.resume_url))
+            except Exception:
+                # If still failing, surface a safe 404/inline placeholder for iframe
+                if inline:
+                    html = (
+                        "<!doctype html><html><head>"
+                        "<meta charset='utf-8'>"
+                        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+                        "<meta name='resume-missing' content='1'>"
+                        "<title>Resume Unavailable</title>"
+                        "</head><body data-resume-missing='1' style='margin:0'></body></html>"
+                    )
+                    return Response(html, status=404, mimetype="text/html")
+                return abort(404)
     print(f"🔍 DEBUG: download_resume called")
     print(f"🔍 DEBUG: c.resume_url = {c.resume_url}")
     print(f"🔍 DEBUG: inline = {inline}")
