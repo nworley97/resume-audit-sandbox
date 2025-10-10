@@ -543,6 +543,14 @@ def analytics_job_detail(jd_code):
 
         # Create new detailed funnel (question completion status)
         funnel = _build_detailed_funnel(cands)
+        if funnel:
+            final_stage = funnel[-1]
+            final_count = final_stage.get("count")
+            final_pct = final_stage.get("percentage")
+            if isinstance(final_count, (int, float)):
+                completed = int(final_count)
+            if isinstance(final_pct, (int, float)):
+                completion_pct = round(float(final_pct), 1)
 
         manual_minutes = 10
         assisted_minutes = 5

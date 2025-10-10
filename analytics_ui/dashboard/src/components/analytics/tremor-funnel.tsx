@@ -12,9 +12,10 @@ interface FunnelStage {
 interface CompletionFunnelProps {
   data: FunnelStage[];
   completionRate: number;
+  onOverallConversion?: (rate: number) => void;
 }
 
-export function CompletionFunnelChart({ data, completionRate }: CompletionFunnelProps) {
+export function CompletionFunnelChart({ data, completionRate, onOverallConversion }: CompletionFunnelProps) {
   // Add null/undefined checks and fallback data
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
@@ -50,6 +51,10 @@ export function CompletionFunnelChart({ data, completionRate }: CompletionFunnel
   const totalApplicants = data[0]?.count || 0;
   const finalCompleters = data[data.length - 1]?.count || 0;
   const overallConversionRate = totalApplicants > 0 ? ((finalCompleters / totalApplicants) * 100) : 0;  // ET-12: Keep decimals
+
+  if (typeof onOverallConversion === "function") {
+    onOverallConversion(overallConversionRate);
+  }
 
   return (
     <div className="space-y-4">
