@@ -49,12 +49,32 @@ export function DashboardChrome({
 }) {
   const location = useLocation();
   const pathname = location.pathname;
+  // Check if viewport is tablet or smaller
+  const isTabletOrSmaller = () => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 1024;
+  };
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
-      return window.localStorage?.getItem("app-sidebar-collapsed") === "1";
-    } catch (err) {
-      return false;
+      const stored = window.localStorage?.getItem("app-sidebar-collapsed");
+      
+      // Smart responsive behavior on initial load
+      if (isTabletOrSmaller()) {
+        // Auto-collapse on tablet/mobile
+        return true;
+      } else {
+        // On desktop, respect user preference or default to expanded
+        const hasStoredPreference = stored !== null;
+        if (!hasStoredPreference) {
+          // First visit on desktop - default to expanded
+          return false;
+        }
+        return stored === "1";
+      }
+    } catch {
+      return isTabletOrSmaller();
     }
   });
   const [tenantMeta, setTenantMeta] = useState<TenantMetadata | null>(null);
@@ -92,7 +112,7 @@ export function DashboardChrome({
         if (!cancelled) {
           setTenantMeta(data);
         }
-      } catch (error) {
+      } catch {
         // Silently ignore metadata fetch errors to avoid blocking the UI.
       } finally {
         if (!cancelled) {
@@ -140,12 +160,12 @@ export function DashboardChrome({
           if (typeof window !== "undefined") {
             try {
               window.localStorage?.setItem("analytics-user-initials", nextInitials);
-            } catch (storageError) {
+            } catch {
               // Ignore storage errors (e.g., privacy mode).
             }
           }
         }
-      } catch (error) {
+      } catch {
         // Ignore errors; fallback initials remain.
       } finally {
         if (!cancelled) {
@@ -165,9 +185,49 @@ export function DashboardChrome({
     document.body.classList.toggle("sidebar-collapsed", sidebarCollapsed);
     try {
       window.localStorage?.setItem("app-sidebar-collapsed", sidebarCollapsed ? "1" : "0");
-    } catch (err) {
+    } catch {
       // ignore storage issues
     }
+  }, [sidebarCollapsed]);
+
+  // Handle window resize with smart responsive behavior
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let resizeTimer: NodeJS.Timeout;
+    let isResizing = false;
+    
+    const handleResize = () => {
+      if (isResizing) return;
+      isResizing = true;
+      
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const isNowTabletOrSmaller = isTabletOrSmaller();
+        
+        if (isNowTabletOrSmaller) {
+          // Auto-collapse on tablet/mobile
+          setSidebarCollapsed(true);
+        } else if (sidebarCollapsed) {
+          // Auto-expand when returning to desktop from mobile
+          setSidebarCollapsed(false);
+          // Save the expanded state for desktop
+          try {
+            localStorage.setItem("app-sidebar-collapsed", "0");
+          } catch {
+            // ignore storage errors
+          }
+        }
+        
+        isResizing = false;
+      }, 200);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(resizeTimer);
+      window.removeEventListener("resize", handleResize);
+    };
   }, [sidebarCollapsed]);
 
   const toggleSidebar = () => {
@@ -209,7 +269,7 @@ export function DashboardChrome({
   return (
     <div className="min-h-screen flex bg-white text-slate-900">
       <aside
-        className={`bg-white border-r border-gray-200 relative transition-all duration-200 ${
+        className={`bg-white border-r border-gray-200 relative transition-all duration-300 ease-out overflow-hidden ${
           sidebarCollapsed ? "w-[4.5rem]" : "w-56"
         }`}
       >
@@ -300,8 +360,8 @@ export function DashboardChrome({
         </nav>
 
         <div
-          className={`absolute bottom-4 flex items-center text-xs text-slate-500 ${
-            sidebarCollapsed ? "left-1/2 -translate-x-1/2 flex-col gap-1 text-center" : "left-4 gap-2"
+          className={`absolute bottom-4 flex items-center text-xs text-slate-500 leading-4 ${
+            sidebarCollapsed ? "left-1/2 -translate-x-1/2 flex-col gap-1 text-center" : "left-2 gap-1.5 justify-start px-3"
           }`}
         >
           <img
@@ -311,7 +371,16 @@ export function DashboardChrome({
             height={16}
             className="rounded"
           />
-          {!sidebarCollapsed && <span>Powered by AlteraSF</span>}
+          {!sidebarCollapsed && (
+            <a 
+              href="https://alterasf.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-slate-700 hover:underline cursor-pointer transition-colors duration-200"
+            >
+              Powered by AlteraSF
+            </a>
+          )}
         </div>
       </aside>
 

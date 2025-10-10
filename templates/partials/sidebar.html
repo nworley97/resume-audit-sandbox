@@ -1,17 +1,17 @@
 <aside id="app-sidebar" class="app-sidebar bg-white border-r border-gray-200 relative">
-  <!-- Brand / tenant -->
+  <!-- Brand / tenant - Analytics style -->
   <div class="brand">
     <div class="brand-logo-wrap">
-    <!-- 2025-10-01 modified: Display tenant logo if available, otherwise show initials -->
-    <div class="brand-logo rounded-full bg-gray-900 text-white text-xs flex items-center justify-center overflow-hidden">
-      {% if tenant and tenant.logo_url %}
-        <img src="{{ tenant.logo_url }}" alt="{{ tenant.display_name }} logo" class="w-full h-full object-cover rounded-full">
-      {% else %}
-        {{ (brand_name[:2] if brand_name else 'AL') | upper }}
-      {% endif %}
+      <!-- Analytics-style logo container -->
+      <div class="brand-logo rounded-full bg-gray-900 text-white text-xs flex items-center justify-center overflow-hidden">
+        {% if tenant and tenant.logo_url %}
+          <img src="{{ tenant.logo_url }}" alt="{{ tenant.display_name }} logo" class="w-full h-full object-cover rounded-full">
+        {% else %}
+          {{ (brand_name[:2] if brand_name else 'AL') | upper }}
+        {% endif %}
+      </div>
     </div>
-    </div>
-    <div class="min-w-0 flex items-center brand-name">
+    <div class="brand-name">
       <span class="text-sm font-medium text-slate-900 leading-tight truncate max-w-[9rem]">
         {{ brand_name or 'Altera' }}
       </span>
@@ -21,10 +21,10 @@
   <!-- Nav -->
   <nav class="px-2">
     <!-- Job Posting -->
-    {% set base_classes = 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition' %}
+    {% set base_classes = 'flex items-center rounded-lg text-sm transition py-2' %}
     {% set job_active_endpoints = ['recruiter', 'edit_jd'] %}
     <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
-       class="{{ base_classes }} {{ 'bg-primary/10 text-primary' if request.endpoint in job_active_endpoints else 'text-slate-900 hover:bg-gray-50' }}">
+       class="{{ base_classes }} gap-2 px-3 {{ 'bg-primary/10 text-primary' if request.endpoint in job_active_endpoints else 'text-slate-900 hover:bg-gray-50' }}">
       <!-- Lucide layout-grid icon -->
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="3" width="7" height="7" rx="1"></rect>
@@ -37,7 +37,7 @@
 
 <!-- Sidebar Candidates link (drop-in) -->
 <a href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}"
-   class="{{ base_classes }} mt-1 {{ 'bg-primary/10 text-primary' if request.endpoint in ['candidates_overview', 'candidate_detail', 'view_candidates'] else 'text-slate-900 hover:bg-gray-50' }}">
+   class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if request.endpoint in ['candidates_overview', 'candidate_detail', 'view_candidates'] else 'text-slate-900 hover:bg-gray-50' }}">
   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M18 21a8 8 0 0 0-16 0"></path>
     <circle cx="10" cy="8" r="5"></circle>
@@ -50,7 +50,7 @@
 {# Analytics #}
 {% if tenant and tenant.slug %}
   <a href="{{ url_for('analytics_dashboard', tenant=tenant.slug) }}"
-     class="{{ base_classes }} mt-1 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
+     class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M5 21v-6"></path>
       <path d="M12 21V3"></path>
@@ -60,7 +60,7 @@
   </a>
 {% else %}
   <a href="{{ url_for('analytics_dashboard') }}"
-     class="{{ base_classes }} mt-1 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
+     class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M5 21v-6"></path>
       <path d="M12 21V3"></path>
@@ -72,9 +72,11 @@
 
 
 
-  <!-- Powered by -->
-  <div class="sidebar-footer absolute bottom-4 flex items-center gap-2 text-xs text-slate-500">
+  <!-- Powered by - Analytics style -->
+  <div class="sidebar-footer">
     <img src="{{ url_for('static', filename='img/favicon-16x16.png') }}" alt="Altera mark" class="w-4 h-4 rounded" />
-    <span class="sidebar-footer-label">Powered by AlteraSF</span>
+    <a href="https://alterasf.com/" target="_blank" rel="noopener noreferrer" class="sidebar-footer-label hover:text-slate-700 hover:underline cursor-pointer transition-colors duration-200">
+      Powered by AlteraSF
+    </a>
   </div>
 </aside>

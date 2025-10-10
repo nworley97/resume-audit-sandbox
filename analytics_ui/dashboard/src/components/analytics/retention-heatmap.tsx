@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, formatNumber } from "@/lib/utils";
 import type { AnalyticsJobDetail } from "@/types/analytics";
@@ -287,8 +287,8 @@ export function RetentionHeatmap({ detail, tenant }: RetentionHeatmapProps) {
 
                   return (
                     <td key={key} className="p-0">
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <button
                             className={cn(
                               "flex h-14 w-full flex-col items-center justify-center border-0 transition-all",
@@ -299,9 +299,9 @@ export function RetentionHeatmap({ detail, tenant }: RetentionHeatmapProps) {
                             <span className="text-base font-bold">{formatNumber(count)}</span>
                             <span className="text-xs opacity-80">{pct}%</span>
                           </button>
-                        </HoverCardTrigger>
+                        </PopoverTrigger>
                         {count > 0 && (
-                          <HoverCardContent className="w-80">
+                          <PopoverContent className="w-80">
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <h4 className="font-semibold text-foreground">
@@ -359,9 +359,9 @@ export function RetentionHeatmap({ detail, tenant }: RetentionHeatmapProps) {
                                 </div>
                               </ScrollArea>
                             </div>
-                          </HoverCardContent>
+                          </PopoverContent>
                         )}
-                      </HoverCard>
+                      </Popover>
                     </td>
                   );
                 })}

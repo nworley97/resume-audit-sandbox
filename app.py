@@ -1637,6 +1637,16 @@ def vite_static(path):
     """Serve Vite static assets (assets/*, etc.)"""
     return send_from_directory('analytics_ui/dashboard/dist/assets', path)
 
+@app.route("/js/<path:path>")
+def vite_js(path):
+    """Serve Vite JS chunks"""
+    return send_from_directory('analytics_ui/dashboard/dist/js', path)
+
+@app.route("/css/<path:path>")
+def vite_css(path):
+    """Serve Vite CSS files"""
+    return send_from_directory('analytics_ui/dashboard/dist/css', path)
+
 @app.route("/favicon.ico")
 @app.route("/favicon-32x32.png")
 @app.route("/file.svg")
