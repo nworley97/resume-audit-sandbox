@@ -154,7 +154,15 @@
 
               <!-- Claim Validity chip (0–5) -->
               <td class="py-3">
-                {% set s = c.score if c.score is not none else ( ((c.answer_scores|sum) / (c.answer_scores|length)) if c.answer_scores else none ) %}
+                {% set raw_scores = c.answer_scores or [] %}
+                {% set cleaned_scores = raw_scores | reject('equalto', None) | list %}
+                {% set ns = namespace(value=None) %}
+                {% if c.score is not none %}
+                  {% set ns.value = c.score %}
+                {% elif cleaned_scores %}
+                  {% set ns.value = (cleaned_scores|sum) / (cleaned_scores|length) %}
+                {% endif %}
+                {% set s = ns.value %}
                 {% if s is not none %}
                   {% set chip = 'bg-emerald-100 text-emerald-700' if s >= SCORE_GREEN
                                 else ('bg-amber-100 text-amber-700' if s >= SCORE_YELLOW

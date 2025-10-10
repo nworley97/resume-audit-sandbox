@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ResponsiveBar } from "@nivo/bar";
 import type { LucideIcon } from "lucide-react";
-import { Activity, CheckCircle2, Clock3, Sparkles, Eye } from "lucide-react";
+import { Activity, CheckCircle2, Clock3, Sparkles } from "lucide-react";
 import { getAnalyticsDetail } from "@/lib/api";
 import { useAnalyticsStore } from "@/stores/analytics-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,14 +97,15 @@ function KPIGrid({ detail }: { detail: AnalyticsJobDetail }) {
 
 function DiamondsCarousel({ detail, tenant }: { detail: AnalyticsJobDetail; tenant: string }) {
   const diamonds = detail.diamonds;
-  const [showAll, setShowAll] = useState(false);
-  
+
   if (!diamonds.length) {
     return (
       <div className="space-y-4">
         <div className="mb-2">
           <h3 className="text-lg font-semibold text-foreground">Diamonds in the Rough</h3>
-          <p className="text-sm text-muted-foreground">Top high-potential candidates automatically identified based on Cross Matrix Validation</p>
+          <p className="text-sm text-muted-foreground">
+            Top high-potential candidates automatically identified based on Cross Matrix Validation
+          </p>
         </div>
         <div className="rounded-lg border-dashed border-border/70 bg-muted/40 p-6 text-center">
           <Sparkles className="mx-auto size-10 text-muted-foreground" />
@@ -116,60 +117,43 @@ function DiamondsCarousel({ detail, tenant }: { detail: AnalyticsJobDetail; tena
     );
   }
 
-  // Show all diamonds on PC/tablet, limit to 2 on phone
-  const isPhone = typeof window !== 'undefined' && window.innerWidth < 640;
-  const visibleDiamonds = (isPhone && !showAll) ? diamonds.slice(0, 2) : diamonds;
-  const hasMore = isPhone && diamonds.length > 2;
-  
   return (
     <div className="space-y-4">
-      {/* ET-12: Title and description without card border */}
       <div className="mb-2">
         <h3 className="text-lg font-semibold text-foreground">Diamonds in the Rough</h3>
-        <p className="text-sm text-muted-foreground">Top {diamonds.length} high-potential candidates automatically identified based on Cross Matrix Validation</p>
+        <p className="text-sm text-muted-foreground">
+          Top {diamonds.length} high-potential candidates automatically identified based on Cross Matrix Validation
+        </p>
       </div>
-      
-      {/* ET-12: Horizontal scroll area without visible container */}
-      <div className="overflow-x-auto -mx-6 px-6">
+
+      <div className="overflow-x-auto overflow-y-hidden -mx-6 px-6 py-2">
         <div className="flex gap-4">
-          {visibleDiamonds.map((diamond, idx) => (
-            <motion.div
+          {diamonds.map((diamond, idx) => (
+            <motion.a
               key={diamond.id}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.05 }}
-              className="min-w-[280px] rounded-2xl border border-gray-200 bg-white p-5 shadow-[0_18px_40px_-35px_rgba(15,23,42,0.18)]"
+              href={`/${tenant}/recruiter/candidate/${diamond.id}`}
+              className="group min-w-[280px] cursor-pointer overflow-hidden rounded-2xl border border-border/40 bg-card/95 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-brand/20 hover:shadow-lg hover:shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              {/* ET-12: Diamond icon with rank badge */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <img 
-                    src="/favicon-32x32.png" 
-                    alt="Diamond" 
-                    width={16} 
-                    height={16} 
+                  <img
+                    src="/favicon-32x32.png"
+                    alt="Diamond"
+                    width={16}
+                    height={16}
                     className="size-4"
                   />
                   <Badge variant="outline" className="text-xs font-medium text-gray-700 border-gray-300">
                     #{idx + 1}
                   </Badge>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 bg-[#F7F7F4] hover:bg-[#F2F1EE] rounded-md cursor-pointer"
-                  asChild
-                >
-                  <a
-                    href={`/${tenant}/recruiter/candidate/${diamond.id}`}
-                    aria-label={`Review profile for ${diamond.name}`}
-                  >
-                    <Eye className="size-4 text-gray-600" />
-                  </a>
-                </Button>
+                <div className="h-8 w-8" />
               </div>
-              
+
               <p className="mb-4 text-base font-semibold text-slate-900">{diamond.name}</p>
               <div className="mb-4 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
@@ -185,23 +169,10 @@ function DiamondsCarousel({ detail, tenant }: { detail: AnalyticsJobDetail; tena
                   <span className="font-semibold text-gray-700">{formatScore(diamond.combined_score)}/5</span>
                 </div>
               </div>
-            </motion.div>
+            </motion.a>
           ))}
         </div>
       </div>
-      
-      {hasMore && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAll(!showAll)}
-            className="rounded-full hover:bg-[#F2F1EE] cursor-pointer"
-          >
-            {showAll ? "Show Less" : `Show More (${diamonds.length - 2} more)`}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
@@ -280,32 +251,16 @@ function DistributionCharts({ detail }: { detail: AnalyticsJobDetail }) {
                 data={chart.data}
                 keys={["candidates"]}
                 indexBy="bucket"
-                margin={{ top: 10, right: 20, bottom: 40, left: 40 }}
+                margin={{ top: 10, right: 20, bottom: 40, left: 20 }}
                 padding={0.4}
                 colors={[chart.color]}
-                enableGridY
+                enableGridY={false}
                 valueScale={{ type: "linear", min: 0 }}
-                labelSkipHeight={20}
+                label={(bar) => `${Math.round(bar.value as number)}`}
+                labelSkipHeight={12}
                 labelTextColor="var(--foreground)"
                 valueFormat={(value) => `${Math.round(value as number)}`}
-                axisLeft={{
-                  tickSize: 0,
-                  tickPadding: 6,
-                  tickValues: (() => {
-                    const max = Math.max(0, ...chart.data.map(item => Number(item.candidates) || 0));
-                    if (max <= 4) {
-                      return Array.from({ length: max + 1 }, (_, idx) => idx);
-                    }
-                    const step = Math.max(1, Math.floor(max / 4));
-                    const ticks: number[] = [];
-                    for (let value = 0; value <= max; value += step) {
-                      ticks.push(value);
-                    }
-                    if (ticks[ticks.length - 1] !== max) ticks.push(max);
-                    return ticks;
-                  })(),
-                  format: (value) => `${Math.round(value as number)}`,
-                }}
+                axisLeft={null}
                 axisBottom={{
                   tickSize: 0,
                   tickPadding: 8,
@@ -334,7 +289,7 @@ function RoiSummary({ detail }: { detail: AnalyticsJobDetail }) {
   return (
     <div className="space-y-4">
       {/* ET-12: ROI header with total saved highlight aligned right, matching Funnel typography */}
-      <div className="text-right">
+      <div className="text-left lg:text-right">
         <h3 className="text-lg font-semibold text-foreground">ROI Impact</h3>
         <div className="mt-2">
           <div className="text-2xl font-bold text-gray-800">${formatNumber(Math.round(roi.calculated.cost_saved))}</div>
@@ -347,7 +302,7 @@ function RoiSummary({ detail }: { detail: AnalyticsJobDetail }) {
         {/* 1. Time Saved - Highest priority */}
         <AccordionItem value="time-saved" className="border border-gray-200 rounded-lg mb-2">
           <AccordionTrigger className="px-4 py-3 hover:no-underline">
-            <div className="flex items-center justify-between w-full pr-4">
+            <div className="flex w-full flex-col gap-2 text-left sm:flex-row sm:items-center sm:justify-between sm:text-right">
               <span className="text-sm font-medium text-foreground">Time Saved</span>
               <span className="text-lg font-bold text-gray-800">{roi.calculated.time_saved_hours.toFixed(1)}h</span>
             </div>
@@ -363,7 +318,7 @@ function RoiSummary({ detail }: { detail: AnalyticsJobDetail }) {
         {roi.calculated.speed_improvement && (
           <AccordionItem value="screening-speed" className="border border-gray-200 rounded-lg mb-2">
             <AccordionTrigger className="px-4 py-3 hover:no-underline">
-              <div className="flex items-center justify-between w-full pr-4">
+              <div className="flex w-full flex-col gap-2 text-left sm:flex-row sm:items-center sm:justify-between sm:text-right">
                 <span className="text-sm font-medium text-foreground">Screening Speed</span>
                 <span className="text-lg font-bold text-gray-800">{roi.calculated.speed_improvement}×</span>
               </div>
@@ -379,8 +334,8 @@ function RoiSummary({ detail }: { detail: AnalyticsJobDetail }) {
         {/* 3. Efficiency - Third priority */}
         <AccordionItem value="efficiency" className="border border-gray-200 rounded-lg mb-2">
           <AccordionTrigger className="px-4 py-3 hover:no-underline">
-            <div className="flex items-center justify-between w-full pr-4">
-              <span className="text-sm font-medium text-foreground">Efficiency</span>
+            <div className="flex w-full flex-col gap-2 text-left sm:flex-row sm:items-center sm:justify-between sm:text-right">
+              <span className="text-sm font-medium text-foreground">Human Review Load</span>
               <span className="text-lg font-bold text-gray-800">{roi.calculated.efficiency_percentage}%</span>
             </div>
           </AccordionTrigger>
@@ -485,7 +440,7 @@ export function AnalyticsDetail({
           
           {/* 3. Cross Validation Matrix: 1 full row */}
           <div className="border-b border-gray-200 py-6">
-            <RetentionHeatmap detail={data} />
+            <RetentionHeatmap detail={data} tenant={tenant} />
           </div>
           
           {/* 4. Score Distribution: 2 rows used (2 charts side by side) */}

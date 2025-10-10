@@ -9,6 +9,7 @@ import type { AnalyticsJobDetail } from "@/types/analytics";
 
 interface RetentionHeatmapProps {
   detail: AnalyticsJobDetail;
+  tenant: string;
 }
 
 type NormalizedRelevancyAxis = {
@@ -129,7 +130,7 @@ function normalizeClaimAxis(axis: unknown, idx: number): NormalizedClaimAxis {
   };
 }
 
-export function RetentionHeatmap({ detail }: RetentionHeatmapProps) {
+export function RetentionHeatmap({ detail, tenant }: RetentionHeatmapProps) {
   const formatScore = (value: number | null | undefined) =>
     Number.isFinite(value) ? (value as number).toFixed(1) : "0.0";
   
@@ -145,7 +146,7 @@ export function RetentionHeatmap({ detail }: RetentionHeatmapProps) {
     );
   }
 
-  const totals = detail.totals?.applied || 1;
+  const totals = detail.totals?.applied || 0;
 
   const rawClaimAxes = detail.heatmap.axes?.claim_validity ?? [];
   const normalizedClaimAxes = rawClaimAxes.map(normalizeClaimAxis);
@@ -170,46 +171,48 @@ export function RetentionHeatmap({ detail }: RetentionHeatmapProps) {
   
   if (detail.heatmap?.cells) {
     detail.heatmap.cells.forEach((cell) => {
-      // ET-12: Only show completed candidates (filter out No Score entries)
-      const completedCandidates = cell.candidates?.filter(candidate => 
-        candidate.claim_validity_score > 0 && candidate.relevancy_score > 0
-      ) || [];
-      
-      cellsMap.set(`${cell.relevancy}-${cell.claim}`, {
-        count: completedCandidates.length,
-        candidates: completedCandidates.map((candidate) => ({
+      const rawCandidates =
+        cell.candidates?.map((candidate) => ({
           ...candidate,
           claim_validity_score: Number.isFinite(candidate.claim_validity_score)
             ? Number(candidate.claim_validity_score)
-            : candidate.claim_validity_score,
+            : (typeof candidate.claim_validity_score === "number" ? candidate.claim_validity_score : 0),
           relevancy_score: Number.isFinite(candidate.relevancy_score)
             ? Number(candidate.relevancy_score)
-            : candidate.relevancy_score,
-        })),
+            : (typeof candidate.relevancy_score === "number" ? candidate.relevancy_score : 0),
+        })) ?? [];
+
+      cellsMap.set(`${cell.relevancy}-${cell.claim}`, {
+        count: rawCandidates.length,
+        candidates: rawCandidates,
       });
     });
   }
 
-  const getCellColor = (
+  const colorPalette = {
+    ideal: "bg-sky-200 text-sky-950 shadow-sky-200/40 hover:bg-sky-300 hover:shadow-sky-300/50",
+    strong: "bg-violet-100 text-violet-900 hover:bg-violet-200",
+    satisfactory: "bg-teal-100 text-teal-900 hover:bg-teal-200",
+    weak: "bg-red-100 text-red-900 hover:bg-red-200",
+    empty: "bg-slate-50 text-slate-300 dark:bg-slate-900 dark:text-slate-600",
+  } as const;
+
+  type Tone = keyof typeof colorPalette;
+
+  const getCellTone = (
     relAxis: NormalizedRelevancyAxis,
     claimAxis: NormalizedClaimAxis,
     count: number
-  ) => {
-    const ideal = "bg-sky-300 text-sky-950 hover:bg-sky-400";
-    const strong = "bg-violet-300 text-violet-900 hover:bg-violet-400";
-    const satisfactory = "bg-teal-300 text-teal-900 hover:bg-teal-400";
-    const weak = "bg-red-300 text-red-900 hover:bg-red-400";
+  ): Tone => {
     const isNoScoreCell = relAxis.isNoScore || claimAxis.isNoScore;
     const relValue = relAxis.value ?? 0;
     const claimBucket = claimAxis.bucket ?? 0;
 
     if (isNoScoreCell) {
-      return count === 0
-        ? "bg-slate-50 text-slate-300 dark:bg-slate-950 dark:text-slate-700"
-        : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300";
+      return "weak";
     }
 
-    if (count === 0) return "bg-slate-50 text-slate-300 dark:bg-slate-900 dark:text-slate-600";
+    if (count === 0) return "empty";
 
     const isIdeal = claimBucket === 5 && relValue === 5;
     const isStrong =
@@ -217,10 +220,10 @@ export function RetentionHeatmap({ detail }: RetentionHeatmapProps) {
       (relValue === 5 && claimBucket === 4);
     const isSatisfactory = claimBucket >= 3 && relValue >= 3;
 
-    if (isIdeal) return ideal;
-    if (isStrong) return strong;
-    if (isSatisfactory) return satisfactory;
-    return weak;
+    if (isIdeal) return "ideal";
+    if (isStrong) return "strong";
+    if (isSatisfactory) return "satisfactory";
+    return "weak";
   };
 
   return (
@@ -266,7 +269,7 @@ export function RetentionHeatmap({ detail }: RetentionHeatmapProps) {
             </tr>
           </thead>
           <tbody>
-            {relevancyAxes.map((rel) => (
+            {relevancyAxes.filter((rel) => !rel.isNoScore).map((rel) => (
               <tr key={`rel-${rel.index}`}>
                 <td className="sticky left-0 z-10 bg-background px-4 py-1 text-left text-xs font-bold text-foreground">
                   {rel.isNoScore ? "No Score" : `Fit ${rel.label}`}
@@ -275,10 +278,12 @@ export function RetentionHeatmap({ detail }: RetentionHeatmapProps) {
                   const key = `${rel.index}-${claim.index}`;
                   const cellData = cellsMap.get(key);
                   const count = (cellData?.candidates?.length) ?? 0;
-                  const pct = Math.round((count / totals) * 100);
+                  const pctRaw = totals > 0 ? (count / totals) * 100 : 0;
+                  const pct = pctRaw.toFixed(2);
                   const fitLabel = rel.isNoScore ? "Fit No Score" : `Fit ${rel.label}`;
                   const claimLabel = claim.isNoScore ? "Claim No Score" : `Claim ${claim.label}`;
-                  const colorClass = getCellColor(rel, claim, count);
+                  const tone = getCellTone(rel, claim, count);
+                  const colorClass = colorPalette[tone];
 
                   return (
                     <td key={key} className="p-0">
@@ -322,12 +327,24 @@ export function RetentionHeatmap({ detail }: RetentionHeatmapProps) {
                                       return a.name.localeCompare(b.name);
                                     })
                                     .map((candidate) => (
-                                      <div
+                                      <a
                                         key={candidate.id}
-                                        className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-2"
+                                        href={`/${tenant}/recruiter/candidate/${candidate.id}`}
+                                        className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-2 transition hover:bg-muted cursor-pointer"
                                       >
                                         <div className="flex items-center gap-2">
-                                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                                          <div className={cn(
+                                            "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
+                                            tone === "ideal"
+                                              ? "bg-sky-200 text-sky-900"
+                                              : tone === "strong"
+                                                ? "bg-violet-100 text-violet-900"
+                                                : tone === "satisfactory"
+                                                  ? "bg-teal-100 text-teal-900"
+                                                  : tone === "weak"
+                                                    ? "bg-red-100 text-red-900"
+                                                    : "bg-slate-100 text-slate-500"
+                                          )}>
                                             {candidate.initials}
                                           </div>
                                           <span className="text-sm font-medium text-foreground">
@@ -337,7 +354,7 @@ export function RetentionHeatmap({ detail }: RetentionHeatmapProps) {
                                         <div className="text-xs text-muted-foreground">
                                           {formatScore(candidate.claim_validity_score)}/5 • {formatScore(candidate.relevancy_score)}/5
                                         </div>
-                                      </div>
+                                      </a>
                                     ))}
                                 </div>
                               </ScrollArea>
