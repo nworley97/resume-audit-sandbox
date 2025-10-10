@@ -2725,6 +2725,9 @@ def download_resume(cid, tenant=None):
         else "application/octet-stream"
     )
 
+    # NEW: allow inline previews when explicitly requested
+    inline = request.args.get("inline") == "1"
+
     # S3: redirect to a presigned URL with explicit Content-Disposition
     if S3_ENABLED and c.resume_url.startswith("s3://"):
         if inline and ext == "pdf":
@@ -2736,9 +2739,6 @@ def download_resume(cid, tenant=None):
         # Fallback to attachment for non-PDF or explicit download
         cd = f"attachment; filename=\"{fn}\""
         return redirect(presign(c.resume_url, content_disposition=cd))
-
-    # NEW: allow inline previews when explicitly requested
-    inline = request.args.get("inline") == "1"
     print(f"🔍 DEBUG: download_resume called")
     print(f"🔍 DEBUG: c.resume_url = {c.resume_url}")
     print(f"🔍 DEBUG: inline = {inline}")
