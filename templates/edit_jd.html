@@ -101,7 +101,7 @@
       <!-- Job Status card -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 w-36 text-center">
         <div class="text-[11px] text-gray-500">Job Status</div>
-        {% set status = (jd.status or 'draft')|lower %}
+        {% set status = (jd.status or 'draft')|trim|lower %}
         {% set status_chip = {
           'open': 'bg-sky-100 text-sky-700',
           'published': 'bg-emerald-100 text-emerald-700',
