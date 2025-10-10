@@ -184,7 +184,7 @@ export function AnalyticsOverview({ tenant }: { tenant: string }) {
         title="Analytics Dashboard"
         subtitle="Select a job posting to view detailed analytics"
         breadcrumbLabel="Analytics"
-        showRefreshButton={true}
+        showRefreshButton={false}
         onRefreshClick={() => window.location.reload()}
       />
       

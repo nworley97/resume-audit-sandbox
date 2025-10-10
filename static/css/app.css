@@ -68,6 +68,11 @@
   a.bg-white:hover {
     background-color: #E1E1E1 !important;
   }
+  
+  /* Sidebar navigation font */
+  .app-sidebar nav a {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
 }
 
 @layer components {

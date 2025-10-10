@@ -149,7 +149,7 @@
             <th class="text-left font-medium py-3 w-36">{{ sort_link('Start Date','start_date') }}</th>
             <th class="text-left font-medium py-3 w-36">{{ sort_link('End Date','end_date') }}</th>
             <th class="text-left font-medium py-3 w-28">{{ sort_link('Status','status') }}</th>
-            <th class="text-left font-medium py-3 pr-4 w-56">View Candidates</th>
+            <th class="text-left font-medium py-3 pr-4 w-40">Actions</th>
           </tr>
         </thead>
 
@@ -199,7 +199,8 @@
 <td class="py-3 pr-4">
   <div class="flex items-center justify-between gap-3">
     <!-- Initials (+N) stack with width cap so buttons don't jump -->
-    <div class="flex -space-x-2 max-w-[9rem] overflow-hidden">
+    <a href="{{ url_for('view_candidates', tenant=tenant_slug, code=jd.code) }}"
+       class="flex -space-x-2 max-w-[9rem] overflow-hidden cursor-pointer hover:scale-110 transition-all duration-300 hover:bg-blue-100 rounded-full p-2 -ml-1 hover:shadow-md">
       {% for ini in (cand_peeks.get(jd.code) or []) %}
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-700 ring-2 ring-white">
           {{ ini }}
@@ -210,15 +211,10 @@
           +{{ cand_more.get(jd.code) }}
         </span>
       {% endif %}
-    </div>
+    </a>
 
     <!-- Buttons with fixed width; prevent shrinking -->
     <div class="flex items-center gap-2 justify-end shrink-0">
-      <a href="{{ url_for('view_candidates', tenant=tenant_slug, code=jd.code) }}"
-         class="inline-flex items-center justify-center rounded-lg border border-gray-300
-                px-2.5 py-1.5 text-xs hover:bg-gray-50 w-32">
-        View Candidates
-      </a>
       <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
          class="inline-flex items-center justify-center rounded-lg border border-gray-300
                 px-2.5 py-1.5 text-xs hover:bg-gray-50 w-20">
