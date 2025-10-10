@@ -7,11 +7,11 @@
   <div class="flex items-start justify-between mb-4">
     <div>
       <div class="flex items-center gap-2 text-slate text-sm mb-2">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-          <path d="M16 11c1.657 0 3-1.79 3-4s-1.343-4-3-4-3 1.79-3 4 1.343 4 3 4Z"></path>
-          <path d="M8 12c1.657 0 3-1.79 3-4S9.657 4 8 4 5 5.79 5 8s1.343 4 3 4Z"></path>
-          <path d="M2 20c0-2.761 2.91-5 6.5-5S15 17.239 15 20"></path>
-          <path d="M15 15.5c3.59 0 6.5 2.239 6.5 5"></path>
+        <!-- Match sidebar Candidates icon -->
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 21a8 8 0 0 0-16 0"></path>
+          <circle cx="10" cy="8" r="5"></circle>
+          <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"></path>
         </svg>
         <span>Candidates</span>
       </div>
@@ -54,6 +54,13 @@
         <input type="hidden" name="sort" value="{{ sort or '' }}">
         <input type="hidden" name="dir"  value="{{ dir  or '' }}">
         <input type="hidden" name="page" value="1">
+        {% for key, values in request.args.lists() %}
+          {% if key not in ['q', 'sort', 'dir', 'page'] %}
+            {% for value in values %}
+              <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
         <div class="relative">
           <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate/70">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -66,11 +73,31 @@
       </form>
 
       <div class="flex items-center gap-2">
-        <button id="filters-btn" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
+        {% set filter_count = active_filter_count|default(0) %}
+        {% set has_filters = filter_count > 0 %}
+        {% if has_filters %}
+          <button type="button"
+                  class="filter-reset-btn inline-flex items-center justify-center text-sm {{ 'text-primary hover:text-primary/80' if has_filters else 'text-title hover:text-title/70' }}"
+                  data-reset-url="{{ query_url(page=1, job_title=None, department=None, claim_validity_min=None, claim_validity_max=None, relevancy_min=None, relevancy_max=None, date_from=None, date_to=None) }}"
+                  aria-label="Reset filters">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+          </button>
+        {% endif %}
+        <button type="button"
+                id="filters-btn"
+                class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary {{ 'text-primary border-primary/50 bg-primary/5' if has_filters else 'text-title' }}">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M3 5h18M6 12h12M10 19h4" stroke-linecap="round"/>
           </svg>
           Filter
+          {% if has_filters %}
+            <span class="ml-1 inline-flex h-5 min-w-[1.4rem] items-center justify-center rounded-full bg-primary text-white text-[11px] font-medium px-1">
+              {{ filter_count }}
+            </span>
+          {% endif %}
         </button>
         <a href="{% if jd %}{{ url_for('export_candidates_csv', tenant=tenant_slug, q=jd.code) }}{% else %}{{ url_for('export_candidates_csv', tenant=tenant_slug) }}{% endif %}"
            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
@@ -97,13 +124,13 @@
         <span>{{ label }}</span>
         <span class="flex flex-col leading-none ml-1">
           <a class="h-2 {{ 'text-title' if asc else 'text-slate/40' }}"
-             href="{% if jd %}{{ url_for(base, tenant=tenant.slug if tenant else None, code=jd.code, q=q, page=1, sort=key, dir='asc') }}{% else %}{{ url_for(base, tenant=tenant.slug if tenant else None, q=q, page=1, sort=key, dir='asc') }}{% endif %}">
+             href="{{ query_url(sort=key, dir='asc', page=1) }}">
             <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M6 14l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
           <a class="h-2 {{ 'text-title' if desc else 'text-slate/40' }}"
-             href="{% if jd %}{{ url_for(base, tenant=tenant.slug if tenant else None, code=jd.code, q=q, page=1, sort=key, dir='desc') }}{% else %}{{ url_for(base, tenant=tenant.slug if tenant else None, q=q, page=1, sort=key, dir='desc') }}{% endif %}">
+             href="{{ query_url(sort=key, dir='desc', page=1) }}">
             <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -111,6 +138,22 @@
         </span>
       </div>
     {%- endmacro %}
+
+    {% set overall_total = overall_total_count|default(total)|int %}
+    {% set filtered_total = total|default(0)|int %}
+    {% set overall_display = "{:,}".format(overall_total) %}
+    {% set filtered_display = "{:,}".format(filtered_total) %}
+    {% set show_filtered_counts = showing_filtered|default(False) %}
+
+    <div class="border-t border-gray-100"></div>
+    <div class="px-4 py-3 text-sm text-title/80">
+      {% if show_filtered_counts %}
+        Showing <span class="font-semibold text-title">{{ filtered_display }}</span> candidates
+        out of <span class="font-semibold text-title">{{ overall_display }}</span>
+      {% else %}
+        <span class="font-semibold text-title">{{ overall_display }}</span> candidates
+      {% endif %}
+    </div>
 
     <div class="px-2 pb-2">
       <div class="overflow-x-auto">
@@ -200,56 +243,68 @@
         </table>
       </div>
 
-      <!-- Pagination -->
-<!-- Pagination (compact with ellipses) -->
-<div class="px-2 py-4">
-  {% set current = page|int %}
-  {% set total = pages|int %}
-  {% set window = 2 %}
-  {% set base = 'view_candidates' if jd else 'candidates_overview' %}
-  {% if total > 1 %}
-  <nav class="flex items-center justify-center gap-2" role="navigation" aria-label="Pagination">
-    {# Prev #}
-    {% if current > 1 %}
-      <a href="{% if jd %}{{ url_for(base, tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=current-1) }}{% else %}{{ url_for(base, tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=current-1) }}{% endif %}"
-         class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50"
-         aria-label="Previous page">Prev</a>
-    {% else %}
-      <span class="inline-flex items-center rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-400 cursor-not-allowed"
-            aria-disabled="true">Prev</span>
-    {% endif %}
+      {% set current = page|int %}
+      {% set total = pages|int %}
+      {% set window = 2 %}
 
-    {# Page numbers with ellipses #}
-    {% set last = 0 %}
-    {% for i in range(1, total + 1) %}
-      {% if i == 1 or i == total or (i >= current - window and i <= current + window) %}
-        {% if last and i - last > 1 %}
-          <span class="px-1 text-gray-400 select-none">…</span>
-        {% endif %}
-        {% if i == current %}
-          <span class="inline-flex items-center rounded-md bg-blue-600 text-white px-2.5 py-1.5 text-xs">{{ i }}</span>
-        {% else %}
-          <a href="{% if jd %}{{ url_for(base, tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=i) }}{% else %}{{ url_for(base, tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=i) }}{% endif %}"
-             class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50">
-            {{ i }}
-          </a>
-        {% endif %}
-        {% set last = i %}
+      {% if total > 1 %}
+        {% set ns = namespace(list=[]) %}
+        {% set _ = ns.list.append(1) %}
+        {% for i in range(current-window, current+window+1) %}
+          {% if 1 < i < total %}
+            {% set _ = ns.list.append(i) %}
+          {% endif %}
+        {% endfor %}
+        {% set _ = ns.list.append(total) %}
+        {% set pages_compact = ns.list|unique|sort %}
+
+        <nav class="flex items-center justify-center gap-1 sm:gap-2 px-2 py-4"
+             role="navigation"
+             aria-label="Pagination">
+
+          {# Prev #}
+          {% if current > 1 %}
+            <a href="{{ page_url(current-1) }}"
+               rel="prev"
+               class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+               aria-label="Previous page">&lt;</a>
+          {% else %}
+            <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400 cursor-not-allowed"
+                  aria-disabled="true">&lt;</span>
+          {% endif %}
+
+          {# Pages with ellipses #}
+          {% set last = None %}
+          {% for p in pages_compact %}
+            {% if last is not none and p - last > 1 %}
+              <span class="px-2 text-slate-400 select-none" aria-hidden="true">...</span>
+            {% endif %}
+
+            {% if p == current %}
+              <span class="inline-flex items-center rounded-lg text-white px-2.5 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    style="background-color:#009689"
+                    aria-current="page">{{ p }}</span>
+            {% else %}
+              <a href="{{ page_url(p) }}"
+                 class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                {{ p }}
+              </a>
+            {% endif %}
+            {% set last = p %}
+          {% endfor %}
+
+          {# Next #}
+          {% if current < total %}
+            <a href="{{ page_url(current+1) }}"
+               rel="next"
+               class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+               aria-label="Next page">&gt;</a>
+          {% else %}
+            <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400 cursor-not-allowed"
+                  aria-disabled="true">&gt;</span>
+          {% endif %}
+        </nav>
       {% endif %}
-    {% endfor %}
-
-    {# Next #}
-    {% if current < total %}
-      <a href="{% if jd %}{{ url_for(base, tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir, page=current+1) }}{% else %}{{ url_for(base, tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, page=current+1) }}{% endif %}"
-         class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50"
-         aria-label="Next page">Next</a>
-    {% else %}
-      <span class="inline-flex items-center rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-400 cursor-not-allowed"
-            aria-disabled="true">Next</span>
-    {% endif %}
-  </nav>
-  {% endif %}
-</div>
 
     </div>
   </div>
@@ -340,26 +395,31 @@
           <div>
             <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Claim Validity Score</h3>
           </div>
-          <div class="grid gap-2 sm:grid-cols-2">
-            {% set claim_selected = request.args.get('claim_validity_min') %}
-            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
-              <input type="radio" name="claim_validity_min" value="5.0"
-                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                     {% if claim_selected == '5.0' %}checked{% endif %}>
-              <span class="text-title">Score 5 or higher</span>
-            </label>
-            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
-              <input type="radio" name="claim_validity_min" value="4.0"
-                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                     {% if claim_selected == '4.0' %}checked{% endif %}>
-              <span class="text-title">Score 4 or higher</span>
-            </label>
-            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
-              <input type="radio" name="claim_validity_min" value="3.0"
-                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                     {% if claim_selected == '3.0' %}checked{% endif %}>
-              <span class="text-title">Score 3 or higher</span>
-            </label>
+          {% set claim_min_arg = request.args.get('claim_validity_min') %}
+          {% set claim_max_arg = request.args.get('claim_validity_max') %}
+          {% set claim_min_value = '%.1f'|format((claim_min_arg if claim_min_arg is not none else 0)|float) %}
+          {% set claim_max_value = '%.1f'|format((claim_max_arg if claim_max_arg is not none else 5)|float) %}
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate">
+              <span>Selected range</span>
+              <span data-range-display="claim" class="font-medium text-title text-sm">{{ claim_min_value }} – {{ claim_max_value }}</span>
+            </div>
+            <div class="slider-range slider-range--claim" data-range-group="claim" data-default-min="0" data-default-max="5">
+              <div class="slider-range__track"></div>
+              <div class="slider-range__range"></div>
+              <input type="range"
+                     class="slider-range__input slider-range__input--min"
+                     name="claim_validity_min"
+                     min="0" max="5" step="0.1"
+                     value="{{ claim_min_value }}"
+                     data-role="min">
+              <input type="range"
+                     class="slider-range__input slider-range__input--max"
+                     name="claim_validity_max"
+                     min="0" max="5" step="0.1"
+                     value="{{ claim_max_value }}"
+                     data-role="max">
+            </div>
           </div>
         </section>
 
@@ -368,26 +428,31 @@
           <div>
             <h3 class="text-sm font-semibold text-title uppercase tracking-wide">Relevancy Score</h3>
           </div>
-          <div class="grid gap-2 sm:grid-cols-2">
-            {% set relevancy_selected = request.args.get('relevancy_min') %}
-            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
-              <input type="radio" name="relevancy_min" value="5.0"
-                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                     {% if relevancy_selected == '5.0' %}checked{% endif %}>
-              <span class="text-title">Score 5 or higher</span>
-            </label>
-            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
-              <input type="radio" name="relevancy_min" value="4.0"
-                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                     {% if relevancy_selected == '4.0' %}checked{% endif %}>
-              <span class="text-title">Score 4 or higher</span>
-            </label>
-            <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:border-primary/60 cursor-pointer">
-              <input type="radio" name="relevancy_min" value="3.0"
-                     class="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                     {% if relevancy_selected == '3.0' %}checked{% endif %}>
-              <span class="text-title">Score 3 or higher</span>
-            </label>
+          {% set relevancy_min_arg = request.args.get('relevancy_min') %}
+          {% set relevancy_max_arg = request.args.get('relevancy_max') %}
+          {% set relevancy_min_value = '%.1f'|format((relevancy_min_arg if relevancy_min_arg is not none else 0)|float) %}
+          {% set relevancy_max_value = '%.1f'|format((relevancy_max_arg if relevancy_max_arg is not none else 5)|float) %}
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate">
+              <span>Selected range</span>
+              <span data-range-display="relevancy" class="font-medium text-title text-sm">{{ relevancy_min_value }} – {{ relevancy_max_value }}</span>
+            </div>
+            <div class="slider-range slider-range--relevancy" data-range-group="relevancy" data-default-min="0" data-default-max="5">
+              <div class="slider-range__track"></div>
+              <div class="slider-range__range"></div>
+              <input type="range"
+                     class="slider-range__input slider-range__input--min"
+                     name="relevancy_min"
+                     min="0" max="5" step="0.1"
+                     value="{{ relevancy_min_value }}"
+                     data-role="min">
+              <input type="range"
+                     class="slider-range__input slider-range__input--max"
+                     name="relevancy_max"
+                     min="0" max="5" step="0.1"
+                     value="{{ relevancy_max_value }}"
+                     data-role="max">
+            </div>
           </div>
         </section>
 
@@ -400,12 +465,12 @@
             <div class="space-y-2">
               <label class="text-xs font-medium text-slate uppercase tracking-wide">From</label>
               <input type="date" name="date_from" value="{{ request.args.get('date_from', '') }}"
-                     class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                     class="filter-date-input w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
             </div>
             <div class="space-y-2">
               <label class="text-xs font-medium text-slate uppercase tracking-wide">To</label>
               <input type="date" name="date_to" value="{{ request.args.get('date_to', '') }}"
-                     class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                     class="filter-date-input w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -418,8 +483,12 @@
       </div>
 
       <div class="flex items-center justify-between gap-3 border-t border-gray-200 px-6 py-4 bg-gray-50">
-        <a href="{% if jd %}{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=jd.code, q=q, sort=sort, dir=dir) }}{% else %}{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir) }}{% endif %}"
-           class="text-sm font-medium text-primary hover:text-primary/80">Reset</a>
+        <button type="button"
+                id="filters-reset"
+                data-reset-url="{{ query_url(page=1, job_title=None, department=None, claim_validity_min=None, claim_validity_max=None, relevancy_min=None, relevancy_max=None, date_from=None, date_to=None, filter_overlay='1') }}"
+                class="text-sm font-medium text-primary hover:text-primary/80">
+          Reset
+        </button>
         <div class="flex items-center gap-3">
           <button type="button" id="cancel-filter"
                   class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-title hover:bg-gray-100">Cancel</button>
@@ -431,6 +500,18 @@
     </form>
   </div>
 </div>
+
+<style>
+  #filter-overlay .filter-date-input.filter-date-input--active {
+    border-color: #0d9488;
+    color: #0d9488;
+  }
+  #filter-overlay .date-preset.date-preset--active {
+    border-color: #0d9488;
+    background-color: rgba(13, 148, 136, 0.12);
+    color: #0d9488;
+  }
+</style>
 
 <script>
 (function () {
@@ -470,6 +551,9 @@
     event?.preventDefault();
     filterOverlay.classList.remove('hidden');
     lockScroll();
+    if (window.__candidatesSyncDates) {
+      window.__candidatesSyncDates();
+    }
   };
 
   const close = () => {
@@ -481,6 +565,14 @@
   closeFilter?.addEventListener('click', close);
   cancelFilter?.addEventListener('click', close);
   overlayBackdrop?.addEventListener('click', close);
+
+  const params = new URLSearchParams(window.location.search || '');
+  if (params.get('filter_overlay') === '1') {
+    open();
+    params.delete('filter_overlay');
+    const next = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+    window.history.replaceState({}, document.title, next);
+  }
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !filterOverlay.classList.contains('hidden')) {
@@ -515,7 +607,277 @@
         dateFrom.value = fromDate.toISOString().split('T')[0];
         dateTo.value = today.toISOString().split('T')[0];
       }
+      if (window.__candidatesSyncDates) {
+        window.__candidatesSyncDates();
+      }
     });
+  });
+})();
+
+(function () {
+  if (!document.getElementById('slider-range-styles')) {
+    const style = document.createElement('style');
+    style.id = 'slider-range-styles';
+    style.textContent = `
+.slider-range {
+  position: relative;
+  width: 100%;
+  padding: 0.75rem 0;
+  --range-color: #10b981;
+  --thumb-color: #059669;
+  --thumb-hover: rgba(16,185,129,0.25);
+}
+.slider-range__track,
+.slider-range__range {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 0.5rem;
+  border-radius: 9999px;
+  transform: translateY(-50%);
+}
+.slider-range__track {
+  background-color: #e2e8f0;
+  z-index: 1;
+}
+.slider-range__range {
+  background-color: var(--range-color);
+  z-index: 2;
+}
+.slider-range__input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 0.5rem;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.slider-range__input--min {
+  z-index: 3;
+}
+.slider-range__input--max {
+  z-index: 4;
+}
+.slider-range__input::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: var(--thumb-color);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.slider-range__input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: var(--thumb-color);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.slider-range__input::-webkit-slider-runnable-track {
+  background: transparent;
+}
+.slider-range__input::-moz-range-track {
+  background: transparent;
+}
+.slider-range__input::-webkit-slider-thumb:active,
+.slider-range__input::-moz-range-thumb:active {
+  transform: scale(1.08);
+}
+.slider-range:hover .slider-range__input::-webkit-slider-thumb,
+.slider-range .slider-range__input:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px var(--thumb-hover), 0 2px 6px rgba(15,23,42,0.3);
+}
+.slider-range:hover .slider-range__input::-moz-range-thumb,
+.slider-range .slider-range__input:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 4px var(--thumb-hover), 0 2px 6px rgba(15,23,42,0.3);
+}
+.slider-range--claim {
+  --range-color: #0ea5e9;       /* sky-500 */
+  --thumb-color: #0284c7;       /* sky-600 */
+  --thumb-hover: rgba(14,165,233,0.25); /* sky-500 with alpha */
+}
+
+.slider-range--relevancy {
+  --range-color: #a855f7;       /* purple-500 */
+  --thumb-color: #7e22ce;       /* purple-700 */
+  --thumb-hover: rgba(168,85,247,0.25); /* purple-500 with alpha */
+}
+`;
+    document.head.appendChild(style);
+  }
+
+  const containers = document.querySelectorAll('.slider-range');
+  containers.forEach(container => {
+    const minInput = container.querySelector('[data-role="min"]');
+    const maxInput = container.querySelector('[data-role="max"]');
+    const rangeHighlight = container.querySelector('.slider-range__range');
+    const display = document.querySelector(`[data-range-display="${container.dataset.rangeGroup}"]`);
+    if (!minInput || !maxInput) return;
+
+    const defaultMin = parseFloat(container.dataset.defaultMin ?? minInput.min ?? '0') || 0;
+    const defaultMax = parseFloat(container.dataset.defaultMax ?? maxInput.max ?? '5') || 5;
+    const minBound = parseFloat(minInput.min ?? defaultMin) || defaultMin;
+    const maxBound = parseFloat(maxInput.max ?? defaultMax) || defaultMax;
+    const precision = parseFloat(minInput.step || '0.1') || 0.1;
+
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    const format = (value) => (Math.round(value / precision) * precision).toFixed(1);
+
+    const updateTrack = (minVal, maxVal) => {
+      if (!rangeHighlight) return;
+      const span = maxBound - minBound || 1;
+      const left = ((minVal - minBound) / span) * 100;
+      const right = ((maxVal - minBound) / span) * 100;
+      rangeHighlight.style.left = `${Math.max(0, Math.min(100, left))}%`;
+      rangeHighlight.style.width = `${Math.max(0, Math.min(100, right) - Math.max(0, Math.min(100, left)))}%`;
+    };
+
+    const sync = (source) => {
+      let minVal = parseFloat(minInput.value);
+      let maxVal = parseFloat(maxInput.value);
+
+      if (Number.isNaN(minVal)) minVal = defaultMin;
+      if (Number.isNaN(maxVal)) maxVal = defaultMax;
+
+      minVal = clamp(minVal, minBound, maxBound);
+      maxVal = clamp(maxVal, minBound, maxBound);
+
+      if (source === minInput && minVal > maxVal) {
+        maxVal = minVal;
+        maxInput.value = format(maxVal);
+      }
+      if (source === maxInput && maxVal < minVal) {
+        minVal = maxVal;
+        minInput.value = format(minVal);
+      }
+
+      minInput.value = format(minVal);
+      maxInput.value = format(maxVal);
+
+      if (display) {
+        display.textContent = `${format(minVal)} – ${format(maxVal)}`;
+      }
+
+      updateTrack(minVal, maxVal);
+    };
+
+    sync();
+    minInput.addEventListener('input', () => sync(minInput));
+    maxInput.addEventListener('input', () => sync(maxInput));
+  });
+})();
+
+(function () {
+  const form = document.getElementById('filter-form');
+  if (!form) return;
+  const dateFields = Array.from(form.querySelectorAll('.filter-date-input'));
+  const presetButtons = Array.from(document.querySelectorAll('#filter-overlay .date-preset'));
+  const highlightClass = 'filter-date-input--active';
+
+  const normalizeISO = (value) => {
+    if (!value) return null;
+    return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+  };
+
+  const updatePresetButtons = () => {
+    presetButtons.forEach((btn) => btn.classList.remove('date-preset--active'));
+    if (dateFields.length < 2) return;
+    const from = normalizeISO(dateFields[0].value);
+    const to = normalizeISO(dateFields[1].value);
+    if (!from || !to) return;
+    const today = new Date();
+    const todayIso = today.toISOString().split('T')[0];
+
+    const target = (preset) =>
+      presetButtons.find((btn) => btn.dataset.preset === preset) || null;
+
+    if (from === todayIso && to === todayIso) {
+      const btn = target('today');
+      btn?.classList.add('date-preset--active');
+      return;
+    }
+
+    const toDate = new Date(`${to}T00:00:00`);
+    const fromDate = new Date(`${from}T00:00:00`);
+    if (Number.isNaN(toDate.getTime()) || Number.isNaN(fromDate.getTime())) return;
+    const diffDays = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000);
+    const presets = {
+      7: '7',
+      14: '14',
+      30: '30',
+    };
+    if (to === todayIso) {
+      const key = presets[diffDays];
+      if (key) {
+        const btn = target(key);
+        btn?.classList.add('date-preset--active');
+      }
+    }
+  };
+
+  const syncDateBorders = () => {
+    dateFields.forEach((input) => {
+      if (input.value) {
+        input.classList.add(highlightClass);
+      } else {
+        input.classList.remove(highlightClass);
+      }
+    });
+    updatePresetButtons();
+  };
+
+  dateFields.forEach((input) => {
+    input.addEventListener('change', syncDateBorders);
+    input.addEventListener('input', syncDateBorders);
+  });
+
+  syncDateBorders();
+  window.__candidatesSyncDates = syncDateBorders;
+})();
+
+(function () {
+  const resetButtons = document.querySelectorAll('.filter-reset-btn');
+  resetButtons.forEach(btn => {
+    const icon = btn.querySelector('svg');
+    if (icon) {
+      icon.style.transition = 'transform 0.2s ease';
+    }
+    btn.addEventListener('click', () => {
+      if (icon) {
+        icon.style.transform = 'rotate(45deg)';
+        setTimeout(() => { icon.style.transform = 'rotate(0deg)'; }, 220);
+      }
+      const target = btn.dataset.resetUrl;
+      if (target) {
+        setTimeout(() => { window.location.href = target; }, 160);
+      }
+    });
+  });
+})();
+
+(function () {
+  const resetButton = document.getElementById('filters-reset');
+  if (!resetButton) return;
+  resetButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    const target = resetButton.dataset.resetUrl;
+    if (target) {
+      window.location.href = target;
+    }
   });
 })();
 </script>

@@ -1,15 +1,17 @@
-<aside class="w-56 bg-white border-r border-gray-200 relative">
+<aside id="app-sidebar" class="app-sidebar bg-white border-r border-gray-200 relative">
   <!-- Brand / tenant -->
-  <div class="flex items-center gap-3 px-4 py-4">
+  <div class="brand">
+    <div class="brand-logo-wrap">
     <!-- 2025-10-01 modified: Display tenant logo if available, otherwise show initials -->
-    <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center overflow-hidden">
+    <div class="brand-logo rounded-full bg-gray-900 text-white text-xs flex items-center justify-center overflow-hidden">
       {% if tenant and tenant.logo_url %}
         <img src="{{ tenant.logo_url }}" alt="{{ tenant.display_name }} logo" class="w-full h-full object-cover rounded-full">
       {% else %}
         {{ (brand_name[:2] if brand_name else 'AL') | upper }}
       {% endif %}
     </div>
-    <div class="min-w-0 flex items-center">
+    </div>
+    <div class="min-w-0 flex items-center brand-name">
       <span class="text-sm font-medium text-slate-900 leading-tight truncate max-w-[9rem]">
         {{ brand_name or 'Altera' }}
       </span>
@@ -20,8 +22,9 @@
   <nav class="px-2">
     <!-- Job Posting -->
     {% set base_classes = 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition' %}
+    {% set job_active_endpoints = ['recruiter', 'edit_jd'] %}
     <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
-       class="{{ base_classes }} {{ 'bg-primary/10 text-primary' if request.endpoint=='recruiter' else 'text-slate-900 hover:bg-gray-50' }}">
+       class="{{ base_classes }} {{ 'bg-primary/10 text-primary' if request.endpoint in job_active_endpoints else 'text-slate-900 hover:bg-gray-50' }}">
       <!-- Lucide layout-grid icon -->
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="3" width="7" height="7" rx="1"></rect>
@@ -29,7 +32,7 @@
         <rect x="14" y="14" width="7" height="7" rx="1"></rect>
         <rect x="3" y="14" width="7" height="7" rx="1"></rect>
       </svg>
-      <span>Job Posting</span>
+      <span class="nav-label">Job Posting</span>
     </a>
 
 <!-- Sidebar Candidates link (drop-in) -->
@@ -40,7 +43,7 @@
     <circle cx="10" cy="8" r="5"></circle>
     <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"></path>
   </svg>
-  <span>Candidates</span>
+  <span class="nav-label">Candidates</span>
 </a>
 
     {% set is_analytics_active = request.path and '/recruiter/analytics' in request.path %}
@@ -53,7 +56,7 @@
       <path d="M12 21V3"></path>
       <path d="M19 21V9"></path>
     </svg>
-    <span>Analytics</span>
+    <span class="nav-label">Analytics</span>
   </a>
 {% else %}
   <a href="{{ url_for('analytics_dashboard') }}"
@@ -63,15 +66,15 @@
       <path d="M12 21V3"></path>
       <path d="M19 21V9"></path>
     </svg>
-    <span>Analytics</span>
+    <span class="nav-label">Analytics</span>
   </a>
 {% endif %}
 
 
 
   <!-- Powered by -->
-  <div class="absolute left-4 bottom-4 flex items-center gap-2 text-xs text-slate-500">
+  <div class="sidebar-footer absolute bottom-4 flex items-center gap-2 text-xs text-slate-500">
     <img src="{{ url_for('static', filename='img/favicon-16x16.png') }}" alt="Altera mark" class="w-4 h-4 rounded" />
-    Powered by AlteraSF
+    <span class="sidebar-footer-label">Powered by AlteraSF</span>
   </div>
 </aside>

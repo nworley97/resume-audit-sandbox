@@ -13,6 +13,7 @@ import { useAnalyticsStore } from "@/stores/analytics-store";
 import type { AnalyticsJobSummary } from "@/types/analytics";
 import { Sparkles } from "lucide-react";
 import { LocalNavBar } from "@/components/layout/local-nav-bar";
+import { formatNumber } from "@/lib/utils";
 
 function statusBadge(status?: string | null) {
   if (!status) return <Badge variant="outline" className="text-xs">Draft</Badge>;
@@ -94,11 +95,11 @@ function JobCard({
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Applicants</span>
-                <span className="text-sm font-semibold text-foreground">{job.applicants}</span>
+                <span className="text-sm font-semibold text-foreground">{formatNumber(job.applicants)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Diamonds Found</span>
-                <span className="text-sm font-semibold text-foreground">{job.diamonds_found}</span>
+                <span className="text-sm font-semibold text-foreground">{formatNumber(job.diamonds_found)}</span>
               </div>
             </div>
           </CardContent>
@@ -180,8 +181,9 @@ export function AnalyticsOverview({ tenant }: { tenant: string }) {
     <div className="space-y-0">
       {/* ET-12: Sticky Local Navigation Bar */}
       <LocalNavBar
-        title="Job Postings Analytics"
+        title="Analytics Dashboard"
         subtitle="Select a job posting to view detailed analytics"
+        breadcrumbLabel="Analytics"
         showRefreshButton={true}
         onRefreshClick={() => window.location.reload()}
       />

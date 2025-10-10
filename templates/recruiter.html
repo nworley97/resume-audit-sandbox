@@ -61,6 +61,17 @@
     {% set has_filters = active_filter_count > 0 %}
     <!-- Filter & Export -->
     <div class="flex items-center gap-3">
+      {% if has_filters %}
+        <button type="button"
+                class="filter-reset-btn inline-flex items-center justify-center text-sm {{ 'text-primary hover:text-primary/80' if has_filters else 'text-title hover:text-title/70' }}"
+                data-reset-url="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, sort=sort, dir=dir, per_page=per_page) }}"
+                aria-label="Reset filters">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+        </button>
+      {% endif %}
       <button type="button"
               id="job-filter-trigger"
               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary {{ 'text-primary border-primary/50 bg-primary/5' if has_filters else 'text-title' }}">
@@ -224,57 +235,71 @@
       </table>
     </div>
 
-{# ----- Pagination (compact with ellipses) ----- #}
-<div class="px-2 py-4">
-  {% set current = page|int %}
-  {% set total = pages|int %}
-  {% set window = 2 %}
-  {% if total > 1 %}
-  <nav class="flex items-center justify-center gap-2" role="navigation" aria-label="Pagination">
+{% set current = page|int %}
+{% set total = pages|int %}
+{% set window = 2 %}
+
+{% if total > 1 %}
+  {% set ns = namespace(list=[]) %}
+  {% set _ = ns.list.append(1) %}
+  {% for i in range(current-window, current+window+1) %}
+    {% if 1 < i < total %}
+      {% set _ = ns.list.append(i) %}
+    {% endif %}
+  {% endfor %}
+  {% set _ = ns.list.append(total) %}
+  {% set pages_compact = ns.list|unique|sort %}
+
+  <nav class="flex items-center justify-center gap-1 sm:gap-2 px-2 py-4"
+       role="navigation"
+       aria-label="Pagination">
+
     {# Prev #}
     {% if current > 1 %}
       <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=current-1, per_page=per_page,
                             department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
-         class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50"
-         aria-label="Previous page">Prev</a>
+         rel="prev"
+         class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+         aria-label="Previous page">&lt;</a>
     {% else %}
-      <span class="inline-flex items-center rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-400 cursor-not-allowed"
-            aria-disabled="true">Prev</span>
+      <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400 cursor-not-allowed"
+            aria-disabled="true">&lt;</span>
     {% endif %}
 
-    {# Page numbers with ellipses #}
-    {% set last = 0 %}
-    {% for i in range(1, total + 1) %}
-      {% if i == 1 or i == total or (i >= current - window and i <= current + window) %}
-        {% if last and i - last > 1 %}
-          <span class="px-1 text-gray-400 select-none">…</span>
-        {% endif %}
-        {% if i == current %}
-          <span class="inline-flex items-center rounded-md bg-blue-600 text-white px-2.5 py-1.5 text-xs">{{ i }}</span>
-        {% else %}
-          <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=i, per_page=per_page,
-                                department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
-             class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50">
-            {{ i }}
-          </a>
-        {% endif %}
-        {% set last = i %}
+    {# Pages with ellipses #}
+    {% set last = None %}
+    {% for p in pages_compact %}
+      {% if last is not none and p - last > 1 %}
+        <span class="px-2 text-slate-400 select-none" aria-hidden="true">...</span>
       {% endif %}
+
+      {% if p == current %}
+        <span class="inline-flex items-center rounded-lg text-white px-2.5 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              style="background-color:#009689"
+              aria-current="page">{{ p }}</span>
+      {% else %}
+        <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=p, per_page=per_page,
+                              department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
+           class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
+          {{ p }}
+        </a>
+      {% endif %}
+      {% set last = p %}
     {% endfor %}
 
     {# Next #}
     {% if current < total %}
       <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=current+1, per_page=per_page,
                             department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
-         class="inline-flex items-center rounded-md border border-gray-300 px-2.5 py-1.5 text-xs hover:bg-gray-50"
-         aria-label="Next page">Next</a>
+         rel="next"
+         class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+         aria-label="Next page">&gt;</a>
     {% else %}
-      <span class="inline-flex items-center rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-400 cursor-not-allowed"
-            aria-disabled="true">Next</span>
+      <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400 cursor-not-allowed"
+            aria-disabled="true">&gt;</span>
     {% endif %}
   </nav>
-  {% endif %}
-</div>
+{% endif %}
 
 <!-- Advanced Filter Modal -->
 <div id="job-filter-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="job-filter-title">
@@ -387,6 +412,26 @@
     if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
       close();
     }
+  });
+})();
+
+(function () {
+  const resetButtons = document.querySelectorAll('.filter-reset-btn');
+  resetButtons.forEach(btn => {
+    const icon = btn.querySelector('svg');
+    if (icon) {
+      icon.style.transition = 'transform 0.2s ease';
+    }
+    btn.addEventListener('click', () => {
+      if (icon) {
+        icon.style.transform = 'rotate(45deg)';
+        setTimeout(() => { icon.style.transform = 'rotate(0deg)'; }, 220);
+      }
+      const target = btn.dataset.resetUrl;
+      if (target) {
+        setTimeout(() => { window.location.href = target; }, 160);
+      }
+    });
   });
 })();
 </script>

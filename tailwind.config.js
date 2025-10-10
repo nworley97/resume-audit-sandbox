@@ -12,6 +12,17 @@ module.exports = {
     'max-h-[65vh]',
     'max-h-[90vh]',
     'overflow-hidden',
+    // Status chips
+    'bg-sky-100',
+    'text-sky-700',
+    'bg-emerald-100',
+    'text-emerald-700',
+    'bg-rose-100',
+    'text-rose-700',
+    'bg-gray-100',
+    'text-gray-700',
+    'bg-amber-100',
+    'text-amber-700',
   ],
   theme: {
     extend: {
@@ -25,7 +36,7 @@ module.exports = {
         error: "#EB5757",
       },
       fontFamily: {
-        sans: ["Geist", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        sans: ["Geist","Poppins","Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
         serif: ["Georgia", "Times New Roman", "serif"],
         mono: ["SF Mono", "Menlo", "monospace"],
       },

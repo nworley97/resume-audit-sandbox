@@ -117,7 +117,7 @@
       <!-- Application (applicant count) -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 w-36 text-center">
         <div class="text-[11px] text-gray-500">Application</div>
-        <div class="mt-1 text-sm font-semibold text-title">{{ applicant_count or 0 }}</div>
+        <div class="mt-1 text-sm font-semibold text-title">{{ '{:,}'.format(applicant_count or 0) }}</div>
       </div>
     </div>
   </div>
@@ -312,36 +312,44 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-2">
-      {# Delete: server enforces "no delete if applicants exist" #}
-      <a href="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
-         class="rounded-lg border px-3 py-2 text-sm
-                {{ '' if not has_candidates else 'pointer-events-none opacity-50' }}"
-         onclick="return confirm('Delete this job?');">
-        Delete
-      </a>
-      {% if has_candidates %}
-        <span class="ml-2 text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
-      {% endif %}
+    <div class="flex items-center justify-between gap-2">
+      <!-- Left: Delete + helper text -->
+      <div class="flex items-center gap-2">
+        {% if jd and jd.code %}
+          {# Delete: only show for existing JD #}
+          <a href="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
+             class="rounded-lg border px-3 py-2 text-sm
+                    {{ 'pointer-events-none opacity-50 border-gray-300 text-gray-400' if has_candidates else 'border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600' }}"
+             onclick="return confirm('Delete this job?');">
+            Delete
+          </a>
+          {% if has_candidates %}
+            <span class="text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
+          {% endif %}
+        {% endif %}
+      </div>
 
-      {# Close = simple link back (no post) #}
-      <a href="{{ url_for('recruiter', tenant=tenant_slug) }}"
-         data-noload
-         class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</a>
+      <!-- Right: Close / Save / Publish -->
+      <div class="flex items-center gap-2">
+        {# Close = simple link back (no post) #}
+        <a href="{{ url_for('recruiter', tenant=tenant_slug) }}"
+           data-noload
+           class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</a>
 
-      {# Save as Draft (sets status) #}
-      <button type="submit"
-              onclick="document.getElementById('jd_status').value='draft'"
-              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-        Save as Draft
-      </button>
+        {# Save as Draft (sets status) #}
+        <button type="submit"
+                onclick="document.getElementById('jd_status').value='draft'"
+                class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+          Save as Draft
+        </button>
 
-      {# Publish (sets status to open) #}
-      <button type="submit"
-              onclick="document.getElementById('jd_status').value='open'"
-              class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">
-        Publish Job
-      </button>
+        {# Publish (sets status to open) #}
+        <button type="submit"
+                onclick="document.getElementById('jd_status').value='open'"
+                class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">
+          Publish Job
+        </button>
+      </div>
     </div>
 
   </form>

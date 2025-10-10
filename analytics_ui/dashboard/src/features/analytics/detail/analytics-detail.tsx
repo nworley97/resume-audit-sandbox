@@ -18,13 +18,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import type { AnalyticsJobDetail } from "@/types/analytics";
 import { env } from "@/lib/env";
 import { LocalNavBar } from "@/components/layout/local-nav-bar";
+import { formatNumber } from "@/lib/utils";
 // ET-12: Import Tremor components
 import { CompletionFunnelChart } from "@/components/analytics/tremor-funnel";
 import { RetentionHeatmap } from "@/components/analytics/retention-heatmap";
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat().format(value);
-}
+// use shared utils.formatNumber
 
 function formatScore(value: number | null | undefined, digits = 1) {
   return Number.isFinite(value) ? (value as number).toFixed(digits) : "0.0";
@@ -49,7 +48,7 @@ function KPIGrid({ detail }: { detail: AnalyticsJobDetail }) {
     },
     {
       title: "Diamonds Found",
-      value: totals.diamonds_found,
+      value: formatNumber(totals.diamonds_found),
       caption: "high-potential talent",
       icon: Sparkles,
     },
@@ -180,17 +179,21 @@ function DiamondsCarousel({ detail, tenant }: { detail: AnalyticsJobDetail; tena
 // 
 function DistributionCharts({ detail }: { detail: AnalyticsJobDetail }) {
   // ET-12: Both distributions use 7 bins: [No Score, ≥0, ≥1, ≥2, ≥3, ≥4, 5]
-  const claimLabels = ["No Score", "≥0", "≥1", "≥2", "≥3", "≥4", "5"];
-  const claimData = detail.distributions.claim_validity.map((value, index) => ({
-    bucket: claimLabels[index] ?? String(index),
-    candidates: value,
-  }));
+  const claimLabels = ["No Score", "≥0", "≥1", "≥2", "≥3", "≥4"];
+  const claimData = detail.distributions.claim_validity
+    .slice(0, 6)
+    .map((value, index) => ({
+      bucket: claimLabels[index] ?? String(index),
+      candidates: value,
+    }));
 
-  const relevancyLabels = ["No Score", "≥0", "≥1", "≥2", "≥3", "≥4", "5"];
-  const relevancyData = detail.distributions.relevancy.map((value, index) => ({
-    bucket: relevancyLabels[index] ?? String(index),
-    candidates: value,
-  }));
+  const relevancyLabels = ["≥0", "≥1", "≥2", "≥3", "≥4", "5"];
+  const relevancyData = detail.distributions.relevancy
+    .slice(1)
+    .map((value, index) => ({
+      bucket: relevancyLabels[index] ?? String(index + 1),
+      candidates: value,
+    }));
 
   // ET-12: Get candidate data from heatmap cells for hover tooltips
   const getCandidatesForBucket = (bucket: string, isClaim: boolean) => {
@@ -256,10 +259,10 @@ function DistributionCharts({ detail }: { detail: AnalyticsJobDetail }) {
                 colors={[chart.color]}
                 enableGridY={false}
                 valueScale={{ type: "linear", min: 0 }}
-                label={(bar) => `${Math.round(bar.value as number)}`}
+                label={(bar) => `${formatNumber(Math.round(bar.value as number))}`}
                 labelSkipHeight={12}
                 labelTextColor="var(--foreground)"
-                valueFormat={(value) => `${Math.round(value as number)}`}
+                valueFormat={(value) => `${formatNumber(Math.round(value as number))}`}
                 axisLeft={null}
                 axisBottom={{
                   tickSize: 0,
@@ -385,12 +388,10 @@ export function AnalyticsDetail({
       {/* ET-12: Sticky Local Navigation Bar */}
       <LocalNavBar
         title={title}
-        subtitle={`${data?.summary.total_candidates || 0} total applicants`}
-        showBackButton={true}
-        onBackClick={() => {
-          setSelectedJob(undefined);
-          navigate(`/${tenant}/recruiter/analytics`);
-        }}
+        subtitle={`${formatNumber(data?.summary.total_candidates || 0)} total applicants`}
+        breadcrumbLabel="Analytics"
+        breadcrumbHref={`/${tenant}/recruiter/analytics`}
+        showBackButton={false}
         showRefreshButton={false}
         showDateRange={false}
         showFilters={false}

@@ -1,3 +1,4 @@
+import { formatNumber } from "@/lib/utils";
 "use client";
 
 import { ResponsiveFunnel } from "@nivo/funnel";
@@ -108,7 +109,7 @@ export function CompletionFunnelChart({ data, completionRate, onOverallConversio
             <div className="rounded-md border border-border bg-card px-3 py-2 text-sm text-card-foreground shadow-md">
               <div className="font-medium">{part.data.label}</div>
               <div className="text-muted-foreground">
-                {part.data.value} candidates ({data[0]?.count ? Math.round((part.data.value / data[0].count) * 100) : 0}%)
+                {formatNumber(part.data.value as number)} candidates ({data[0]?.count ? Math.round((part.data.value / data[0].count) * 100) : 0}%)
               </div>
             </div>
           )}
@@ -124,7 +125,7 @@ export function CompletionFunnelChart({ data, completionRate, onOverallConversio
           return (
             <div key={stage.stage} className="text-center">
               <div className="font-medium text-foreground">{stage.stage}</div>
-              <div className="text-primary font-semibold">{stage.count || 0}</div>
+              <div className="text-primary font-semibold">{formatNumber(stage.count || 0)}</div>
               <div>{passRate}% pass</div>
             </div>
           );
