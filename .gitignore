@@ -57,6 +57,7 @@ build/
 dist/
 !analytics_ui/dashboard/dist/
 !analytics_ui/dashboard/dist/**
+/scripts/seed_demo_analytics_data.py
 develop-eggs/
 .eggs/
 wheels/
