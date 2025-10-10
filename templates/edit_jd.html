@@ -101,9 +101,16 @@
       <!-- Job Status card -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 w-36 text-center">
         <div class="text-[11px] text-gray-500">Job Status</div>
-        <div class="mt-1 inline-flex items-center justify-center rounded-md px-2.5 py-0.5 text-[11px] font-medium
-          {% if jd and jd.is_published %} bg-emerald-100 text-emerald-700 {% else %} bg-amber-100 text-amber-700 {% endif %}">
-          {{ 'Published' if jd and jd.is_published else 'Draft' }}
+        {% set status = (jd.status or 'draft')|lower %}
+        {% set status_chip = {
+          'open': 'bg-sky-100 text-sky-700',
+          'published': 'bg-emerald-100 text-emerald-700',
+          'closed': 'bg-rose-100 text-rose-700',
+          'pending': 'bg-gray-100 text-gray-700',
+          'draft': 'bg-amber-100 text-amber-700'
+        } %}
+        <div class="mt-1 inline-flex items-center justify-center rounded-md px-2.5 py-0.5 text-[11px] font-medium {{ status_chip.get(status, 'bg-amber-100 text-amber-700') }}">
+          {{ status|capitalize }}
         </div>
       </div>
 
