@@ -101,54 +101,83 @@
       <h2 class="text-lg font-semibold text-gray-900">Resume</h2>
 
       {% if c and c.id %}
-      <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
+      <a href="{{ download_url or url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
+         data-noload
+         download
          class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
         <!-- download icon -->
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
           <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
         </svg>
-        Download Resume PDF
+        Download Resume
       </a>
       {% endif %}
     </div>
 
-    <!-- Page-like PDF area -->
-    <div class="border rounded-lg bg-gray-50 h-[520px] flex items-center justify-center overflow-hidden">
-      {% if resume_url and resume_url != 'None' %}
-        <iframe src="{{ resume_url }}" class="w-full h-full border-0 rounded-lg bg-white" title="Resume PDF Preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"></iframe>
-        <!-- Fallback content when iframe fails -->
-        <div class="hidden w-full h-full flex items-center justify-center bg-white">
-          <div class="text-center">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900">Resume Preview Unavailable</h3>
-            <p class="mt-1 text-sm text-gray-500">Unable to load resume preview. Please download the resume to view.</p>
-            <div class="mt-4">
-              <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}" 
-                 class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                <svg class="-ml-0.5 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Download Resume
-              </a>
-            </div>
-          </div>
+    <!-- PDF preview area with enhanced states -->
+    {% if resume_url and resume_url != 'None' %}
+    <div
+      class="group relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition-[height] duration-300"
+      style="height:520px;"
+      data-resume-preview
+      data-src="{{ resume_url }}"
+      data-download-url="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
+    >
+      <div data-role="loading" class="absolute inset-0 flex items-center justify-center">
+        <div class="h-[86%] w-[86%] rounded-xl bg-white shadow animate-pulse"></div>
+      </div>
+
+      <!-- toolbar removed: controls are intentionally hidden for a clean preview -->
+
+      <div data-role="canvas" class="hidden h-full w-full overflow-hidden">
+        <iframe
+          title="Resume PDF Preview"
+          class="h-full w-full border-0 bg-white transition-transform duration-200"
+          allowfullscreen
+        ></iframe>
+      </div>
+
+      <div
+        data-role="error"
+        class="hidden absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white px-6 text-center"
+      >
+        <div class="space-y-2">
+          <h3 class="text-sm font-semibold text-gray-900">We couldn't load this resume preview</h3>
+          <p class="text-sm text-gray-500">Please try again or download the PDF to view it locally.<br/>If the issue persists, the file may be unavailable or corrupted.</p>
         </div>
-      {% else %}
-        <!-- No resume available -->
-        <div class="w-full h-full flex items-center justify-center bg-white">
-          <div class="text-center">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900">No Resume Available</h3>
-            <p class="mt-1 text-sm text-gray-500">This candidate has not uploaded a resume yet.</p>
-          </div>
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <button data-action="download" type="button" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Download PDF</button>
         </div>
-      {% endif %}
+      </div>
     </div>
+    {% else %}
+    <div class="h-56 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-center px-6">
+      <div>
+        <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        {% if c and c.resume_url and not is_pdf %}
+          <h3 class="mt-2 text-sm font-semibold text-gray-900">The resume is a DOCX file.</h3>
+          <p class="mt-1 text-sm text-gray-500">Please download the resume to view it.</p>
+          {% if download_url %}
+          <div class="mt-3">
+            <a href="{{ download_url }}" data-noload download class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+              </svg>
+              Download
+            </a>
+          </div>
+          {% endif %}
+        {% else %}
+          <h3 class="mt-2 text-sm font-semibold text-gray-900">No resume uploaded</h3>
+          <p class="mt-1 text-sm text-gray-500">This candidate has not provided a resume.</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <!-- AI Q&A Assessment -->
@@ -289,6 +318,109 @@
 
 </div>
 
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const previews = document.querySelectorAll("[data-resume-preview]");
+    previews.forEach((container) => {
+      const iframeWrapper = container.querySelector("[data-role='canvas']");
+      const iframe = iframeWrapper?.querySelector("iframe");
+        const loadingEl = container.querySelector("[data-role='loading']");
+        const errorEl = container.querySelector("[data-role='error']");
+        const toolbar = null;
+      const previewUrl = container.dataset.src || "";
+      const downloadUrl = container.dataset.downloadUrl || "";
+      const baseSrc = previewUrl.split('#')[0];
+      let scale = 1;
+      let viewMode = "fit-width";
+        
+        const fitToggle = null;
+        const iconFitWidth = null;
+        const iconFitPage = null;
+
+        const buildSrc = (mode) => {
+        const viewParam = mode === "fit-page" ? "Fit" : "FitH";
+        return `${baseSrc}#toolbar=0&navpanes=0&scrollbar=0&view=${viewParam}`;
+      };
+
+        const updateFitButton = () => {};
+
+        const toggleToolbar = () => {};
+
+      const setState = (state) => {
+        container.dataset.state = state;
+        if (state === "ready") {
+          container.style.height = "520px";
+          loadingEl?.classList.add("hidden");
+          errorEl?.classList.add("hidden");
+          iframeWrapper?.classList.remove("hidden");
+          iframe?.classList.remove("hidden");
+          // controls removed
+        } else if (state === "error") {
+          container.style.height = "260px";
+          loadingEl?.classList.add("hidden");
+          iframeWrapper?.classList.add("hidden");
+          iframe?.classList.add("hidden");
+          errorEl?.classList.remove("hidden");
+        } else {
+          container.style.height = "520px";
+          loadingEl?.classList.remove("hidden");
+          iframeWrapper?.classList.add("hidden");
+          iframe?.classList.add("hidden");
+          errorEl?.classList.add("hidden");
+        }
+      };
+
+      const applyScale = () => {
+        if (!iframe) return;
+        iframe.style.transform = `scale(${scale})`;
+        iframe.style.transformOrigin = "top center";
+      };
+
+      const bindAction = (selector, handler) => {
+        container.querySelectorAll(selector).forEach((btn) => {
+          btn.addEventListener("click", (event) => {
+            event.preventDefault();
+            handler();
+          });
+        });
+      };
+
+        // controls removed
+
+      const attachEvents = () => {
+        if (!iframe) return;
+          iframe.onload = () => {
+            // Detect server-side inline 404 placeholder and collapse to error state
+            try {
+              const doc = iframe.contentDocument || iframe.contentWindow?.document;
+              const missing = doc?.querySelector('[data-resume-missing]') || doc?.querySelector('meta[name="resume-missing"][content="1"]');
+              if (missing) {
+                setState("error");
+                return;
+              }
+            } catch (e) {
+              // ignore cross-origin access errors
+            }
+            setState("ready");
+            applyScale();
+          };
+        iframe.onerror = () => {
+          setState("error");
+        };
+      };
+
+        const loadIframe = () => {
+          if (!iframe) return;
+          setState("loading");
+          attachEvents();
+          iframe.src = buildSrc(viewMode);
+        };
+
+  loadIframe();
+});
+});
+</script>
 <script>
 // Improved Q&A Accordion functionality
 document.addEventListener('DOMContentLoaded', function() {

@@ -9,9 +9,92 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  {% include 'partials/fonts.html' %}
+  <style>
+    .app-layout {
+      min-height: 100vh;
+    }
+    .app-sidebar {
+      width: 14rem; /* equivalent to w-56 */
+      transition: width 0.25s ease;
+    }
+    body.sidebar-collapsed .app-sidebar {
+      width: 4.5rem;
+    }
+    .app-sidebar .brand {
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .app-sidebar .brand-logo-wrap {
+      width: 2.5rem;
+      display: flex;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .app-sidebar .brand-logo {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+    .app-sidebar nav a {
+      transition: padding 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+    }
+    body.sidebar-collapsed .app-sidebar .brand {
+      justify-content: center;
+    }
+    body.sidebar-collapsed .app-sidebar .brand-name {
+      display: none;
+    }
+    body.sidebar-collapsed .app-sidebar .brand-logo-wrap {
+      width: 100%;
+    }
+    body.sidebar-collapsed .app-sidebar nav a {
+      justify-content: center;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+    body.sidebar-collapsed .app-sidebar nav a span.nav-label {
+      display: none;
+    }
+    body.sidebar-collapsed .app-sidebar nav a svg {
+      margin-right: 0 !important;
+    }
+    .sidebar-toggle {
+      border-radius: 0.5rem;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      box-shadow: none !important;
+      border: none !important;
+    }
+    .sidebar-toggle:hover {
+      background-color: rgba(148, 163, 184, 0.12);
+    }
+    .sidebar-toggle svg {
+      width: 1rem;
+      height: 1rem;
+      display: block;
+    }
+    .sidebar-toggle .icon-collapsed {
+      display: none;
+    }
+    body.sidebar-collapsed .sidebar-toggle .icon-expanded {
+      display: none;
+    }
+    body.sidebar-collapsed .sidebar-toggle .icon-collapsed {
+      display: block;
+    }
+    /* Sidebar footer behavior when collapsed */
+    body.sidebar-collapsed .sidebar-footer {
+      left: 50% !important;
+      transform: translateX(-50%);
+      flex-direction: column;
+      gap: 0.25rem;
+      text-align: center;
+    }
+    body.sidebar-collapsed .sidebar-footer .sidebar-footer-label {
+      display: none;
+    }
+  </style>
   {% block head_extra %}{% endblock %}
   <script src="{{ url_for('static', filename='js/loader.js') }}" defer></script>
 </head>
@@ -25,7 +108,7 @@
     <div class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
   </div>
 
-  <div class="min-h-screen flex">
+  <div class="app-layout flex">
     {% include 'partials/sidebar.html' %}
     <div class="flex-1 flex flex-col min-w-0">
       {% include 'partials/header.html' %}
@@ -35,5 +118,42 @@
     </div>
   </div>
   {% block body_extra %}{% endblock %}
+  <script>
+    (function() {
+      const STORAGE_KEY = "app-sidebar-collapsed";
+      const root = document.body;
+      const toggle = document.getElementById("sidebar-toggle");
+      if (!toggle) return;
+
+      const applyState = (collapsed) => {
+        if (collapsed) {
+          root.classList.add("sidebar-collapsed");
+        } else {
+          root.classList.remove("sidebar-collapsed");
+        }
+        toggle.setAttribute("aria-pressed", collapsed ? "true" : "false");
+        toggle.dataset.state = collapsed ? "collapsed" : "expanded";
+      };
+
+      let collapsed = false;
+      try {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        collapsed = stored === "1";
+      } catch (err) {
+        collapsed = false;
+      }
+      applyState(collapsed);
+
+      toggle.addEventListener("click", () => {
+        collapsed = !collapsed;
+        applyState(collapsed);
+        try {
+          window.localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
+        } catch (err) {
+          /* ignore storage errors */
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

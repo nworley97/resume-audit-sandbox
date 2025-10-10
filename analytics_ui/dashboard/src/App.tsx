@@ -33,7 +33,9 @@ export default function App() {
   // Default fallback
   return (
     <div className="p-6">
-      <h1>Analytics Dashboard</h1>
+      <h1 className="text-2xl font-semibold text-foreground" style={{ fontFamily: "var(--font-heading), var(--font-sans)" }}>
+        Analytics Dashboard
+      </h1>
       <p>Invalid route. Please navigate to /tenant/recruiter/analytics</p>
     </div>
   );

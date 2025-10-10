@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import type { AnalyticsJobDetail } from "@/types/analytics";
 
 interface RetentionHeatmapProps {
@@ -296,7 +296,7 @@ export function RetentionHeatmap({ detail, tenant }: RetentionHeatmapProps) {
                             )}
                             aria-label={`${count} candidates with ${fitLabel} and Claim ${claimLabel}`}
                           >
-                            <span className="text-base font-bold">{count}</span>
+                            <span className="text-base font-bold">{formatNumber(count)}</span>
                             <span className="text-xs opacity-80">{pct}%</span>
                           </button>
                         </HoverCardTrigger>
@@ -305,7 +305,7 @@ export function RetentionHeatmap({ detail, tenant }: RetentionHeatmapProps) {
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <h4 className="font-semibold text-foreground">
-                                  {count} Candidates
+                                  {formatNumber(count)} Candidates
                                 </h4>
                                 <Badge variant="outline" className="text-xs">
                                   {claimLabel} • {fitLabel}

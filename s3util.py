@@ -60,17 +60,31 @@ def upload_pdf(path: str) -> str:
     # Ephemeral fallback (not persistent)
     return path
 
-def presign(s3_url: str, expires: int = 3600) -> str:
+def presign(
+    s3_url: str,
+    expires: int = 3600,
+    *,
+    content_disposition: str | None = None,
+    content_type: str | None = None,
+) -> str:
     """
     Generates a presigned HTTPS GET link from an s3://bucket/key URL.
+    Optional response headers can be overridden using:
+      - content_disposition (e.g., 'inline' or 'attachment; filename="name.pdf"')
+      - content_type (e.g., 'application/pdf')
     Only valid when S3 is enabled.
     """
     if not S3_ENABLED:
         raise RuntimeError("presign() called without S3 enabled")
     bucket, key = s3_url.split("/", 3)[2], s3_url.split("/", 3)[3]
+    params = {"Bucket": bucket, "Key": key}
+    if content_disposition:
+        params["ResponseContentDisposition"] = content_disposition
+    if content_type:
+        params["ResponseContentType"] = content_type
     return s3.generate_presigned_url(
         "get_object",
-        Params={"Bucket": bucket, "Key": key},
+        Params=params,
         ExpiresIn=expires,
     )
 

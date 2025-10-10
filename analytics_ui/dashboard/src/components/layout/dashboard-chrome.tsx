@@ -49,6 +49,14 @@ export function DashboardChrome({
 }) {
   const location = useLocation();
   const pathname = location.pathname;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage?.getItem("app-sidebar-collapsed") === "1";
+    } catch (err) {
+      return false;
+    }
+  });
   const [tenantMeta, setTenantMeta] = useState<TenantMetadata | null>(null);
   const [metaLoaded, setMetaLoaded] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
@@ -151,44 +159,103 @@ export function DashboardChrome({
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("sidebar-collapsed", sidebarCollapsed);
+    try {
+      window.localStorage?.setItem("app-sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+    } catch (err) {
+      // ignore storage issues
+    }
+  }, [sidebarCollapsed]);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => !prev);
+  };
+
+  const ExpandedIcon = (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <rect x="6" y="8" width="5" height="8" rx="1" />
+    </svg>
+  );
+
+  const CollapsedIcon = (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <rect x="13" y="8" width="5" height="8" rx="1" />
+    </svg>
+  );
+
   return (
     <div className="min-h-screen flex bg-white text-slate-900">
-      <aside className="w-56 bg-white border-r border-gray-200 relative">
-        <div className="flex items-center gap-3 px-4 py-4">
-          <div className="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gray-900 text-white text-xs">
-            {!metaLoaded ? (
-              <div className="h-full w-full animate-pulse bg-gray-200" aria-hidden />
-            ) : tenantMeta?.logo_url && !logoErrored ? (
-              <>
-                {!logoLoaded ? (
-                  <div className="absolute inset-0 animate-pulse bg-gray-200" aria-hidden />
-                ) : null}
-                <img
-                  src={tenantMeta.logo_url}
-                  alt={`${tenantLabel} logo`}
-                  className={`h-full w-full object-cover transition-opacity duration-200 ${
-                    logoLoaded ? "opacity-100" : "opacity-0"
-                  }`}
-                  onLoad={() => setLogoLoaded(true)}
-                  onError={() => {
-                    setLogoErrored(true);
-                    setLogoLoaded(false);
-                  }}
-                />
-              </>
-            ) : (
-              <span>{brandInitials}</span>
-            )}
+      <aside
+        className={`bg-white border-r border-gray-200 relative transition-all duration-200 ${
+          sidebarCollapsed ? "w-[4.5rem]" : "w-56"
+        }`}
+      >
+        <div
+          className={`flex items-center gap-2 py-4 px-4 transition-all duration-200 ${
+            sidebarCollapsed ? "justify-center" : ""
+          }`}
+        >
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center">
+            <div className="relative h-10 w-10 rounded-full overflow-hidden flex items-center justify-center bg-gray-900 text-white text-xs">
+              {!metaLoaded ? (
+                <div className="h-full w-full animate-pulse bg-gray-200" aria-hidden />
+              ) : tenantMeta?.logo_url && !logoErrored ? (
+                <>
+                  {!logoLoaded ? (
+                    <div className="absolute inset-0 animate-pulse bg-gray-200" aria-hidden />
+                  ) : null}
+                  <img
+                    src={tenantMeta.logo_url}
+                    alt={`${tenantLabel} logo`}
+                    className={`h-full w-full object-cover transition-opacity duration-200 ${
+                      logoLoaded ? "opacity-100" : "opacity-0"
+                    }`}
+                    onLoad={() => setLogoLoaded(true)}
+                    onError={() => {
+                      setLogoErrored(true);
+                      setLogoLoaded(false);
+                    }}
+                  />
+                </>
+              ) : (
+                <span>{brandInitials}</span>
+              )}
+            </div>
           </div>
-          <div className="min-w-0 flex items-center">
-            {!metaLoaded ? (
-              <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" aria-hidden />
-            ) : (
-              <span className="text-sm font-medium text-slate-900 leading-tight truncate max-w-[9rem]">
-                {tenantLabel}
-              </span>
-            )}
-          </div>
+          {!sidebarCollapsed && (
+            <div className="min-w-0 flex items-center">
+              {!metaLoaded ? (
+                <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" aria-hidden />
+              ) : (
+                <span className="text-sm font-medium text-slate-900 leading-tight truncate max-w-[9rem]">
+                  {tenantLabel}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <nav className="px-2">
@@ -205,29 +272,38 @@ export function DashboardChrome({
               isActive = pathname === url || pathname.startsWith(`${url}/`);
             }
             
-            const className = `${index > 0 ? "mt-1" : ""} flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
-              isActive ? "bg-primary/10 text-primary" : "text-slate-900 hover:bg-gray-50"
-            }`;
+            const className = [
+              index > 0 ? "mt-1" : "",
+              "flex items-center rounded-lg text-sm transition py-2",
+              sidebarCollapsed ? "justify-center px-2" : "gap-2 px-3",
+              isActive ? "bg-primary/10 text-primary" : "text-slate-900 hover:bg-gray-50",
+            ]
+              .filter(Boolean)
+              .join(" ");
 
             if (label === "Analytics") {
               return (
-                <Link key={label} to={url} className={className}>
+                <Link key={label} to={url} className={className} aria-label={label}>
                   <Icon className="w-4 h-4" aria-hidden />
-                  <span>{label}</span>
+                  {!sidebarCollapsed && <span>{label}</span>}
                 </Link>
               );
             }
 
             return (
-              <a key={label} href={url} className={className}>
+              <a key={label} href={url} className={className} aria-label={label}>
                 <Icon className="w-4 h-4" aria-hidden />
-                <span>{label}</span>
+                {!sidebarCollapsed && <span>{label}</span>}
               </a>
             );
           })}
         </nav>
 
-        <div className="absolute left-4 bottom-4 flex items-center gap-2 text-xs text-slate-500">
+        <div
+          className={`absolute bottom-4 flex items-center text-xs text-slate-500 ${
+            sidebarCollapsed ? "left-1/2 -translate-x-1/2 flex-col gap-1 text-center" : "left-4 gap-2"
+          }`}
+        >
           <img
             src="/favicon-32x32.png"
             alt="Altera mark"
@@ -235,25 +311,38 @@ export function DashboardChrome({
             height={16}
             className="rounded"
           />
-          Powered by AlteraSF
+          {!sidebarCollapsed && <span>Powered by AlteraSF</span>}
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="w-full bg-white border-b border-gray-200">
-          <div className="flex items-center justify-end gap-3 px-4 py-3">
-            <a
-              href="/logout"
-              className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
-            >
-              Sign out
-            </a>
-            <div className="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
-              {userLoaded ? (
-                <span>{userInitials}</span>
-              ) : (
-                <div className="h-4 w-4 animate-pulse bg-gray-200 rounded" aria-hidden />
-              )}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="sidebar-toggle inline-flex items-center justify-center bg-white text-slate-700 px-3 py-2 rounded-lg hover:bg-[#EAEAEA] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60"
+                aria-label="Toggle navigation"
+                aria-pressed={sidebarCollapsed ? "true" : "false"}
+              >
+                {sidebarCollapsed ? CollapsedIcon : ExpandedIcon}
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <a
+                href="/logout"
+                className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+              >
+                Sign out
+              </a>
+              <div className="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
+                {userLoaded ? (
+                  <span>{userInitials}</span>
+                ) : (
+                  <div className="h-4 w-4 animate-pulse bg-gray-200 rounded" aria-hidden />
+                )}
+              </div>
             </div>
           </div>
         </header>

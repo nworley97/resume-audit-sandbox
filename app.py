@@ -9,7 +9,7 @@ from io import StringIO
 from flask import current_app, send_from_directory, abort 
 from flask import (
     Flask, request, redirect, url_for,
-    render_template, flash, send_file, abort, make_response, session, g, jsonify
+    render_template, flash, send_file, abort, make_response, session, g, jsonify, Response
 )
 from markupsafe import Markup, escape
 try:
@@ -42,6 +42,14 @@ from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
 # ─── Config ───────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
+# Jinja filter: thousand separators for integers
+@app.template_filter("intcomma")
+def intcomma(value):
+    try:
+        iv = int(value or 0)
+    except (TypeError, ValueError):
+        return value
+    return f"{iv:,}"
 app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
 
 from analytics_service import bp as analytics_bp
@@ -181,21 +189,41 @@ def inject_brand():
 def inject_pagination_helpers():
     from flask import request, url_for
 
+    def _collect_params(exclude=None):
+        exclude = set(exclude or [])
+        params = dict(request.view_args or {})
+        for key in request.args.keys():
+            if key in exclude:
+                continue
+            values = request.args.getlist(key)
+            if not values:
+                continue
+            params[key] = values if len(values) > 1 else values[0]
+        return params
+
+    def query_url(**updates):
+        """Build a link to the current endpoint, preserving route args & query params with overrides."""
+        params = _collect_params()
+        for key, value in updates.items():
+            if value is None:
+                params.pop(key, None)
+            else:
+                params[key] = value
+        return url_for(request.endpoint, **params)
+
     def page_url(target_page: int):
         """Build a link to the current endpoint, preserving route args & query params, with the given page."""
-        ep = request.endpoint
-        params = dict(request.view_args or {})
-        params.update(request.args.to_dict(flat=True))
         try:
             p = int(target_page)
         except Exception:
             p = 1
         if p < 1:
             p = 1
+        params = _collect_params(exclude={"page"})
         params["page"] = p
-        return url_for(ep, **params)
+        return url_for(request.endpoint, **params)
 
-    return {"page_url": page_url}
+    return {"page_url": page_url, "query_url": query_url}
 # ---------- /Pagination helper ----------
 # --- time formatting helper (mm:ss) ---
 @app.context_processor
@@ -1299,6 +1327,21 @@ def candidates_overview(tenant=None):
 
     db = SessionLocal()
     try:
+        overall_total = (
+            db.query(func.count(Candidate.id))
+              .filter(Candidate.tenant_id == t.id)
+              .scalar()
+        ) or 0
+
+        job_descriptions_all = (
+            db.query(JobDescription)
+              .filter(JobDescription.tenant_id == t.id)
+              .all()
+        )
+        jd_lookup = {jd.code: jd for jd in job_descriptions_all if jd.code}
+        job_titles_all = sorted({jd.title for jd in job_descriptions_all if jd.title})
+        departments_all = sorted({jd.department for jd in job_descriptions_all if jd.department})
+
         qry = db.query(Candidate).filter_by(tenant_id=t.id)
 
         # Free-text search across available columns (defensive)
@@ -1325,17 +1368,29 @@ def candidates_overview(tenant=None):
         # Apply filters - need to join with JobDescription for job_title and department with ET-12(Jen)
         job_title_filters = request.args.getlist('job_title')
         department_filters = request.args.getlist('department')
-        
-        has_active_filters = bool(
-            job_title_filters
-            or department_filters
-            or claim_validity_min
-            or claim_validity_max
-            or relevancy_min
-            or relevancy_max
-            or date_from_parsed
-            or date_to_parsed
-        )
+
+        def _to_float(value):
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        claim_min_val = _to_float(claim_validity_min)
+        claim_max_val = _to_float(claim_validity_max)
+        relevancy_min_val = _to_float(relevancy_min)
+        relevancy_max_val = _to_float(relevancy_max)
+
+        active_filter_count = len(job_title_filters) + len(department_filters)
+        if (claim_min_val is not None and claim_min_val > 0.0) or (claim_max_val is not None and claim_max_val < 5.0):
+            active_filter_count += 1
+        if (relevancy_min_val is not None and relevancy_min_val > 0.0) or (relevancy_max_val is not None and relevancy_max_val < 5.0):
+            active_filter_count += 1
+        if date_from_parsed:
+            active_filter_count += 1
+        if date_to_parsed:
+            active_filter_count += 1
+
+        has_active_filters = active_filter_count > 0
 
         if job_title_filters or department_filters:
             qry = qry.join(JobDescription, Candidate.jd_code == JobDescription.code)
@@ -1391,11 +1446,8 @@ def candidates_overview(tenant=None):
             # Add job_title and department from JobDescription
             if c.jd_code:
                 if c.jd_code not in jd_cache:
-                    jd = db.query(JobDescription).filter(JobDescription.code == c.jd_code).first()
-                    jd_cache[c.jd_code] = jd
-                else:
-                    jd = jd_cache[c.jd_code]
-                
+                    jd_cache[c.jd_code] = jd_lookup.get(c.jd_code)
+                jd = jd_cache.get(c.jd_code)
                 if jd:
                     c.job_title = jd.title
                     c.department = jd.department
@@ -1429,22 +1481,28 @@ def candidates_overview(tenant=None):
             rows = filtered_rows
 
         # Apply score filters after computing scores with ET-12(Jen)
-        if claim_validity_min:
+        if claim_min_val is not None or claim_max_val is not None:
             filtered_rows = []
-            min_val = float(claim_validity_min)
             for c in rows:
-                score = getattr(c, 'score', None) or 0
-                if score >= min_val:
-                    filtered_rows.append(c)
+                score_raw = getattr(c, 'score', None)
+                score = float(score_raw) if score_raw is not None else 0.0
+                if claim_min_val is not None and score < claim_min_val:
+                    continue
+                if claim_max_val is not None and score > claim_max_val:
+                    continue
+                filtered_rows.append(c)
             rows = filtered_rows
 
-        if relevancy_min:
+        if relevancy_min_val is not None or relevancy_max_val is not None:
             filtered_rows = []
-            min_val = float(relevancy_min)
             for c in rows:
-                relevancy = getattr(c, 'relevancy', None) or 0
-                if relevancy >= min_val:
-                    filtered_rows.append(c)
+                relevancy_raw = getattr(c, 'relevancy', None)
+                relevancy = float(relevancy_raw) if relevancy_raw is not None else 0.0
+                if relevancy_min_val is not None and relevancy < relevancy_min_val:
+                    continue
+                if relevancy_max_val is not None and relevancy > relevancy_max_val:
+                    continue
+                filtered_rows.append(c)
             rows = filtered_rows
 
         reverse = (dir_ == "desc")
@@ -1501,15 +1559,8 @@ def candidates_overview(tenant=None):
 
         # Get unique job titles and departments for filter dropdowns
         # Need to join with JobDescription to get job titles and departments
-        job_titles = []
-        departments = []
-        
-        # Get job descriptions for the candidates
-        jd_codes = list(set([c.jd_code for c in rows if c.jd_code]))
-        if jd_codes:
-            job_descriptions = db.query(JobDescription).filter(JobDescription.code.in_(jd_codes)).all()
-            job_titles = list(set([jd.title for jd in job_descriptions if jd.title]))
-            departments = list(set([jd.department for jd in job_descriptions if jd.department]))
+        job_titles = job_titles_all
+        departments = departments_all
         
         return render_template(
             "candidates.html",
@@ -1528,6 +1579,9 @@ def candidates_overview(tenant=None):
             REL_GREEN=4.0, REL_YELLOW=3.0,       # relevancy thresholds (0–5)
             has_candidate_detail=True,
             has_active_filters=has_active_filters,
+            active_filter_count=active_filter_count,
+            overall_total_count=overall_total,
+            showing_filtered=bool(has_active_filters or q),
         )
     finally:
         db.close()
@@ -1794,6 +1848,12 @@ def view_candidates(code, tenant=None):
 
     db = SessionLocal()
     try:
+        overall_total = (
+            db.query(func.count(Candidate.id))
+              .filter(Candidate.tenant_id == t.id, Candidate.jd_code == code)
+              .scalar()
+        ) or 0
+
         jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
 
         qry = db.query(Candidate).filter_by(tenant_id=t.id, jd_code=code)
@@ -1915,6 +1975,8 @@ def view_candidates(code, tenant=None):
             REL_GREEN=4.0, REL_YELLOW=3.0,      # relevancy thresholds (0–5)
             has_candidate_detail=True,
             has_active_filters=False,
+            overall_total_count=overall_total,
+            showing_filtered=bool(q),
         )
     finally:
         db.close()
@@ -1976,11 +2038,22 @@ def candidate_detail(id, tenant=None):
         REL_GREEN    = 4.0
         REL_YELLOW   = 3.0
 
-        # Resume preview URL - use download_resume endpoint for iframe compatibility
+        # Resume preview URL - only allow inline for PDFs; provide download_url for others
+        download_url = None
+        is_pdf = False
+        resume_url = None
         if c.resume_url:
-            resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1, _external=False)
+            path_lower = (c.resume_url or "").lower()
+            is_pdf = path_lower.endswith(".pdf")
+            download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
+            if is_pdf:
+                resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1, _external=False)
+            print(f"🔍 DEBUG: c.resume_url = {c.resume_url}")
+            print(f"🔍 DEBUG: resume_url = {resume_url}")
+            print(f"🔍 DEBUG: is_pdf = {is_pdf}")
         else:
             resume_url = None
+            print(f"🔍 DEBUG: c.resume_url is None or empty")
 
         # Relevancy normalized to 0–5
         raw_r = getattr(c, "relevancy", None)
@@ -2006,6 +2079,8 @@ def candidate_detail(id, tenant=None):
             c=c,
             relevancy=relevancy,
             resume_url=resume_url,
+            is_pdf=is_pdf,
+            download_url=download_url,
             claim_validity=claim_validity,
             qa=qa,
             focus_changes=focus_changes,
@@ -2650,15 +2725,49 @@ def download_resume(cid, tenant=None):
         else "application/octet-stream"
     )
 
-    # S3 stays a redirect to a presigned URL (iframe-friendly for PDFs)
+    # S3: redirect to a presigned URL with explicit Content-Disposition
     if S3_ENABLED and c.resume_url.startswith("s3://"):
-        return redirect(presign(c.resume_url))
+        if inline and ext == "pdf":
+            return redirect(presign(
+                c.resume_url,
+                content_disposition="inline",
+                content_type="application/pdf",
+            ))
+        # Fallback to attachment for non-PDF or explicit download
+        cd = f"attachment; filename=\"{fn}\""
+        return redirect(presign(c.resume_url, content_disposition=cd))
 
     # NEW: allow inline previews when explicitly requested
     inline = request.args.get("inline") == "1"
+    print(f"🔍 DEBUG: download_resume called")
+    print(f"🔍 DEBUG: c.resume_url = {c.resume_url}")
+    print(f"🔍 DEBUG: inline = {inline}")
+    exists = os.path.exists(c.resume_url) if c.resume_url else False
+    print(f"🔍 DEBUG: file exists = {exists}")
+    print(f"🔍 DEBUG: mime = {mime}")
+
+    # Gracefully handle missing file: if inline preview requested, return
+    # a tiny same-origin HTML with a recognizable marker so the iframe
+    # script can detect and hide the preview area without showing
+    # a Flask error page to users.
+    if not exists:
+        if inline:
+            html = (
+                "<!doctype html><html><head>"
+                "<meta charset='utf-8'>"
+                "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+                "<meta name='resume-missing' content='1'>"
+                "<title>Resume Missing</title>"
+                "</head><body data-resume-missing='1' style='margin:0'></body></html>"
+            )
+            return Response(html, status=404, mimetype="text/html")
+        return abort(404)
+
+    # For local files: allow inline only for PDFs; others force attachment
+    allow_inline = inline and ext == "pdf"
     return send_file(
         c.resume_url,
-        as_attachment=not inline,   # previously always True
+        as_attachment=not allow_inline,
         download_name=fn,
         mimetype=mime
     )
@@ -2713,11 +2822,15 @@ def detail(cid, tenant=None):
         qa = list(zip(c.questions, c.answers, c.answer_scores))
 
         # NEW: provide a browser-loadable resume_url for the template preview
+        download_url = None
+        is_pdf = False
+        resume_url = None
         if c and c.resume_url:
-            if S3_ENABLED and c.resume_url.startswith("s3://"):
-                resume_url = presign(c.resume_url)  # presigned HTTPS URL for S3
-            else:
-                # local file: use inline=1 so PDFs render inside the iframe
+            path_lower = (c.resume_url or "").lower()
+            is_pdf = path_lower.endswith(".pdf")
+            download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
+            # Only provide inline preview URL for PDFs
+            if is_pdf:
                 resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1)
         else:
             resume_url = None
@@ -2730,6 +2843,8 @@ def detail(cid, tenant=None):
             qa=qa,
             tenant_slug=t.slug,
             resume_url=resume_url,   # <-- additive only
+            is_pdf=is_pdf,
+            download_url=download_url,
         )
     finally:
         db.close()

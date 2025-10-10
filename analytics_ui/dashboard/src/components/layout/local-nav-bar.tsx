@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 interface LocalNavBarProps {
   title: string;
   subtitle?: string;
+  breadcrumbLabel?: string;
+  breadcrumbHref?: string;
   showBackButton?: boolean;
   onBackClick?: () => void;
   showRefreshButton?: boolean;
@@ -24,6 +26,8 @@ interface LocalNavBarProps {
 export function LocalNavBar({
   title,
   subtitle,
+  breadcrumbLabel,
+  breadcrumbHref,
   showBackButton = false,
   onBackClick,
   showRefreshButton = false,
@@ -56,11 +60,45 @@ export function LocalNavBar({
             </Button>
           </div>
         )}
+
+        {breadcrumbLabel && (
+          <div className="mb-2">
+            {breadcrumbHref ? (
+              <a
+                href={breadcrumbHref}
+                className="inline-flex items-center gap-[6px] text-sm text-muted-foreground hover:text-foreground cursor-pointer"
+                aria-label={breadcrumbLabel}
+              >
+                {/* Sidebar Analytics icon path for visual consistency */}
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 21v-6"></path>
+                  <path d="M12 21V3"></path>
+                  <path d="M19 21V9"></path>
+                </svg>
+                <span>{breadcrumbLabel}</span>
+              </a>
+            ) : (
+              <div className="inline-flex items-center gap-[6px] text-sm text-muted-foreground">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 21v-6"></path>
+                  <path d="M12 21V3"></path>
+                  <path d="M19 21V9"></path>
+                </svg>
+                <span>{breadcrumbLabel}</span>
+              </div>
+            )}
+          </div>
+        )}
         
         {/* ET-12: Title and action buttons row */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+            <h1
+              className="text-[24px] leading-7 font-semibold text-foreground"
+              style={{ fontFamily: "var(--font-heading), var(--font-sans)" }}
+            >
+              {title}
+            </h1>
             {subtitle && (
               <p className="text-sm text-muted-foreground">{subtitle}</p>
             )}
