@@ -55,6 +55,8 @@ nosetests.xml
 # =============================================================================
 build/
 dist/
+!analytics_ui/dashboard/dist/
+!analytics_ui/dashboard/dist/**
 develop-eggs/
 .eggs/
 wheels/
