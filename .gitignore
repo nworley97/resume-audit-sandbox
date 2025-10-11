@@ -147,3 +147,31 @@ instance/
 # DOCUMENTATION & REFERENCES
 # =============================================================================
 references/
+
+# =============================================================================
+# PLAYWRIGHT E2E TESTING
+# =============================================================================
+# Test files (exclude from git - contains test scenarios)
+/tests/
+
+# Test results and reports
+/test-results/
+/playwright-report/
+/blob-report/
+
+# Playwright cache and authentication
+/playwright/.cache/
+/playwright/.auth/
+
+# Playwright trace files
+trace.zip
+*.trace.zip
+
+# Playwright screenshots and videos
+/test-results/**/*.png
+/test-results/**/*.webm
+/test-results/**/*.mp4
+
+# Playwright debug files
+*.trace
+*.har
