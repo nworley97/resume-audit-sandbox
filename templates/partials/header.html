@@ -1,11 +1,43 @@
 <header class="w-full bg-white border-b border-gray-200">
-  <div class="flex items-center justify-end gap-3 px-4 py-3">
-    <a href="{{ url_for('logout') }}" data-noload
-       class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
-      Sign out
-    </a>
-    <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
-      {{ (current_user.username[:2] if current_user and current_user.username else 'JD') | upper }}
+  <div class="flex items-center justify-between px-4 py-3">
+    <div class="flex items-center gap-3">
+      <button type="button"
+              id="sidebar-toggle"
+              class="sidebar-toggle inline-flex items-center justify-center bg-white text-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60"
+              aria-label="Toggle sidebar"
+              aria-pressed="false"
+              data-state="expanded"
+              title="Toggle sidebar">
+        <svg class="icon-expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+          <rect x="6" y="8" width="5" height="8" rx="1"></rect>
+        </svg>
+        <svg class="icon-collapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+          <rect x="13" y="8" width="5" height="8" rx="1"></rect>
+        </svg>
+      </button>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('logout') }}" data-noload
+         class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
+        Sign out
+      </a>
+      <!-- 2025-10-01 corrected: Display user initials (not tenant logo) -->
+      <div class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">
+        {% set user_initials = (current_user.username[:2] if current_user and current_user.username else 'JD') | upper %}
+        {{ user_initials }}
+      </div>
     </div>
   </div>
 </header>
+<script>
+  (function() {
+    try {
+      var initials = {{ user_initials | tojson }};
+      window.localStorage && window.localStorage.setItem('analytics-user-initials', initials);
+    } catch (err) {
+      // Ignore storage failures (privacy mode, etc.)
+    }
+  })();
+</script>

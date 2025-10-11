@@ -5,9 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  {% include 'partials/fonts.html' %}
   <script src="{{ url_for('static', filename='js/loader.js') }}" defer></script>
 </head>
 <body class="bg-background min-h-screen flex items-center justify-center">
+  {# silently consume any lingering flashes from previous redirects (auth scope) #}
+  {% set _discard = get_flashed_messages(with_categories=true) %}
   <!-- Loader Overlay -->
   <div id="loading-overlay"
        class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-80 hidden opacity-0 transition-opacity duration-200 z-50">

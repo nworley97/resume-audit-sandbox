@@ -12,7 +12,7 @@
       <div class="text-xs text-gray-600">Question {{ idx + 1 }} of {{ n }}</div>
       <div class="w-44 h-1.5 bg-gray-200 rounded-full overflow-hidden">
         <!-- progress_pct comes from the route; shows 0% on Q1 -->
-        <div class="h-full bg-blue-600" style="width: {{ progress_pct }}%"></div>
+        <div class="h-full bg-primary" style="width: {{ progress_pct }}%"></div>
       </div>
     </div>
   </div>
@@ -39,15 +39,21 @@
 	<input type="hidden" name="elapsed_ms" id="elapsed_ms" value="0">
 	{# helps server if route doesn't carry index in the URL #}
 	<input type="hidden" name="q_index" value="{{ idx }}">
+	<!-- ET-7: Track paste events -->
+	<input type="hidden" name="paste_detected" id="paste_detected" value="0">
 
 
     <textarea
       name="answer"
-      rows="8"
+      id="answer-textarea"
+      rows="12"
       maxlength="1000"
       class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm
              focus:outline-none focus:ring-2 focus:ring-primary/60"
+      data-paste-ranges="[]"
     >{{ a }}</textarea>
+    <!-- ET-7: Hidden field to store paste ranges -->
+    <input type="hidden" name="paste_ranges" id="paste_ranges" value="[]">
 
     <div class="mt-2 flex items-center justify-between">
       <div class="text-xs text-gray-500">
@@ -71,7 +77,7 @@
           name="action"
           value="next"
           type="submit"
-          class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          class="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b7c70]"
         >
           {% if idx + 1 < n %}Next Question →{% else %}Submit →{% endif %}
         </button>
@@ -83,82 +89,85 @@
 
 {% block body_extra %}
 <script>
-  (function () {
-    const ta = document.querySelector('textarea[name="answer"]');
-    const counter = document.getElementById('count');
-    if (ta && counter) ta.addEventListener('input', () => counter.textContent = ta.value.length);
-  })();
-</script>
-<script>
-(function () {
-  // Only render a URL if all pieces exist; otherwise leave it blank.
-  const flagUrl = "{% if tenant_slug and code and cid %}{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}{% else %}{% endif %}";
+// ET-7: Optimized timer (single script, no external dependencies)
+(function() {
+  const qIdx = {{ idx }};
+  const cid = '{{ cid }}';
+  const key = `qt_${cid}_${qIdx}`;
+  
+  let start = Date.now();
+  let prev = parseInt(sessionStorage.getItem(key) || '0');
+  let iv;
+  
+  function update() {
+    const chip = document.getElementById('q-timer');
+    if (!chip) return;
+    const t = prev + Date.now() - start;
+    const s = Math.floor(t / 1000);
+    chip.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  }
+  
+  iv = setInterval(update, 1000);
+  update();
+  
+  document.querySelector('form').addEventListener('submit', function() {
+    clearInterval(iv);
+    const elapsed = Date.now() - start;
+    const total = prev + elapsed;
+    sessionStorage.setItem(key, total);
+    document.getElementById('elapsed_ms').value = elapsed;
+  });
+  
+  window.addEventListener('beforeunload', () => sessionStorage.setItem(key, prev + Date.now() - start));
+})();
 
-  // Bail if we don't have a safe, absolute-ish path (prevents /apply///flag).
-  if (!flagUrl || !flagUrl.startsWith("/")) return;
-
-  let internalNav = false;   // set true on in-flow form submission (Next/Prev)
-  let sent = false;          // one-shot guard
-
-  function sendFlagSafe() {
-    if (sent) return;
-    if (internalNav) return;                                  // ignore in-flow submits
-    if (document.visibilityState && document.visibilityState !== "hidden") return;
-
-    sent = true;
-    try {
-      if (navigator.sendBeacon) {
-        // tiny empty payload keeps it fast & reliable
-        const blob = new Blob([], { type: "application/octet-stream" });
-        navigator.sendBeacon(flagUrl, blob);
-      } else {
-        fetch(flagUrl, { method: "POST", keepalive: true, body: "" }).catch(() => {});
+// ET-7: Paste tracking (optimized)
+(function() {
+  const ta = document.getElementById('answer-textarea');
+  const pd = document.getElementById('paste_detected');
+  const pr = document.getElementById('paste_ranges');
+  let ranges = [];
+  
+  ta.addEventListener('paste', function() {
+    pd.value = '1';
+    const start = ta.selectionStart;
+    setTimeout(() => {
+      const len = ta.selectionEnd - start;
+      if (len > 0) {
+        ranges.push({start, end: start + len, length: len});
+        pr.value = JSON.stringify(ranges);
       }
-    } catch (_) { /* best-effort telemetry; swallow */ }
-  }
-
-  // Mark internal navigation before unload (handles any form on the page)
-  document.addEventListener("submit", function (e) {
-    if (e.target && e.target.tagName === "FORM") internalNav = true;
-  }, { capture: true });
-
-  // Prefer pagehide (fires on bfcache too); visibilitychange as backup
-  window.addEventListener("pagehide", function (ev) {
-    // For Safari bfcache restores, skip if persisted
-    if (typeof ev.persisted === "boolean" && ev.persisted) return;
-    sendFlagSafe();
+    }, 10);
   });
+  
+  // Character counter
+  const counter = document.getElementById('count');
+  ta.addEventListener('input', () => {
+    const len = ta.value.length;
+    counter.textContent = len;
+    const parent = counter.parentElement;
+    parent.className = len > 900 ? 'text-xs text-amber-600' : len > 800 ? 'text-xs text-yellow-600' : 'text-xs text-gray-500';
+  });
+})();
 
-  document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") sendFlagSafe();
+// ET-7: Tab switch detection
+(function() {
+  const url = "{{ url_for('flag_tab_switch', tenant=tenant_slug, code=code, cid=cid) }}";
+  let internal = false;
+  
+  document.querySelector('form').addEventListener('submit', () => internal = true, {capture: true});
+  
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !internal && document.visibilityState === 'hidden') {
+      try { navigator.sendBeacon(url); } catch { fetch(url, {method: 'POST', keepalive: true}); }
+    }
+  });
+  
+  window.addEventListener('pagehide', () => {
+    if (!internal) {
+      try { navigator.sendBeacon(url); } catch {}
+    }
   });
 })();
 </script>
-
-
-<script>
-(function () {
-  var start = Date.now();
-  var chip  = document.getElementById('q-timer');
-  function render() {
-    var s = Math.floor((Date.now() - start) / 1000);
-    var m = Math.floor(s / 60);
-    var ss = String(s % 60).padStart(2, '0');
-    if (chip) chip.textContent = m + ':' + ss;
-  }
-  render();
-  var iv = setInterval(render, 1000);
-
-  var form = document.querySelector('form');
-  if (form) {
-    form.addEventListener('submit', function () {
-      clearInterval(iv);
-      var ms = Math.max(0, Date.now() - start);
-      var fld = document.getElementById('elapsed_ms');
-      if (fld) fld.value = String(ms);
-    });
-  }
-})();
-</script>
-
 {% endblock %}

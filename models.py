@@ -1,7 +1,7 @@
 # models.py
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Integer, Boolean, DateTime, JSON, ForeignKey, Text
+    Column, String, Integer, Boolean, DateTime, JSON, ForeignKey, Text, Time
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.mutable import MutableDict, MutableList
@@ -50,6 +50,7 @@ class JobDescription(Base):
     # ET-23: Raw Markdown (source of truth) and sanitized HTML (rendered)
     markdown = Column(Text, nullable=True)
     html = Column(Text, nullable=True)
+    markdown = Column(Text, nullable=True) # job description in markdown format
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # Columns also checked by ensure_schema()
@@ -62,6 +63,9 @@ class JobDescription(Base):
     updated_at = Column(DateTime(timezone=True), nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=True)
+    start_time = Column(Time, nullable=True) # 2025-10-01: added (Jen)
+    end_time = Column(Time, nullable=True) # 2025-10-01: added (Jen)
+    work_arrangement = Column(String, nullable=True) # 2025-10-01: added (Jen)
 
     # NEW controls
     id_surveys_enabled = Column(Boolean, default=True)   # toggle surveys

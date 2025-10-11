@@ -8,9 +8,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  {% include 'partials/fonts.html' %}
   <style>
     .toast-enter {
       opacity: 0;
@@ -31,7 +29,7 @@
       transition: opacity .2s ease, transform .2s ease;
     }
 
-    /* ET-23: Markdown Styling for Applicant View */
+            /* ET-12: Markdown Styling for Applicant View */
     .prose {
       color: #374151;
       max-width: none;
@@ -39,68 +37,68 @@
     }
 
     .prose h1 {
-      font-size: 1.5rem !important;
-      font-weight: 500 !important;
-      line-height: 1.25;
-      margin-top: 0;
-      margin-bottom: 0.85rem;
+              font-size: 1.875rem;
+              font-weight: 600;
+              line-height: 1.2;
+              margin-top: 0;
+              margin-bottom: 1rem;
       color: #1f2937;
       font-family: 'Poppins', sans-serif;
     }
 
     .prose h2 {
-      font-size: 1.25rem !important;
-      font-weight: 500 !important;
-      line-height: 1.3;
-      margin-top: 1.1rem;
-      margin-bottom: 0.6rem;
+              font-size: 1.5rem;
+              font-weight: 500;
+              line-height: 1.3;
+              margin-top: 1.5rem;
+              margin-bottom: 0.75rem;
       color: #1f2937;
       font-family: 'Poppins', sans-serif;
     }
 
     .prose h3 {
-      font-size: 1.125rem !important;
-      font-weight: 400 !important;
-      line-height: 1.3;
-      margin-top: 1rem;
-      margin-bottom: 0.45rem;
-      color: #1f2937;
-      font-family: 'Inter', sans-serif;
-    }
+              font-size: 1.25rem;
+              font-weight: 400;
+              line-height: 1.4;
+              margin-top: 1.25rem;
+              margin-bottom: 0.5rem;
+              color: #1f2937;
+              font-family: 'Poppins', sans-serif;
+            }
 
-    .prose h4 {
-      font-size: 1rem !important;
-      font-weight: 400 !important;
-      line-height: 1.3;
-      margin-top: 0.85rem;
-      margin-bottom: 0.4rem;
-      color: #1f2937;
-      font-family: 'Inter', sans-serif;
-    }
+            .prose h4 {
+              font-size: 1.125rem;
+              font-weight: 300;
+              line-height: 1.4;
+              margin-top: 1rem;
+              margin-bottom: 0.5rem;
+              color: #1f2937;
+              font-family: 'Poppins', sans-serif;
+            }
 
-    .prose h5 {
-      font-size: 0.875rem !important;
-      font-weight: 400 !important;
-      line-height: 1.3;
-      margin-top: 0.7rem;
-      margin-bottom: 0.35rem;
-      color: #1f2937;
-      font-family: 'Inter', sans-serif;
-    }
+            .prose h5 {
+              font-size: 1rem;
+              font-weight: 500;
+              line-height: 1.4;
+              margin-top: 0.75rem;
+              margin-bottom: 0.5rem;
+              color: #1f2937;
+              font-family: 'Poppins', sans-serif;
+            }
 
-    .prose h6 {
-      font-size: 0.8rem !important;
-      font-weight: 400 !important;
-      line-height: 1.3;
-      margin-top: 0.6rem;
-      margin-bottom: 0.3rem;
-      color: #1f2937;
-      font-family: 'Inter', sans-serif;
+            .prose h6 {
+              font-size: 0.875rem;
+              font-weight: 500;
+              line-height: 1.4;
+              margin-top: 0.75rem;
+              margin-bottom: 0.5rem;
+              color: #1f2937;
+              font-family: 'Poppins', sans-serif;
     }
 
     .prose p {
       margin-top: 0;
-      margin-bottom: 0.9rem;
+      margin-bottom: 1rem;
       line-height: 1.6;
       color: #374151;
       font-family: 'Inter', sans-serif;
@@ -108,7 +106,7 @@
 
     .prose ul {
       margin-top: 0;
-      margin-bottom: 0.9rem;
+      margin-bottom: 1rem;
       padding-left: 1.5rem;
       list-style-type: disc;
       font-family: 'Inter', sans-serif;
@@ -116,7 +114,7 @@
 
     .prose ol {
       margin-top: 0;
-      margin-bottom: 0.9rem;
+      margin-bottom: 1rem;
       padding-left: 1.5rem;
       list-style-type: decimal;
       font-family: 'Inter', sans-serif;
@@ -243,7 +241,7 @@
       }
     }
 
-    /* ET-23: Tab Navigation Styling */
+    /* ET-12: Tab Navigation Styling */
     .tab-button {
       color: #6b7280;
       background-color: transparent;
@@ -269,10 +267,11 @@
   </style>
   {% block head_extra %}{% endblock %}
 </head>
-<body class="min-h-screen bg-background text-slate">
+<body class="bg-background text-slate">
 
   <div id="toast-root" class="pointer-events-none fixed inset-x-0 top-5 flex flex-col items-center gap-2 z-50 px-4"></div>
 
+  <div class="min-h-screen flex flex-col">
   <!-- Public header (brand centered) -->
   <header class="border-b border-gray-200 bg-transparent">
     <div class="max-w-4xl mx-auto px-4 py-3">
@@ -304,13 +303,24 @@
     {% endif %}
   {% endwith %}
 
-  <main class="max-w-4xl mx-auto px-4 py-8">
-    {% block content %}{% endblock %}
+  <main class="flex-1">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+      {% block content %}{% endblock %}
+    </div>
   </main>
 
   <!-- Public footer (links) -->
-  <footer class="border-t border-gray-200 bg-white">
-    <div class="max-w-4xl mx-auto px-4 py-4 text-center text-xs text-gray-500">
+  <footer class="border-t border-gray-200 bg-background">
+    <div class="max-w-4xl mx-auto px-4 py-4 text-center">
+      <div class="inline-flex items-center justify-center gap-2 text-xs text-gray-500">
+        <img src="{{ url_for('static', filename='img/favicon-16x16.png') }}" alt="Altera mark" class="w-4 h-4" />
+        <a href="https://alterasf.com/" target="_blank" rel="noopener noreferrer" 
+           class="hover:text-slate-700 hover:underline cursor-pointer transition-colors duration-200">
+          Powered by AlteraSF
+        </a>
+      </div>
+    </div>
+    <div class="max-w-4xl mx-auto px-4 pb-6 text-center text-xs text-gray-500">
       <!-- Mark downloads to bypass loader -->
       <a
         class="text-primary hover:text-teal-700 underline"
@@ -336,7 +346,10 @@
         data-noload
       >Support</a>
     </div>
+    <div class="h-8"></div>
   </footer>
+
+  </div>
 
   <script src="{{ url_for('static', filename='js/loader.js') }}"></script>
   <script>
@@ -348,7 +361,7 @@
         const node = document.createElement('div');
         node.className = 'toast-enter pointer-events-auto w-full max-w-sm rounded-lg border px-4 py-3 shadow-lg text-sm flex items-start gap-3';
         const palette = {
-          success: ['bg-white', 'border-primary/30', 'text-title'],
+          success: ['bg-white', 'border-teal-600/30', 'text-title'],
           info: ['bg-white', 'border-slate/40', 'text-title'],
           error: ['bg-white', 'border-rose-300', 'text-rose-700']
         };
@@ -389,7 +402,7 @@
       window.showToast = showToast;
     })();
 
-    // ET-23: Tab Navigation Functionality
+            // ET-12: Tab Navigation Functionality
     document.addEventListener('DOMContentLoaded', function() {
       const overviewTab = document.getElementById('overview-tab');
       const applicationTab = document.getElementById('application-tab');

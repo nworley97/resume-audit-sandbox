@@ -4,7 +4,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
 <style>
-  /* ET-23: Customize EasyMDE markdown editor styling */
+          /* ET-12: Customize EasyMDE markdown editor styling */
   /* Override heading sizes to be more reasonable */
   .EasyMDEContainer .CodeMirror,
   .EasyMDEContainer .CodeMirror-scroll {
@@ -101,16 +101,23 @@
       <!-- Job Status card -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 w-36 text-center">
         <div class="text-[11px] text-gray-500">Job Status</div>
-        <div class="mt-1 inline-flex items-center justify-center rounded-md px-2.5 py-0.5 text-[11px] font-medium
-          {% if jd and jd.is_published %} bg-emerald-100 text-emerald-700 {% else %} bg-amber-100 text-amber-700 {% endif %}">
-          {{ 'Published' if jd and jd.is_published else 'Draft' }}
+        {% set status = (jd.status or 'draft')|trim|lower %}
+        {% set status_chip = {
+          'open': 'bg-sky-100 text-sky-700',
+          'published': 'bg-emerald-100 text-emerald-700',
+          'closed': 'bg-rose-100 text-rose-700',
+          'pending': 'bg-gray-100 text-gray-700',
+          'draft': 'bg-amber-100 text-amber-700'
+        } %}
+        <div class="mt-1 inline-flex items-center justify-center rounded-md px-2.5 py-0.5 text-[11px] font-medium {{ status_chip.get(status, 'bg-amber-100 text-amber-700') }}">
+          {{ status|capitalize }}
         </div>
       </div>
 
       <!-- Application (applicant count) -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 w-36 text-center">
         <div class="text-[11px] text-gray-500">Application</div>
-        <div class="mt-1 text-sm font-semibold text-title">{{ applicant_count or 0 }}</div>
+        <div class="mt-1 text-sm font-semibold text-title">{{ '{:,}'.format(applicant_count or 0) }}</div>
       </div>
     </div>
   </div>
@@ -123,7 +130,7 @@
 
     <!-- Basic Information card -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-      <h2 class="text-3xl font-semibold text-title mb-4" style="font-family: 'Poppins', sans-serif;">Basic Information</h2>
+      <h2 class="text-xl font-semibold text-title mb-4" style="font-family: 'Poppins', sans-serif;">Basic Information</h2>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Job Title (required) -->
@@ -224,7 +231,7 @@
       <!-- Role description -->
       <div class="mt-4 space-y-2">
         <div class="flex items-center justify-between">
-          <h3 class="text-3xl font-semibold text-title" style="font-family: 'Poppins', sans-serif;">Role Description</h3>
+          <h3 class="text-xl font-semibold text-title" style="font-family: 'Poppins', sans-serif;">Role Description</h3>
           <span class="text-xs text-gray-500 flex items-center gap-1">
             <svg class="w-3 h-3 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Example: **bold**, - list item, [link](https://example.com)">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -239,7 +246,7 @@
 
     <!-- Self-identification survey -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-      <h2 class="text-3xl font-semibold text-title mb-3" style="font-family: 'Poppins', sans-serif;">Self-Identification Survey</h2>
+      <h2 class="text-xl font-semibold text-title mb-3" style="font-family: 'Poppins', sans-serif;">Self-Identification Survey</h2>
 
       <!-- tiny fallback so the knob slides even if Tailwind misses peer-checked -->
       <style>
@@ -266,7 +273,7 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
       <div class="flex items-start justify-between">
         <div>
-          <h2 class="text-3xl font-semibold text-title" style="font-family: 'Poppins', sans-serif;">Question Settings</h2>
+          <h2 class="text-xl font-semibold text-title" style="font-family: 'Poppins', sans-serif;">Question Settings</h2>
           <p class="text-sm text-gray-500 mt-1">
             Customize how many screening questions will be asked for this role.
           </p>
@@ -287,7 +294,7 @@
 
     <!-- Application Link (Figma-style) -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-      <h2 class="text-3xl font-semibold text-title" style="font-family: 'Poppins', sans-serif;">Application Link</h2>
+      <h2 class="text-xl font-semibold text-title" style="font-family: 'Poppins', sans-serif;">Application Link</h2>
       <p class="text-sm text-gray-500 mt-1">
         Once you publish this job posting, candidates will be able to apply using the link below.
         Share this link on your website, social media, or job boards.
@@ -305,36 +312,44 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-2">
-      {# Delete: server enforces "no delete if applicants exist" #}
-      <a href="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
-         class="rounded-lg border px-3 py-2 text-sm
-                {{ '' if not has_candidates else 'pointer-events-none opacity-50' }}"
-         onclick="return confirm('Delete this job?');">
-        Delete
-      </a>
-      {% if has_candidates %}
-        <span class="ml-2 text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
-      {% endif %}
+    <div class="flex items-center justify-between gap-2">
+      <!-- Left: Delete + helper text -->
+      <div class="flex items-center gap-2">
+        {% if jd and jd.code %}
+          {# Delete: only show for existing JD #}
+          <a href="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
+             class="rounded-lg border px-3 py-2 text-sm
+                    {{ 'pointer-events-none opacity-50 border-gray-300 text-gray-400' if has_candidates else 'border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600' }}"
+             onclick="return confirm('Delete this job?');">
+            Delete
+          </a>
+          {% if has_candidates %}
+            <span class="text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
+          {% endif %}
+        {% endif %}
+      </div>
 
-      {# Close = simple link back (no post) #}
-      <a href="{{ url_for('recruiter', tenant=tenant_slug) }}"
-         data-noload
-         class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</a>
+      <!-- Right: Close / Save / Publish -->
+      <div class="flex items-center gap-2">
+        {# Close = simple link back (no post) #}
+        <a href="{{ url_for('recruiter', tenant=tenant_slug) }}"
+           data-noload
+           class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">Close</a>
 
-      {# Save as Draft (sets status) #}
-      <button type="submit"
-              onclick="document.getElementById('jd_status').value='draft'"
-              class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-        Save as Draft
-      </button>
+        {# Save as Draft (sets status) #}
+        <button type="submit"
+                onclick="document.getElementById('jd_status').value='draft'"
+                class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+          Save as Draft
+        </button>
 
-      {# Publish (sets status to open) #}
-      <button type="submit"
-              onclick="document.getElementById('jd_status').value='open'"
-              class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">
-        Publish Job
-      </button>
+        {# Publish (sets status to open) #}
+        <button type="submit"
+                onclick="document.getElementById('jd_status').value='open'"
+                class="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700">
+          Publish Job
+        </button>
+      </div>
     </div>
 
   </form>
