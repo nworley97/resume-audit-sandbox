@@ -683,4 +683,30 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+<!-- Download spinner fix -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const downloadLink = document.querySelector('a[href*="resume"][download]');
+    if (downloadLink) {
+        downloadLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 모든 스피너 숨기기
+            document.querySelectorAll('*').forEach(el => {
+                if (el.classList.contains('animate-spin') || 
+                    el.classList.contains('animate-pulse') ||
+                    el.id.includes('loading') ||
+                    el.id.includes('loader')) {
+                    el.style.display = 'none';
+                }
+            });
+            
+            // 원래 링크로 이동
+            window.location.href = this.href;
+        });
+    }
+});
+</script>
 {% endblock %}
