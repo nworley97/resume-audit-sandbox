@@ -49,6 +49,7 @@
       </a>
 {# Replace the wrong jobs exporter with candidate exporter filtered to this JD #}
 <a href="{{ url_for('export_candidates_csv', tenant=tenant.slug if tenant else None, q=code) }}"
+   download
    class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
     <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
