@@ -2267,6 +2267,32 @@ def apply_legacy(code):
     finally:
         db.close()
 
+# ─── Public Job Listings Board ────────────────────────────────────
+@app.route("/<tenant>/jobs", methods=["GET"])
+def job_listings(tenant):
+    """Public job listings board showing all open jobs for a tenant"""
+    t = load_tenant_by_slug(tenant)
+    if not t:
+        return abort(404)
+    
+    db = SessionLocal()
+    try:
+        # Get all open job postings for this tenant
+        jobs = db.query(JobDescription)\
+            .filter_by(tenant_id=t.id)\
+            .filter(JobDescription.status.ilike("open"))\
+            .order_by(JobDescription.created_at.desc())\
+            .all()
+        
+        return render_template(
+            "job_listings.html",
+            tenant=t,
+            jobs=jobs,
+            brand_name=t.display_name if t else "Altera"
+        )
+    finally:
+        db.close()
+
 # ─── Public Apply (paged Q&A) ────────────────────────────────────
 @app.route("/<tenant>/apply/<code>", methods=["GET","POST"])
 def apply(tenant, code):
