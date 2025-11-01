@@ -247,6 +247,64 @@
         }, 200);
       });
     })();
+
+    // Copy Job Board Link to clipboard
+    window.copyJobBoardLink = function(event) {
+      event.preventDefault();
+      const button = event.currentTarget;
+      const url = button.getAttribute('data-url');
+      
+      if (!url) return;
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(url).then(() => {
+        // Show success feedback
+        const originalHTML = button.innerHTML;
+        button.innerHTML = `
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 6L9 17l-5-5"></path>
+          </svg>
+          <span class="nav-label text-xs">Copied!</span>
+        `;
+        button.classList.add('bg-teal-100', 'text-primary');
+        
+        // Reset after 2 seconds
+        setTimeout(() => {
+          button.innerHTML = originalHTML;
+          button.classList.remove('bg-teal-100', 'text-primary');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          // Show success feedback
+          const originalHTML = button.innerHTML;
+          button.innerHTML = `
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6L9 17l-5-5"></path>
+            </svg>
+            <span class="nav-label text-xs">Copied!</span>
+          `;
+          button.classList.add('bg-teal-100', 'text-primary');
+          
+          setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('bg-teal-100', 'text-primary');
+          }, 2000);
+        } catch (err2) {
+          console.error('Fallback copy failed:', err2);
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      });
+    };
   </script>
 </body>
 </html>
