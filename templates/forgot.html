@@ -1,19 +1,33 @@
 {% extends "base_auth.html" %}
-{% block title %}Forgot Password - ALTERA{% endblock %}
+{% block title %}Contact Support - ALTERA{% endblock %}
 {% block content %}
 <div class="w-full max-w-md bg-white shadow-lg rounded-lg p-10">
+  <!-- Icon -->
+  <div class="mb-4 flex justify-center">
+    <div class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+      <svg class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path>
+      </svg>
+    </div>
+  </div>
+
   <!-- Title -->
-  <h2 class="text-xl font-semibold mb-2 text-left">Need help signing in?</h2>
-  <p class="text-sm text-slate mb-6 text-left">
-    If you’ve forgotten your password, please contact support and we’ll help you regain access.
+  <h2 class="text-xl font-semibold mb-2 text-center" style="font-family: 'Poppins', sans-serif;">Do you have any questions for us?</h2>
+  <p class="text-sm text-slate mb-6 text-center" style="font-family: 'Inter', sans-serif;">
+    We're here to help! Whether you need assistance with your account, have questions about a job posting, or just want to get in touch, our support team is ready to assist you.
   </p>
 
   <!-- Support email (full width, same height as button) -->
   <div class="mb-4">
     <a
       href="mailto:support@alterasf.com"
-      class="block w-full rounded-lg border border-primary text-primary px-4 py-3 text-sm font-medium hover:bg-primary hover:text-white transition"
+      class="flex items-center justify-center gap-2 w-full rounded-lg border border-primary text-primary px-4 py-3 text-sm font-medium hover:bg-primary hover:text-white transition"
+      style="font-family: 'Inter', sans-serif;"
     >
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+        <polyline points="22,6 12,13 2,6"></polyline>
+      </svg>
       support@alterasf.com
     </a>
   </div>
@@ -21,7 +35,8 @@
   <!-- Back to Login (full width, matched sizing) -->
   <a
     href="{{ url_for('login', tenant=tenant.slug if tenant else None) }}"
-    class="block w-full rounded-lg border border-gray-300 text-slate px-4 py-3 text-sm font-medium hover:bg-gray-50 transition"
+    class="block w-full rounded-lg border border-gray-300 text-slate px-4 py-3 text-sm font-medium hover:bg-gray-50 transition text-center"
+    style="font-family: 'Inter', sans-serif;"
   >
     Back to Login
   </a>
@@ -29,7 +44,8 @@
   <!-- Footer -->
   <div class="mt-6 text-xs text-slate text-center">
     <a href="https://alterasf.com/" target="_blank" rel="noopener noreferrer" 
-       class="hover:text-slate-700 hover:underline cursor-pointer transition-colors duration-200">
+       class="hover:text-slate-700 hover:underline cursor-pointer transition-colors duration-200"
+       style="font-family: 'Inter', sans-serif;">
       Powered by AlteraSF
     </a>
   </div>
