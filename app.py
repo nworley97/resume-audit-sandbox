@@ -1738,7 +1738,6 @@ def export_candidates_csv(tenant=None):
         qset = (
             db.query(
                 C.id, C.name, C.jd_code, C.fit_score, C.answer_scores,
-                getattr(C, "relevancy", None).label("relevancy") if hasattr(C, "relevancy") else literal_column("NULL").label("relevancy"),
                 C.created_at,
                 J.title.label("job_title"),
                 J.department.label("department"),
@@ -1757,7 +1756,7 @@ def export_candidates_csv(tenant=None):
         # build CSV
         out = io.StringIO()
         w = csv.writer(out)
-        w.writerow(["ID", "Name", "Job Title", "Department", "JD Code", "Score", "Relevancy", "Applied At"])
+        w.writerow(["ID", "Name", "Job Title", "Department", "JD Code", "Relevancy Score", "Applied At"])
         for r in rows:
             # score calc mirrors view
             score = r.fit_score
@@ -1770,7 +1769,6 @@ def export_candidates_csv(tenant=None):
             w.writerow([
                 r.id, r.name or "", r.job_title or "", r.department or "",
                 r.jd_code or "", f"{score:.2f}" if score is not None else "",
-                r.relevancy if r.relevancy is not None else "",
                 r.created_at.isoformat() if r.created_at else "",
             ])
 
