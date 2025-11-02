@@ -1737,7 +1737,7 @@ def export_candidates_csv(tenant=None):
         J = JobDescription
         qset = (
             db.query(
-                C.id, C.name, C.jd_code, C.fit_score, C.answer_scores,
+                C.id, C.name, C.email, C.phone, C.jd_code, C.fit_score, C.answer_scores,
                 C.created_at,
                 J.title.label("job_title"),
                 J.department.label("department"),
@@ -1756,7 +1756,7 @@ def export_candidates_csv(tenant=None):
         # build CSV
         out = io.StringIO()
         w = csv.writer(out)
-        w.writerow(["ID", "Name", "Job Title", "Department", "JD Code", "Relevancy Score", "Applied At"])
+        w.writerow(["ID", "Name", "Email", "Phone", "Job Title", "Department", "JD Code", "Relevancy Score", "Applied At"])
         for r in rows:
             # score calc mirrors view
             score = r.fit_score
@@ -1767,7 +1767,7 @@ def export_candidates_csv(tenant=None):
                 except Exception:
                     score = None
             w.writerow([
-                r.id, r.name or "", r.job_title or "", r.department or "",
+                r.id, r.name or "", r.email or "", r.phone or "", r.job_title or "", r.department or "",
                 r.jd_code or "", f"{score:.2f}" if score is not None else "",
                 r.created_at.isoformat() if r.created_at else "",
             ])
@@ -2312,6 +2312,7 @@ def apply(tenant, code):
         name  = (request.form.get("name") or f"{first} {last}".strip()).strip()
 
         email = (request.form.get("email") or "").strip()
+        phone = (request.form.get("phone") or "").strip()
 
         # Accept either "resume_file" or "resume"
         f = request.files.get("resume_file") or request.files.get("resume")
@@ -2351,6 +2352,8 @@ def apply(tenant, code):
             c  = Candidate(
                 id            = cid,
                 name          = name,
+                email         = email if email else None,
+                phone         = phone if phone else None,
                 resume_url    = storage,
                 resume_json   = rjs,
                 fit_score     = fit,
