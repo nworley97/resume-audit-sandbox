@@ -89,6 +89,7 @@
       <a href="{{ url_for('export_jobs', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir,
                               department=departments_query_values, start_from=start_from, start_to=start_to,
                               end_from=end_from, end_to=end_to) }}"
+         download
          class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm px-3 py-2 hover:bg-gray-50">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>

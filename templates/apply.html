@@ -45,9 +45,10 @@
       {% if jd.location %}{% set _ = meta.append(jd.location) %}{% endif %}
       {% if jd.work_arrangement %}{% set _ = meta.append(jd.work_arrangement) %}{% endif %}
       {% if jd.employment_type %}{% set _ = meta.append(jd.employment_type) %}{% endif %}
+      {% if jd.salary_range %}{% set _ = meta.append(jd.salary_range) %}{% endif %}
 
       {% if meta %}
-        <div class="type-body-sm text-slate flex items-center justify-center gap-2">
+        <div class="type-body-sm text-slate flex flex-wrap items-center justify-center gap-2">
           {% for part in meta %}
             <span>{{ part }}</span>
             {% if not loop.last %}<span aria-hidden="true" class="mx-0.5 select-none">•</span>{% endif %}
