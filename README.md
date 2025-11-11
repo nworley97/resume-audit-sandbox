@@ -1,6 +1,6 @@
 # resume-audit-sandbox
 
-## 🚀 Quick Start
+## 🚀 Quick Startt
 
 ### Prerequisites
 - Python 3.11+
