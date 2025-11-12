@@ -23,5 +23,92 @@
   </head>
   <body>
     <div id="root"></div>
+    <footer
+      id="altera-legal-footer"
+      style="
+        position: fixed;
+        inset-inline: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.96);
+        border-top: 1px solid rgba(226, 232, 240, 0.9);
+        padding: 12px 16px;
+        font-family: 'Inter', 'Segoe UI', sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #475569;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        z-index: 2147483647;
+        backdrop-filter: blur(6px);
+      "
+    >
+      <span style="text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8;">Powered by ALTERA</span>
+      <span aria-hidden="true" style="color: #cbd5f5;">•</span>
+      <a
+        id="altera-legal-privacy"
+        href="#"
+        target="_blank"
+        rel="noopener"
+        style="color: #0f766e; text-decoration: underline;"
+      >Privacy Policy</a>
+      <span aria-hidden="true" style="color: #cbd5f5;">•</span>
+      <a
+        id="altera-legal-terms"
+        href="#"
+        target="_blank"
+        rel="noopener"
+        style="color: #0f766e; text-decoration: underline;"
+      >Terms of Service</a>
+      <span aria-hidden="true" style="color: #cbd5f5;">•</span>
+      <a
+        id="altera-legal-support"
+        href="#"
+        style="color: #0f766e; text-decoration: underline;"
+      >Support</a>
+    </footer>
+    <script>
+      (function () {
+        try {
+          var tenant = null;
+          var segments = window.location.pathname.split("/").filter(Boolean);
+          if (segments.length > 0) {
+            tenant = segments[0];
+          }
+          var withTenant = function (slug, path) {
+            if (!path) return "#";
+            if (slug) {
+              return "/" + [slug].concat(path.replace(/^\/+/, "")).join("/");
+            }
+            return path.startsWith("/") ? path : "/" + path;
+          };
+
+          var privacy = document.getElementById("altera-legal-privacy");
+          if (privacy) {
+            privacy.href = withTenant(tenant, tenant ? "privacy" : "privacy");
+            privacy.setAttribute("download", "");
+          }
+
+          var terms = document.getElementById("altera-legal-terms");
+          if (terms) {
+            terms.href = withTenant(tenant, tenant ? "terms" : "terms");
+            terms.setAttribute("download", "");
+          }
+
+          var support = document.getElementById("altera-legal-support");
+          if (support) {
+            support.href = withTenant(tenant, tenant ? "forgot" : "forgot-password");
+          }
+
+          document.body.style.paddingBottom = Math.max(
+            parseInt(window.getComputedStyle(document.body).paddingBottom, 10) || 0,
+            72
+          ) + "px";
+        } catch (error) {
+          console.warn("Failed to initialize legal footer links", error);
+        }
+      })();
+    </script>
   </body>
 </html>
