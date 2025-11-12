@@ -151,9 +151,10 @@
     {% include 'partials/sidebar.html' %}
     <div class="flex-1 flex flex-col min-w-0">
       {% include 'partials/header.html' %}
-      <main class="p-6">
+      <main class="flex-1 p-6">
         {% block content %}{% endblock %}
       </main>
+      {% include 'partials/footer.html' %}
     </div>
   </div>
   {% block body_extra %}{% endblock %}

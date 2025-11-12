@@ -1,3 +1,28 @@
 <footer class="w-full bg-white border-t text-center py-3 text-sm text-slate">
-  Powered by ALTERA
+  <div class="font-semibold tracking-wide uppercase text-xs text-slate-400">Powered by ALTERA</div>
+  <div class="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-slate-500">
+    <a
+      class="text-primary hover:text-primary/80 underline transition-colors duration-200"
+      href="{{ link_privacy() }}"
+      download
+      target="_blank"
+      rel="noopener"
+      data-noload
+    >Privacy Policy</a>
+    <span aria-hidden="true" class="text-gray-300">•</span>
+    <a
+      class="text-primary hover:text-primary/80 underline transition-colors duration-200"
+      href="{{ link_terms() }}"
+      download
+      target="_blank"
+      rel="noopener"
+      data-noload
+    >Terms of Service</a>
+    <span aria-hidden="true" class="text-gray-300">•</span>
+    <a
+      class="text-primary hover:text-primary/80 underline transition-colors duration-200"
+      href="{{ link_support() }}"
+      data-noload
+    >Support</a>
+  </div>
 </footer>

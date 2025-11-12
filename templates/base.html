@@ -13,7 +13,7 @@
   {% block head %}{% endblock %}
   <script src="{{ url_for('static', filename='js/loader.js') }}" defer></script>
 </head>
-<body class="bg-background text-title font-sans">
+<body class="bg-background text-title font-sans min-h-screen flex flex-col">
   {# silently consume any lingering flashes from previous redirects (admin scope) #}
   {% set _discard = get_flashed_messages(with_categories=true) %}
   <!-- Loader Overlay -->
@@ -23,7 +23,7 @@
   </div>
 
   {% include 'partials/header.html' %}
-  <div class="flex min-h-screen">
+  <div class="flex flex-1">
     {% include 'partials/sidebar.html' %}
     <main class="flex-1 p-6">
       {% block content %}{% endblock %}

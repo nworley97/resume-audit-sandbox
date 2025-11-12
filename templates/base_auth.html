@@ -10,7 +10,7 @@
   {% include 'partials/fonts.html' %}
   <script src="{{ url_for('static', filename='js/loader.js') }}" defer></script>
 </head>
-<body class="bg-background min-h-screen flex items-center justify-center">
+<body class="bg-background min-h-screen flex flex-col">
   {# silently consume any lingering flashes from previous redirects (auth scope) #}
   {% set _discard = get_flashed_messages(with_categories=true) %}
   <!-- Loader Overlay -->
@@ -19,6 +19,9 @@
     <div class="w-12 h-12 border-4 border-[#085CFF] border-t-transparent rounded-full animate-spin"></div>
   </div>
 
-  {% block content %}{% endblock %}
+  <div class="flex-1 flex items-center justify-center px-4 py-8">
+    {% block content %}{% endblock %}
+  </div>
+  {% include 'partials/footer.html' %}
 </body>
 </html>
