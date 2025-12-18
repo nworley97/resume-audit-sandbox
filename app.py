@@ -55,6 +55,10 @@ app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
 from analytics_service import bp as analytics_bp
 app.register_blueprint(analytics_bp)
 
+# Billing/Subscription blueprint
+from billing_routes import billing_bp
+app.register_blueprint(billing_bp)
+
 logger = logging.getLogger(__name__)
 _markdown_fallback_warned = False
 

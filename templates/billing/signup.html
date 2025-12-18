@@ -1,0 +1,578 @@
+{% extends "billing/base_billing.html" %}
+{% block title %}Plan Pricing - ALTERA{% endblock %}
+
+{% block head_extra %}
+<style>
+  .pricing-container {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  }
+  
+  .pricing-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  
+  .pricing-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+  }
+  
+  .pricing-header p {
+    color: #64748b;
+    font-size: 1rem;
+  }
+  
+  .billing-toggle-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .save-badge {
+    color: #10b981;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  .plans-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+  }
+  
+  @media (max-width: 1024px) {
+    .plans-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .plans-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .plan-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 420px;
+  }
+  
+  .plan-card .plan-header {
+    margin-bottom: 1rem;
+  }
+  
+  .plan-card .plan-name {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+  }
+  
+  .plan-card .plan-tagline {
+    font-size: 0.75rem;
+    color: #94a3b8;
+  }
+  
+  .plan-card .plan-price {
+    margin-bottom: 1rem;
+  }
+  
+  .plan-card .price-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  
+  .plan-card .price-period {
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+  
+  .plan-card .feature-list {
+    flex: 1;
+  }
+  
+  .plan-card .plan-cta {
+    margin-top: auto;
+  }
+  
+  /* Enterprise card special styling */
+  .plan-card.enterprise {
+    background: #f8fafc;
+  }
+  
+  .plan-card.enterprise .price-amount {
+    font-size: 1.25rem;
+  }
+  
+  /* Signup form modal */
+  .signup-form-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .signup-form-overlay.active {
+    display: flex;
+  }
+  
+  .signup-form-container {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    max-width: 480px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+  }
+  
+  .signup-form-container h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.375rem;
+  }
+  
+  .form-group input {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .form-group input:focus {
+    outline: none;
+    border-color: #085CFF;
+    box-shadow: 0 0 0 3px rgba(8, 92, 255, 0.1);
+  }
+  
+  .close-modal {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #64748b;
+    padding: 0.25rem;
+  }
+  
+  .close-modal:hover {
+    color: #1e293b;
+  }
+  
+  .extra-seats-note {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 1.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pricing-container">
+  <div class="pricing-header">
+    <h1>Plan Pricing</h1>
+    <p>From single roles to full hiring pipelines. Scale at your own pace.</p>
+  </div>
+  
+  <div class="billing-toggle-wrapper">
+    <div class="billing-toggle">
+      <button type="button" id="toggle-monthly" class="{% if selected_cycle == 'monthly' %}active{% endif %}">Monthly</button>
+      <button type="button" id="toggle-yearly" class="{% if selected_cycle == 'yearly' %}active{% endif %}">Yearly</button>
+    </div>
+    <span class="save-badge">Save {{ yearly_discount }}% Annually</span>
+  </div>
+  
+  {% if is_mock_mode %}
+  <div class="test-mode-banner">
+    <strong>🧪 Test Mode:</strong> Use card number <code>{{ test_card_info.success_card }}</code> with any future expiry date and any 3-digit CVC.
+  </div>
+  {% endif %}
+  
+  <div class="plans-grid">
+    <!-- Free Plan -->
+    <div class="plan-card" data-plan="free">
+      <div class="plan-header">
+        <div class="plan-tagline">Get started for</div>
+        <div class="plan-name font-semibold text-lg">Free*</div>
+      </div>
+      <div class="plan-price">
+        <span class="price-amount" data-monthly="0" data-yearly="0">
+          {% if selected_cycle == 'yearly' %}$0{% else %}$0{% endif %}
+        </span>
+      </div>
+      <ul class="feature-list">
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          1 active job
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Up to 25 résumés
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Job Relevancy Score
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          1 seat
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Job Board
+        </li>
+      </ul>
+      <div class="plan-cta">
+        <button type="button" class="btn-outline select-plan-btn" data-plan="free">Start Free</button>
+      </div>
+    </div>
+    
+    <!-- Starter Plan -->
+    <div class="plan-card" data-plan="starter">
+      <div class="plan-header">
+        <div class="plan-name font-semibold text-lg">Starter</div>
+      </div>
+      <div class="plan-price">
+        <span class="price-amount" data-monthly="49" data-yearly="382.20">
+          {% if selected_cycle == 'yearly' %}$382.20<span class="price-period">/yr</span>{% else %}$49<span class="price-period">/mo</span>{% endif %}
+        </span>
+      </div>
+      <ul class="feature-list">
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          3 active jobs
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Up to 100 résumés
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Job Relevancy Score
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          1 seat
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Job Board
+        </li>
+      </ul>
+      <div class="plan-cta">
+        <button type="button" class="btn-primary select-plan-btn" data-plan="starter">Select Plan</button>
+      </div>
+    </div>
+    
+    <!-- Pro Plan -->
+    <div class="plan-card" data-plan="pro">
+      <div class="plan-header">
+        <div class="plan-name font-semibold text-lg">Pro</div>
+      </div>
+      <div class="plan-price">
+        <span class="price-amount" data-monthly="129" data-yearly="1006.20">
+          {% if selected_cycle == 'yearly' %}$1006.20<span class="price-period">/yr</span>{% else %}$129<span class="price-period">/mo</span>{% endif %}
+        </span>
+      </div>
+      <ul class="feature-list">
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          10 active jobs
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Up to 500 résumés
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Job Relevancy Score
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Claim Validity Score
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Red Flag Detection
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          3 seats
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Job Board
+        </li>
+      </ul>
+      <div class="plan-cta">
+        <button type="button" class="btn-primary select-plan-btn" data-plan="pro">Select Plan</button>
+      </div>
+    </div>
+    
+    <!-- Ultra Plan -->
+    <div class="plan-card" data-plan="ultra">
+      <div class="plan-header">
+        <div class="plan-name font-semibold text-lg">Ultra</div>
+      </div>
+      <div class="plan-price">
+        <span class="price-amount" data-monthly="239" data-yearly="1864.20">
+          {% if selected_cycle == 'yearly' %}$1864.20<span class="price-period">/yr</span>{% else %}$239<span class="price-period">/mo</span>{% endif %}
+        </span>
+      </div>
+      <ul class="feature-list">
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          20 active jobs
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Up to 1k résumés
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Job Relevancy Score
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Claim Validity Score
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Red Flag Detection
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Full Analytics Engine
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Dedicated support rep
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          3 seats
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Job Board
+        </li>
+      </ul>
+      <div class="plan-cta">
+        <button type="button" class="btn-primary select-plan-btn" data-plan="ultra">Select Plan</button>
+      </div>
+    </div>
+    
+    <!-- Enterprise Plan -->
+    <div class="plan-card enterprise" data-plan="enterprise">
+      <div class="plan-header">
+        <div class="plan-name font-semibold text-lg">Enterprise</div>
+      </div>
+      <div class="plan-price">
+        <span class="price-amount">Contact Us</span>
+      </div>
+      <p class="text-sm text-slate-600 mb-4">
+        Scaling at the enterprise level?<br>
+        Email <a href="mailto:{{ enterprise_email }}" class="text-primary hover:underline">{{ enterprise_email }}</a> for tailored pricing.
+      </p>
+      <div class="plan-cta" style="margin-top: auto;">
+        <a href="{{ url_for('billing.enterprise') }}" class="btn-outline" style="text-decoration: none;">Get a Quote</a>
+      </div>
+    </div>
+  </div>
+  
+  <p class="extra-seats-note">*Extra Seats: +${{ extra_seat_price }}/mo per seat.</p>
+  
+  <!-- Already have an account? -->
+  <p class="text-center text-sm text-slate-500 mt-6">
+    Already have an account? <a href="{{ url_for('login') }}" class="text-primary hover:underline">Sign in</a>
+  </p>
+</div>
+
+<!-- Signup Form Modal -->
+<div class="signup-form-overlay" id="signup-modal">
+  <div class="signup-form-container">
+    <button type="button" class="close-modal" id="close-modal">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6L6 18M6 6l12 12"/>
+      </svg>
+    </button>
+    
+    <h2>Create your account</h2>
+    
+    <form method="POST" action="{{ url_for('billing.signup') }}" id="signup-form">
+      <input type="hidden" name="plan_tier" id="form-plan-tier" value="{{ selected_plan }}">
+      <input type="hidden" name="billing_cycle" id="form-billing-cycle" value="{{ selected_cycle }}">
+      
+      <div class="form-group">
+        <label for="company_name">Company Name</label>
+        <input type="text" id="company_name" name="company_name" required placeholder="Acme Inc.">
+      </div>
+      
+      <div class="form-group">
+        <label for="full_name">Your Full Name</label>
+        <input type="text" id="full_name" name="full_name" required placeholder="Jane Doe">
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Work Email</label>
+        <input type="email" id="email" name="email" required placeholder="jane@acme.com">
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="6" placeholder="At least 6 characters">
+      </div>
+      
+      <div id="selected-plan-display" class="mb-4 p-3 bg-slate-50 rounded-lg">
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-slate-600">Selected Plan:</span>
+          <span class="font-semibold" id="display-plan-name">Starter</span>
+        </div>
+        <div class="flex justify-between items-center mt-1">
+          <span class="text-sm text-slate-600">Price:</span>
+          <span class="font-semibold" id="display-plan-price">$49/mo</span>
+        </div>
+      </div>
+      
+      <button type="submit" class="btn-primary">Continue to Payment</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // Billing cycle toggle
+  const toggleMonthly = document.getElementById('toggle-monthly');
+  const toggleYearly = document.getElementById('toggle-yearly');
+  let currentCycle = '{{ selected_cycle }}';
+  
+  function updatePrices() {
+    document.querySelectorAll('.price-amount[data-monthly]').forEach(el => {
+      const monthly = parseFloat(el.dataset.monthly);
+      const yearly = parseFloat(el.dataset.yearly);
+      
+      if (currentCycle === 'yearly') {
+        if (yearly === 0) {
+          el.innerHTML = '$0';
+        } else {
+          el.innerHTML = `$${yearly.toFixed(2)}<span class="price-period">/yr</span>`;
+        }
+      } else {
+        if (monthly === 0) {
+          el.innerHTML = '$0';
+        } else {
+          el.innerHTML = `$${monthly}<span class="price-period">/mo</span>`;
+        }
+      }
+    });
+    
+    document.getElementById('form-billing-cycle').value = currentCycle;
+    updatePlanDisplay();
+  }
+  
+  toggleMonthly.addEventListener('click', () => {
+    currentCycle = 'monthly';
+    toggleMonthly.classList.add('active');
+    toggleYearly.classList.remove('active');
+    updatePrices();
+  });
+  
+  toggleYearly.addEventListener('click', () => {
+    currentCycle = 'yearly';
+    toggleYearly.classList.add('active');
+    toggleMonthly.classList.remove('active');
+    updatePrices();
+  });
+  
+  // Plan selection
+  const modal = document.getElementById('signup-modal');
+  const closeModal = document.getElementById('close-modal');
+  let selectedPlan = '{{ selected_plan }}';
+  
+  const planNames = {
+    'free': 'Free',
+    'starter': 'Starter',
+    'pro': 'Pro',
+    'ultra': 'Ultra'
+  };
+  
+  const planPrices = {
+    'free': { monthly: 0, yearly: 0 },
+    'starter': { monthly: 49, yearly: 382.20 },
+    'pro': { monthly: 129, yearly: 1006.20 },
+    'ultra': { monthly: 239, yearly: 1864.20 }
+  };
+  
+  function updatePlanDisplay() {
+    const displayName = document.getElementById('display-plan-name');
+    const displayPrice = document.getElementById('display-plan-price');
+    
+    displayName.textContent = planNames[selectedPlan] || 'Starter';
+    
+    const prices = planPrices[selectedPlan] || planPrices['starter'];
+    if (currentCycle === 'yearly') {
+      displayPrice.textContent = prices.yearly === 0 ? '$0' : `$${prices.yearly.toFixed(2)}/yr`;
+    } else {
+      displayPrice.textContent = prices.monthly === 0 ? '$0' : `$${prices.monthly}/mo`;
+    }
+  }
+  
+  document.querySelectorAll('.select-plan-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedPlan = btn.dataset.plan;
+      document.getElementById('form-plan-tier').value = selectedPlan;
+      updatePlanDisplay();
+      modal.classList.add('active');
+    });
+  });
+  
+  closeModal.addEventListener('click', () => {
+    modal.classList.remove('active');
+  });
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('active');
+    }
+  });
+  
+  // Initialize
+  updatePlanDisplay();
+})();
+</script>
+{% endblock %}
+

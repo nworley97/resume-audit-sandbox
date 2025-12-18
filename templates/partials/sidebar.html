@@ -105,6 +105,30 @@
   </button>
 {% endif %}
 
+<!-- Divider before account section -->
+<div class="my-3 mx-2 border-t border-gray-200"></div>
+
+<!-- Billing & Subscription -->
+<a href="{{ url_for('billing.account') }}"
+   class="{{ base_classes }} gap-2 px-3 {{ 'bg-primary/10 text-primary' if request.endpoint and 'billing' in request.endpoint else 'text-slate-900 hover:bg-gray-50' }}">
+  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+    <line x1="1" y1="10" x2="23" y2="10"></line>
+  </svg>
+  <span class="nav-label">Billing</span>
+</a>
+
+<!-- Logout -->
+<a href="{{ url_for('logout') }}"
+   class="{{ base_classes }} mt-1 gap-2 px-3 text-slate-600 hover:bg-gray-50">
+  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+    <polyline points="16 17 21 12 16 7"></polyline>
+    <line x1="21" y1="12" x2="9" y2="12"></line>
+  </svg>
+  <span class="nav-label">Logout</span>
+</a>
+
   <!-- Powered by - Analytics style -->
   <div class="sidebar-footer">
     <img src="{{ url_for('static', filename='img/favicon-16x16.png') }}" alt="Altera mark" class="w-4 h-4 rounded" />
