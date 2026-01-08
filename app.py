@@ -59,6 +59,10 @@ app.register_blueprint(analytics_bp)
 from billing_routes import billing_bp
 app.register_blueprint(billing_bp)
 
+# Stripe Webhooks blueprint
+from stripe_webhooks import stripe_webhooks_bp
+app.register_blueprint(stripe_webhooks_bp)
+
 logger = logging.getLogger(__name__)
 _markdown_fallback_warned = False
 

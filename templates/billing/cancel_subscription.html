@@ -1,0 +1,98 @@
+{% extends "base_app.html" %}
+{% block title %}Cancel Subscription - ALTERA{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+  <a href="{{ url_for('billing.account') }}" class="text-slate-500 hover:text-slate-700 text-sm mb-4 inline-flex items-center gap-1">
+    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/>
+    </svg>
+    Back to Billing
+  </a>
+  
+  <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <div class="text-center mb-6">
+      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+      <h1 class="text-xl font-semibold text-title mb-2">Cancel Subscription</h1>
+      <p class="text-slate-500 text-sm">
+        Are you sure you want to cancel your subscription?
+      </p>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="mb-6">
+      {% for category, message in messages %}
+      <div class="p-4 rounded-lg {% if category == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+      <h3 class="font-semibold text-amber-800 mb-2">What happens when you cancel:</h3>
+      <ul class="text-sm text-amber-700 space-y-2">
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          You'll keep access until the end of your current billing period
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          Your data will be preserved for 30 days
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          You can reactivate anytime by selecting a new plan
+        </li>
+      </ul>
+    </div>
+    
+    <div class="bg-slate-50 rounded-lg p-4 mb-6">
+      <div class="flex justify-between items-center">
+        <span class="text-sm text-slate-600">Current Plan</span>
+        <span class="font-semibold">{{ subscription.plan_tier | title }}</span>
+      </div>
+      {% if subscription.current_period_end %}
+      <div class="flex justify-between items-center mt-2">
+        <span class="text-sm text-slate-600">Access until</span>
+        <span class="font-semibold">{{ subscription.get_period_end_date().strftime('%B %d, %Y') }}</span>
+      </div>
+      {% endif %}
+    </div>
+    
+    <form method="POST" action="{{ url_for('billing.cancel_subscription') }}">
+      <label class="flex items-center gap-3 mb-6 cursor-pointer">
+        <input type="checkbox" name="confirm" value="yes" required
+               class="w-5 h-5 rounded border-slate-300 text-red-600 focus:ring-red-500">
+        <span class="text-sm text-slate-700">
+          I understand that my subscription will be canceled at the end of my billing period
+        </span>
+      </label>
+      
+      <div class="flex gap-3">
+        <a href="{{ url_for('billing.account') }}" 
+           class="flex-1 py-3 text-center rounded-lg font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
+          Keep Subscription
+        </a>
+        <button type="submit" 
+                class="flex-1 py-3 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 transition-colors">
+          Cancel Subscription
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

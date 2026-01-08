@@ -12,31 +12,31 @@
     /* Plan card styling */
     .plan-card {
       background: white;
-      border-radius: 0.5rem;
+      border-radius: 0.75rem;
       padding: 1.5rem;
       transition: all 0.2s ease;
       border: 1px solid #e2e8f0;
     }
     .plan-card:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
     .plan-card.selected {
-      border-color: #085CFF;
-      box-shadow: 0 0 0 2px rgba(8, 92, 255, 0.2);
+      border-color: #1e293b;
+      box-shadow: 0 0 0 2px rgba(30, 41, 59, 0.15);
     }
     
-    /* Toggle switch styling */
+    /* Toggle switch styling - Figma pill style */
     .billing-toggle {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
       padding: 0.25rem;
-      background: #f1f5f9;
-      border-radius: 0.5rem;
+      background: white;
+      border-radius: 9999px;
+      border: 1px solid #1e293b;
     }
     .billing-toggle button {
-      padding: 0.5rem 1.5rem;
-      border-radius: 0.375rem;
+      padding: 0.625rem 2rem;
+      border-radius: 9999px;
       font-size: 0.875rem;
       font-weight: 500;
       transition: all 0.2s ease;
@@ -58,25 +58,26 @@
     }
     .feature-list li {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 0.5rem;
-      padding: 0.25rem 0;
+      padding: 0.375rem 0;
       font-size: 0.875rem;
       color: #334155;
     }
     .feature-list li svg {
       width: 1rem;
       height: 1rem;
-      color: #10b981;
+      color: #1e293b;
       flex-shrink: 0;
+      margin-top: 0.125rem;
     }
     
-    /* CTA buttons */
+    /* CTA buttons - Dark navy style from Figma */
     .btn-primary {
-      background: #085CFF;
+      background: #1e293b;
       color: white;
-      padding: 0.625rem 1.25rem;
-      border-radius: 0.375rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 9999px;
       font-weight: 500;
       font-size: 0.875rem;
       border: none;
@@ -88,14 +89,14 @@
       width: 100%;
     }
     .btn-primary:hover {
-      background: #0047cc;
+      background: #0f172a;
     }
     .btn-outline {
       background: white;
       color: #1e293b;
-      border: 1px solid #e2e8f0;
-      padding: 0.625rem 1.25rem;
-      border-radius: 0.375rem;
+      border: 1px solid #1e293b;
+      padding: 0.75rem 1.5rem;
+      border-radius: 9999px;
       font-weight: 500;
       font-size: 0.875rem;
       cursor: pointer;
@@ -107,10 +108,16 @@
     }
     .btn-outline:hover {
       background: #f8fafc;
-      border-color: #cbd5e1;
     }
     
-    /* Test mode banner */
+    /* Save badge - teal color */
+    .save-badge {
+      color: #0d9488;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    
+    /* Test mode banner - hidden when Stripe is configured */
     .test-mode-banner {
       background: #fef3c7;
       border: 1px solid #f59e0b;
@@ -129,7 +136,7 @@
   </style>
   {% block head_extra %}{% endblock %}
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col" style="background: #dbeafe;">
   {% block body %}
   <div class="flex-1 flex items-center justify-center px-4 py-8">
     {% block content %}{% endblock %}

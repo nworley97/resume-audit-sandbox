@@ -63,6 +63,7 @@ def inject_billing_context():
         "enterprise_email": ENTERPRISE_CONTACT_EMAIL,
         "extra_seat_price": EXTRA_SEAT_PRICE_MONTHLY,
         "yearly_discount": YEARLY_DISCOUNT_PERCENT,
+        "now": datetime.now,  # For dynamic year calculations in templates
     }
 
 
@@ -391,7 +392,19 @@ def change_plan():
             new_amount = get_plan_price(new_tier, new_cycle)
             old_amount = get_plan_price(subscription.plan_tier, subscription.billing_cycle)
             
-            # For now, just update the subscription (in production, you'd prorate)
+            # Update Stripe subscription if we have one
+            if subscription.stripe_subscription_id:
+                success, error, sub_info = PaymentService.update_subscription(
+                    subscription.stripe_subscription_id,
+                    new_tier,
+                    new_cycle
+                )
+                
+                if not success:
+                    flash(error or 'Failed to update subscription. Please try again.', 'error')
+                    return redirect(url_for('billing.change_plan'))
+            
+            # Update local subscription record
             subscription.plan_tier = new_tier
             subscription.billing_cycle = new_cycle
             
@@ -444,6 +457,11 @@ def add_seats():
         
         if subscription.status == 'grandfathered':
             flash('Your account has grandfathered access with unlimited seats.')
+            return redirect(url_for('billing.account'))
+        
+        # Check if we have a Stripe customer to charge
+        if not subscription.stripe_customer_id:
+            flash('Unable to process payment. Please contact support.', 'error')
             return redirect(url_for('billing.account'))
         
         if request.method == 'POST':
@@ -500,6 +518,67 @@ def add_seats():
         db.close()
 
 
+@billing_bp.route('/cancel-subscription', methods=['GET', 'POST'])
+@login_required
+def cancel_subscription():
+    """Cancel the current subscription."""
+    if not current_user.tenant_id:
+        flash('No billing account found.')
+        return redirect(url_for('home'))
+    
+    db = SessionLocal()
+    try:
+        subscription = db.query(TenantSubscription).filter(
+            TenantSubscription.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not subscription:
+            flash('No subscription found.')
+            return redirect(url_for('billing.signup'))
+        
+        if subscription.status == 'grandfathered':
+            flash('Grandfathered accounts cannot be canceled.')
+            return redirect(url_for('billing.account'))
+        
+        if subscription.status == 'canceled':
+            flash('Subscription is already canceled.')
+            return redirect(url_for('billing.account'))
+        
+        if request.method == 'POST':
+            confirm = request.form.get('confirm', '') == 'yes'
+            
+            if not confirm:
+                flash('Please confirm the cancellation.', 'error')
+                return redirect(url_for('billing.cancel_subscription'))
+            
+            # Cancel in Stripe
+            if subscription.stripe_subscription_id:
+                success, error = PaymentService.cancel_subscription(
+                    subscription.stripe_subscription_id,
+                    cancel_at_period_end=True  # Cancel at end of billing period
+                )
+                
+                if not success:
+                    flash(error or 'Failed to cancel subscription. Please try again.', 'error')
+                    return redirect(url_for('billing.cancel_subscription'))
+            
+            # Update local record
+            subscription.status = 'canceled'
+            subscription.canceled_at = datetime.utcnow()
+            
+            db.commit()
+            
+            flash('Your subscription has been canceled. You will have access until the end of your billing period.')
+            return redirect(url_for('billing.account'))
+        
+        return render_template(
+            'billing/cancel_subscription.html',
+            subscription=subscription,
+        )
+    finally:
+        db.close()
+
+
 @billing_bp.route('/update-payment', methods=['GET', 'POST'])
 @login_required
 def update_payment():
@@ -517,6 +596,11 @@ def update_payment():
         if not subscription:
             flash('No subscription found.')
             return redirect(url_for('billing.signup'))
+        
+        # Check if we have a Stripe customer
+        if not subscription.stripe_customer_id:
+            flash('Unable to update payment method. Please contact support.', 'error')
+            return redirect(url_for('billing.account'))
         
         if request.method == 'POST':
             card_number = request.form.get('card_number', '').strip()

@@ -1,15 +1,18 @@
 # stripe_service.py
 """
-Stripe payment service - Mock implementation with easy switch to real Stripe.
+Stripe payment service - Production-ready implementation.
 
 This module provides a payment processing interface that can work in two modes:
 1. MOCK MODE (default): Simulates Stripe for testing without a real account
-2. LIVE MODE: Uses real Stripe API (just set STRIPE_SECRET_KEY env var)
+2. LIVE MODE: Uses real Stripe API (set STRIPE_SECRET_KEY env var)
 
-To switch to real Stripe:
+Configuration is loaded from stripe_config.py which maps plan tiers to
+Stripe Product IDs and Price lookup keys.
+
+To enable real Stripe:
 1. Set environment variable: STRIPE_SECRET_KEY=sk_live_xxx or sk_test_xxx
 2. Set environment variable: STRIPE_PUBLISHABLE_KEY=pk_live_xxx or pk_test_xxx
-3. (Optional) Set STRIPE_WEBHOOK_SECRET for webhook verification
+3. Set environment variable: STRIPE_WEBHOOK_SECRET=whsec_xxx
 
 Test card numbers for Stripe Test Mode:
 - Success: 4242 4242 4242 4242
@@ -27,19 +30,31 @@ import logging
 logger = logging.getLogger(__name__)
 
 # ─── Configuration ──────────────────────────────────────────────────────────
+# Import from centralized config
 
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+from stripe_config import (
+    STRIPE_SECRET_KEY,
+    STRIPE_PUBLISHABLE_KEY,
+    STRIPE_WEBHOOK_SECRET,
+    STRIPE_PRODUCTS,
+    STRIPE_PRICE_LOOKUP_KEYS,
+    get_product_id,
+    get_price_lookup_key,
+    PRORATION_BEHAVIOR,
+    CANCEL_AT_PERIOD_END,
+)
 
 # Check if we should use real Stripe
 USE_REAL_STRIPE = bool(STRIPE_SECRET_KEY and STRIPE_SECRET_KEY.startswith(("sk_test_", "sk_live_")))
 
+stripe = None  # Will be imported if available
+
 if USE_REAL_STRIPE:
     try:
-        import stripe
+        import stripe as stripe_module
+        stripe = stripe_module
         stripe.api_key = STRIPE_SECRET_KEY
-        logger.info("Stripe initialized in LIVE/TEST mode")
+        logger.info(f"Stripe initialized in {'LIVE' if 'live' in STRIPE_SECRET_KEY else 'TEST'} mode")
     except ImportError:
         USE_REAL_STRIPE = False
         logger.warning("stripe package not installed, falling back to mock mode")
@@ -439,7 +454,10 @@ class PaymentService:
         amount: float
     ) -> PaymentResult:
         """
-        Process signup using real Stripe.
+        Process signup using real Stripe with Subscriptions API.
+        
+        Uses Price lookup_keys configured in stripe_config.py to create
+        proper recurring subscriptions.
         
         Note: In production, you'd typically use Stripe Elements or Checkout
         instead of handling raw card numbers. This is simplified for the
@@ -454,7 +472,6 @@ class PaymentService:
             )
             
             # Create payment method (in production, use Stripe.js/Elements)
-            # This is a simplified flow - real implementation would use tokens
             payment_method = stripe.PaymentMethod.create(
                 type="card",
                 card={
@@ -471,31 +488,83 @@ class PaymentService:
                 customer=customer.id,
             )
             
-            # Set as default
+            # Set as default payment method
             stripe.Customer.modify(
                 customer.id,
                 invoice_settings={"default_payment_method": payment_method.id},
             )
             
-            # Create subscription (you'd need to set up products/prices in Stripe)
-            # For now, create a one-time payment intent
-            intent = stripe.PaymentIntent.create(
-                amount=int(amount * 100),  # Stripe uses cents
-                currency="usd",
+            # Get the price lookup key for this plan/cycle
+            lookup_key = get_price_lookup_key(plan_tier, billing_cycle)
+            
+            # Look up the price by lookup_key
+            prices = stripe.Price.list(lookup_keys=[lookup_key], limit=1)
+            
+            if not prices.data:
+                logger.error(f"No price found for lookup_key: {lookup_key}")
+                return PaymentResult(
+                    success=False,
+                    payment_id="",
+                    customer_id=customer.id,
+                    error_message=f"Price configuration not found for {plan_tier} ({billing_cycle})"
+                )
+            
+            price = prices.data[0]
+            
+            # Handle free tier - no subscription needed
+            if plan_tier.lower() == "free":
+                return PaymentResult(
+                    success=True,
+                    payment_id=f"free_{uuid.uuid4().hex[:14]}",
+                    customer_id=customer.id,
+                    subscription_id=None,
+                    card_last4=payment_method.card.last4,
+                    card_brand=payment_method.card.brand,
+                    card_exp_month=payment_method.card.exp_month,
+                    card_exp_year=payment_method.card.exp_year
+                )
+            
+            # Create subscription with the looked-up price
+            subscription = stripe.Subscription.create(
                 customer=customer.id,
-                payment_method=payment_method.id,
-                confirm=True,
+                items=[{"price": price.id}],
+                default_payment_method=payment_method.id,
                 metadata={
                     "plan_tier": plan_tier,
                     "billing_cycle": billing_cycle,
-                }
+                    "company": company,
+                },
+                payment_behavior="default_incomplete",
+                expand=["latest_invoice.payment_intent"],
             )
+            
+            # Check if payment requires action
+            if subscription.status == "incomplete":
+                # Payment requires additional action (3D Secure, etc.)
+                payment_intent = subscription.latest_invoice.payment_intent
+                if payment_intent.status == "requires_action":
+                    return PaymentResult(
+                        success=False,
+                        payment_id=payment_intent.id,
+                        customer_id=customer.id,
+                        subscription_id=subscription.id,
+                        error_message="Payment requires additional authentication. Please try again."
+                    )
+            
+            # Get the invoice/payment ID
+            payment_id = ""
+            if subscription.latest_invoice:
+                if hasattr(subscription.latest_invoice, 'payment_intent'):
+                    pi = subscription.latest_invoice.payment_intent
+                    payment_id = pi.id if hasattr(pi, 'id') else str(pi)
+                else:
+                    payment_id = subscription.latest_invoice.id if hasattr(subscription.latest_invoice, 'id') else str(subscription.latest_invoice)
             
             return PaymentResult(
                 success=True,
-                payment_id=intent.id,
+                payment_id=payment_id or subscription.id,
                 customer_id=customer.id,
-                subscription_id=None,  # Would be set if using Stripe Subscriptions
+                subscription_id=subscription.id,
                 card_last4=payment_method.card.last4,
                 card_brand=payment_method.card.brand,
                 card_exp_month=payment_method.card.exp_month,
@@ -528,15 +597,32 @@ class PaymentService:
         Charge for additional seats.
         Returns (success, error_message, payment_id)
         """
+        if not customer_id:
+            return False, "No customer ID provided", ""
+        
         amount = num_seats * price_per_seat
         
         if USE_REAL_STRIPE:
             try:
+                # Get the customer's default payment method
+                customer = stripe.Customer.retrieve(customer_id)
+                default_pm = None
+                
+                if customer.invoice_settings and customer.invoice_settings.default_payment_method:
+                    default_pm = customer.invoice_settings.default_payment_method
+                elif customer.default_source:
+                    default_pm = customer.default_source
+                
+                if not default_pm:
+                    return False, "No payment method on file. Please update your payment method first.", ""
+                
                 intent = stripe.PaymentIntent.create(
                     amount=int(amount * 100),
                     currency="usd",
                     customer=customer_id,
+                    payment_method=default_pm,
                     confirm=True,
+                    off_session=True,  # Customer not present
                     metadata={"type": "extra_seats", "quantity": num_seats}
                 )
                 return True, None, intent.id
@@ -544,9 +630,106 @@ class PaymentService:
                 return False, str(e.user_message), ""
             except Exception as e:
                 logger.error(f"Stripe error charging for seats: {e}")
-                return False, "Payment failed", ""
+                return False, "Payment failed. Please try again.", ""
         else:
             return MockStripe.charge_for_seats(customer_id, num_seats, price_per_seat)
+    
+    @staticmethod
+    def update_subscription(
+        subscription_id: str,
+        new_plan_tier: str,
+        new_billing_cycle: str
+    ) -> Tuple[bool, Optional[str], Dict]:
+        """
+        Update an existing subscription to a new plan.
+        Returns (success, error_message, updated_sub_info)
+        """
+        if not subscription_id:
+            return False, "No subscription ID provided", {}
+        
+        if USE_REAL_STRIPE:
+            try:
+                # Get the new price lookup key
+                lookup_key = get_price_lookup_key(new_plan_tier, new_billing_cycle)
+                
+                # Look up the price
+                prices = stripe.Price.list(lookup_keys=[lookup_key], limit=1)
+                if not prices.data:
+                    return False, f"Price not found for {new_plan_tier} ({new_billing_cycle})", {}
+                
+                new_price = prices.data[0]
+                
+                # Get current subscription
+                subscription = stripe.Subscription.retrieve(subscription_id)
+                
+                # Update the subscription with the new price
+                updated_sub = stripe.Subscription.modify(
+                    subscription_id,
+                    items=[{
+                        "id": subscription.items.data[0].id,
+                        "price": new_price.id,
+                    }],
+                    proration_behavior=PRORATION_BEHAVIOR,
+                    metadata={
+                        "plan_tier": new_plan_tier,
+                        "billing_cycle": new_billing_cycle,
+                    }
+                )
+                
+                return True, None, {
+                    "subscription_id": updated_sub.id,
+                    "status": updated_sub.status,
+                    "current_period_end": updated_sub.current_period_end,
+                }
+            except stripe.error.StripeError as e:
+                logger.error(f"Stripe error updating subscription: {e}")
+                return False, str(e.user_message if hasattr(e, 'user_message') else e), {}
+            except Exception as e:
+                logger.error(f"Error updating subscription: {e}")
+                return False, "Failed to update subscription", {}
+        else:
+            # Mock implementation
+            return MockStripe.update_subscription(subscription_id, new_plan_tier, new_billing_cycle)
+    
+    @staticmethod
+    def cancel_subscription(
+        subscription_id: str,
+        cancel_at_period_end: bool = True
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Cancel a subscription.
+        
+        Args:
+            subscription_id: Stripe subscription ID
+            cancel_at_period_end: If True, cancel at end of billing period.
+                                  If False, cancel immediately.
+        
+        Returns (success, error_message)
+        """
+        if not subscription_id:
+            return False, "No subscription ID provided"
+        
+        if USE_REAL_STRIPE:
+            try:
+                if cancel_at_period_end:
+                    # Schedule cancellation at period end
+                    stripe.Subscription.modify(
+                        subscription_id,
+                        cancel_at_period_end=True
+                    )
+                else:
+                    # Cancel immediately
+                    stripe.Subscription.delete(subscription_id)
+                
+                return True, None
+            except stripe.error.StripeError as e:
+                logger.error(f"Stripe error canceling subscription: {e}")
+                return False, str(e.user_message if hasattr(e, 'user_message') else e)
+            except Exception as e:
+                logger.error(f"Error canceling subscription: {e}")
+                return False, "Failed to cancel subscription"
+        else:
+            return MockStripe.cancel_subscription(subscription_id)
     
     @staticmethod
     def update_payment_method(
@@ -557,6 +740,9 @@ class PaymentService:
         cvc: str
     ) -> Tuple[bool, Optional[str], Dict]:
         """Update the payment method for a customer."""
+        if not customer_id:
+            return False, "No customer ID provided", {}
+        
         if USE_REAL_STRIPE:
             try:
                 payment_method = stripe.PaymentMethod.create(

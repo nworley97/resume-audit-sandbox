@@ -7,10 +7,8 @@
     max-width: 1200px;
     width: 100%;
     margin: 0 auto;
-    padding: 2rem;
-    background: white;
-    border-radius: 1rem;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    padding: 2rem 1.5rem;
+    background: transparent;
   }
   
   .pricing-header {
@@ -19,29 +17,23 @@
   }
   
   .pricing-header h1 {
-    font-size: 1.75rem;
+    font-size: 2.5rem;
     font-weight: 700;
     color: #1e293b;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
   }
   
   .pricing-header p {
-    color: #64748b;
-    font-size: 1rem;
+    color: #334155;
+    font-size: 1.25rem;
   }
   
   .billing-toggle-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 2rem;
-  }
-  
-  .save-badge {
-    color: #10b981;
-    font-size: 0.875rem;
-    font-weight: 500;
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
   }
   
   .plans-grid {
@@ -60,42 +52,51 @@
     .plans-grid {
       grid-template-columns: 1fr;
     }
+    .pricing-header h1 {
+      font-size: 1.75rem;
+    }
+    .pricing-header p {
+      font-size: 1rem;
+    }
   }
   
   .plan-card {
     display: flex;
     flex-direction: column;
-    min-height: 420px;
+    min-height: 460px;
   }
   
   .plan-card .plan-header {
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
   
   .plan-card .plan-name {
-    font-size: 0.875rem;
-    color: #64748b;
-    margin-bottom: 0.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0;
   }
   
   .plan-card .plan-tagline {
-    font-size: 0.75rem;
-    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1e293b;
   }
   
   .plan-card .plan-price {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
   }
   
   .plan-card .price-amount {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
     color: #1e293b;
   }
   
   .plan-card .price-period {
-    font-size: 0.875rem;
-    color: #64748b;
+    font-size: 1rem;
+    font-weight: 400;
+    color: #1e293b;
   }
   
   .plan-card .feature-list {
@@ -108,11 +109,12 @@
   
   /* Enterprise card special styling */
   .plan-card.enterprise {
-    background: #f8fafc;
+    background: white;
   }
   
   .plan-card.enterprise .price-amount {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
+    font-weight: 700;
   }
   
   /* Signup form modal */
@@ -192,9 +194,14 @@
   
   .extra-seats-note {
     text-align: center;
-    font-size: 0.75rem;
-    color: #64748b;
-    margin-top: 1.5rem;
+    font-size: 0.875rem;
+    color: #1e293b;
+    margin-top: 2rem;
+  }
+  
+  /* Strong price styling */
+  .price-amount strong {
+    font-weight: 700;
   }
 </style>
 {% endblock %}
@@ -214,23 +221,16 @@
     <span class="save-badge">Save {{ yearly_discount }}% Annually</span>
   </div>
   
-  {% if is_mock_mode %}
-  <div class="test-mode-banner">
-    <strong>🧪 Test Mode:</strong> Use card number <code>{{ test_card_info.success_card }}</code> with any future expiry date and any 3-digit CVC.
-  </div>
-  {% endif %}
   
   <div class="plans-grid">
     <!-- Free Plan -->
     <div class="plan-card" data-plan="free">
       <div class="plan-header">
         <div class="plan-tagline">Get started for</div>
-        <div class="plan-name font-semibold text-lg">Free*</div>
+        <div class="plan-name">Free*</div>
       </div>
-      <div class="plan-price">
-        <span class="price-amount" data-monthly="0" data-yearly="0">
-          {% if selected_cycle == 'yearly' %}$0{% else %}$0{% endif %}
-        </span>
+      <div class="plan-price" style="min-height: 2.5rem;">
+        <!-- Free has no price display -->
       </div>
       <ul class="feature-list">
         <li>
@@ -262,11 +262,11 @@
     <!-- Starter Plan -->
     <div class="plan-card" data-plan="starter">
       <div class="plan-header">
-        <div class="plan-name font-semibold text-lg">Starter</div>
+        <div class="plan-name">Starter</div>
       </div>
       <div class="plan-price">
         <span class="price-amount" data-monthly="49" data-yearly="382.20">
-          {% if selected_cycle == 'yearly' %}$382.20<span class="price-period">/yr</span>{% else %}$49<span class="price-period">/mo</span>{% endif %}
+          {% if selected_cycle == 'yearly' %}<strong>$382.20</strong><span class="price-period">/yr*</span>{% else %}<strong>$49</strong><span class="price-period">/mo*</span>{% endif %}
         </span>
       </div>
       <ul class="feature-list">
@@ -299,11 +299,11 @@
     <!-- Pro Plan -->
     <div class="plan-card" data-plan="pro">
       <div class="plan-header">
-        <div class="plan-name font-semibold text-lg">Pro</div>
+        <div class="plan-name">Pro</div>
       </div>
       <div class="plan-price">
         <span class="price-amount" data-monthly="129" data-yearly="1006.20">
-          {% if selected_cycle == 'yearly' %}$1006.20<span class="price-period">/yr</span>{% else %}$129<span class="price-period">/mo</span>{% endif %}
+          {% if selected_cycle == 'yearly' %}<strong>$1006.20</strong><span class="price-period">/yr*</span>{% else %}<strong>$129</strong><span class="price-period">/mo*</span>{% endif %}
         </span>
       </div>
       <ul class="feature-list">
@@ -344,11 +344,11 @@
     <!-- Ultra Plan -->
     <div class="plan-card" data-plan="ultra">
       <div class="plan-header">
-        <div class="plan-name font-semibold text-lg">Ultra</div>
+        <div class="plan-name">Ultra</div>
       </div>
       <div class="plan-price">
         <span class="price-amount" data-monthly="239" data-yearly="1864.20">
-          {% if selected_cycle == 'yearly' %}$1864.20<span class="price-period">/yr</span>{% else %}$239<span class="price-period">/mo</span>{% endif %}
+          {% if selected_cycle == 'yearly' %}<strong>$1864.20</strong><span class="price-period">/yr*</span>{% else %}<strong>$239</strong><span class="price-period">/mo*</span>{% endif %}
         </span>
       </div>
       <ul class="feature-list">
@@ -397,12 +397,12 @@
     <!-- Enterprise Plan -->
     <div class="plan-card enterprise" data-plan="enterprise">
       <div class="plan-header">
-        <div class="plan-name font-semibold text-lg">Enterprise</div>
+        <div class="plan-name">Enterprise</div>
       </div>
       <div class="plan-price">
-        <span class="price-amount">Contact Us</span>
+        <span class="price-amount" style="font-size: 1.5rem;"><strong>Contact Us</strong></span>
       </div>
-      <p class="text-sm text-slate-600 mb-4">
+      <p class="text-sm text-slate-600 mb-4" style="line-height: 1.5;">
         Scaling at the enterprise level?<br>
         Email <a href="mailto:{{ enterprise_email }}" class="text-primary hover:underline">{{ enterprise_email }}</a> for tailored pricing.
       </p>
@@ -412,7 +412,7 @@
     </div>
   </div>
   
-  <p class="extra-seats-note">*Extra Seats: +${{ extra_seat_price }}/mo per seat.</p>
+  <p class="extra-seats-note" style="font-weight: 600;">*Extra Seats: +${{ extra_seat_price }}/mo per seat.</p>
   
   <!-- Already have an account? -->
   <p class="text-center text-sm text-slate-500 mt-6">
@@ -487,15 +487,15 @@
       
       if (currentCycle === 'yearly') {
         if (yearly === 0) {
-          el.innerHTML = '$0';
+          el.innerHTML = '';
         } else {
-          el.innerHTML = `$${yearly.toFixed(2)}<span class="price-period">/yr</span>`;
+          el.innerHTML = `<strong>$${yearly.toFixed(2)}</strong><span class="price-period">/yr*</span>`;
         }
       } else {
         if (monthly === 0) {
-          el.innerHTML = '$0';
+          el.innerHTML = '';
         } else {
-          el.innerHTML = `$${monthly}<span class="price-period">/mo</span>`;
+          el.innerHTML = `<strong>$${monthly}</strong><span class="price-period">/mo*</span>`;
         }
       }
     });

@@ -15,14 +15,15 @@
   .checkout-header {
     background: #1e293b;
     color: white;
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
     text-align: center;
+    border-radius: 1rem 1rem 0 0;
   }
   
   .checkout-header h1 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
   }
   
   .checkout-header .plan-summary {
@@ -30,6 +31,7 @@
     justify-content: center;
     align-items: baseline;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
   
   .checkout-header .plan-name {
@@ -38,13 +40,13 @@
   }
   
   .checkout-header .plan-price {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
   }
   
   .checkout-header .plan-cycle {
-    font-size: 0.875rem;
-    opacity: 0.8;
+    font-size: 1rem;
+    opacity: 0.85;
   }
   
   .checkout-body {
@@ -74,8 +76,8 @@
   
   .form-group input:focus {
     outline: none;
-    border-color: #085CFF;
-    box-shadow: 0 0 0 3px rgba(8, 92, 255, 0.1);
+    border-color: #1e293b;
+    box-shadow: 0 0 0 3px rgba(30, 41, 59, 0.1);
   }
   
   .form-row {
@@ -195,11 +197,6 @@
   </div>
   
   <div class="checkout-body">
-    {% if is_mock_mode %}
-    <div class="test-mode-banner">
-      <strong>🧪 Test Mode:</strong> Use card <code>{{ test_card_info.success_card }}</code>
-    </div>
-    {% endif %}
     
     {% with messages = get_flashed_messages(category_filter=['error']) %}
     {% if messages %}
@@ -290,7 +287,7 @@
           <select id="exp_year" name="exp_year" required
                   class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
             <option value="">YYYY</option>
-            {% for y in range(2024, 2035) %}
+            {% for y in range(2025, 2037) %}
             <option value="{{ y }}">{{ y }}</option>
             {% endfor %}
           </select>
