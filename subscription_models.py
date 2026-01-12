@@ -135,6 +135,32 @@ class TenantUsage(Base):
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class PendingSignup(Base):
+    """
+    Temporary storage for signup data before account creation.
+    Used when redirecting to Stripe payment links - webhooks will use this
+    to create accounts after payment succeeds.
+    """
+    __tablename__ = "pending_signup"
+    
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    
+    # Signup form data (stored as JSON-like fields)
+    plan_tier = Column(String(20), nullable=False)
+    billing_cycle = Column(String(20), nullable=False)
+    company_name = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=False)  # Hashed password
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    expires_at = Column(DateTime(timezone=True), nullable=False)  # Clean up after 24 hours
+    
+    # Status tracking
+    processed = Column(Boolean, default=False)  # Mark as processed when account created
+
+
 class PaymentHistory(Base):
     """
     Record of all payments for audit trail.
@@ -191,6 +217,9 @@ def ensure_subscription_schema():
     
     if "payment_history" not in existing_tables:
         tables_to_create.append(PaymentHistory.__table__)
+    
+    if "pending_signup" not in existing_tables:
+        tables_to_create.append(PendingSignup.__table__)
     
     if tables_to_create:
         Base.metadata.create_all(models_engine, tables=tables_to_create)

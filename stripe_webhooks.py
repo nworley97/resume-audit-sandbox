@@ -11,7 +11,7 @@ Events are verified using webhook signatures before processing.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
 from flask import Blueprint, request, jsonify
@@ -270,7 +270,33 @@ def handle_customer_created(event) -> Dict[str, Any]:
     """Handle customer.created event."""
     customer = event.data.object
     logger.info(f"Customer created: {customer.id} ({customer.email})")
+    
+    # Check if this customer email matches a pending signup
+    _maybe_create_account_from_pending_signup(customer.email, customer.id)
+    
     return {"customer_id": customer.id, "email": customer.email}
+
+
+def handle_checkout_session_completed(event) -> Dict[str, Any]:
+    """Handle checkout.session.completed event (for payment links)."""
+    checkout_session = event.data.object
+    customer_id = checkout_session.customer
+    
+    # Extract email - customer_details is a Stripe object, not a dict
+    customer_email = None
+    if checkout_session.customer_details:
+        customer_email = getattr(checkout_session.customer_details, 'email', None)
+    # Fallback to customer_email field
+    if not customer_email:
+        customer_email = getattr(checkout_session, 'customer_email', None)
+    
+    logger.info(f"Checkout session completed: {checkout_session.id} for customer {customer_id}, email: {customer_email}")
+    
+    # If we have customer email, try to create account from pending signup
+    if customer_email:
+        _maybe_create_account_from_pending_signup(customer_email, customer_id)
+    
+    return {"session_id": checkout_session.id, "customer_id": customer_id}
 
 
 def handle_unknown_event(event) -> Dict[str, Any]:
@@ -289,6 +315,7 @@ WEBHOOK_HANDLERS = {
     "invoice.payment_failed": handle_invoice_payment_failed,
     "payment_method.attached": handle_payment_method_attached,
     "customer.created": handle_customer_created,
+    "checkout.session.completed": handle_checkout_session_completed,
 }
 
 
@@ -406,6 +433,133 @@ def _update_payment_method_in_db(
             
     except Exception as e:
         logger.error(f"Error updating payment method in database: {e}", exc_info=True)
+        return False
+
+
+def _maybe_create_account_from_pending_signup(customer_email: str, stripe_customer_id: str) -> bool:
+    """
+    Create an account from pending signup data when payment succeeds.
+    
+    Called by webhook handlers when a customer is created or checkout completes.
+    Looks up pending signup by email and creates tenant/user/subscription.
+    
+    Uses SELECT FOR UPDATE to prevent race conditions when multiple webhooks
+    fire for the same customer (e.g., customer.created + checkout.session.completed).
+    """
+    if not customer_email:
+        return False
+    
+    try:
+        from db import SessionLocal
+        from models import Tenant, User
+        from subscription_models import PendingSignup, TenantSubscription, TenantUsage
+        from plans_config import PLAN_PRICING
+        
+        db = SessionLocal()
+        try:
+            # Find pending signup by email with row lock to prevent race conditions
+            # Normalize email to lowercase for consistent matching
+            pending = db.query(PendingSignup).filter(
+                PendingSignup.email == customer_email.lower(),
+                PendingSignup.processed == False,
+                PendingSignup.expires_at > datetime.utcnow()
+            ).with_for_update(skip_locked=True).first()
+            
+            if not pending:
+                logger.debug(f"No pending signup found for email: {customer_email}")
+                return False
+            
+            # Check if user already exists
+            existing_user = db.query(User).filter(User.username == pending.email).first()
+            if existing_user:
+                logger.warning(f"User already exists for email: {pending.email}, marking pending as processed")
+                pending.processed = True
+                db.commit()
+                return False
+            
+            # Create tenant
+            tenant_slug = pending.company_name.lower().replace(' ', '-').replace('.', '')[:20]
+            base_slug = tenant_slug
+            counter = 1
+            while db.query(Tenant).filter(Tenant.slug == tenant_slug).first():
+                tenant_slug = f"{base_slug}-{counter}"
+                counter += 1
+            
+            tenant = Tenant(
+                slug=tenant_slug,
+                display_name=pending.company_name,
+            )
+            db.add(tenant)
+            db.flush()
+            
+            # Create user
+            user = User(
+                username=pending.email,
+                tenant_id=tenant.id,
+            )
+            user.pw_hash = pending.password_hash  # Use the stored hash directly
+            db.add(user)
+            db.flush()
+            
+            # Get subscription info from Stripe if available
+            subscription_status = 'active'
+            stripe_subscription_id = None
+            
+            try:
+                import stripe
+                from stripe_config import STRIPE_SECRET_KEY
+                if STRIPE_SECRET_KEY:
+                    stripe.api_key = STRIPE_SECRET_KEY
+                    # Try to get subscription for this customer
+                    subscriptions = stripe.Subscription.list(customer=stripe_customer_id, limit=1)
+                    if subscriptions.data:
+                        sub = subscriptions.data[0]
+                        stripe_subscription_id = sub.id
+                        subscription_status = _map_stripe_status(sub.status)
+            except Exception as e:
+                logger.warning(f"Could not fetch subscription from Stripe: {e}")
+            
+            # Create subscription record
+            now = datetime.utcnow()
+            subscription = TenantSubscription(
+                tenant_id=tenant.id,
+                plan_tier=pending.plan_tier,
+                billing_cycle=pending.billing_cycle,
+                status=subscription_status,
+                created_at=now,
+                current_period_start=now,
+                stripe_customer_id=stripe_customer_id,
+                stripe_subscription_id=stripe_subscription_id,
+            )
+            db.add(subscription)
+            
+            # Create initial usage record
+            period_end = subscription.get_period_end_date()
+            usage = TenantUsage(
+                tenant_id=tenant.id,
+                period_start=now,
+                period_end=period_end,
+                resumes_reviewed=0,
+            )
+            db.add(usage)
+            
+            # Mark pending signup as processed
+            pending.processed = True
+            
+            db.commit()
+            
+            logger.info(f"Created account from pending signup: {pending.email} -> tenant {tenant.id}")
+            return True
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error creating account from pending signup: {e}", exc_info=True)
+            return False
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error in _maybe_create_account_from_pending_signup: {e}", exc_info=True)
         return False
 
 

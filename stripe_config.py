@@ -122,6 +122,55 @@ WEBHOOK_EVENTS = [
 ]
 
 
+# ─── Stripe Payment Links ────────────────────────────────────────────────────
+# Direct payment links for all plans (monthly and yearly)
+# These redirect users to Stripe-hosted checkout pages
+
+STRIPE_PAYMENT_LINKS = {
+    # Free plan - has payment links for tracking but $0 charge
+    "free": {
+        "monthly": "https://buy.stripe.com/aFa5kDaw79Kyg5C16ScjS03",
+        "yearly": "https://buy.stripe.com/28E14n8nZ5uicTqbLwcjS05",
+    },
+    "starter": {
+        "monthly": "https://buy.stripe.com/9B6bJ133F2i6aLi02OcjS02",
+        "yearly": "https://buy.stripe.com/5kQfZh0Vx5ui4mU6rccjS06",
+    },
+    "pro": {
+        "monthly": "https://buy.stripe.com/8x200j8nZ6ymbPmaHscjS04",
+        "yearly": "https://buy.stripe.com/eVq5kDcEfg8Wg5C8zkcjS07",
+    },
+    "ultra": {
+        "monthly": "https://buy.stripe.com/dRm9AT5bNe0O06E5n8cjS00",
+        "yearly": "https://buy.stripe.com/aFa8wP33F6ym6v25n8cjS08",
+    },
+}
+
+
+def get_payment_link(plan_tier: str, billing_cycle: str = "monthly") -> str:
+    """
+    Get the Stripe payment link URL for a plan tier and billing cycle.
+    
+    Args:
+        plan_tier: One of 'free', 'starter', 'pro', 'ultra'
+        billing_cycle: Either 'monthly' or 'yearly'
+    
+    Returns:
+        The payment link URL, or None if not configured
+    """
+    tier = plan_tier.lower()
+    cycle = "yearly" if billing_cycle.lower() in ("yearly", "annual", "year") else "monthly"
+    
+    if tier not in STRIPE_PAYMENT_LINKS:
+        return None
+    
+    plan_links = STRIPE_PAYMENT_LINKS[tier]
+    if plan_links is None:
+        return None
+    
+    return plan_links.get(cycle)
+
+
 # ─── Subscription Settings ───────────────────────────────────────────────────
 
 # Trial period settings (set to 0 to disable trials)

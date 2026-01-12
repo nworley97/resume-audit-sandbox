@@ -13,14 +13,14 @@ This blueprint handles:
 ADDITIVE: This is a new blueprint that doesn't modify existing routes.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
     flash, session, jsonify, g
 )
 from flask_login import login_user, login_required, current_user
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from db import SessionLocal
 from models import Tenant, User
@@ -32,7 +32,7 @@ from plans_config import (
 )
 from stripe_service import PaymentService, get_test_card_info
 from subscription_models import (
-    TenantSubscription, TenantUsage, PaymentHistory,
+    TenantSubscription, TenantUsage, PaymentHistory, PendingSignup,
     ensure_subscription_schema, get_tenant_subscription,
     get_usage_summary, check_can_post_job, check_can_add_seat,
     increment_resume_usage
@@ -85,21 +85,97 @@ def signup():
     """
     New user signup with plan selection.
     GET: Show plan selection and signup form
-    POST: Process signup (redirect to checkout)
+    POST: Process signup (redirect to Stripe payment link or create free account)
     """
     plans = get_all_plans_for_display()
     
     if request.method == 'POST':
-        # Collect form data and store in session for checkout
+        plan_tier = request.form.get('plan_tier', 'free')
+        billing_cycle = request.form.get('billing_cycle', 'monthly')
+        email = request.form.get('email', '').strip().lower()  # Normalize email
+        password = request.form.get('password', '')
+        company_name = request.form.get('company_name', '').strip()
+        full_name = request.form.get('full_name', '').strip()
+        
+        # Validate inputs before proceeding
+        errors = []
+        if not email:
+            errors.append('Email is required')
+        elif '@' not in email:
+            errors.append('Please enter a valid email address')
+        if not password or len(password) < 6:
+            errors.append('Password must be at least 6 characters')
+        if not company_name:
+            errors.append('Company name is required')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'error')
+            return redirect(url_for('billing.signup', plan=plan_tier, cycle=billing_cycle))
+        
+        # Store form data in session (for payment success page display)
         session['signup_data'] = {
-            'plan_tier': request.form.get('plan_tier', 'free'),
-            'billing_cycle': request.form.get('billing_cycle', 'monthly'),
-            'email': request.form.get('email', ''),
-            'password': request.form.get('password', ''),
-            'company_name': request.form.get('company_name', ''),
-            'full_name': request.form.get('full_name', ''),
+            'plan_tier': plan_tier,
+            'billing_cycle': billing_cycle,
+            'email': email,
+            'company_name': company_name,
+            'full_name': full_name,
         }
-        return redirect(url_for('billing.checkout'))
+        
+        db = SessionLocal()
+        try:
+            # Check if email already exists
+            existing_user = db.query(User).filter(User.username == email).first()
+            if existing_user:
+                flash('An account with this email already exists. Please log in.', 'error')
+                session.pop('signup_data', None)
+                return redirect(url_for('login'))
+            
+            # Store signup data for webhook to use (all plans go through Stripe payment links)
+            existing_pending = db.query(PendingSignup).filter(
+                PendingSignup.email == email
+            ).first()
+            
+            if existing_pending:
+                # Update existing pending signup
+                existing_pending.plan_tier = plan_tier
+                existing_pending.billing_cycle = billing_cycle
+                existing_pending.company_name = company_name
+                existing_pending.full_name = full_name
+                existing_pending.password_hash = generate_password_hash(password)
+                existing_pending.created_at = datetime.utcnow()
+                existing_pending.expires_at = datetime.utcnow() + timedelta(hours=24)
+                existing_pending.processed = False
+            else:
+                pending = PendingSignup(
+                    email=email,
+                    plan_tier=plan_tier,
+                    billing_cycle=billing_cycle,
+                    company_name=company_name,
+                    full_name=full_name,
+                    password_hash=generate_password_hash(password),
+                    expires_at=datetime.utcnow() + timedelta(hours=24),
+                )
+                db.add(pending)
+            
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            flash(f'An error occurred: {str(e)}', 'error')
+            return redirect(url_for('billing.signup'))
+        finally:
+            db.close()
+        
+        # Get Stripe payment link for paid plans
+        from stripe_config import get_payment_link
+        payment_link = get_payment_link(plan_tier, billing_cycle)
+        
+        if not payment_link:
+            flash('Payment link not configured for this plan. Please contact support.', 'error')
+            return redirect(url_for('billing.signup'))
+        
+        # Redirect to Stripe payment link
+        return redirect(payment_link)
     
     # Pre-select plan from query param
     selected_plan = request.args.get('plan', 'starter')
@@ -117,7 +193,11 @@ def signup():
 @billing_bp.route('/checkout', methods=['GET', 'POST'])
 def checkout():
     """
-    Payment checkout page.
+    DEPRECATED: Payment checkout page with direct card entry.
+    
+    This route is kept for backwards compatibility but is no longer the
+    primary signup flow. New signups use Stripe Payment Links instead.
+    
     GET: Show payment form
     POST: Process payment
     """
@@ -306,6 +386,54 @@ def checkout():
         amount=amount,
         plan_display=PLAN_PRICING[plan_tier]['display_name'],
     )
+
+
+@billing_bp.route('/payment-success')
+def payment_success():
+    """
+    Handle successful payment from Stripe payment link.
+    
+    Note: Account creation happens asynchronously via webhook.
+    This page informs the user their account is being set up.
+    """
+    # Check if we have signup data in session
+    signup_data = session.get('signup_data')
+    
+    # Also check if user was created by webhook and try to log them in
+    if signup_data:
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(
+                User.username == signup_data.get('email', '').lower()
+            ).first()
+            if user:
+                # Account was created by webhook, log them in
+                login_user(user)
+                session.pop('signup_data', None)
+                tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+                if tenant:
+                    session['tenant_slug'] = tenant.slug
+                    flash('Welcome! Your account has been created successfully.', 'success')
+                    return redirect(url_for('recruiter', tenant=tenant.slug))
+        finally:
+            db.close()
+    
+    if not signup_data:
+        # User might have come directly here - redirect to signup
+        flash('Please complete your account setup first.', 'error')
+        return redirect(url_for('billing.signup'))
+    
+    # Account creation will be handled by webhook when payment succeeds
+    return render_template('billing/payment_success.html', signup_data=signup_data)
+
+
+@billing_bp.route('/payment-cancel')
+def payment_cancel():
+    """Handle canceled payment from Stripe payment link."""
+    # Clear signup data and redirect back to signup
+    session.pop('signup_data', None)
+    flash('Payment was canceled. Please try again when ready.', 'info')
+    return redirect(url_for('billing.signup'))
 
 
 @billing_bp.route('/enterprise')
