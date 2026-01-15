@@ -40,14 +40,31 @@
     
     <div id="error-area" class="hidden mb-6">
       <p class="text-amber-600 mb-4">Account setup is taking longer than expected.</p>
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-3">
         <a href="{{ url_for('login') }}" class="inline-block bg-slate-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-slate-800 transition-colors">
           Try Logging In
         </a>
         <button onclick="startPolling()" class="text-sm text-slate-500 underline hover:text-slate-700">
           Check again
         </button>
+        {% if signup_data and signup_data.email %}
+        <p class="text-xs text-slate-400 mt-2">
+          Waiting for account: <strong>{{ signup_data.email }}</strong>
+        </p>
+        {% endif %}
       </div>
+    </div>
+    
+    <!-- Manual email check form (shown if session lost) -->
+    <div id="manual-check-area" class="hidden mb-6">
+      <p class="text-slate-600 mb-4">Enter your email to check your account status:</p>
+      <form id="manual-check-form" class="flex gap-2">
+        <input type="email" id="manual-email" placeholder="your@email.com" 
+               class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400">
+        <button type="submit" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800">
+          Check
+        </button>
+      </form>
     </div>
     
     <p class="text-xs text-slate-400 mt-4" id="help-text">
@@ -63,6 +80,7 @@
   let pollInterval;
   let attempts = 0;
   const maxAttempts = 30; // Poll for ~90 seconds (30 attempts * 3 seconds)
+  const sessionEmail = '{{ signup_data.email if signup_data else "" }}';
   
   function updateStatus(message) {
     document.getElementById('status-message').textContent = message;
@@ -71,6 +89,8 @@
   function showSuccess(redirectUrl) {
     document.getElementById('loading-area').classList.add('hidden');
     document.getElementById('success-area').classList.remove('hidden');
+    document.getElementById('error-area').classList.add('hidden');
+    document.getElementById('manual-check-area').classList.add('hidden');
     document.getElementById('help-text').classList.add('hidden');
     document.getElementById('redirect-link').href = redirectUrl;
     document.getElementById('page-subtitle').textContent = 'Your account has been created successfully!';
@@ -85,16 +105,33 @@
     document.getElementById('loading-area').classList.add('hidden');
     document.getElementById('error-area').classList.remove('hidden');
     document.getElementById('help-text').textContent = 'Please check your email for login instructions, or contact support if you need help.';
+    
+    // Show manual check form if no session email
+    if (!sessionEmail) {
+      document.getElementById('manual-check-area').classList.remove('hidden');
+    }
   }
   
-  function checkAccountStatus() {
-    fetch('{{ url_for("billing.check_account_status") }}')
+  function checkAccountStatus(email) {
+    const checkEmail = email || sessionEmail;
+    let url = '{{ url_for("billing.check_account_status") }}';
+    if (checkEmail) {
+      url += '?email=' + encodeURIComponent(checkEmail);
+    }
+    
+    fetch(url)
       .then(function(response) { return response.json(); })
       .then(function(data) {
         if (data.account_created) {
           // Success! Stop polling and show success
           clearInterval(pollInterval);
           showSuccess(data.redirect_url || '{{ url_for("login") }}');
+        } else if (data.error === 'No email provided') {
+          // No session and no email - show manual form
+          clearInterval(pollInterval);
+          document.getElementById('loading-area').classList.add('hidden');
+          document.getElementById('manual-check-area').classList.remove('hidden');
+          document.getElementById('help-text').textContent = 'Enter your email address to check your account status.';
         } else {
           // Account not ready yet
           attempts++;
@@ -116,21 +153,41 @@
       });
   }
   
-  window.startPolling = function() {
+  window.startPolling = function(email) {
     // Reset state
     attempts = 0;
     document.getElementById('loading-area').classList.remove('hidden');
     document.getElementById('error-area').classList.add('hidden');
     document.getElementById('success-area').classList.add('hidden');
+    document.getElementById('manual-check-area').classList.add('hidden');
     updateStatus('Checking account status...');
     
     // Start polling
-    checkAccountStatus(); // Check immediately
-    pollInterval = setInterval(checkAccountStatus, 3000); // Then every 3 seconds
+    checkAccountStatus(email); // Check immediately
+    pollInterval = setInterval(function() { checkAccountStatus(email); }, 3000); // Then every 3 seconds
   };
   
-  // Start polling on page load
-  startPolling();
+  // Manual email check form handler
+  const manualForm = document.getElementById('manual-check-form');
+  if (manualForm) {
+    manualForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const email = document.getElementById('manual-email').value.trim();
+      if (email) {
+        startPolling(email);
+      }
+    });
+  }
+  
+  // Start polling on page load (only if we have an email)
+  if (sessionEmail) {
+    startPolling();
+  } else {
+    // No session - show manual check immediately
+    document.getElementById('loading-area').classList.add('hidden');
+    document.getElementById('manual-check-area').classList.remove('hidden');
+    document.getElementById('page-subtitle').textContent = 'Enter your email to check your account status.';
+  }
 })();
 </script>
 {% endblock %}

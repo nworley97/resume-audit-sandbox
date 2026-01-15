@@ -401,9 +401,47 @@ def payment_success():
     
     Note: Account creation happens asynchronously via webhook.
     This page informs the user their account is being set up.
+    
+    Supports both:
+    1. Normal flow: session has signup_data
+    2. Recovery flow: email passed as query param (for cross-device/session-loss scenarios)
     """
     # Check if we have signup data in session
     signup_data = session.get('signup_data')
+    
+    # Recovery: Allow email via query param if session is lost
+    recovery_email = request.args.get('email', '').strip().lower()
+    if recovery_email and not signup_data:
+        # Try to recover by checking if this email has a pending signup or existing account
+        db = SessionLocal()
+        try:
+            # First check if account already exists
+            user = db.query(User).filter(User.username == recovery_email).first()
+            if user:
+                login_user(user)
+                tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+                if tenant:
+                    session['tenant_slug'] = tenant.slug
+                    flash('Welcome back! You have been logged in.', 'success')
+                    return redirect(url_for('recruiter', tenant=tenant.slug))
+            
+            # Check for pending signup
+            pending = db.query(PendingSignup).filter(
+                PendingSignup.email == recovery_email,
+                PendingSignup.processed == False
+            ).first()
+            if pending:
+                # Restore session data from pending signup
+                signup_data = {
+                    'email': pending.email,
+                    'plan_tier': pending.plan_tier,
+                    'billing_cycle': pending.billing_cycle,
+                    'company_name': pending.company_name,
+                    'full_name': pending.full_name,
+                }
+                session['signup_data'] = signup_data
+        finally:
+            db.close()
     
     # Also check if user was created by webhook and try to log them in
     if signup_data:
@@ -447,14 +485,25 @@ def check_account_status():
     """
     API endpoint to check if account has been created after Stripe payment.
     Used by payment_success page to poll for account creation.
+    
+    Supports:
+    - Session-based lookup (normal flow)
+    - Email query param (recovery/manual check)
     """
     signup_data = session.get('signup_data')
-    if not signup_data:
-        return jsonify({'account_created': False, 'error': 'No signup session'})
     
-    email = signup_data.get('email', '').lower()
+    # Get email from session or query param
+    email = None
+    if signup_data:
+        email = signup_data.get('email', '').lower()
+    
+    # Allow email override via query param (for recovery scenarios)
+    query_email = request.args.get('email', '').strip().lower()
+    if query_email:
+        email = query_email
+    
     if not email:
-        return jsonify({'account_created': False, 'error': 'No email in session'})
+        return jsonify({'account_created': False, 'error': 'No email provided'})
     
     db = SessionLocal()
     try:
@@ -476,7 +525,16 @@ def check_account_status():
                 'message': 'Account created successfully!'
             })
         else:
-            return jsonify({'account_created': False})
+            # Check if there's a pending signup for this email
+            pending = db.query(PendingSignup).filter(
+                PendingSignup.email == email,
+                PendingSignup.processed == False
+            ).first()
+            
+            return jsonify({
+                'account_created': False,
+                'pending_signup_exists': pending is not None
+            })
     finally:
         db.close()
 

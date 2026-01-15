@@ -293,10 +293,18 @@ def handle_checkout_session_completed(event) -> Dict[str, Any]:
     logger.info(f"Checkout session completed: {checkout_session.id} for customer {customer_id}, email: {customer_email}")
     
     # If we have customer email, try to create account from pending signup
+    account_created = False
     if customer_email:
-        _maybe_create_account_from_pending_signup(customer_email, customer_id)
+        account_created = _maybe_create_account_from_pending_signup(customer_email, customer_id)
     
-    return {"session_id": checkout_session.id, "customer_id": customer_id}
+    if not account_created:
+        # Log for debugging - this might indicate an email mismatch
+        logger.warning(
+            f"Checkout completed but no account created for email: {customer_email}, "
+            f"customer_id: {customer_id}. Check if pending signup exists with matching email."
+        )
+    
+    return {"session_id": checkout_session.id, "customer_id": customer_id, "account_created": account_created}
 
 
 def handle_unknown_event(event) -> Dict[str, Any]:
