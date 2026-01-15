@@ -168,14 +168,20 @@ def signup():
         
         # Get Stripe payment link for paid plans
         from stripe_config import get_payment_link
+        from urllib.parse import quote
+        
         payment_link = get_payment_link(plan_tier, billing_cycle)
         
         if not payment_link:
             flash('Payment link not configured for this plan. Please contact support.', 'error')
             return redirect(url_for('billing.signup'))
         
+        # Prefill email in Stripe payment link to ensure webhook can match the pending signup
+        # Stripe Payment Links support ?prefilled_email= parameter
+        payment_link_with_email = f"{payment_link}?prefilled_email={quote(email)}"
+        
         # Redirect to Stripe payment link
-        return redirect(payment_link)
+        return redirect(payment_link_with_email)
     
     # Pre-select plan from query param
     selected_plan = request.args.get('plan', 'starter')
@@ -434,6 +440,45 @@ def payment_cancel():
     session.pop('signup_data', None)
     flash('Payment was canceled. Please try again when ready.', 'info')
     return redirect(url_for('billing.signup'))
+
+
+@billing_bp.route('/api/check-account-status')
+def check_account_status():
+    """
+    API endpoint to check if account has been created after Stripe payment.
+    Used by payment_success page to poll for account creation.
+    """
+    signup_data = session.get('signup_data')
+    if not signup_data:
+        return jsonify({'account_created': False, 'error': 'No signup session'})
+    
+    email = signup_data.get('email', '').lower()
+    if not email:
+        return jsonify({'account_created': False, 'error': 'No email in session'})
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == email).first()
+        if user:
+            # Account was created! Auto-login the user
+            login_user(user)
+            session.pop('signup_data', None)
+            
+            tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+            tenant_slug = tenant.slug if tenant else ''
+            
+            if tenant:
+                session['tenant_slug'] = tenant.slug
+            
+            return jsonify({
+                'account_created': True,
+                'redirect_url': url_for('recruiter', tenant=tenant_slug),
+                'message': 'Account created successfully!'
+            })
+        else:
+            return jsonify({'account_created': False})
+    finally:
+        db.close()
 
 
 @billing_bp.route('/enterprise')

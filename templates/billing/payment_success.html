@@ -4,15 +4,15 @@
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-12">
   <div class="bg-white rounded-lg shadow-lg p-8 text-center">
-    <div class="mb-6">
+    <div class="mb-6" id="status-icon">
       <svg class="w-16 h-16 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
       </svg>
     </div>
     
-    <h1 class="text-2xl font-bold text-slate-900 mb-4">Payment Successful!</h1>
+    <h1 class="text-2xl font-bold text-slate-900 mb-4" id="page-title">Payment Successful!</h1>
     
-    <p class="text-slate-600 mb-6">
+    <p class="text-slate-600 mb-6" id="page-subtitle">
       Thank you for your payment. Your account is being set up now.
     </p>
     
@@ -24,19 +24,34 @@
     </div>
     {% endif %}
     
-    <div id="status-message" class="text-sm text-slate-500 mb-6">
-      <div id="loading-indicator" class="flex items-center justify-center gap-2">
-        <div class="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-        <span>Setting up your account...</span>
+    <div id="loading-area" class="mb-6">
+      <div class="flex items-center justify-center gap-2 text-sm text-slate-500">
+        <div class="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+        <span id="status-message">Setting up your account...</span>
       </div>
     </div>
     
-    <a href="{{ url_for('billing.payment_success') }}" class="btn-primary inline-block" id="continue-btn">
-      Check Account Status
-    </a>
+    <div id="success-area" class="hidden mb-6">
+      <p class="text-green-600 font-medium mb-4">Your account is ready! Redirecting you now...</p>
+      <a href="#" id="redirect-link" class="inline-block bg-slate-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-slate-800 transition-colors">
+        Go to Dashboard
+      </a>
+    </div>
     
-    <p class="text-xs text-slate-400 mt-4">
-      If your account isn't ready after a minute, please <a href="{{ url_for('login') }}" class="text-primary underline">try logging in</a>.
+    <div id="error-area" class="hidden mb-6">
+      <p class="text-amber-600 mb-4">Account setup is taking longer than expected.</p>
+      <div class="flex flex-col gap-2">
+        <a href="{{ url_for('login') }}" class="inline-block bg-slate-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-slate-800 transition-colors">
+          Try Logging In
+        </a>
+        <button onclick="startPolling()" class="text-sm text-slate-500 underline hover:text-slate-700">
+          Check again
+        </button>
+      </div>
+    </div>
+    
+    <p class="text-xs text-slate-400 mt-4" id="help-text">
+      This usually takes just a few seconds. You'll be redirected automatically.
     </p>
   </div>
 </div>
@@ -44,26 +59,78 @@
 
 {% block scripts %}
 <script>
-// Auto-refresh the page every 3 seconds to check if account was created
 (function() {
+  let pollInterval;
   let attempts = 0;
-  const maxAttempts = 20; // Stop after ~60 seconds
+  const maxAttempts = 30; // Poll for ~90 seconds (30 attempts * 3 seconds)
   
-  function checkStatus() {
-    attempts++;
-    if (attempts >= maxAttempts) {
-      document.getElementById('loading-indicator').innerHTML = 
-        '<span>Account setup is taking longer than expected. Please try logging in.</span>';
-      return;
-    }
-    // Reload the page - server will redirect if account is ready
-    setTimeout(function() {
-      window.location.reload();
-    }, 3000);
+  function updateStatus(message) {
+    document.getElementById('status-message').textContent = message;
   }
   
-  checkStatus();
+  function showSuccess(redirectUrl) {
+    document.getElementById('loading-area').classList.add('hidden');
+    document.getElementById('success-area').classList.remove('hidden');
+    document.getElementById('help-text').classList.add('hidden');
+    document.getElementById('redirect-link').href = redirectUrl;
+    document.getElementById('page-subtitle').textContent = 'Your account has been created successfully!';
+    
+    // Auto-redirect after 1.5 seconds
+    setTimeout(function() {
+      window.location.href = redirectUrl;
+    }, 1500);
+  }
+  
+  function showError() {
+    document.getElementById('loading-area').classList.add('hidden');
+    document.getElementById('error-area').classList.remove('hidden');
+    document.getElementById('help-text').textContent = 'Please check your email for login instructions, or contact support if you need help.';
+  }
+  
+  function checkAccountStatus() {
+    fetch('{{ url_for("billing.check_account_status") }}')
+      .then(function(response) { return response.json(); })
+      .then(function(data) {
+        if (data.account_created) {
+          // Success! Stop polling and show success
+          clearInterval(pollInterval);
+          showSuccess(data.redirect_url || '{{ url_for("login") }}');
+        } else {
+          // Account not ready yet
+          attempts++;
+          updateStatus('Setting up your account... (' + attempts + '/' + maxAttempts + ')');
+          
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            showError();
+          }
+        }
+      })
+      .catch(function(error) {
+        console.error('Error checking account status:', error);
+        attempts++;
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          showError();
+        }
+      });
+  }
+  
+  window.startPolling = function() {
+    // Reset state
+    attempts = 0;
+    document.getElementById('loading-area').classList.remove('hidden');
+    document.getElementById('error-area').classList.add('hidden');
+    document.getElementById('success-area').classList.add('hidden');
+    updateStatus('Checking account status...');
+    
+    // Start polling
+    checkAccountStatus(); // Check immediately
+    pollInterval = setInterval(checkAccountStatus, 3000); // Then every 3 seconds
+  };
+  
+  // Start polling on page load
+  startPolling();
 })();
 </script>
 {% endblock %}
-
