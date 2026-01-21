@@ -145,6 +145,10 @@ def ensure_schema():
         ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
         with models_engine.begin() as conn:
             conn.execute(text(ddl2))
+    
+    # Create subscription-related tables (tenant_subscription, pending_signup, etc.)
+    from subscription_models import ensure_subscription_schema
+    ensure_subscription_schema()
 
 ensure_schema()
 
@@ -583,7 +587,7 @@ def login(tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else None
 
     if request.method == "POST":
-        u, p = request.form["username"], request.form["password"]
+        u, p = request.form["username"].strip().lower(), request.form["password"]
         db = SessionLocal()
         try:
             user_q = db.query(User).filter(User.username == u)
