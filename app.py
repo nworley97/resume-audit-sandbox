@@ -139,6 +139,7 @@ def ensure_schema():
                 ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
                 conn.execute(text(ddl))
 
+
     # NEW: candidate anti-cheat counter
     ccols = {c["name"] for c in insp.get_columns("candidate")}
     cadds = []
@@ -1021,10 +1022,18 @@ def edit_jd(tenant=None):
             else:
                 if not posted_code:
                     flash("Job code is required", "recruiter"); return redirect(request.url)
+                
+                # Check for conflicts: first within tenant, then globally (due to global unique constraint)
                 conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                 if conflict:
-                    flash(f"Code {posted_code} is already in use for this tenant.")
+                    flash(f"The job code '{posted_code}' is already in use in your account. Please choose a different code.", "error")
                     return redirect(url_for("edit_jd", tenant=t.slug, code=conflict.code))
+                
+                # Also check globally (since constraint is global unique)
+                global_conflict = db.query(JobDescription).filter_by(code=posted_code).first()
+                if global_conflict:
+                    flash(f"The job code '{posted_code}' is already in use. Please choose a different code.", "error")
+                    return redirect(url_for("edit_jd", tenant=t.slug))
 
                 # Check job limit when creating a new job with status "open"
                 new_status = (status or "").lower()
