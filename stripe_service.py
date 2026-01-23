@@ -691,10 +691,11 @@ class PaymentService:
                     }
                 )
                 
+                # Use dict-style access for compatibility across Stripe library versions
                 return True, None, {
-                    "subscription_id": updated_sub.id,
-                    "status": updated_sub.status,
-                    "current_period_end": updated_sub.current_period_end,
+                    "subscription_id": updated_sub.get('id') if isinstance(updated_sub, dict) else getattr(updated_sub, 'id', None),
+                    "status": updated_sub.get('status') if isinstance(updated_sub, dict) else getattr(updated_sub, 'status', None),
+                    "current_period_end": updated_sub.get('current_period_end') if isinstance(updated_sub, dict) else getattr(updated_sub, 'current_period_end', None),
                 }
             except stripe.error.StripeError as e:
                 logger.error(f"Stripe error updating subscription: {e}")

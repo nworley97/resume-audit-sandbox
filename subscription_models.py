@@ -329,10 +329,15 @@ def increment_resume_usage(tenant_id: int, db_session) -> bool:
     return True
 
 
-def check_can_post_job(tenant_id: int, db_session) -> tuple[bool, int, int]:
+def check_can_post_job(tenant_id: int, db_session, exclude_job_id: int = None) -> tuple[bool, int, int]:
     """
     Check if tenant can post a new job.
     Returns (can_post, current_count, limit).
+    
+    Args:
+        tenant_id: The tenant to check
+        db_session: Database session
+        exclude_job_id: Optional job ID to exclude from count (for edits)
     """
     from plans_config import get_plan_limit
     from models import JobDescription
@@ -347,11 +352,17 @@ def check_can_post_job(tenant_id: int, db_session) -> tuple[bool, int, int]:
     
     limit = get_plan_limit(sub.plan_tier, "active_jobs")
     
-    # Count active jobs for this tenant
-    active_count = db_session.query(JobDescription).filter(
+    # Count open jobs for this tenant (status="open" means published/active)
+    query = db_session.query(JobDescription).filter(
         JobDescription.tenant_id == tenant_id,
-        JobDescription.status == "active"
-    ).count()
+        JobDescription.status.ilike("open")
+    )
+    
+    # Exclude a specific job if provided (useful when editing)
+    if exclude_job_id:
+        query = query.filter(JobDescription.id != exclude_job_id)
+    
+    active_count = query.count()
     
     return active_count < limit, active_count, limit
 
@@ -394,10 +405,10 @@ def get_usage_summary(tenant_id: int, db_session) -> dict:
     
     usage = get_or_create_current_usage(tenant_id, db_session) if sub.status != "grandfathered" else None
     
-    # Count active jobs
+    # Count open jobs (status="open" means published/active)
     active_jobs = db_session.query(JobDescription).filter(
         JobDescription.tenant_id == tenant_id,
-        JobDescription.status == "active"
+        JobDescription.status.ilike("open")
     ).count()
     
     # Count users

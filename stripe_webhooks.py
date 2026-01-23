@@ -115,12 +115,24 @@ def handle_stripe_webhook():
 
 # ─── Event Handlers ──────────────────────────────────────────────────────────
 
+def _safe_get(obj, key, default=None):
+    """Safely get attribute from Stripe object (works with both dict and object access)."""
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
 def handle_subscription_created(event) -> Dict[str, Any]:
     """Handle customer.subscription.created event."""
     subscription = event.data.object
-    customer_id = subscription.customer
-    subscription_id = subscription.id
-    status = subscription.status
+    
+    customer_id = _safe_get(subscription, 'customer')
+    subscription_id = _safe_get(subscription, 'id')
+    status = _safe_get(subscription, 'status')
+    period_start = _safe_get(subscription, 'current_period_start')
+    period_end = _safe_get(subscription, 'current_period_end')
     
     logger.info(f"Subscription created: {subscription_id} for customer {customer_id} (status: {status})")
     
@@ -129,8 +141,8 @@ def handle_subscription_created(event) -> Dict[str, Any]:
         stripe_customer_id=customer_id,
         stripe_subscription_id=subscription_id,
         status=_map_stripe_status(status),
-        current_period_start=datetime.fromtimestamp(subscription.current_period_start),
-        current_period_end=datetime.fromtimestamp(subscription.current_period_end),
+        current_period_start=datetime.fromtimestamp(period_start) if period_start else None,
+        current_period_end=datetime.fromtimestamp(period_end) if period_end else None,
     )
     
     return {"subscription_id": subscription_id, "status": status}
@@ -139,9 +151,10 @@ def handle_subscription_created(event) -> Dict[str, Any]:
 def handle_subscription_updated(event) -> Dict[str, Any]:
     """Handle customer.subscription.updated event."""
     subscription = event.data.object
-    customer_id = subscription.customer
-    subscription_id = subscription.id
-    status = subscription.status
+    
+    customer_id = _safe_get(subscription, 'customer')
+    subscription_id = _safe_get(subscription, 'id')
+    status = _safe_get(subscription, 'status')
     
     logger.info(f"Subscription updated: {subscription_id} (status: {status})")
     
@@ -149,16 +162,25 @@ def handle_subscription_updated(event) -> Dict[str, Any]:
     plan_tier = None
     billing_cycle = None
     
-    if subscription.items and subscription.items.data:
-        item = subscription.items.data[0]
-        price = item.price
+    # Safely access subscription items
+    sub_items = _safe_get(subscription, 'items', {})
+    items_data = _safe_get(sub_items, 'data', [])
+    
+    if items_data and len(items_data) > 0:
+        item = items_data[0]
+        price = _safe_get(item, 'price', {})
+        lookup_key = _safe_get(price, 'lookup_key')
         
         # Extract plan info from price metadata or lookup key
-        if price.lookup_key:
-            parts = price.lookup_key.split("_")
+        if lookup_key:
+            parts = lookup_key.split("_")
             if len(parts) >= 2:
                 plan_tier = parts[0]
                 billing_cycle = "yearly" if "annual" in parts[1] else "monthly"
+    
+    # Safely get period timestamps
+    period_start = _safe_get(subscription, 'current_period_start')
+    period_end = _safe_get(subscription, 'current_period_end')
     
     # Update database
     _update_subscription_in_db(
@@ -167,8 +189,8 @@ def handle_subscription_updated(event) -> Dict[str, Any]:
         status=_map_stripe_status(status),
         plan_tier=plan_tier,
         billing_cycle=billing_cycle,
-        current_period_start=datetime.fromtimestamp(subscription.current_period_start),
-        current_period_end=datetime.fromtimestamp(subscription.current_period_end),
+        current_period_start=datetime.fromtimestamp(period_start) if period_start else None,
+        current_period_end=datetime.fromtimestamp(period_end) if period_end else None,
     )
     
     return {"subscription_id": subscription_id, "status": status}
@@ -177,8 +199,9 @@ def handle_subscription_updated(event) -> Dict[str, Any]:
 def handle_subscription_deleted(event) -> Dict[str, Any]:
     """Handle customer.subscription.deleted event."""
     subscription = event.data.object
-    customer_id = subscription.customer
-    subscription_id = subscription.id
+    
+    customer_id = _safe_get(subscription, 'customer')
+    subscription_id = _safe_get(subscription, 'id')
     
     logger.info(f"Subscription deleted: {subscription_id}")
     
@@ -196,101 +219,114 @@ def handle_subscription_deleted(event) -> Dict[str, Any]:
 def handle_invoice_payment_succeeded(event) -> Dict[str, Any]:
     """Handle invoice.payment_succeeded event."""
     invoice = event.data.object
-    customer_id = invoice.customer
-    amount = invoice.amount_paid / 100  # Convert from cents
+    customer_id = _safe_get(invoice, 'customer')
+    amount_paid = _safe_get(invoice, 'amount_paid', 0)
+    amount = amount_paid / 100  # Convert from cents
+    invoice_id = _safe_get(invoice, 'id')
     
     logger.info(f"Payment succeeded: ${amount} for customer {customer_id}")
     
     # Record payment in history
     _record_payment_history(
         stripe_customer_id=customer_id,
-        stripe_invoice_id=invoice.id,
-        stripe_payment_intent_id=invoice.payment_intent,
+        stripe_invoice_id=invoice_id,
+        stripe_payment_intent_id=_safe_get(invoice, 'payment_intent'),
         amount=amount,
-        currency=invoice.currency,
+        currency=_safe_get(invoice, 'currency', 'usd'),
         status="succeeded",
-        description=f"Invoice {invoice.number or invoice.id}",
+        description=f"Invoice {_safe_get(invoice, 'number') or invoice_id}",
     )
     
-    return {"invoice_id": invoice.id, "amount": amount}
+    return {"invoice_id": invoice_id, "amount": amount}
 
 
 def handle_invoice_payment_failed(event) -> Dict[str, Any]:
     """Handle invoice.payment_failed event."""
     invoice = event.data.object
-    customer_id = invoice.customer
-    amount = invoice.amount_due / 100
+    customer_id = _safe_get(invoice, 'customer')
+    amount_due = _safe_get(invoice, 'amount_due', 0)
+    amount = amount_due / 100
+    invoice_id = _safe_get(invoice, 'id')
     
     logger.warning(f"Payment failed: ${amount} for customer {customer_id}")
     
     # Record failed payment
     _record_payment_history(
         stripe_customer_id=customer_id,
-        stripe_invoice_id=invoice.id,
-        stripe_payment_intent_id=invoice.payment_intent,
+        stripe_invoice_id=invoice_id,
+        stripe_payment_intent_id=_safe_get(invoice, 'payment_intent'),
         amount=amount,
-        currency=invoice.currency,
+        currency=_safe_get(invoice, 'currency', 'usd'),
         status="failed",
-        description=f"Failed: Invoice {invoice.number or invoice.id}",
+        description=f"Failed: Invoice {_safe_get(invoice, 'number') or invoice_id}",
     )
     
     # Update subscription status to past_due
-    if invoice.subscription:
+    subscription_id = _safe_get(invoice, 'subscription')
+    if subscription_id:
         _update_subscription_in_db(
-            stripe_subscription_id=invoice.subscription,
+            stripe_subscription_id=subscription_id,
             status="past_due",
         )
     
     # TODO: Send notification email to customer
     
-    return {"invoice_id": invoice.id, "amount": amount, "status": "failed"}
+    return {"invoice_id": invoice_id, "amount": amount, "status": "failed"}
 
 
 def handle_payment_method_attached(event) -> Dict[str, Any]:
     """Handle payment_method.attached event."""
     payment_method = event.data.object
-    customer_id = payment_method.customer
+    customer_id = _safe_get(payment_method, 'customer')
+    pm_id = _safe_get(payment_method, 'id')
     
     logger.info(f"Payment method attached for customer {customer_id}")
     
     # Update payment method info in database
-    if payment_method.card:
+    card = _safe_get(payment_method, 'card')
+    if card:
         _update_payment_method_in_db(
             stripe_customer_id=customer_id,
-            card_last4=payment_method.card.last4,
-            card_brand=payment_method.card.brand,
-            card_exp_month=payment_method.card.exp_month,
-            card_exp_year=payment_method.card.exp_year,
+            card_last4=_safe_get(card, 'last4'),
+            card_brand=_safe_get(card, 'brand'),
+            card_exp_month=_safe_get(card, 'exp_month'),
+            card_exp_year=_safe_get(card, 'exp_year'),
         )
     
-    return {"customer_id": customer_id, "payment_method_id": payment_method.id}
+    return {"customer_id": customer_id, "payment_method_id": pm_id}
 
 
 def handle_customer_created(event) -> Dict[str, Any]:
     """Handle customer.created event."""
     customer = event.data.object
-    logger.info(f"Customer created: {customer.id} ({customer.email})")
+    customer_id = _safe_get(customer, 'id')
+    customer_email = _safe_get(customer, 'email')
+    
+    logger.info(f"Customer created: {customer_id} ({customer_email})")
     
     # Check if this customer email matches a pending signup
-    _maybe_create_account_from_pending_signup(customer.email, customer.id)
+    if customer_email:
+        _maybe_create_account_from_pending_signup(customer_email, customer_id)
     
-    return {"customer_id": customer.id, "email": customer.email}
+    return {"customer_id": customer_id, "email": customer_email}
 
 
 def handle_checkout_session_completed(event) -> Dict[str, Any]:
     """Handle checkout.session.completed event (for payment links)."""
     checkout_session = event.data.object
-    customer_id = checkout_session.customer
+    customer_id = _safe_get(checkout_session, 'customer')
+    session_id = _safe_get(checkout_session, 'id')
     
-    # Extract email - customer_details is a Stripe object, not a dict
+    # Extract email - try multiple fields for compatibility
     customer_email = None
-    if checkout_session.customer_details:
-        customer_email = getattr(checkout_session.customer_details, 'email', None)
+    customer_details = _safe_get(checkout_session, 'customer_details')
+    if customer_details:
+        customer_email = _safe_get(customer_details, 'email')
     # Fallback to customer_email field
     if not customer_email:
-        customer_email = getattr(checkout_session, 'customer_email', None)
+        customer_email = _safe_get(checkout_session, 'customer_email')
     
-    logger.info(f"Checkout session completed: {checkout_session.id} for customer {customer_id}, email: {customer_email}")
+    logger.info(f"Checkout session completed: {session_id} for customer {customer_id}, email: {customer_email}")
     
     # If we have customer email, try to create account from pending signup
     account_created = False
@@ -304,7 +340,7 @@ def handle_checkout_session_completed(event) -> Dict[str, Any]:
             f"customer_id: {customer_id}. Check if pending signup exists with matching email."
         )
     
-    return {"session_id": checkout_session.id, "customer_id": customer_id, "account_created": account_created}
+    return {"session_id": session_id, "customer_id": customer_id, "account_created": account_created}
 
 
 def handle_unknown_event(event) -> Dict[str, Any]:

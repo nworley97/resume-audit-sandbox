@@ -59,6 +59,9 @@ app.register_blueprint(analytics_bp)
 from billing_routes import billing_bp
 app.register_blueprint(billing_bp)
 
+# Subscription limit checking
+from subscription_models import check_can_post_job, get_tenant_subscription
+
 # Stripe Webhooks blueprint
 from stripe_webhooks import stripe_webhooks_bp
 app.register_blueprint(stripe_webhooks_bp)
@@ -974,13 +977,22 @@ def edit_jd(tenant=None):
             if existing:
                 if posted_code != existing.code:
                     if has_candidates:
-                        flash("Job code can’t be changed because candidates already exist for this job.")
+                        flash("Job code can't be changed because candidates already exist for this job.")
                         return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
                     conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                     if conflict:
                         flash(f"Code {posted_code} is already in use for this tenant.")
                         return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
                     existing.code = posted_code
+
+                # Check job limit when changing status TO open (if it wasn't open before)
+                old_status = (existing.status or "").lower()
+                new_status = (status or "").lower()
+                if new_status == "open" and old_status != "open":
+                    can_post, current_count, limit = check_can_post_job(t.id, db, exclude_job_id=existing.id)
+                    if not can_post:
+                        flash(f"You've reached your plan limit of {limit} active job(s). Please upgrade your plan or close an existing job.", "error")
+                        return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
 
                 existing.title           = title
                 existing.markdown        = raw_markdown
@@ -1013,6 +1025,14 @@ def edit_jd(tenant=None):
                 if conflict:
                     flash(f"Code {posted_code} is already in use for this tenant.")
                     return redirect(url_for("edit_jd", tenant=t.slug, code=conflict.code))
+
+                # Check job limit when creating a new job with status "open"
+                new_status = (status or "").lower()
+                if new_status == "open":
+                    can_post, current_count, limit = check_can_post_job(t.id, db)
+                    if not can_post:
+                        flash(f"You've reached your plan limit of {limit} active job(s). Please upgrade your plan or close an existing job.", "error")
+                        return redirect(url_for("edit_jd", tenant=t.slug))
 
                 jd.code            = posted_code
                 jd.title           = title
