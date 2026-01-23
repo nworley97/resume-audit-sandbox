@@ -1056,9 +1056,18 @@ def edit_jd(tenant=None):
                 jd.id_surveys_enabled = id_surveys_enabled
                 jd.question_count     = question_count
 
-                db.add(jd); db.commit()
-                flash("JD saved", "recruiter")
-                return redirect(url_for("recruiter", tenant=t.slug))
+                try:
+                    db.add(jd); db.commit()
+                    flash("JD saved", "recruiter")
+                    return redirect(url_for("recruiter", tenant=t.slug))
+                except SQLAlchemyError as e:
+                    db.rollback()
+                    # Check if it's a duplicate key error
+                    if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+                        flash(f"The job code '{posted_code}' is already in use. Please choose a different code.", "error")
+                    else:
+                        flash("An error occurred while saving the job. Please try again.", "error")
+                    return redirect(url_for("edit_jd", tenant=t.slug))
         # Build Application Link (robust: tries known endpoints, then falls back to /<tenant>/apply/<code>)
         apply_url = ""
         if jd and getattr(jd, "code", None):
@@ -1306,6 +1315,13 @@ def recruiter(tenant=None):
         if end_to:
             active_filter_count += 1
 
+        # Check job posting limit for this tenant
+        can_create_job, open_jobs_count, job_limit = check_can_post_job(t.id, db)
+        
+        # Get subscription info for grandfathered check
+        subscription = get_tenant_subscription(t.id, db)
+        is_grandfathered = subscription and subscription.status == "grandfathered"
+
         return render_template(
             "recruiter.html",
             tenant=t,
@@ -1322,6 +1338,10 @@ def recruiter(tenant=None):
             end_from=end_from,
             end_to=end_to,
             active_filter_count=active_filter_count,
+            can_create_job=can_create_job,
+            open_jobs_count=open_jobs_count,
+            job_limit=job_limit,
+            is_grandfathered=is_grandfathered,
         )
     finally:
         db.close()

@@ -20,13 +20,36 @@
     <p class="text-slate mt-1">Manage and track your job postings</p>
   </div>
 
-  <a href="{{ url_for('edit_jd', tenant=tenant.slug if tenant else None) }}"
-     class="inline-flex items-center gap-2 rounded-lg bg-primary text-white text-sm font-medium px-3 py-2 hover:opacity-95">
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
-    </svg>
-    Create Job
-  </a>
+  <div class="flex flex-col items-end gap-2">
+    {% if can_create_job or is_grandfathered %}
+    <a href="{{ url_for('edit_jd', tenant=tenant.slug if tenant else None) }}"
+       class="inline-flex items-center gap-2 rounded-lg bg-primary text-white text-sm font-medium px-3 py-2 hover:opacity-95">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+      </svg>
+      Create Job
+    </a>
+    {% if not is_grandfathered %}
+    <span class="text-xs text-slate-500">{{ open_jobs_count }} / {{ job_limit }} open jobs</span>
+    {% endif %}
+    {% else %}
+    <div class="relative group">
+      <span class="inline-flex items-center gap-2 rounded-lg bg-slate-300 text-slate-500 text-sm font-medium px-3 py-2 cursor-not-allowed">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+        </svg>
+        Create Job
+      </span>
+      <!-- Tooltip -->
+      <div class="absolute right-0 top-full mt-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+        <p class="font-medium mb-1">Job limit reached ({{ open_jobs_count }}/{{ job_limit }})</p>
+        <p class="text-slate-300 mb-2">Close an existing job or upgrade your plan to create more.</p>
+        <a href="{{ url_for('billing.change_plan') }}" class="text-blue-400 hover:text-blue-300 underline">Upgrade Plan →</a>
+      </div>
+    </div>
+    <span class="text-xs text-amber-600 font-medium">{{ open_jobs_count }} / {{ job_limit }} open jobs (limit reached)</span>
+    {% endif %}
+  </div>
 </div>
 
 {# ---------- CARD ---------- #}
