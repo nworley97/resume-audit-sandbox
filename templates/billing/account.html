@@ -50,9 +50,10 @@
           {{ summary.jobs_used }} / {{ summary.jobs_limit }}
         </div>
         {% if summary.jobs_limit > 0 %}
+        {% set jobs_pct = ((summary.jobs_used / summary.jobs_limit) * 100) | int %}
         <div class="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
           <div class="h-full bg-primary rounded-full transition-all duration-300" 
-               style="width: {{ ((summary.jobs_used / summary.jobs_limit) * 100) | int | min(100) }}%"></div>
+               style="width: {{ jobs_pct if jobs_pct <= 100 else 100 }}%"></div>
         </div>
         {% endif %}
       </div>
@@ -64,9 +65,10 @@
           {{ summary.resumes_used }} / {{ summary.resumes_limit }}
         </div>
         {% if summary.resumes_limit > 0 %}
+        {% set resumes_pct = ((summary.resumes_used / summary.resumes_limit) * 100) | int %}
         <div class="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
           <div class="h-full bg-primary rounded-full transition-all duration-300" 
-               style="width: {{ ((summary.resumes_used / summary.resumes_limit) * 100) | int | min(100) }}%"></div>
+               style="width: {{ resumes_pct if resumes_pct <= 100 else 100 }}%"></div>
         </div>
         {% endif %}
       </div>
@@ -78,9 +80,10 @@
           {{ summary.seats_used }} / {{ summary.seats_limit }}
         </div>
         {% if summary.seats_limit > 0 %}
+        {% set seats_pct = ((summary.seats_used / summary.seats_limit) * 100) | int %}
         <div class="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
           <div class="h-full bg-primary rounded-full transition-all duration-300" 
-               style="width: {{ ((summary.seats_used / summary.seats_limit) * 100) | int | min(100) }}%"></div>
+               style="width: {{ seats_pct if seats_pct <= 100 else 100 }}%"></div>
         </div>
         {% endif %}
         {% if summary.extra_seats > 0 %}
