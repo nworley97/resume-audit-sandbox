@@ -659,14 +659,29 @@ class PaymentService:
                 
                 new_price = prices.data[0]
                 
-                # Get current subscription
+                # Get current subscription with items expanded
                 subscription = stripe.Subscription.retrieve(subscription_id)
+                
+                # Access subscription items using dict-style access for compatibility
+                # subscription['items']['data'] is more reliable across Stripe library versions
+                sub_items = subscription.get('items', {})
+                items_data = sub_items.get('data', []) if isinstance(sub_items, dict) else getattr(sub_items, 'data', [])
+                
+                if not items_data:
+                    return False, "No subscription items found", {}
+                
+                # Get the first item ID
+                first_item = items_data[0]
+                item_id = first_item.get('id') if isinstance(first_item, dict) else getattr(first_item, 'id', None)
+                
+                if not item_id:
+                    return False, "Could not find subscription item ID", {}
                 
                 # Update the subscription with the new price
                 updated_sub = stripe.Subscription.modify(
                     subscription_id,
                     items=[{
-                        "id": subscription.items.data[0].id,
+                        "id": item_id,
                         "price": new_price.id,
                     }],
                     proration_behavior=PRORATION_BEHAVIOR,
