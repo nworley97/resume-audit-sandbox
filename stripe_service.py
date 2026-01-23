@@ -806,3 +806,35 @@ def get_test_card_info() -> Dict[str, str]:
         "zip": "Any 5 digits (e.g., 12345)",
     }
 
+
+def create_billing_portal_session(customer_id: str, return_url: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    """
+    Create a Stripe Billing Portal session for customer self-service.
+    
+    This allows customers to:
+    - Update their payment method
+    - View invoices
+    - Cancel/modify subscription (if allowed in portal settings)
+    
+    Returns (success, error_message, portal_url)
+    """
+    if not customer_id:
+        return False, "No customer ID provided", None
+    
+    if USE_REAL_STRIPE:
+        try:
+            session = stripe.billing_portal.Session.create(
+                customer=customer_id,
+                return_url=return_url,
+            )
+            return True, None, session.url
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error creating portal session: {e}")
+            return False, str(e.user_message if hasattr(e, 'user_message') else e), None
+        except Exception as e:
+            logger.error(f"Error creating portal session: {e}")
+            return False, "Failed to create billing portal session", None
+    else:
+        # Mock mode - return a fake URL
+        return True, None, f"{return_url}?mock_portal=true"
+

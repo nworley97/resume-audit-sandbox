@@ -568,12 +568,7 @@ def account():
     try:
         summary = get_usage_summary(current_user.tenant_id, db)
         
-        # Get payment history
-        payments = db.query(PaymentHistory).filter(
-            PaymentHistory.tenant_id == current_user.tenant_id
-        ).order_by(PaymentHistory.created_at.desc()).limit(10).all()
-        
-        # Get subscription
+        # Get subscription (for status checks and period end date)
         subscription = db.query(TenantSubscription).filter(
             TenantSubscription.tenant_id == current_user.tenant_id
         ).first()
@@ -581,7 +576,6 @@ def account():
         return render_template(
             'billing/account.html',
             summary=summary,
-            payments=payments,
             subscription=subscription,
             plans=get_all_plans_for_display(),
         )
@@ -810,10 +804,15 @@ def cancel_subscription():
         db.close()
 
 
-@billing_bp.route('/update-payment', methods=['GET', 'POST'])
+@billing_bp.route('/update-payment')
 @login_required
 def update_payment():
-    """Update payment method."""
+    """
+    Redirect to Stripe Customer Portal for payment method updates.
+    
+    This uses Stripe's hosted portal which is PCI-compliant and handles
+    all card collection securely.
+    """
     if not current_user.tenant_id:
         flash('No billing account found.')
         return redirect(url_for('home'))
@@ -833,39 +832,20 @@ def update_payment():
             flash('Unable to update payment method. Please contact support.', 'error')
             return redirect(url_for('billing.account'))
         
-        if request.method == 'POST':
-            card_number = request.form.get('card_number', '').strip()
-            exp_month = request.form.get('exp_month', '')
-            exp_year = request.form.get('exp_year', '')
-            cvc = request.form.get('cvc', '').strip()
-            
-            success, error, pm_info = PaymentService.update_payment_method(
-                subscription.stripe_customer_id,
-                card_number,
-                int(exp_month),
-                int(exp_year),
-                cvc
-            )
-            
-            if not success:
-                flash(error or 'Failed to update payment method.', 'error')
-                return redirect(url_for('billing.update_payment'))
-            
-            # Update subscription record
-            subscription.payment_method_last4 = pm_info.get('last4')
-            subscription.payment_method_brand = pm_info.get('brand')
-            subscription.payment_method_exp_month = pm_info.get('exp_month')
-            subscription.payment_method_exp_year = pm_info.get('exp_year')
-            
-            db.commit()
-            
-            flash('Payment method updated successfully!')
+        # Create a portal session to redirect user to Stripe's hosted portal
+        from stripe_service import create_billing_portal_session
+        
+        return_url = url_for('billing.account', _external=True)
+        success, error, portal_url = create_billing_portal_session(
+            subscription.stripe_customer_id,
+            return_url
+        )
+        
+        if not success or not portal_url:
+            flash(error or 'Unable to access billing portal. Please contact support.', 'error')
             return redirect(url_for('billing.account'))
         
-        return render_template(
-            'billing/update_payment.html',
-            subscription=subscription,
-        )
+        return redirect(portal_url)
     finally:
         db.close()
 
