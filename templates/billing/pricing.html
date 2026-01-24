@@ -1,0 +1,17 @@
+{% extends "billing/base_billing.html" %}
+{% block title %}Pricing - ALTERA{% endblock %}
+
+{% block content %}
+{# 
+  This is a public pricing page that redirects to signup.
+  It's essentially a wrapper around signup.html for a cleaner /pricing URL.
+#}
+<script>
+  // Redirect to signup with any query params preserved
+  window.location.href = "{{ url_for('billing.signup') }}" + window.location.search;
+</script>
+<div class="text-center">
+  <p class="text-slate-500">Redirecting to pricing...</p>
+</div>
+{% endblock %}
+

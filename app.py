@@ -55,6 +55,17 @@ app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
 from analytics_service import bp as analytics_bp
 app.register_blueprint(analytics_bp)
 
+# Billing/Subscription blueprint
+from billing_routes import billing_bp
+app.register_blueprint(billing_bp)
+
+# Subscription limit checking
+from subscription_models import check_can_post_job, get_tenant_subscription
+
+# Stripe Webhooks blueprint
+from stripe_webhooks import stripe_webhooks_bp
+app.register_blueprint(stripe_webhooks_bp)
+
 logger = logging.getLogger(__name__)
 _markdown_fallback_warned = False
 
@@ -128,6 +139,7 @@ def ensure_schema():
                 ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
                 conn.execute(text(ddl))
 
+
     # NEW: candidate anti-cheat counter
     ccols = {c["name"] for c in insp.get_columns("candidate")}
     cadds = []
@@ -137,6 +149,10 @@ def ensure_schema():
         ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
         with models_engine.begin() as conn:
             conn.execute(text(ddl2))
+    
+    # Create subscription-related tables (tenant_subscription, pending_signup, etc.)
+    from subscription_models import ensure_subscription_schema
+    ensure_subscription_schema()
 
 ensure_schema()
 
@@ -575,7 +591,7 @@ def login(tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else None
 
     if request.method == "POST":
-        u, p = request.form["username"], request.form["password"]
+        u, p = request.form["username"].strip().lower(), request.form["password"]
         db = SessionLocal()
         try:
             user_q = db.query(User).filter(User.username == u)
@@ -962,13 +978,22 @@ def edit_jd(tenant=None):
             if existing:
                 if posted_code != existing.code:
                     if has_candidates:
-                        flash("Job code can’t be changed because candidates already exist for this job.")
+                        flash("Job code can't be changed because candidates already exist for this job.")
                         return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
                     conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                     if conflict:
                         flash(f"Code {posted_code} is already in use for this tenant.")
                         return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
                     existing.code = posted_code
+
+                # Check job limit when changing status TO open (if it wasn't open before)
+                old_status = (existing.status or "").lower()
+                new_status = (status or "").lower()
+                if new_status == "open" and old_status != "open":
+                    can_post, current_count, limit = check_can_post_job(t.id, db, exclude_job_id=existing.id)
+                    if not can_post:
+                        flash(f"You've reached your plan limit of {limit} active job(s). Please upgrade your plan or close an existing job.", "error")
+                        return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
 
                 existing.title           = title
                 existing.markdown        = raw_markdown
@@ -997,10 +1022,26 @@ def edit_jd(tenant=None):
             else:
                 if not posted_code:
                     flash("Job code is required", "recruiter"); return redirect(request.url)
+                
+                # Check for conflicts: first within tenant, then globally (due to global unique constraint)
                 conflict = db.query(JobDescription).filter_by(code=posted_code, tenant_id=t.id).first()
                 if conflict:
-                    flash(f"Code {posted_code} is already in use for this tenant.")
+                    flash(f"The job code '{posted_code}' is already in use in your account. Please choose a different code.", "error")
                     return redirect(url_for("edit_jd", tenant=t.slug, code=conflict.code))
+                
+                # Also check globally (since constraint is global unique)
+                global_conflict = db.query(JobDescription).filter_by(code=posted_code).first()
+                if global_conflict:
+                    flash(f"The job code '{posted_code}' is already in use. Please choose a different code.", "error")
+                    return redirect(url_for("edit_jd", tenant=t.slug))
+
+                # Check job limit when creating a new job with status "open"
+                new_status = (status or "").lower()
+                if new_status == "open":
+                    can_post, current_count, limit = check_can_post_job(t.id, db)
+                    if not can_post:
+                        flash(f"You've reached your plan limit of {limit} active job(s). Please upgrade your plan or close an existing job.", "error")
+                        return redirect(url_for("edit_jd", tenant=t.slug))
 
                 jd.code            = posted_code
                 jd.title           = title
@@ -1024,9 +1065,18 @@ def edit_jd(tenant=None):
                 jd.id_surveys_enabled = id_surveys_enabled
                 jd.question_count     = question_count
 
-                db.add(jd); db.commit()
-                flash("JD saved", "recruiter")
-                return redirect(url_for("recruiter", tenant=t.slug))
+                try:
+                    db.add(jd); db.commit()
+                    flash("JD saved", "recruiter")
+                    return redirect(url_for("recruiter", tenant=t.slug))
+                except SQLAlchemyError as e:
+                    db.rollback()
+                    # Check if it's a duplicate key error
+                    if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+                        flash(f"The job code '{posted_code}' is already in use. Please choose a different code.", "error")
+                    else:
+                        flash("An error occurred while saving the job. Please try again.", "error")
+                    return redirect(url_for("edit_jd", tenant=t.slug))
         # Build Application Link (robust: tries known endpoints, then falls back to /<tenant>/apply/<code>)
         apply_url = ""
         if jd and getattr(jd, "code", None):
@@ -1274,6 +1324,13 @@ def recruiter(tenant=None):
         if end_to:
             active_filter_count += 1
 
+        # Check job posting limit for this tenant
+        can_create_job, open_jobs_count, job_limit = check_can_post_job(t.id, db)
+        
+        # Get subscription info for grandfathered check
+        subscription = get_tenant_subscription(t.id, db)
+        is_grandfathered = subscription and subscription.status == "grandfathered"
+
         return render_template(
             "recruiter.html",
             tenant=t,
@@ -1290,6 +1347,10 @@ def recruiter(tenant=None):
             end_from=end_from,
             end_to=end_to,
             active_filter_count=active_filter_count,
+            can_create_job=can_create_job,
+            open_jobs_count=open_jobs_count,
+            job_limit=job_limit,
+            is_grandfathered=is_grandfathered,
         )
     finally:
         db.close()

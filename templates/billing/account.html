@@ -1,0 +1,201 @@
+{% extends "base_app.html" %}
+{% block title %}Billing & Subscription - ALTERA{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-2xl font-semibold text-title mb-6">Billing & Subscription</h1>
+  
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="mb-6">
+    {% for category, message in messages %}
+    <div class="p-4 rounded-lg {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+  
+  {% if summary %}
+  <!-- Current Plan Card -->
+  <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+    <div class="flex items-start justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-title mb-1">Current Plan</h2>
+        <p class="text-slate-500 text-sm">{{ summary.plan_display }} Plan 
+          {% if summary.is_grandfathered %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 ml-2">
+            Grandfathered
+          </span>
+          {% endif %}
+          {% if summary.billing_cycle and not summary.is_grandfathered %}
+          <span class="text-slate-400 ml-1">({{ summary.billing_cycle | capitalize }})</span>
+          {% endif %}
+        </p>
+      </div>
+      {% if not summary.is_grandfathered %}
+      <a href="{{ url_for('billing.change_plan') }}" class="text-primary hover:text-primary/80 text-sm font-medium">
+        Change Plan →
+      </a>
+      {% endif %}
+    </div>
+    
+    {% if not summary.is_grandfathered %}
+    <div class="mt-4 grid grid-cols-3 gap-4">
+      <!-- Jobs Usage -->
+      <div class="bg-slate-50 rounded-lg p-4">
+        <div class="text-sm text-slate-500 mb-1">Active Jobs</div>
+        <div class="text-2xl font-semibold text-title">
+          {{ summary.jobs_used }} / {{ summary.jobs_limit }}
+        </div>
+        {% if summary.jobs_limit > 0 %}
+        {% set jobs_pct = ((summary.jobs_used / summary.jobs_limit) * 100) | int %}
+        <div class="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full transition-all duration-300" 
+               style="width: {{ jobs_pct if jobs_pct <= 100 else 100 }}%"></div>
+        </div>
+        {% endif %}
+      </div>
+      
+      <!-- Resumes Usage -->
+      <div class="bg-slate-50 rounded-lg p-4">
+        <div class="text-sm text-slate-500 mb-1">Resumes This Period</div>
+        <div class="text-2xl font-semibold text-title">
+          {{ summary.resumes_used }} / {{ summary.resumes_limit }}
+        </div>
+        {% if summary.resumes_limit > 0 %}
+        {% set resumes_pct = ((summary.resumes_used / summary.resumes_limit) * 100) | int %}
+        <div class="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full transition-all duration-300" 
+               style="width: {{ resumes_pct if resumes_pct <= 100 else 100 }}%"></div>
+        </div>
+        {% endif %}
+      </div>
+      
+      <!-- Seats Usage -->
+      <div class="bg-slate-50 rounded-lg p-4">
+        <div class="text-sm text-slate-500 mb-1">Team Seats</div>
+        <div class="text-2xl font-semibold text-title">
+          {{ summary.seats_used }} / {{ summary.seats_limit }}
+        </div>
+        {% if summary.seats_limit > 0 %}
+        {% set seats_pct = ((summary.seats_used / summary.seats_limit) * 100) | int %}
+        <div class="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full transition-all duration-300" 
+               style="width: {{ seats_pct if seats_pct <= 100 else 100 }}%"></div>
+        </div>
+        {% endif %}
+        {% if summary.extra_seats > 0 %}
+        <div class="text-xs text-slate-400 mt-1">
+          +{{ summary.extra_seats }} extra seat(s)
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    
+    {% if summary.period_end %}
+    <div class="mt-4 text-sm text-slate-500">
+      Current billing period ends: <strong>{{ summary.period_end.strftime('%B %d, %Y') }}</strong>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="mt-4 p-4 bg-purple-50 rounded-lg">
+      <p class="text-purple-800 text-sm">
+        Your account has been grandfathered with full access to all features. Thank you for being an early adopter!
+      </p>
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- Quick Actions -->
+  {% if not summary.is_grandfathered %}
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <a href="{{ url_for('billing.change_plan') }}" 
+       class="bg-white rounded-lg shadow-sm border border-slate-200 p-4 hover:border-primary transition-colors">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-medium text-title">Change Plan</div>
+          <div class="text-sm text-slate-500">Upgrade or downgrade</div>
+        </div>
+      </div>
+    </a>
+    
+    <a href="{{ url_for('billing.add_seats') }}" 
+       class="bg-white rounded-lg shadow-sm border border-slate-200 p-4 hover:border-primary transition-colors">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-medium text-title">Add Seats</div>
+          <div class="text-sm text-slate-500">${{ extra_seat_price }}/mo each</div>
+        </div>
+      </div>
+    </a>
+    
+    <a href="{{ url_for('billing.update_payment') }}" 
+       class="bg-white rounded-lg shadow-sm border border-slate-200 p-4 hover:border-primary transition-colors">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+            <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-medium text-title">Manage Payment</div>
+          <div class="text-sm text-slate-500">Update billing info</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  
+  <!-- Subscription Management -->
+  <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+    <h2 class="text-lg font-semibold text-title mb-4">Subscription Management</h2>
+    
+    {% if subscription and subscription.status == 'canceled' %}
+    <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+      <p class="text-sm text-amber-800">
+        <strong>Subscription canceled.</strong> You have access until {{ subscription.get_period_end_date().strftime('%B %d, %Y') }}.
+        <a href="{{ url_for('billing.change_plan') }}" class="underline hover:no-underline ml-1">Reactivate</a>
+      </p>
+    </div>
+    {% endif %}
+    
+    <div class="space-y-3">
+      {% if subscription and subscription.status == 'active' %}
+      <a href="{{ url_for('billing.cancel_subscription') }}" 
+         class="block text-sm text-slate-600 hover:text-red-600 transition-colors">
+        Cancel subscription
+      </a>
+      {% endif %}
+      
+      <div class="text-sm text-slate-500 pt-2 border-t border-slate-100">
+        Need help? Contact us at <a href="mailto:support@alterasf.com" class="text-primary hover:underline">support@alterasf.com</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% else %}
+  <!-- No subscription found - show setup prompt -->
+  <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 text-center">
+    <h2 class="text-lg font-semibold text-title mb-2">No Subscription Found</h2>
+    <p class="text-slate-500 mb-4">It looks like your account doesn't have a subscription set up yet.</p>
+    <a href="{{ url_for('billing.signup') }}" class="inline-block px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+      Choose a Plan
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+

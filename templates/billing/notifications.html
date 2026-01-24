@@ -1,0 +1,349 @@
+{# 
+  Limit Notification Components - matches Figma designs
+  
+  Include this partial where you want to show limit notifications.
+  
+  Usage:
+    {% include 'billing/notifications.html' %}
+    
+  Or show a specific notification:
+    {% include 'billing/notifications.html' with notification=my_notification %}
+#}
+
+{# ─── Notification Modal Component ─────────────────────────────────────── #}
+{% macro notification_modal(notification, show=false) %}
+<div class="limit-notification-modal {% if show %}active{% endif %}" 
+     id="limit-notification-modal"
+     data-notification-type="{{ notification.cta_action if notification else '' }}">
+  <div class="limit-notification-card">
+    <button type="button" class="notification-close" onclick="closeLimitNotification()">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 5L5 15M5 5l10 10"/>
+      </svg>
+    </button>
+    
+    <h3 class="notification-title">{{ notification.title if notification else 'Limit reached' }}</h3>
+    <p class="notification-message">{{ notification.message if notification else '' }}</p>
+    
+    {% if notification %}
+    <div class="notification-cta">
+      {% if notification.cta_action == 'add_seat' %}
+        <a href="{{ url_for('billing.add_seats') }}" class="btn-primary">{{ notification.cta_text }}</a>
+      {% elif notification.cta_action == 'contact_sales' %}
+        <a href="{{ url_for('billing.enterprise') }}" class="btn-primary">{{ notification.cta_text }}</a>
+      {% else %}
+        <a href="{{ url_for('billing.change_plan') }}" class="btn-primary">{{ notification.cta_text }}</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{# ─── Inline Notification Card (for dashboard grid display) ─────────────── #}
+{% macro notification_card(notification, plan_tier='free', category='general') %}
+<div class="inline-notification-card" data-category="{{ category }}" data-plan="{{ plan_tier }}">
+  <button type="button" class="notification-close-inline" onclick="this.parentElement.remove()">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 4L4 12M4 4l8 8"/>
+    </svg>
+  </button>
+  
+  <h4 class="notification-title-inline">{{ notification.title }}</h4>
+  <p class="notification-message-inline">{{ notification.message }}</p>
+  
+  <div class="notification-cta-inline">
+    {% if notification.cta_action == 'add_seat' %}
+      <a href="{{ url_for('billing.add_seats') }}" class="btn-primary-small">{{ notification.cta_text }}</a>
+    {% elif notification.cta_action == 'contact_sales' %}
+      <a href="{{ url_for('billing.enterprise') }}" class="btn-primary-small">{{ notification.cta_text }}</a>
+    {% else %}
+      <a href="{{ url_for('billing.change_plan') }}" class="btn-primary-small">{{ notification.cta_text }}</a>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{# ─── Styles for Notifications ─────────────────────────────────────────── #}
+<style>
+/* Modal Notification */
+.limit-notification-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.limit-notification-modal.active {
+  display: flex;
+}
+
+.limit-notification-card {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  max-width: 320px;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.notification-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.notification-close:hover {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.notification-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.75rem;
+  padding-right: 1.5rem;
+}
+
+.notification-message {
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+.notification-cta .btn-primary {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  background: #085CFF;
+  color: white;
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: background 0.2s ease;
+}
+
+.notification-cta .btn-primary:hover {
+  background: #0047cc;
+}
+
+/* Inline Notification Cards (Dashboard Grid) */
+.inline-notification-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  position: relative;
+  min-width: 200px;
+  max-width: 240px;
+}
+
+.notification-close-inline {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 0.125rem;
+}
+
+.notification-close-inline:hover {
+  color: #475569;
+}
+
+.notification-title-inline {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+  padding-right: 1.25rem;
+}
+
+.notification-message-inline {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+}
+
+.notification-cta-inline .btn-primary-small {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  background: #085CFF;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  font-size: 0.75rem;
+  transition: background 0.2s ease;
+}
+
+.notification-cta-inline .btn-primary-small:hover {
+  background: #0047cc;
+}
+
+/* Dashboard Notifications Grid (like Figma design) */
+.notifications-dashboard {
+  padding: 2rem;
+}
+
+.notifications-dashboard h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+  background: #1e293b;
+  padding: 1rem 1.5rem;
+  margin: -2rem -2rem 2rem -2rem;
+}
+
+.notifications-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 1200px) {
+  .notifications-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .notifications-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .notifications-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.notifications-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notifications-column-header {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  text-align: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 0.5rem;
+}
+</style>
+
+{# ─── JavaScript for Notifications ─────────────────────────────────────── #}
+<script>
+function showLimitNotification(notification) {
+  const modal = document.getElementById('limit-notification-modal');
+  if (!modal) return;
+  
+  // Update content
+  modal.querySelector('.notification-title').textContent = notification.title;
+  modal.querySelector('.notification-message').textContent = notification.message;
+  modal.dataset.notificationType = notification.cta_action;
+  
+  // Update CTA
+  const ctaContainer = modal.querySelector('.notification-cta');
+  let href = '/billing/change-plan';
+  if (notification.cta_action === 'add_seat') {
+    href = '/billing/add-seats';
+  } else if (notification.cta_action === 'contact_sales') {
+    href = '/billing/enterprise';
+  }
+  ctaContainer.innerHTML = `<a href="${href}" class="btn-primary">${notification.cta_text}</a>`;
+  
+  // Show modal
+  modal.classList.add('active');
+}
+
+function closeLimitNotification() {
+  const modal = document.getElementById('limit-notification-modal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+// Close on backdrop click
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('limit-notification-modal')) {
+    closeLimitNotification();
+  }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeLimitNotification();
+  }
+});
+
+// API helper to check limits
+async function checkLimit(limitType) {
+  try {
+    const response = await fetch(`/billing/api/check-limit/${limitType}`);
+    const data = await response.json();
+    
+    if (data.limit_reached && data.notification) {
+      showLimitNotification(data.notification);
+      return false; // Limit reached
+    }
+    return true; // OK to proceed
+  } catch (error) {
+    console.error('Error checking limit:', error);
+    return true; // Allow action on error
+  }
+}
+
+// API helper to check feature access
+async function checkFeature(featureKey) {
+  try {
+    const response = await fetch(`/billing/api/check-feature/${featureKey}`);
+    const data = await response.json();
+    
+    if (!data.has_access && data.notification) {
+      showLimitNotification(data.notification);
+      return false; // No access
+    }
+    return true; // Has access
+  } catch (error) {
+    console.error('Error checking feature:', error);
+    return true; // Allow on error
+  }
+}
+</script>
+
+{# ─── Auto-show notification from session ─────────────────────────────── #}
+{% if session.get('limit_notification') %}
+{{ notification_modal(session.get('limit_notification'), show=true) }}
+{% set _ = session.pop('limit_notification', None) %}
+{% else %}
+{# Include empty modal for JS to populate #}
+{{ notification_modal({}) }}
+{% endif %}
+

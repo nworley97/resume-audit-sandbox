@@ -37,8 +37,16 @@
     </button>
   </form>
 
+  <!-- Sign up link -->
+  <p class="mt-6 text-sm text-gray-600">
+    Don't have an account? 
+    <a href="{{ url_for('billing.signup') }}" class="text-primary hover:underline font-medium">
+      Sign up
+    </a>
+  </p>
+
   <!-- Footer -->
-  <p class="mt-6 text-xs text-gray-500">
+  <p class="mt-4 text-xs text-gray-500">
     <a href="https://alterasf.com/" target="_blank" rel="noopener noreferrer" 
        class="hover:text-slate-700 hover:underline cursor-pointer transition-colors duration-200">
       Powered by AlteraSF
