@@ -527,6 +527,21 @@ def home():
     return render_template("landing.html")
 
 
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
+@app.route("/product")
+def product_page():
+    return render_template("product.html")
+
+
+@app.route("/pricing")
+def pricing_page():
+    return render_template("pricing_page.html")
+
+
 # ─── CSV Export (All or Current View), tenant-scoped ─────────────
 @app.route("/candidates/export.csv")
 @app.route("/<tenant>/candidates/export.csv")

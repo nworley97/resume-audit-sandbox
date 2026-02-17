@@ -43,7 +43,7 @@
     <div class="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap justify-center gap-[16px]">
 
       <!-- Free Card -->
-      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:min-h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
         <div class="flex flex-col gap-[4px] mb-[16px]">
           <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Get started for</span>
           <span class="font-ibm-sans font-bold text-[30px] text-black">Free*</span>
@@ -75,8 +75,44 @@
         </button>
       </div>
 
+      <!-- Starter Card -->
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:min-h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
+        <div class="flex flex-col gap-[4px] mb-[16px]">
+          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Starter</span>
+          <div class="flex items-baseline">
+            <span class="pricing-amount font-bold text-[30px] text-black" data-monthly="$49" data-yearly="$32" style="font-family: 'Poppins', sans-serif;">$49</span>
+            <span class="text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">/mo*</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-[12px] flex-1">
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="font-ibm-sans text-[16px] text-black">3 active jobs</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Up to 100 resumes</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Relevancy Score</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">1 seat</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
+          </div>
+        </div>
+        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="starter" data-plan-name="Starter" data-monthly-price="$49/mo" data-yearly-price="$32/mo" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+          Select Plan
+        </button>
+      </div>
+
       <!-- Pro Card -->
-      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:min-h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
         <div class="flex flex-col gap-[4px] mb-[16px]">
           <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Pro</span>
           <div class="flex items-baseline">
@@ -120,7 +156,7 @@
       </div>
 
       <!-- Ultra Card -->
-      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:min-h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
         <div class="flex flex-col gap-[4px] mb-[16px]">
           <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Ultra</span>
           <div class="flex items-baseline">
@@ -172,7 +208,7 @@
       </div>
 
       <!-- Enterprise Card -->
-      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[250px] xl:w-[270px] min-h-[480px] lg:min-h-[540px] shrink-0 lg:shrink p-[24px] flex flex-col">
         <div class="flex flex-col gap-[4px] mb-[16px]">
           <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Enterprise</span>
           <span class="font-bold text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">Contact Us</span>
