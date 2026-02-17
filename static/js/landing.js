@@ -187,15 +187,18 @@
   var demoPlayBtn = document.getElementById('demo-play-btn');
   var demoModal = document.getElementById('demo-modal');
   var demoModalClose = document.getElementById('demo-modal-close');
+  var demoVideo = document.getElementById('demo-video');
 
   if (demoPlayBtn && demoModal) {
     demoPlayBtn.addEventListener('click', function () {
       demoModal.classList.remove('hidden');
       demoModal.classList.add('flex');
       document.body.style.overflow = 'hidden';
+      if (demoVideo) demoVideo.play();
     });
 
     function closeDemoModal() {
+      if (demoVideo) { demoVideo.pause(); }
       demoModal.classList.add('hidden');
       demoModal.classList.remove('flex');
       document.body.style.overflow = '';

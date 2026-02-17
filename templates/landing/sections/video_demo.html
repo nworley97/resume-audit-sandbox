@@ -41,12 +41,10 @@
     </button>
     <!-- Video container -->
     <div class="bg-black rounded-[12px] overflow-hidden aspect-video w-full flex items-center justify-center">
-      <div id="demo-video-container" class="w-full h-full flex items-center justify-center">
-        <p class="font-ibm-sans text-white text-[18px] md:text-[20px] text-center px-8">
-          Demo video coming soon.<br>
-          <span class="text-[14px] md:text-[16px] text-white/70 mt-2 block">Contact <a href="mailto:info@alterasf.com" class="underline text-landing-blue">info@alterasf.com</a> for a live walkthrough.</span>
-        </p>
-      </div>
+      <video id="demo-video" class="w-full h-full" controls>
+        <source src="{{ url_for('static', filename='video/AlteraSF_Demo.mp4') }}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
     </div>
   </div>
 </div>
