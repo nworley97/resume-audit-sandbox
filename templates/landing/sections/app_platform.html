@@ -1,25 +1,32 @@
-<!-- Section 8: Application Platform -->
-<section id="platform" class="bg-white py-20">
-  <div class="max-w-[1020px] mx-auto px-6">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-      <!-- Left: Text + CTA -->
-      <div>
-        <p class="font-ibm-sans text-[16px] text-[#3D3D3D] leading-[30px] mb-2 reveal">Our Job Platform</p>
-        <div class="flex flex-col gap-5 mb-8">
-          <h2 class="font-ibm-serif font-bold text-[36px] sm:text-[48px] text-landing-blue leading-[1.1] reveal reveal-delay-1">
-            Post jobs. Find talent. Fast.
-          </h2>
-          <p class="text-[18px] text-[#3D3D3D] leading-[1.4] reveal reveal-delay-2" style="font-family: 'Roboto', 'IBM Plex Sans', sans-serif;">Take a look</p>
+<!-- Section 8: Job Platform -->
+<section id="platform" class="bg-landing-blue relative overflow-hidden" style="height: 688px;">
+  <div class="max-w-[1440px] mx-auto relative h-full">
+    <!-- Left: Text + CTA -->
+    <div class="absolute left-[210px] top-[104px] w-[498px] flex flex-col">
+      <div class="flex flex-col gap-[24px]">
+        <!-- Pill label -->
+        <div class="inline-flex self-start bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+          <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Job Platform</span>
         </div>
-        <a href="/billing/signup" class="reveal reveal-delay-3 inline-flex items-center justify-center bg-landing-cta text-white h-14 px-8 border-2 border-landing-cta font-medium text-[20px] tracking-[0.5px] hover:bg-[#0d53d6] hover:border-[#0d53d6] transition-all duration-200" style="font-family: 'Roboto', 'IBM Plex Sans', sans-serif;">
-          Try it Free
-        </a>
+        <div class="flex flex-col gap-[48px] overflow-clip w-[498px]">
+          <h2 class="font-ibm-sans font-bold text-[48px] text-black tracking-[-0.96px] leading-normal w-[411px] reveal reveal-delay-1">
+            Post jobs. Find talent fast.
+          </h2>
+          <p class="text-[18px] text-black leading-[1.4] reveal reveal-delay-2" style="font-family: 'Roboto', sans-serif; font-weight: 400;">
+            With AlteraSF, you can host your job listings on a central web platform. Use your unique posting link on your company site or social media to help applicants find and apply for roles easily.
+          </p>
+        </div>
       </div>
+    </div>
 
-      <!-- Right: Screenshot -->
-      <div class="reveal reveal-delay-2">
-        <img src="https://www.figma.com/api/mcp/asset/2671ef07-f2f4-48e2-89b6-97bbf041512b" alt="AlteraSF Job Platform" class="rounded-xl shadow-landing-soft w-full" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-landing-soft h-[536px] flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-400 text-[64px]\'>work</span></div>'">
-      </div>
+    <!-- CTA Button -->
+    <a href="/billing/signup" class="absolute left-[210px] top-[552px] inline-flex items-center justify-center bg-white border border-black h-[56px] p-[16px] rounded-[12px] reveal reveal-delay-3">
+      <span class="px-[16px] font-ibm-sans font-medium text-[20px] text-black leading-none">Try it Free</span>
+    </a>
+
+    <!-- Right: Screenshot -->
+    <div class="absolute left-[732px] top-[104px] w-[498px] h-[504px] rounded-[12px] shadow-landing-card reveal reveal-delay-2">
+      <img src="https://www.figma.com/api/mcp/asset/114467d9-086e-49e6-8e48-42ea1623fc44" alt="AlteraSF Job Platform" class="rounded-[12px] w-full h-full object-cover" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-100 to-gray-200 rounded-[12px] w-full h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-400 text-[64px]\'>work</span></div>'">
     </div>
   </div>
 </section>

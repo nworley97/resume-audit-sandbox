@@ -34,9 +34,11 @@ module.exports = {
         success: "#27AE60",
         warning: "#F2994A",
         error: "#EB5757",
-        'landing-blue': '#24608E',
-        'landing-cta': '#0F62FE',
+        'landing-blue': '#3086c0',
+        'landing-navy': '#001e3d',
         'landing-light': '#EDF8FF',
+        'landing-label-border': '#b2dbf6',
+        'landing-testimonial-bg': '#c6dbe9',
       },
       fontFamily: {
         sans: ["Geist","Poppins","Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
@@ -46,9 +48,10 @@ module.exports = {
         mono: ["SF Mono", "Menlo", "monospace"],
       },
       boxShadow: {
-        'landing-card': '0px 2px 10px rgba(0,0,0,0.5)',
-        'landing-testimonial': '0px 4px 10px #24608E',
-        'landing-soft': '0px 4px 4px rgba(0,0,0,0.25)',
+        'landing-card': '0px 4px 8px rgba(0,0,0,0.5)',
+        'landing-card-light': '0px 2px 8px rgba(0,0,0,0.5)',
+        'landing-label': '0px 2px 4px rgba(0,0,0,0.25)',
+        'landing-btn': '0px 4px 4px rgba(0,0,0,0.25)',
       },
       lineHeight: {
         snug: "1.35",

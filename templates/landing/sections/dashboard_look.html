@@ -1,21 +1,33 @@
-<!-- Section 5: Recruiters Dashboard -->
-<section id="dashboard" class="bg-white py-20 relative overflow-hidden">
-  <!-- Decorative ellipse -->
-  <div class="absolute top-[700px] right-[-100px] w-[634px] h-[634px] bg-landing-blue/5 rounded-full blur-3xl"></div>
-
-  <div class="max-w-[1020px] mx-auto px-6 relative z-10">
-    <div class="flex flex-col gap-[40px]">
-      <div class="flex flex-col gap-4">
-        <p class="font-ibm-sans font-bold text-[16px] landing-gradient-text reveal">A Deeper Look</p>
-        <div class="flex flex-col gap-4">
-          <h2 class="font-ibm-serif font-bold text-[36px] sm:text-[48px] text-landing-blue leading-[48px] reveal reveal-delay-1">Recruiters Dashboard</h2>
-          <p class="font-ibm-sans text-[16px] text-black leading-[24px] reveal reveal-delay-2">Take a deeper look at how AlteraSF can help your team.</p>
+<!-- Section 5: Recruiters Dashboard Overview -->
+<section id="dashboard" class="bg-landing-light relative overflow-hidden" style="height: 814px;">
+  <div class="max-w-[1440px] mx-auto relative">
+    <div class="absolute left-[159px] top-[80px] w-[1122px] flex flex-col gap-[48px] items-center">
+      <!-- Header -->
+      <div class="flex flex-col gap-[8px] items-center justify-center w-full">
+        <!-- Pill label -->
+        <div class="bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+          <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Deeper Insights</span>
+        </div>
+        <div class="flex flex-col gap-[24px] items-center justify-center overflow-clip w-full">
+          <h2 class="font-ibm-sans font-bold text-[48px] text-black tracking-[-0.96px] w-[498px] reveal reveal-delay-1" style="line-height: 100.04%;">
+            Recruiters Dashboard
+          </h2>
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] text-center reveal reveal-delay-2">
+            See how AlteraSF helps your team review applicants effortlessly with automatic filtering based on claim validity.
+          </p>
         </div>
       </div>
 
-      <!-- Dashboard screenshot -->
-      <div class="reveal reveal-delay-3">
-        <img src="https://www.figma.com/api/mcp/asset/c6df903c-fee2-4eb2-996a-0f773779e4a2" alt="AlteraSF Recruiters Dashboard" class="rounded-xl w-full" style="box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.5);" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl aspect-[1182/490] w-full flex items-center justify-center\' style=\'box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.5);\'><span class=\'material-symbols-outlined text-gray-400 text-[64px]\'>dashboard</span></div>'">
+      <!-- Dashboard screenshots (overlapping) -->
+      <div class="relative reveal reveal-delay-3" style="display: inline-grid; grid-template-columns: max-content; grid-template-rows: max-content;">
+        <!-- Main image -->
+        <div class="rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)] w-[933px] h-[397px]" style="grid-column: 1; grid-row: 1;">
+          <img src="https://www.figma.com/api/mcp/asset/3ce21d7a-55c1-40b5-8151-23024eb80370" alt="Cross Validation Matrix" class="rounded-[12px] w-full h-full object-cover" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-100 to-gray-200 rounded-[12px] w-full h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-400 text-[64px]\'>dashboard</span></div>'">
+        </div>
+        <!-- Overlapping smaller image -->
+        <div class="rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)] w-[498px] h-[249px]" style="grid-column: 1; grid-row: 1; margin-left: 522px; margin-top: 214px;">
+          <img src="https://www.figma.com/api/mcp/asset/b1c74cb8-f721-4bbe-9e02-1cd00db5411a" alt="Diamonds in the Rough" class="rounded-[12px] w-full h-full object-cover" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-100 to-gray-200 rounded-[12px] w-full h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-400 text-[64px]\'>analytics</span></div>'">
+        </div>
       </div>
     </div>
   </div>

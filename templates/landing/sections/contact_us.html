@@ -1,24 +1,31 @@
 <!-- Section 13: Contact Us -->
-<section id="contact" class="py-20" style="background: rgba(255,255,255,0.5);">
-  <div class="max-w-[1020px] mx-auto px-6">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-      <!-- Left: Image placeholder -->
-      <div class="reveal">
-        <div class="bg-[#D9D9D9] rounded-xl h-[248px] w-full"></div>
+<section id="contact" class="bg-landing-light relative overflow-hidden" style="height: 424px;">
+  <div class="max-w-[1440px] mx-auto relative h-full">
+    <!-- Left: Text + CTA -->
+    <div class="absolute left-[210px] top-[80px] w-[498px] flex flex-col gap-[24px]">
+      <!-- Pill label -->
+      <div class="inline-flex self-start bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+        <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Contact Us</span>
       </div>
+      <div class="flex flex-col gap-[16px] w-full">
+        <h2 class="font-ibm-sans font-bold text-[48px] text-[#1a1a1a] tracking-[-0.96px] leading-[1.1] w-[411px] reveal reveal-delay-1">
+          Get in Touch
+        </h2>
+        <p class="text-[18px] text-black leading-[1.4] reveal reveal-delay-2" style="font-family: 'Roboto', sans-serif; font-weight: 400;">
+          Any questions or remarks? Just write us a message and we'll get back to you!
+        </p>
+      </div>
+    </div>
 
-      <!-- Right: Contact info -->
-      <div class="flex flex-col gap-[40px] reveal reveal-delay-1">
-        <div class="flex flex-col gap-5">
-          <h2 class="font-ibm-serif font-bold text-[32px] sm:text-[42px] text-landing-blue leading-normal">Get in Touch</h2>
-          <p class="font-medium text-[18px] text-[#717171]" style="font-family: 'Poppins', 'IBM Plex Sans', sans-serif;">
-            Any question or remarks? Just write us a message!
-          </p>
-        </div>
-        <a href="mailto:demo@gmail.com" class="inline-flex items-center justify-center bg-landing-cta text-white h-14 px-8 border-2 border-landing-cta font-medium text-[20px] tracking-[0.5px] hover:bg-[#0d53d6] hover:border-[#0d53d6] transition-all duration-200 w-fit" style="font-family: 'Roboto', 'IBM Plex Sans', sans-serif;">
-          Contact Us
-        </a>
-      </div>
+    <!-- CTA Button -->
+    <a href="mailto:info@alterasf.com" class="absolute left-[210px] top-[289px] inline-flex items-center justify-center bg-landing-blue h-[56px] p-[16px] rounded-[12px] reveal reveal-delay-3 cursor-pointer">
+      <span class="px-[16px] font-medium text-[20px] text-white leading-none tracking-[0.5px]" style="font-family: 'Roboto', sans-serif;">Contact Us</span>
+    </a>
+
+    <!-- Right: Image with gradient overlay -->
+    <div class="absolute left-[732px] top-[81px] w-[498px] h-[264px] rounded-[12px] shadow-landing-card overflow-hidden reveal reveal-delay-2">
+      <img src="https://www.figma.com/api/mcp/asset/fe570a04-e925-4c7e-9419-1407363bcc05" alt="" class="absolute w-full h-[126.28%] left-0 top-[-18.25%] object-cover" onerror="this.parentElement.classList.add('bg-gray-200');this.remove()">
+      <div class="absolute inset-0 rounded-[12px]" style="background: linear-gradient(to bottom, rgba(30,62,84,0.5), rgba(48,134,192,0.5));"></div>
     </div>
   </div>
 </section>

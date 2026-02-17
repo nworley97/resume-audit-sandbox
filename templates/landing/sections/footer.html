@@ -1,86 +1,61 @@
 <!-- Section 14: Footer -->
-<footer id="footer" class="text-white pt-12 pb-8 relative overflow-hidden" style="min-height: 479px;">
-  <!-- Background image -->
-  <div class="absolute inset-0">
-    <img src="https://www.figma.com/api/mcp/asset/cd459bdd-ee56-47ef-b7b8-94bed5c0f836" alt="" class="absolute inset-0 w-full h-full object-cover" onerror="this.parentElement.classList.add('bg-[#0d1b2a]');this.remove()">
-  </div>
+<footer id="footer" class="bg-landing-blue relative overflow-hidden" style="height: 441px;">
+  <div class="max-w-[1440px] mx-auto relative">
+    <div class="absolute left-[210px] top-[81px] w-[1016px] flex flex-wrap gap-x-[50px] gap-y-[40px] items-end content-end">
+      <!-- Divider line -->
+      <div class="w-[1016px] h-0 border-t border-black shrink-0"></div>
 
-  <div class="max-w-[1020px] mx-auto px-6 relative z-10">
-    <!-- Logo -->
-    <div class="mb-8">
-      <span class="font-ibm-serif font-bold text-[22px] text-white">AlteraSF</span>
-    </div>
-
-    <!-- Divider -->
-    <div class="border-t border-white/15 mb-10"></div>
-
-    <!-- Footer columns + newsletter -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8 mb-12">
-      <!-- Reach Us -->
-      <div class="col-span-2 sm:col-span-1 lg:col-span-1">
-        <h4 class="font-semibold text-[18px] leading-[26px] mb-4" style="font-family: 'Poppins', sans-serif;">Reach us</h4>
-        <ul class="space-y-3 text-[16px]" style="font-family: 'Poppins', sans-serif;">
-          <li class="flex items-start gap-2">
-            <img src="https://www.figma.com/api/mcp/asset/39e10732-63fe-4d3c-8426-4012586e8f8c" alt="" class="w-[24px] h-[24px] mt-0.5 flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-[18px] mt-0.5 flex-shrink-0 text-white/70\'>phone</span>'">
-            <span class="text-white">+1012 3456 789</span>
-          </li>
-          <li class="flex items-start gap-2">
-            <img src="https://www.figma.com/api/mcp/asset/2fc1bc13-842b-4875-85e0-fa9f75e99051" alt="" class="w-[24px] h-[24px] mt-0.5 flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-[18px] mt-0.5 flex-shrink-0 text-white/70\'>mail</span>'">
-            <span class="text-white">demo@gmail.com</span>
-          </li>
-          <li class="flex items-start gap-2">
-            <img src="https://www.figma.com/api/mcp/asset/0b6ed4b5-70a9-4bfa-9fbe-22193ebd3179" alt="" class="w-[24px] h-[24px] mt-0.5 flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-[18px] mt-0.5 flex-shrink-0 text-white/70\'>location_on</span>'">
-            <span class="text-white">132 Dartmouth Street Boston, Massachusetts 02156 United States</span>
-          </li>
-        </ul>
+      <!-- Logo column -->
+      <div class="w-[387px] h-[176px] shrink-0">
+        <div class="h-[50px] w-[240px]">
+          <img src="{{ url_for('static', filename='img/logo_word.png') }}" alt="AlteraSF" class="h-full w-auto object-contain" style="filter: brightness(0);" onerror="this.outerHTML='<span class=\'font-ibm-sans font-bold text-[28px] text-black\'>ALTERA</span>'">
+        </div>
       </div>
 
-      <!-- Company -->
-      <div>
-        <h4 class="font-semibold text-[18px] leading-[26px] mb-4" style="font-family: 'Poppins', sans-serif;">Company</h4>
-        <ul class="space-y-3 text-[16px]" style="font-family: 'Poppins', sans-serif;">
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">About</a></li>
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Contact</a></li>
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Blogs</a></li>
-        </ul>
-      </div>
+      <!-- Content columns container -->
+      <div class="w-[557px] h-[176px] relative shrink-0">
+        <!-- Reach Us -->
+        <div class="absolute left-0 top-0 w-[225px] flex flex-col gap-[24px]">
+          <h4 class="font-ibm-sans font-medium text-[24px] text-black leading-none">Reach Us</h4>
+          <div class="flex flex-col gap-[24px] w-[225px]">
+            <!-- Phone -->
+            <div class="flex gap-[8px] items-center">
+              <img src="https://www.figma.com/api/mcp/asset/4ce8ae31-3d8c-427c-bc75-16baa742fe45" alt="" class="w-[24px] h-[24px] flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[24px]\'>phone</span>'">
+              <span class="font-ibm-sans text-[16px] text-black leading-none">603-306-7970</span>
+            </div>
+            <!-- Email -->
+            <div class="flex gap-[8px] items-center w-full">
+              <img src="https://www.figma.com/api/mcp/asset/3adca054-990b-4cf5-abdc-544d441cc1c1" alt="" class="w-[24px] h-[24px] flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[24px]\'>mail</span>'">
+              <span class="font-ibm-sans text-[16px] text-black leading-none w-[193px]">info@alterasf.com</span>
+            </div>
+            <!-- Location -->
+            <div class="flex gap-[8px] items-center w-full">
+              <img src="https://www.figma.com/api/mcp/asset/9e6149c7-6871-4476-9b80-16b4ba3e5206" alt="" class="w-[24px] h-[24px] flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[24px]\'>location_on</span>'">
+              <span class="font-ibm-sans text-[16px] text-black leading-none w-[252px]">550 Ortega Avenue #A315  Mountain View, CA 94040 </span>
+            </div>
+          </div>
+        </div>
 
-      <!-- Quick Links -->
-      <div>
-        <h4 class="font-semibold text-[18px] leading-[26px] mb-4" style="font-family: 'Poppins', sans-serif;">Quick Links</h4>
-        <ul class="space-y-3 text-[16px]" style="font-family: 'Poppins', sans-serif;">
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Techlabz Keybox</a></li>
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Downloads</a></li>
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Forum</a></li>
-        </ul>
-      </div>
+        <!-- Company -->
+        <div class="absolute left-[261px] top-0 w-[117px] flex flex-col gap-[24px] text-black">
+          <h4 class="font-ibm-sans font-medium text-[24px] leading-none">Company</h4>
+          <a href="#how-it-works" class="font-ibm-sans text-[16px] leading-none hover:opacity-80 transition-opacity cursor-pointer">Product</a>
+          <a href="#contact" class="font-ibm-sans text-[16px] leading-none hover:opacity-80 transition-opacity cursor-pointer">Pricing</a>
+          <a href="#footer" class="font-ibm-sans text-[16px] leading-none hover:opacity-80 transition-opacity cursor-pointer">About Us</a>
+        </div>
 
-      <!-- Legal -->
-      <div>
-        <h4 class="font-semibold text-[18px] leading-[26px] mb-4" style="font-family: 'Poppins', sans-serif;">Legal</h4>
-        <ul class="space-y-3 text-[16px]" style="font-family: 'Poppins', sans-serif;">
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Privacy Policy</a></li>
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Terms &amp; Services</a></li>
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Terms of Use</a></li>
-          <li><a href="#" class="text-white hover:text-white/80 transition-colors duration-200">Refund Policy</a></li>
-        </ul>
-      </div>
-
-      <!-- Newsletter -->
-      <div class="col-span-2 sm:col-span-3 lg:col-span-1">
-        <div class="bg-[#131313] rounded-[10px] p-6">
-          <h4 class="font-semibold text-[18px] leading-[26px] mb-4" style="font-family: 'Poppins', sans-serif;">Join Our Newsletter</h4>
-          <form class="flex gap-0 mb-3" onsubmit="return false;">
-            <input type="email" placeholder="Your email address" class="flex-1 bg-[#1E1E1E] text-white text-[11px] px-4 py-3 rounded-l-[4px] border-0 outline-none placeholder:text-[#616161]" style="font-family: 'Poppins', sans-serif;">
-            <button type="submit" class="bg-landing-cta text-white text-[12px] font-medium px-4 py-3 rounded-r-[4px] hover:bg-[#0d53d6] transition-colors duration-200" style="font-family: 'Poppins', sans-serif;">
-              Subscribe
-            </button>
-          </form>
-          <p class="text-white/50 text-[13px] font-medium" style="font-family: 'Manrope', sans-serif;">
-            * Will send you weekly updates for your better tool management.
-          </p>
+        <!-- Legal -->
+        <div class="absolute left-[435px] top-0 w-[119px] flex flex-col gap-[24px] text-black leading-none">
+          <h4 class="font-ibm-sans font-medium text-[24px]">Legal</h4>
+          <a href="#" class="font-ibm-sans text-[16px] hover:opacity-80 transition-opacity cursor-pointer">Privacy Policy</a>
+          <a href="#" class="font-ibm-sans text-[16px] hover:opacity-80 transition-opacity cursor-pointer">Terms of Service</a>
         </div>
       </div>
     </div>
+
+    <!-- Copyright -->
+    <p class="absolute left-1/2 -translate-x-1/2 top-[393px] font-ibm-sans text-[16px] text-black text-center leading-none w-[1016px]">
+      &copy; 2026 Altera Strategy Foundry Inc. All rights reserved.
+    </p>
   </div>
 </footer>
