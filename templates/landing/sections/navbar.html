@@ -1,0 +1,44 @@
+<!-- Section 1: Navbar -->
+<nav id="landing-nav" class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm transition-shadow duration-300">
+  <div class="max-w-[1020px] mx-auto px-6 h-[70px] flex items-center justify-between">
+    <!-- Logo -->
+    <a href="/" class="flex-shrink-0">
+      <img src="{{ url_for('static', filename='img/logo_word.png') }}" alt="AlteraSF" class="h-10 w-auto" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\'font-ibm-serif font-bold text-[22px] text-landing-blue\'>AlteraSF</span>'">
+    </a>
+
+    <!-- Desktop nav links -->
+    <div class="hidden md:flex items-center gap-10">
+      <a href="#hero" class="font-ibm-sans text-[16px] text-gray-900 hover:text-landing-blue transition-colors duration-200">Home</a>
+      <a href="#how-it-works" class="font-ibm-sans text-[16px] text-gray-900 hover:text-landing-blue transition-colors duration-200">Product</a>
+      <a href="#contact" class="font-ibm-sans text-[16px] text-gray-900 hover:text-landing-blue transition-colors duration-200">Pricing</a>
+      <a href="#footer" class="font-ibm-sans text-[16px] text-gray-900 hover:text-landing-blue transition-colors duration-200">About Us</a>
+    </div>
+
+    <!-- Login button -->
+    <div class="hidden md:flex items-center">
+      <a href="/login" class="inline-flex items-center justify-center border border-landing-blue text-gray-900 font-ibm-sans text-[16px] rounded-xl px-6 py-2.5 hover:bg-landing-blue hover:text-white transition-all duration-200">
+        Log in
+      </a>
+    </div>
+
+    <!-- Mobile hamburger -->
+    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2" aria-label="Toggle menu">
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot"></span>
+    </button>
+  </div>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100">
+    <div class="px-6 py-4 flex flex-col gap-4">
+      <a href="#hero" class="font-ibm-sans text-[16px] text-gray-900 py-2">Home</a>
+      <a href="#how-it-works" class="font-ibm-sans text-[16px] text-gray-900 py-2">Product</a>
+      <a href="#contact" class="font-ibm-sans text-[16px] text-gray-900 py-2">Pricing</a>
+      <a href="#footer" class="font-ibm-sans text-[16px] text-gray-900 py-2">About Us</a>
+      <a href="/login" class="inline-flex items-center justify-center border border-landing-blue text-gray-900 font-ibm-sans text-[16px] rounded-xl px-6 py-2.5 hover:bg-landing-blue hover:text-white transition-all duration-200 w-full">
+        Log in
+      </a>
+    </div>
+  </div>
+</nav>

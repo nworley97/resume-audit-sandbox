@@ -494,19 +494,19 @@ def docx_to_html_simple(docx_path: Path) -> Markup:
 # ─── Home ─────────────────────────────────────────────────────────
 @app.route("/")
 def home():
-    if not current_user.is_authenticated:
-        return redirect(url_for("login"))
-    slug = session.get("tenant_slug")
-    if not slug and current_user and current_user.tenant_id:
-        db = SessionLocal()
-        try:
-            t = db.get(Tenant, current_user.tenant_id)
-            if t: slug = t.slug
-        finally:
-            db.close()
-    if slug:
-        return redirect(url_for("recruiter", tenant=slug))
-    return redirect(url_for("login"))
+    if current_user.is_authenticated:
+        slug = session.get("tenant_slug")
+        if not slug and current_user.tenant_id:
+            db = SessionLocal()
+            try:
+                t = db.get(Tenant, current_user.tenant_id)
+                if t: slug = t.slug
+            finally:
+                db.close()
+        if slug:
+            return redirect(url_for("recruiter", tenant=slug))
+        return redirect(url_for("recruiter"))
+    return render_template("landing.html")
 
 
 # ─── CSV Export (All or Current View), tenant-scoped ─────────────

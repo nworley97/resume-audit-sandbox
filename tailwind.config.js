@@ -34,11 +34,21 @@ module.exports = {
         success: "#27AE60",
         warning: "#F2994A",
         error: "#EB5757",
+        'landing-blue': '#24608E',
+        'landing-cta': '#0F62FE',
+        'landing-light': '#EDF8FF',
       },
       fontFamily: {
         sans: ["Geist","Poppins","Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
         serif: ["Georgia", "Times New Roman", "serif"],
+        'ibm-serif': ['"IBM Plex Serif"', "Georgia", "serif"],
+        'ibm-sans': ['"IBM Plex Sans"', "Inter", "system-ui", "sans-serif"],
         mono: ["SF Mono", "Menlo", "monospace"],
+      },
+      boxShadow: {
+        'landing-card': '0px 2px 10px rgba(0,0,0,0.5)',
+        'landing-testimonial': '0px 4px 10px #24608E',
+        'landing-soft': '0px 4px 4px rgba(0,0,0,0.25)',
       },
       lineHeight: {
         snug: "1.35",

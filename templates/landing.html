@@ -1,0 +1,99 @@
+{% extends "base_landing.html" %}
+
+{% block head_extra %}
+<style>
+  /* Scroll-reveal animation */
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+  .reveal-delay-4 { transition-delay: 0.35s; }
+
+  /* Navbar scroll state */
+  .navbar-scrolled {
+    box-shadow: 0 1px 12px rgba(0,0,0,0.08);
+  }
+
+  /* Tab active pill */
+  .tab-pill.active {
+    background-color: #24608E;
+    color: #fff;
+  }
+
+  /* Accordion chevron rotation */
+  .accordion-chevron {
+    transition: transform 0.3s ease;
+  }
+  .accordion-item.open .accordion-chevron {
+    transform: rotate(180deg);
+  }
+  .accordion-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+  }
+  .accordion-item.open .accordion-body {
+    max-height: 200px;
+  }
+
+  /* Hero keyword emphasis */
+  .hero-keyword {
+    position: relative;
+    display: inline;
+  }
+  .hero-keyword::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 4px;
+    width: 100%;
+    height: 6px;
+    background: rgba(36, 96, 142, 0.15);
+    border-radius: 3px;
+    z-index: -1;
+  }
+
+  /* Play button pulse */
+  @keyframes pulse-ring {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+  .play-pulse::before {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+    background: rgba(36, 96, 142, 0.2);
+    animation: pulse-ring 2s ease-out infinite;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  {% include "landing/sections/navbar.html" %}
+  {% include "landing/sections/hero.html" %}
+  {% include "landing/sections/how_it_works.html" %}
+  {% include "landing/sections/why_choose_us.html" %}
+  {% include "landing/sections/dashboard_look.html" %}
+  {% include "landing/sections/tools_tabs.html" %}
+  {% include "landing/sections/ai_screening.html" %}
+  {% include "landing/sections/app_platform.html" %}
+  {% include "landing/sections/video_demo.html" %}
+  {% include "landing/sections/testimonials.html" %}
+  {% include "landing/sections/pain_points.html" %}
+  {% include "landing/sections/apply_jobs.html" %}
+  {% include "landing/sections/contact_us.html" %}
+  {% include "landing/sections/footer.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+{% endblock %}
