@@ -7,30 +7,42 @@
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <!-- Card 1: Verification -->
-      <div class="bg-white rounded-xl shadow-landing-card p-8 flex flex-col items-center text-center h-[304px] justify-center reveal reveal-delay-1 hover:-translate-y-1 transition-transform duration-300">
-        <div class="w-[100px] h-[100px] bg-landing-blue rounded-full flex items-center justify-center mb-8 flex-shrink-0">
-          <span class="material-symbols-outlined text-white text-[48px]">verified</span>
+      <div class="bg-white rounded-xl shadow-landing-card h-[304px] relative reveal reveal-delay-1">
+        <div class="absolute left-1/2 -translate-x-1/2 top-[48px] flex flex-col items-center gap-[20px] w-[303px]">
+          <div class="flex flex-col items-center gap-[40px]">
+            <div class="w-[100px] h-[100px] bg-landing-blue rounded-full flex items-center justify-center flex-shrink-0">
+              <img src="https://www.figma.com/api/mcp/asset/b1f9c600-3273-4b40-ad5b-1a3bfe2381f4" alt="Verified" class="w-[48px] h-[48px]" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-white text-[48px]\'>verified</span>'">
+            </div>
+            <h3 class="font-ibm-serif font-semibold text-[24px] text-black text-center leading-[60px]">Verification</h3>
+          </div>
+          <p class="font-ibm-sans text-[17px] text-black text-center leading-normal w-full">Checks if resume claims are true</p>
         </div>
-        <h3 class="font-ibm-serif font-semibold text-[24px] text-black mb-4">Verification</h3>
-        <p class="font-ibm-sans text-[17px] text-black leading-normal">Checks if resume claims are true</p>
       </div>
 
       <!-- Card 2: AI Personalization -->
-      <div class="bg-white rounded-xl shadow-landing-card p-8 flex flex-col items-center text-center h-[304px] justify-center reveal reveal-delay-2 hover:-translate-y-1 transition-transform duration-300">
-        <div class="w-[100px] h-[100px] bg-landing-blue rounded-full flex items-center justify-center mb-8 flex-shrink-0">
-          <span class="material-symbols-outlined text-white text-[48px]">quiz</span>
+      <div class="bg-white rounded-xl shadow-landing-card h-[304px] relative reveal reveal-delay-2">
+        <div class="absolute left-1/2 -translate-x-1/2 top-[48px] flex flex-col items-center gap-[20px] w-[276px]">
+          <div class="flex flex-col items-center gap-[40px]">
+            <div class="w-[100px] h-[100px] bg-landing-blue rounded-full flex items-center justify-center flex-shrink-0">
+              <img src="https://www.figma.com/api/mcp/asset/f91b0a62-0370-40d1-b57c-a4fb05229fdc" alt="Quiz" class="w-[48px] h-[48px]" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-white text-[48px]\'>quiz</span>'">
+            </div>
+            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#09190B] text-center leading-[60px]">AI Personalization</h3>
+          </div>
+          <p class="font-ibm-sans text-[17px] text-black text-center leading-normal w-[276px]">Generates smart questions based on each candidate's background</p>
         </div>
-        <h3 class="font-ibm-serif font-semibold text-[24px] text-[#09190B] mb-4">AI Personalization</h3>
-        <p class="font-ibm-sans text-[17px] text-black leading-normal">Generates smart questions based on each candidate's background</p>
       </div>
 
       <!-- Card 3: Authenticity -->
-      <div class="bg-white rounded-xl shadow-landing-card p-8 flex flex-col items-center text-center h-[304px] justify-center reveal reveal-delay-3 hover:-translate-y-1 transition-transform duration-300">
-        <div class="w-[100px] h-[100px] bg-landing-blue rounded-full flex items-center justify-center mb-8 flex-shrink-0">
-          <span class="material-symbols-outlined text-white text-[48px]">fact_check</span>
+      <div class="bg-white rounded-xl shadow-landing-card h-[304px] relative reveal reveal-delay-3">
+        <div class="absolute left-1/2 -translate-x-1/2 top-[48px] flex flex-col items-center gap-[20px] w-[276px]">
+          <div class="flex flex-col items-center gap-[40px]">
+            <div class="w-[100px] h-[100px] bg-landing-blue rounded-full flex items-center justify-center flex-shrink-0">
+              <img src="https://www.figma.com/api/mcp/asset/f7a84964-9462-45b0-86ce-ffcc1845168c" alt="Fact Check" class="w-[48px] h-[48px]" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-white text-[48px]\'>fact_check</span>'">
+            </div>
+            <h3 class="font-ibm-serif font-semibold text-[24px] text-black text-center leading-[60px]">Authenticity</h3>
+          </div>
+          <p class="font-ibm-sans text-[17px] text-black text-center leading-normal w-[276px]">Measure both factual accuracy and how genuine the responses sound</p>
         </div>
-        <h3 class="font-ibm-serif font-semibold text-[24px] text-black mb-4">Authenticity</h3>
-        <p class="font-ibm-sans text-[17px] text-black leading-normal">Measure both factual accuracy and how genuine the responses sound</p>
       </div>
     </div>
   </div>

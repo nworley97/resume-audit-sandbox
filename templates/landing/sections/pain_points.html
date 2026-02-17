@@ -1,56 +1,105 @@
 <!-- Section 11: Pain Points -->
 <section id="pain-points" class="bg-white py-20">
   <div class="max-w-[1020px] mx-auto px-6">
-    <div class="mb-12">
-      <p class="font-ibm-sans text-[16px] text-black mb-2 reveal">Problem Validation</p>
-      <h2 class="font-ibm-serif font-bold text-[36px] sm:text-[48px] text-landing-blue reveal reveal-delay-1">Pain Points</h2>
+    <!-- Staggered layout: Title top-left, cards in specific positions -->
+    <div class="hidden lg:block relative" style="min-height: 640px;">
+      <!-- Title area - top left -->
+      <div class="absolute left-0 top-[24px] w-[324px] reveal">
+        <p class="font-ibm-sans text-[16px] text-black leading-[30px] mb-2">Problem Validation</p>
+        <h2 class="font-ibm-serif font-bold text-[48px] text-landing-blue">Pain Points</h2>
+      </div>
+
+      <!-- Top row: 2 taller cards (250px) -->
+      <!-- Card: Swamped with applications -->
+      <div class="absolute left-[348px] top-0 w-[324px] h-[250px] bg-white rounded-xl shadow-landing-soft p-6 flex items-center justify-center reveal reveal-delay-1">
+        <div class="w-[283px]">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">
+            "I am actually swamped with applications I haven't had the time to review so a tool like this could be helpful."
+          </p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">
+            &ndash;<br>Bistory (Gunnar Pope)
+          </p>
+        </div>
+      </div>
+
+      <!-- Card: 12,000+ applicants -->
+      <div class="absolute left-[696px] top-0 w-[324px] h-[250px] bg-white rounded-xl shadow-landing-soft p-6 flex items-center justify-center reveal reveal-delay-2">
+        <div class="w-[283px]">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">
+            "Received 12,000+ applicants for internship postings alone. Only got to select 6 so manually going through this process with recruiters was a challenge."
+          </p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">
+            &ndash;<br>Head of Talent Acquisition, B2B Tech Company
+          </p>
+        </div>
+      </div>
+
+      <!-- Bottom row: 3 shorter cards (200px) -->
+      <!-- Card: Unqualified people -->
+      <div class="absolute left-0 top-[312px] w-[324px] h-[200px] bg-white rounded-xl shadow-landing-soft p-6 flex items-center justify-center reveal reveal-delay-1">
+        <div class="w-[283px]">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">
+            "So many unqualified people applied to their open sales role. 500+ people applied and none were qualified after we manually screened them."
+          </p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">
+            &ndash;<br>HR, Entertainment Company
+          </p>
+        </div>
+      </div>
+
+      <!-- Card: Interactive application -->
+      <div class="absolute left-[348px] top-[312px] w-[324px] h-[200px] bg-white rounded-xl shadow-landing-soft p-6 flex items-center justify-center reveal reveal-delay-2">
+        <div class="w-[283px]">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">
+            "An 'interactive' style application is just what's needed in the market to challenge applicants."
+          </p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">
+            &ndash;<br>CHRO/SVP HR, Semiconductor Company
+          </p>
+        </div>
+      </div>
+
+      <!-- Card: AI-generated resumes -->
+      <div class="absolute left-[696px] top-[312px] w-[324px] h-[200px] bg-white rounded-xl shadow-landing-soft p-6 flex items-center justify-center reveal reveal-delay-3">
+        <div class="w-[283px]">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">
+            "New applicants have been using AI-generated resumes; need to find a way to distinguish between AI-generated &amp; human-written resumes."
+          </p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">
+            &ndash;<br>CHRO/SVP HR, XXX(Achieve)
+          </p>
+        </div>
+      </div>
     </div>
 
-    <!-- Quote cards grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <!-- Card 1 -->
-      <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-1 hover:shadow-md transition-shadow duration-200">
-        <svg class="w-8 h-8 text-landing-blue/20 mb-3" fill="currentColor" viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg>
-        <p class="font-ibm-sans text-[16px] text-[#4D4D4D] leading-[1.5] mb-4">
-          "I am actually swamped with applications. Screening each one takes forever and most don't even meet basic requirements."
-        </p>
-        <p class="font-ibm-sans font-bold text-[14px] text-[#4D4D4D]">&ndash; Bistory (Gunnar Pope)</p>
+    <!-- Mobile fallback: stacked cards -->
+    <div class="lg:hidden">
+      <div class="mb-8 reveal">
+        <p class="font-ibm-sans text-[16px] text-black leading-[30px] mb-2">Problem Validation</p>
+        <h2 class="font-ibm-serif font-bold text-[36px] text-landing-blue">Pain Points</h2>
       </div>
 
-      <!-- Card 2 -->
-      <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-2 hover:shadow-md transition-shadow duration-200">
-        <svg class="w-8 h-8 text-landing-blue/20 mb-3" fill="currentColor" viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg>
-        <p class="font-ibm-sans text-[16px] text-[#4D4D4D] leading-[1.5] mb-4">
-          "Received 12,000+ applicants for internship postings alone. We need a way to efficiently identify quality candidates."
-        </p>
-        <p class="font-ibm-sans font-bold text-[14px] text-[#4D4D4D]">&ndash; Head of Talent Acquisition, B2B Tech Company</p>
-      </div>
-
-      <!-- Card 3 -->
-      <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-3 hover:shadow-md transition-shadow duration-200">
-        <svg class="w-8 h-8 text-landing-blue/20 mb-3" fill="currentColor" viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg>
-        <p class="font-ibm-sans text-[16px] text-[#4D4D4D] leading-[1.5] mb-4">
-          "So many unqualified people applied. 500+ people for one role. We couldn't keep up with the volume."
-        </p>
-        <p class="font-ibm-sans font-bold text-[14px] text-[#4D4D4D]">&ndash; HR, Entertainment Company</p>
-      </div>
-
-      <!-- Card 4 -->
-      <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-1 hover:shadow-md transition-shadow duration-200">
-        <svg class="w-8 h-8 text-landing-blue/20 mb-3" fill="currentColor" viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg>
-        <p class="font-ibm-sans text-[16px] text-[#4D4D4D] leading-[1.5] mb-4">
-          "An 'interactive' style application is just what's needed to separate genuine candidates from mass-appliers."
-        </p>
-        <p class="font-ibm-sans font-bold text-[14px] text-[#4D4D4D]">&ndash; CHRO/SVP HR, Semiconductor Company</p>
-      </div>
-
-      <!-- Card 5 -->
-      <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-2 hover:shadow-md transition-shadow duration-200">
-        <svg class="w-8 h-8 text-landing-blue/20 mb-3" fill="currentColor" viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg>
-        <p class="font-ibm-sans text-[16px] text-[#4D4D4D] leading-[1.5] mb-4">
-          "New applicants have been using AI-generated resumes. We need tools to verify authenticity before investing time in interviews."
-        </p>
-        <p class="font-ibm-sans font-bold text-[14px] text-[#4D4D4D]">&ndash; CHRO/SVP HR</p>
+      <div class="flex flex-col gap-4">
+        <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-1">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">"I am actually swamped with applications I haven't had the time to review so a tool like this could be helpful."</p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">&ndash; Bistory (Gunnar Pope)</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-1">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">"Received 12,000+ applicants for internship postings alone. Only got to select 6 so manually going through this process with recruiters was a challenge."</p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">&ndash; Head of Talent Acquisition, B2B Tech Company</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-1">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">"So many unqualified people applied to their open sales role. 500+ people applied and none were qualified after we manually screened them."</p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">&ndash; HR, Entertainment Company</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-1">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">"An 'interactive' style application is just what's needed in the market to challenge applicants."</p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">&ndash; CHRO/SVP HR, Semiconductor Company</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-landing-soft p-6 reveal reveal-delay-1">
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] mb-4">"New applicants have been using AI-generated resumes; need to find a way to distinguish between AI-generated &amp; human-written resumes."</p>
+          <p class="font-ibm-sans font-bold text-[16px] text-black">&ndash; CHRO/SVP HR, XXX(Achieve)</p>
+        </div>
       </div>
     </div>
   </div>

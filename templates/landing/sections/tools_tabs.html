@@ -1,75 +1,101 @@
 <!-- Section 6: Tools Built for Clarity -->
-<section id="tools" class="bg-white py-20">
+<section id="tools" class="bg-white py-10 relative overflow-hidden" style="min-height: 920px;">
   <div class="max-w-[1020px] mx-auto px-6">
-    <h2 class="font-ibm-serif font-medium text-[32px] sm:text-[40px] text-landing-blue text-center mb-10 reveal">
+    <h2 class="font-ibm-serif font-medium text-[32px] sm:text-[40px] text-landing-blue text-center mb-6 reveal">
       Tools built for clarity
     </h2>
 
     <!-- Tabs -->
-    <div class="flex flex-wrap justify-center gap-3 mb-10 reveal reveal-delay-1" id="tools-tabs">
-      <button class="tab-pill active bg-gray-200/50 rounded-[10px] px-5 sm:px-6 py-3 font-ibm-sans text-[16px] sm:text-[20px] cursor-pointer transition-all duration-200 hover:bg-gray-300/50" data-tab="discover">
+    <div class="flex flex-wrap justify-center gap-0 mb-0 reveal reveal-delay-1" id="tools-tabs">
+      <button class="tab-pill active h-[46px] rounded-tl-xl rounded-tr-xl px-5 sm:px-6 font-ibm-sans text-[16px] sm:text-[20px] cursor-pointer transition-all duration-200" data-tab="discover">
         Discover talent
       </button>
-      <button class="tab-pill bg-gray-200/50 rounded-[10px] px-5 sm:px-6 py-3 font-ibm-sans text-[16px] sm:text-[20px] cursor-pointer transition-all duration-200 hover:bg-gray-300/50" data-tab="progress">
+      <button class="tab-pill h-[46px] rounded-tl-xl rounded-tr-xl px-5 sm:px-6 font-ibm-sans text-[16px] sm:text-[20px] cursor-pointer transition-all duration-200" data-tab="progress">
         Candidate progress
       </button>
-      <button class="tab-pill bg-gray-200/50 rounded-[10px] px-5 sm:px-6 py-3 font-ibm-sans text-[16px] sm:text-[20px] cursor-pointer transition-all duration-200 hover:bg-gray-300/50" data-tab="matrix">
+      <button class="tab-pill h-[46px] rounded-tl-xl rounded-tr-xl px-5 sm:px-6 font-ibm-sans text-[16px] sm:text-[20px] cursor-pointer transition-all duration-200" data-tab="matrix">
         Cross validation matrix
       </button>
-      <button class="tab-pill bg-gray-200/50 rounded-[10px] px-5 sm:px-6 py-3 font-ibm-sans text-[16px] sm:text-[20px] cursor-pointer transition-all duration-200 hover:bg-gray-300/50" data-tab="roi">
+      <button class="tab-pill h-[46px] rounded-tl-xl rounded-tr-xl px-5 sm:px-6 font-ibm-sans text-[16px] sm:text-[20px] cursor-pointer transition-all duration-200" data-tab="roi">
         ROI impact
       </button>
     </div>
 
     <!-- Tab content panels -->
     <div class="reveal reveal-delay-2">
-      <div class="bg-white rounded-xl shadow-md overflow-hidden" id="tools-panels">
+      <div class="bg-white rounded-xl overflow-hidden relative" style="box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.5);" id="tools-panels">
         <!-- Discover talent panel -->
         <div class="tab-panel" data-panel="discover">
-          <div class="p-8">
-            <span class="inline-block bg-landing-blue/10 text-landing-blue font-ibm-sans text-[14px] font-medium px-3 py-1 rounded-full mb-4">Overview</span>
-            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#4D4D4D] mb-3">Analytics Dashboard</h3>
-            <p class="font-ibm-sans text-[18px] text-[#21272A] leading-[1.4] max-w-[600px] mb-6">
+          <!-- Overview sub-label -->
+          <div class="px-6 pt-0">
+            <div class="inline-block bg-transparent rounded-tl-xl rounded-tr-xl px-4 py-3">
+              <span class="font-ibm-sans text-[17px] text-black">Overview</span>
+            </div>
+          </div>
+          <div class="px-[63px] pt-6 pb-6">
+            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#4D4D4D] mb-5">Analytics Dashboard</h3>
+            <p class="font-ibm-sans text-[18px] text-[#21272A] leading-[1.4] max-w-[435px]" style="font-family: 'Roboto', 'IBM Plex Sans', sans-serif;">
               All of your job posts can be viewed on the Analytics Dashboard. They are organized separately, making it easy for you to check on each posting.
             </p>
           </div>
-          <img src="https://www.figma.com/api/mcp/asset/74608d8e-f33c-4630-ab43-c410898f3d0b" alt="Analytics Dashboard" class="w-full" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 aspect-[1020/400] flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>analytics</span></div>'">
+          <!-- Dashboard images -->
+          <div class="relative h-[465px] overflow-hidden">
+            <img src="https://www.figma.com/api/mcp/asset/74608d8e-f33c-4630-ab43-c410898f3d0b" alt="Analytics Dashboard" class="w-full h-auto" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>analytics</span></div>'">
+          </div>
         </div>
 
         <!-- Candidate progress panel -->
         <div class="tab-panel hidden" data-panel="progress">
-          <div class="p-8">
-            <span class="inline-block bg-landing-blue/10 text-landing-blue font-ibm-sans text-[14px] font-medium px-3 py-1 rounded-full mb-4">Overview</span>
-            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#4D4D4D] mb-3">Candidate Progress</h3>
-            <p class="font-ibm-sans text-[18px] text-[#21272A] leading-[1.4] max-w-[600px] mb-6">
+          <div class="px-6 pt-0">
+            <div class="inline-block bg-transparent rounded-tl-xl rounded-tr-xl px-4 py-3">
+              <span class="font-ibm-sans text-[17px] text-black">Overview</span>
+            </div>
+          </div>
+          <div class="px-[63px] pt-6 pb-6">
+            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#4D4D4D] mb-5">Candidate Progress</h3>
+            <p class="font-ibm-sans text-[18px] text-[#21272A] leading-[1.4] max-w-[435px]" style="font-family: 'Roboto', 'IBM Plex Sans', sans-serif;">
               Track each candidate's journey through your screening pipeline. See real-time status updates and completion rates.
             </p>
           </div>
-          <img src="https://www.figma.com/api/mcp/asset/1022827a-f770-4b1c-8c6e-7957a40464ea" alt="Candidate Progress" class="w-full" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 aspect-[1020/400] flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>group</span></div>'">
+          <div class="relative h-[465px] overflow-hidden">
+            <img src="https://www.figma.com/api/mcp/asset/1022827a-f770-4b1c-8c6e-7957a40464ea" alt="Candidate Progress" class="w-full h-auto" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>group</span></div>'">
+          </div>
         </div>
 
         <!-- Cross validation matrix panel -->
         <div class="tab-panel hidden" data-panel="matrix">
-          <div class="p-8">
-            <span class="inline-block bg-landing-blue/10 text-landing-blue font-ibm-sans text-[14px] font-medium px-3 py-1 rounded-full mb-4">Overview</span>
-            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#4D4D4D] mb-3">Cross Validation Matrix</h3>
-            <p class="font-ibm-sans text-[18px] text-[#21272A] leading-[1.4] max-w-[600px] mb-6">
+          <div class="px-6 pt-0">
+            <div class="inline-block bg-transparent rounded-tl-xl rounded-tr-xl px-4 py-3">
+              <span class="font-ibm-sans text-[17px] text-black">Overview</span>
+            </div>
+          </div>
+          <div class="px-[63px] pt-6 pb-6">
+            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#4D4D4D] mb-5">Cross Validation Matrix</h3>
+            <p class="font-ibm-sans text-[18px] text-[#21272A] leading-[1.4] max-w-[435px]" style="font-family: 'Roboto', 'IBM Plex Sans', sans-serif;">
               Compare candidate responses against resume claims to identify discrepancies and validate authenticity at scale.
             </p>
           </div>
-          <img src="https://www.figma.com/api/mcp/asset/655a226e-490d-4a33-ada7-024f23ab2e7f" alt="Cross Validation Matrix" class="w-full" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 aspect-[1020/400] flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>grid_view</span></div>'">
+          <div class="relative h-[465px] overflow-hidden">
+            <img src="https://www.figma.com/api/mcp/asset/655a226e-490d-4a33-ada7-024f23ab2e7f" alt="Cross Validation Matrix" class="w-full h-auto" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>grid_view</span></div>'">
+          </div>
         </div>
 
         <!-- ROI impact panel -->
         <div class="tab-panel hidden" data-panel="roi">
-          <div class="p-8">
-            <span class="inline-block bg-landing-blue/10 text-landing-blue font-ibm-sans text-[14px] font-medium px-3 py-1 rounded-full mb-4">Overview</span>
-            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#4D4D4D] mb-3">ROI Impact</h3>
-            <p class="font-ibm-sans text-[18px] text-[#21272A] leading-[1.4] max-w-[600px] mb-6">
+          <div class="px-6 pt-0">
+            <div class="inline-block bg-transparent rounded-tl-xl rounded-tr-xl px-4 py-3">
+              <span class="font-ibm-sans text-[17px] text-black">Overview</span>
+            </div>
+          </div>
+          <div class="px-[63px] pt-6 pb-6">
+            <h3 class="font-ibm-serif font-semibold text-[24px] text-[#4D4D4D] mb-5">ROI Impact</h3>
+            <p class="font-ibm-sans text-[18px] text-[#21272A] leading-[1.4] max-w-[435px]" style="font-family: 'Roboto', 'IBM Plex Sans', sans-serif;">
               Measure the tangible return on your screening investment. See time saved, quality improvements, and cost reductions.
             </p>
           </div>
-          <img src="https://www.figma.com/api/mcp/asset/29d9176f-f584-4434-8e86-9505f874a422" alt="ROI Impact Dashboard" class="w-full" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 aspect-[1020/400] flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>trending_up</span></div>'">
+          <div class="relative h-[465px] overflow-hidden">
+            <img src="https://www.figma.com/api/mcp/asset/29d9176f-f584-4434-8e86-9505f874a422" alt="ROI Impact Dashboard" class="w-full h-auto" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>trending_up</span></div>'">
+          </div>
         </div>
       </div>
     </div>
