@@ -6,8 +6,11 @@
       Tools built for clarity
     </p>
 
-    <!-- Outer tab row (Discover talent, etc.) -->
+    <!-- Tab row: Overview, Discover talent, Candidate progress, Cross validation matrix, ROI impact -->
     <div class="flex flex-wrap items-center justify-center mt-[24px] gap-1 reveal reveal-delay-1" id="tools-tabs">
+      <button class="tab-pill h-[40px] md:h-[46px] rounded-tl-[12px] rounded-tr-[12px] px-3 md:px-6 font-ibm-sans text-[14px] md:text-[20px] cursor-pointer transition-all duration-200" data-tab="overview">
+        Overview
+      </button>
       <button class="tab-pill h-[40px] md:h-[46px] rounded-tl-[12px] rounded-tr-[12px] px-3 md:px-6 font-ibm-sans text-[14px] md:text-[20px] cursor-pointer transition-all duration-200" data-tab="discover">
         Discover talent
       </button>
@@ -25,9 +28,9 @@
     <!-- Tab content panels -->
     <div class="reveal reveal-delay-2 pb-[40px] md:pb-0">
       <div class="bg-white rounded-[12px] overflow-hidden relative min-h-[400px] md:h-[726px]" style="box-shadow: 0px 0px 8px rgba(0,0,0,0.5);" id="tools-panels">
-        <!-- Discover talent panel (default active) -->
-        <div class="tab-panel" data-panel="discover">
-          <!-- Overview sub-tab -->
+
+        <!-- Overview panel (default active) -->
+        <div class="tab-panel" data-panel="overview">
           <div class="flex items-center pl-[16px] md:pl-[24px] pt-0">
             <div class="h-[46px] rounded-tl-[12px] rounded-tr-[12px] flex items-center justify-center px-4">
               <span class="font-ibm-sans text-[17px] text-black">Overview</span>
@@ -46,22 +49,42 @@
           </div>
         </div>
 
-        <!-- Candidate progress panel -->
-        <div class="tab-panel hidden" data-panel="progress">
+        <!-- Discover talent panel -->
+        <div class="tab-panel hidden" data-panel="discover">
           <div class="flex items-center pl-[16px] md:pl-[24px] pt-0">
             <div class="h-[46px] rounded-tl-[12px] rounded-tr-[12px] flex items-center justify-center px-4">
-              <span class="font-ibm-sans text-[17px] text-black">Overview</span>
+              <span class="font-ibm-sans text-[17px] text-black">Discover talent</span>
             </div>
           </div>
           <div class="px-4 md:px-[63px] pt-[20px]">
             <div class="flex flex-col gap-[8px] w-full md:w-[435px] mb-[24px]">
-              <h3 class="font-ibm-sans font-semibold text-[20px] md:text-[24px] text-black w-full md:w-[498px]">Candidate Progress</h3>
+              <h3 class="font-ibm-sans font-semibold text-[20px] md:text-[24px] text-black w-full md:w-[498px]">Find Top 5 Candidates</h3>
               <p class="font-ibm-sans text-[16px] text-black leading-[1.4]">
-                Track each candidate's journey through your screening pipeline. See real-time status updates and completion rates.
+                AlteraSF helps your find your top 5 candidates.
               </p>
             </div>
             <div class="w-full md:h-[448px] md:w-[894px]">
-              <img src="https://www.figma.com/api/mcp/asset/1022827a-f770-4b1c-8c6e-7957a40464ea" alt="Candidate Progress" class="w-full h-full object-cover" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>group</span></div>'">
+              <img src="https://www.figma.com/api/mcp/asset/487e4ff9-c3ef-4aa6-a4e0-9ceacddc0ac2" alt="Find Top 5 Candidates" class="w-full h-full object-cover" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>group</span></div>'">
+            </div>
+          </div>
+        </div>
+
+        <!-- Candidate progress panel -->
+        <div class="tab-panel hidden" data-panel="progress">
+          <div class="flex items-center pl-[16px] md:pl-[24px] pt-0">
+            <div class="h-[46px] rounded-tl-[12px] rounded-tr-[12px] flex items-center justify-center px-4">
+              <span class="font-ibm-sans text-[17px] text-black">Candidate progress</span>
+            </div>
+          </div>
+          <div class="px-4 md:px-[63px] pt-[20px]">
+            <div class="flex flex-col gap-[8px] w-full md:w-[435px] mb-[24px]">
+              <h3 class="font-ibm-sans font-semibold text-[20px] md:text-[24px] text-black w-full md:w-[498px]">Verification Funnel</h3>
+              <p class="font-ibm-sans text-[16px] text-black leading-[1.4]">
+                Track candidates progress across the verification journey.
+              </p>
+            </div>
+            <div class="w-full md:h-[448px] md:w-[894px]">
+              <img src="https://www.figma.com/api/mcp/asset/2ae5f54d-0799-4cf6-b9f6-55070e9904b6" alt="Verification Funnel" class="w-full h-full object-cover" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>filter_alt</span></div>'">
             </div>
           </div>
         </div>
@@ -70,7 +93,7 @@
         <div class="tab-panel hidden" data-panel="matrix">
           <div class="flex items-center pl-[16px] md:pl-[24px] pt-0">
             <div class="h-[46px] rounded-tl-[12px] rounded-tr-[12px] flex items-center justify-center px-4">
-              <span class="font-ibm-sans text-[17px] text-black">Overview</span>
+              <span class="font-ibm-sans text-[17px] text-black">Cross validation matrix</span>
             </div>
           </div>
           <div class="px-4 md:px-[63px] pt-[20px]">
@@ -90,7 +113,7 @@
         <div class="tab-panel hidden" data-panel="roi">
           <div class="flex items-center pl-[16px] md:pl-[24px] pt-0">
             <div class="h-[46px] rounded-tl-[12px] rounded-tr-[12px] flex items-center justify-center px-4">
-              <span class="font-ibm-sans text-[17px] text-black">Overview</span>
+              <span class="font-ibm-sans text-[17px] text-black">ROI impact</span>
             </div>
           </div>
           <div class="px-4 md:px-[63px] pt-[20px]">
@@ -101,7 +124,7 @@
               </p>
             </div>
             <div class="w-full md:h-[448px] md:w-[894px]">
-              <img src="https://www.figma.com/api/mcp/asset/cb3f3d39-acb8-4495-9305-39219ac71f82" alt="ROI Impact Dashboard" class="w-full h-full object-cover" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>trending_up</span></div>'">
+              <img src="https://www.figma.com/api/mcp/asset/e66a542c-aa76-40e3-9250-d61a9a095f84" alt="ROI Impact Dashboard" class="w-full h-full object-cover" onerror="this.outerHTML='<div class=\'bg-gradient-to-br from-gray-50 to-gray-100 h-full flex items-center justify-center\'><span class=\'material-symbols-outlined text-gray-300 text-[56px]\'>trending_up</span></div>'">
             </div>
           </div>
         </div>

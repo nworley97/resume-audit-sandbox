@@ -43,6 +43,11 @@
     const tabs = tabContainer.querySelectorAll('.tab-pill');
     const panels = panelContainer.querySelectorAll('.tab-panel');
 
+    // Default: activate first tab
+    if (tabs.length > 0) {
+      tabs[0].classList.add('active');
+    }
+
     tabContainer.addEventListener('click', function (e) {
       const pill = e.target.closest('.tab-pill');
       if (!pill) return;
