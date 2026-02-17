@@ -1,317 +1,511 @@
-<!-- Section: Frequently Asked Questions -->
-<section id="faq" class="bg-white relative overflow-hidden">
-  <div class="max-w-[1440px] mx-auto px-6 md:px-[210px] py-[40px] md:py-[80px]">
-    <!-- Title -->
-    <h2 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-normal mb-[32px] md:mb-[48px] reveal">
-      Frequently Asked Questions
-    </h2>
+<!-- Section: Pricing & FAQ -->
+<section id="faq" class="bg-landing-light relative overflow-hidden">
+  <!-- Pricing Header -->
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[210px] pt-[40px] md:pt-[80px] pb-[24px]">
+    <div class="flex flex-col items-center gap-[24px]">
+      <!-- Pill label -->
+      <div class="bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+        <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Get Started</span>
+      </div>
+      <h2 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-[#1a1a1a] text-center tracking-[-0.96px] leading-normal reveal reveal-delay-1">
+        Plan Pricing
+      </h2>
+      <p class="font-ibm-sans text-[16px] text-black text-center leading-[1.4] reveal reveal-delay-1">
+        From single roles to full hiring pipelines. Scale at your own pace.
+      </p>
+    </div>
+  </div>
 
-    <!-- FAQ Categories -->
-    <div class="flex flex-col gap-[48px] md:gap-[96px]" id="faq-accordion">
+  <!-- Monthly/Yearly Toggle -->
+  <div class="max-w-[1440px] mx-auto px-6 flex flex-col items-center gap-[8px] mb-[32px] reveal reveal-delay-2">
+    <div class="flex shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] rounded-[8px]">
+      <button id="pricing-monthly-btn" class="bg-landing-blue text-black font-ibm-sans font-medium text-[16px] w-[160px] md:w-[200px] h-[48px] rounded-l-[8px] transition-colors duration-200">
+        Monthly
+      </button>
+      <button id="pricing-yearly-btn" class="bg-white border border-landing-blue text-black font-ibm-sans font-medium text-[16px] w-[160px] md:w-[200px] h-[48px] rounded-r-[8px] cursor-pointer transition-colors duration-200">
+        Yearly
+      </button>
+    </div>
+    <p class="font-medium text-[16px] text-[#0051ff] text-center" style="font-family: 'Poppins', sans-serif;">
+      Save 35% Annually
+    </p>
+  </div>
 
-      <!-- Category 1: Product & Value -->
-      <div class="flex flex-col md:flex-row gap-6 md:gap-[111px] items-start reveal reveal-delay-1">
-        <div class="w-full md:w-[237px] shrink-0">
-          <h3 class="font-ibm-sans font-semibold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-[1.2] md:leading-[58.24px]">
-            Product & Value
-          </h3>
+  <!-- Pricing Cards -->
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[80px] lg:px-[210px] mb-[16px] reveal reveal-delay-2">
+    <div class="flex flex-col sm:flex-row flex-wrap justify-center gap-[16px]">
+
+      <!-- Free Card -->
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[270px] min-h-[480px] lg:h-[540px] p-[24px] flex flex-col">
+        <div class="flex flex-col gap-[4px] mb-[16px]">
+          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Get started for</span>
+          <span class="font-ibm-sans font-bold text-[30px] text-black">Free*</span>
         </div>
-        <div class="flex flex-col gap-[24px] w-full md:w-[672px] cursor-pointer">
-          <!-- Q1 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">What is AlteraSF?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is an AI-powered hiring intelligence platform that extracts claims from resumes, generates challenge questions, and scores technical relevance so you can screen faster and hire smarter.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+        <div class="flex flex-col gap-[12px] flex-1">
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="font-ibm-sans text-[16px] text-black">1 active job</span>
           </div>
-          <!-- Q2 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Why AlteraSF?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is an AI-first hiring intelligence platform designed to help teams verify resume claims, assess job fit, and surface real signal earlier in the hiring process.</p>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">We focus on reducing recruiter workload and interview waste by identifying exaggerated or unsupported claims before they reach the interview loop.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="font-ibm-sans text-[16px] text-black">Up to 25 resumes</span>
           </div>
-          <!-- Q3 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">What problem does it solve?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF helps hiring teams distinguish credible signal from resume noise. As resumes become increasingly optimized for keywords and AI tools, it is harder to assess whether claims are credible and relevant. AlteraSF evaluates claim plausibility &amp; job fit early in the hiring process, helping teams focus interviews on what actually matters.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Relevancy Score</span>
           </div>
-          <!-- Q4 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Who is AlteraSF built for?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is designed for:</p>
-              <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>In-house recruiting &amp; talent teams</li>
-                <li>Hiring managers in technical &amp; non-technical roles</li>
-                <li>Executive search &amp; retained recruiting firms</li>
-                <li>SMB owners without in-house HR functions</li>
-                <li>Companies hiring at scale or for high-impact roles</li>
-              </ul>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">1 seat</span>
           </div>
-          <!-- Q5 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">How is it different from an ATS?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is NOT a traditional ATS.</p>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Most ATS platforms focus on:</p>
-              <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Resume storage</li>
-                <li>Workflow management</li>
-                <li>Keyword matching</li>
-              </ul>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">AlteraSF focuses on:</p>
-              <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Claim validity (Is this resume statement plausible?)</li>
-                <li>Job fit scoring (How well does this candidate align with the role?)</li>
-                <li>AI-generated challenge questions tied directly to resume claims</li>
-              </ul>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Customers can use AlteraSF alongside their ATS.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q6 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Does it replace interviews?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">No. AlteraSF is designed to make interviews shorter, sharper, and more informative.</p>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Instead of generic interviews, hiring teams can:</p>
-              <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Focus on areas of real signal or risk</li>
-                <li>Ask targeted, role-relevant questions</li>
-                <li>Reduce false positives reaching final rounds</li>
-              </ul>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Think of AlteraSF as interview leverage, not interview replacement.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q7 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Who founded AlteraSF?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF was founded by a former Fortune 500 semiconductor engineer &amp; senior global talent strategy leader who has built and advised hiring systems at scale.</p>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">The company was formed as a Delaware C-corporation and is operator-led.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
           </div>
         </div>
+        <a href="/register" class="mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+          Start Free
+        </a>
       </div>
 
-      <!-- Category 2: How it Works -->
-      <div class="flex flex-col md:flex-row gap-6 md:gap-[111px] items-start reveal reveal-delay-1">
-        <div class="w-full md:w-[237px] shrink-0">
-          <h3 class="font-ibm-sans font-semibold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-[1.2] md:leading-[58.24px]">
-            How<br>it Works
-          </h3>
-        </div>
-        <div class="flex flex-col gap-[24px] w-full md:w-[672px] cursor-pointer">
-          <!-- Q1 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">What is Claim Validity?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">Claim Validity is our proprietary approach to assessing whether a resume statement is:</p>
-              <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Technically coherent</li>
-                <li>Internally consistent</li>
-                <li>Aligned with claimed role, industry, and experience patterns</li>
-              </ul>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q2 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">How does the AI generate questions?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF's system analyzes:</p>
-              <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Resume claims</li>
-                <li>Role requirements</li>
-                <li>Experience level expectations</li>
-              </ul>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">It then generates claim-specific challenge questions that test whether a candidate can credibly explain or defend what they listed.</p>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">These questions are designed to be:</p>
-              <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Non-trivial</li>
-                <li>Hard to bluff</li>
-                <li>Relevant to candidate's real job execution</li>
-              </ul>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q3 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Can it be used for non-technical roles?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">Yes. While AlteraSF is especially strong in technical, scientific, and specialized roles, it also performs well for:</p>
-              <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Strategy &amp; Operations</li>
-                <li>Sales leadership</li>
-                <li>Product and program management</li>
-              </ul>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Any role where resume inflation is costly is a good fit.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+      <!-- Pro Card -->
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[270px] min-h-[480px] lg:h-[540px] p-[24px] flex flex-col">
+        <div class="flex flex-col gap-[4px] mb-[16px]">
+          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Pro</span>
+          <div class="flex items-baseline">
+            <span class="font-bold text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">$129</span>
+            <span class="text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">/mo*</span>
           </div>
         </div>
+        <div class="flex flex-col gap-[12px] flex-1">
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="font-ibm-sans text-[16px] text-black">10 active jobs</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Up to 500 resumes</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Relevancy Score</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Claim Validity Score</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Red Flag Detection</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">3 seats</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
+          </div>
+        </div>
+        <a href="/register" class="mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+          Select Plan
+        </a>
       </div>
 
-      <!-- Category 3: Trust, Fairness & Compliance -->
-      <div class="flex flex-col md:flex-row gap-6 md:gap-[111px] items-start reveal reveal-delay-1">
-        <div class="w-full md:w-[237px] shrink-0">
-          <h3 class="font-ibm-sans font-semibold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-[1.2] md:leading-[58.24px]">
-            Trust,<br>Fairness &amp;<br>Compliance
-          </h3>
-        </div>
-        <div class="flex flex-col gap-[24px] w-full md:w-[672px] cursor-pointer">
-          <!-- Q1 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Is AlteraSF biased?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">No. AlteraSF does not score based on demographics, school prestige, or brand names.</p>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Our models are designed to evaluate:</p>
-              <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Logical coherence</li>
-                <li>Technical or experiential alignment</li>
-                <li>Internal consistency</li>
-              </ul>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">This often helps surface "diamonds in the rough," i.e. candidates who are strong but overlooked by traditional filters.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q2 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Is it compliant with regulations?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is built as a decision-support tool, not an automated hiring decision engine.</p>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Hiring decisions remain fully with the employer. Customers are responsible for how outputs are used in compliance with applicable employment laws.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q3 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Is candidate data secure?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">Yes. Candidate data is used solely to provide AlteraSF's services and is never sold or shared. Customer data is isolated by account, and AlteraSF does not train public or third-party models on candidate or customer information.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q4 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Does this affect candidate experience?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is designed to improve candidate experience. Instead of filtering resumes based on keywords or formatting, evaluations are based on the content of a candidate's resume. This supports clearer expectations, more focused interviews, and fairer evaluation.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+      <!-- Ultra Card -->
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[270px] min-h-[480px] lg:h-[540px] p-[24px] flex flex-col">
+        <div class="flex flex-col gap-[4px] mb-[16px]">
+          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Ultra</span>
+          <div class="flex items-baseline">
+            <span class="font-bold text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">$239</span>
+            <span class="text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">/mo*</span>
           </div>
         </div>
+        <div class="flex flex-col gap-[12px] flex-1">
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">20 active job</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Up to 1k resumes</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Job Relevancy Score</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Claim Validity Score</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Red Flag Detection</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Full Analytics Engine</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Dedicated support rep</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">3 seats</span>
+          </div>
+          <div class="flex gap-[8px] items-center">
+            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Job Board</span>
+          </div>
+        </div>
+        <a href="/register" class="mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+          Select Plan
+        </a>
       </div>
 
-      <!-- Category 4: Pricing & Getting Started -->
-      <div class="flex flex-col md:flex-row gap-6 md:gap-[111px] items-start reveal reveal-delay-1">
-        <div class="w-full md:w-[237px] shrink-0">
-          <h3 class="font-ibm-sans font-semibold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-[1.2] md:leading-[58.24px]">
-            Pricing &amp;<br>Getting<br>Started
-          </h3>
+      <!-- Enterprise Card -->
+      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full sm:w-[calc(50%-8px)] lg:w-[270px] min-h-[480px] lg:h-[540px] p-[24px] flex flex-col">
+        <div class="flex flex-col gap-[4px] mb-[16px]">
+          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Enterprise</span>
+          <span class="font-bold text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">Contact Us</span>
         </div>
-        <div class="flex flex-col gap-[24px] w-full md:w-[672px] cursor-pointer">
-          <!-- Q1 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">How do pricing and plans work?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF offers the following types of plans based on active jobs, resume volume, and number of seats (see pricing page for more details):</p>
-              <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Free and starter plans for light usage</li>
-                <li>Professional tiers for recruiting teams</li>
-                <li>Enterprise plans with volume pricing, analytics, and support</li>
-              </ul>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Contact us at <a href="mailto:sales@alterasf.com" class="underline">sales@alterasf.com</a> for enterprise or custom pricing.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q2 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Do you offer pilots or trials?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">Yes, we frequently run pilot programs with in-house talent teams, search firms, and strategic partners. Pilots are structured to prove time saved, signal quality, and false-positive reduction.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
-          <!-- Q3 -->
-          <div class="faq-item flex flex-col gap-[24px] w-full">
-            <button class="faq-trigger flex items-center justify-between w-full text-left">
-              <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">How can I get started?</span>
-              <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
-            </button>
-            <div class="faq-answer hidden">
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">You can:</p>
-              <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
-                <li>Sign up directly on our website (see pricing page)</li>
-                <li>Request a demo</li>
-                <li>Contact us for enterprise or pilot discussions (<a href="mailto:sales@alterasf.com" class="underline">sales@alterasf.com</a>)</li>
-              </ul>
-              <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">We typically onboard new customers in minutes.</p>
-            </div>
-            <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
-          </div>
+        <div class="flex-1">
+          <p class="text-[16px] text-black leading-[1.5]" style="font-family: 'Poppins', sans-serif;">
+            Scaling at the enterprise level?<br>
+            Email <a href="mailto:sales@alterasf.com" class="underline">sales@alterasf.com</a> for tailored pricing.
+          </p>
         </div>
+        <a href="mailto:sales@alterasf.com" class="mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+          Get a Quote
+        </a>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Footnote -->
+  <div class="max-w-[1440px] mx-auto px-6 pb-[40px] md:pb-[80px] reveal reveal-delay-2">
+    <p class="font-ibm-sans font-medium text-[16px] text-black text-center mt-[16px]">
+      *Extra Seats: +$20/mo per seat.
+    </p>
+  </div>
+
+  <!-- FAQ Section -->
+  <div class="bg-white">
+    <div class="max-w-[1440px] mx-auto px-6 md:px-[210px] py-[40px] md:py-[80px]">
+      <!-- Title -->
+      <h2 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-normal mb-[32px] md:mb-[48px] reveal">
+        Frequently Asked Questions
+      </h2>
+
+      <!-- FAQ Categories -->
+      <div class="flex flex-col gap-[48px] md:gap-[96px]" id="faq-accordion">
+
+        <!-- Category 1: Product & Value -->
+        <div class="flex flex-col md:flex-row gap-6 md:gap-[111px] items-start reveal reveal-delay-1">
+          <div class="w-full md:w-[237px] shrink-0">
+            <h3 class="font-ibm-sans font-semibold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-[1.2] md:leading-[58.24px]">
+              Product & Value
+            </h3>
+          </div>
+          <div class="flex flex-col gap-[24px] w-full md:w-[672px] cursor-pointer">
+            <!-- Q1 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">What is AlteraSF?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is an AI-powered hiring intelligence platform that extracts claims from resumes, generates challenge questions, and scores technical relevance so you can screen faster and hire smarter.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q2 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Why AlteraSF?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is an AI-first hiring intelligence platform designed to help teams verify resume claims, assess job fit, and surface real signal earlier in the hiring process.</p>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">We focus on reducing recruiter workload and interview waste by identifying exaggerated or unsupported claims before they reach the interview loop.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q3 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">What problem does it solve?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF helps hiring teams distinguish credible signal from resume noise. As resumes become increasingly optimized for keywords and AI tools, it is harder to assess whether claims are credible and relevant. AlteraSF evaluates claim plausibility &amp; job fit early in the hiring process, helping teams focus interviews on what actually matters.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q4 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Who is AlteraSF built for?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is designed for:</p>
+                <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>In-house recruiting &amp; talent teams</li>
+                  <li>Hiring managers in technical &amp; non-technical roles</li>
+                  <li>Executive search &amp; retained recruiting firms</li>
+                  <li>SMB owners without in-house HR functions</li>
+                  <li>Companies hiring at scale or for high-impact roles</li>
+                </ul>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q5 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">How is it different from an ATS?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is NOT a traditional ATS.</p>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Most ATS platforms focus on:</p>
+                <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Resume storage</li>
+                  <li>Workflow management</li>
+                  <li>Keyword matching</li>
+                </ul>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">AlteraSF focuses on:</p>
+                <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Claim validity (Is this resume statement plausible?)</li>
+                  <li>Job fit scoring (How well does this candidate align with the role?)</li>
+                  <li>AI-generated challenge questions tied directly to resume claims</li>
+                </ul>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Customers can use AlteraSF alongside their ATS.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q6 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Does it replace interviews?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">No. AlteraSF is designed to make interviews shorter, sharper, and more informative.</p>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Instead of generic interviews, hiring teams can:</p>
+                <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Focus on areas of real signal or risk</li>
+                  <li>Ask targeted, role-relevant questions</li>
+                  <li>Reduce false positives reaching final rounds</li>
+                </ul>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Think of AlteraSF as interview leverage, not interview replacement.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q7 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Who founded AlteraSF?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF was founded by a former Fortune 500 semiconductor engineer &amp; senior global talent strategy leader who has built and advised hiring systems at scale.</p>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">The company was formed as a Delaware C-corporation and is operator-led.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category 2: How it Works -->
+        <div class="flex flex-col md:flex-row gap-6 md:gap-[111px] items-start reveal reveal-delay-1">
+          <div class="w-full md:w-[237px] shrink-0">
+            <h3 class="font-ibm-sans font-semibold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-[1.2] md:leading-[58.24px]">
+              How<br>it Works
+            </h3>
+          </div>
+          <div class="flex flex-col gap-[24px] w-full md:w-[672px] cursor-pointer">
+            <!-- Q1 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">What is Claim Validity?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">Claim Validity is our proprietary approach to assessing whether a resume statement is:</p>
+                <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Technically coherent</li>
+                  <li>Internally consistent</li>
+                  <li>Aligned with claimed role, industry, and experience patterns</li>
+                </ul>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q2 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">How does the AI generate questions?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF's system analyzes:</p>
+                <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Resume claims</li>
+                  <li>Role requirements</li>
+                  <li>Experience level expectations</li>
+                </ul>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">It then generates claim-specific challenge questions that test whether a candidate can credibly explain or defend what they listed.</p>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">These questions are designed to be:</p>
+                <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Non-trivial</li>
+                  <li>Hard to bluff</li>
+                  <li>Relevant to candidate's real job execution</li>
+                </ul>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q3 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Can it be used for non-technical roles?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">Yes. While AlteraSF is especially strong in technical, scientific, and specialized roles, it also performs well for:</p>
+                <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Strategy &amp; Operations</li>
+                  <li>Sales leadership</li>
+                  <li>Product and program management</li>
+                </ul>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Any role where resume inflation is costly is a good fit.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category 3: Trust, Fairness & Compliance -->
+        <div class="flex flex-col md:flex-row gap-6 md:gap-[111px] items-start reveal reveal-delay-1">
+          <div class="w-full md:w-[237px] shrink-0">
+            <h3 class="font-ibm-sans font-semibold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-[1.2] md:leading-[58.24px]">
+              Trust,<br>Fairness &amp;<br>Compliance
+            </h3>
+          </div>
+          <div class="flex flex-col gap-[24px] w-full md:w-[672px] cursor-pointer">
+            <!-- Q1 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Is AlteraSF biased?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">No. AlteraSF does not score based on demographics, school prestige, or brand names.</p>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Our models are designed to evaluate:</p>
+                <ul class="list-disc ml-6 mt-1 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Logical coherence</li>
+                  <li>Technical or experiential alignment</li>
+                  <li>Internal consistency</li>
+                </ul>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">This often helps surface "diamonds in the rough," i.e. candidates who are strong but overlooked by traditional filters.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q2 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Is it compliant with regulations?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is built as a decision-support tool, not an automated hiring decision engine.</p>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Hiring decisions remain fully with the employer. Customers are responsible for how outputs are used in compliance with applicable employment laws.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q3 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Is candidate data secure?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">Yes. Candidate data is used solely to provide AlteraSF's services and is never sold or shared. Customer data is isolated by account, and AlteraSF does not train public or third-party models on candidate or customer information.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q4 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Does this affect candidate experience?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF is designed to improve candidate experience. Instead of filtering resumes based on keywords or formatting, evaluations are based on the content of a candidate's resume. This supports clearer expectations, more focused interviews, and fairer evaluation.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category 4: Pricing & Getting Started -->
+        <div class="flex flex-col md:flex-row gap-6 md:gap-[111px] items-start reveal reveal-delay-1">
+          <div class="w-full md:w-[237px] shrink-0">
+            <h3 class="font-ibm-sans font-semibold text-[28px] md:text-[48px] text-black tracking-[-0.96px] leading-[1.2] md:leading-[58.24px]">
+              Pricing &amp;<br>Getting<br>Started
+            </h3>
+          </div>
+          <div class="flex flex-col gap-[24px] w-full md:w-[672px] cursor-pointer">
+            <!-- Q1 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">How do pricing and plans work?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">AlteraSF offers the following types of plans based on active jobs, resume volume, and number of seats (see pricing page for more details):</p>
+                <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Free and starter plans for light usage</li>
+                  <li>Professional tiers for recruiting teams</li>
+                  <li>Enterprise plans with volume pricing, analytics, and support</li>
+                </ul>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">Contact us at <a href="mailto:sales@alterasf.com" class="underline">sales@alterasf.com</a> for enterprise or custom pricing.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q2 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">Do you offer pilots or trials?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">Yes, we frequently run pilot programs with in-house talent teams, search firms, and strategic partners. Pilots are structured to prove time saved, signal quality, and false-positive reduction.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+            <!-- Q3 -->
+            <div class="faq-item flex flex-col gap-[24px] w-full">
+              <button class="faq-trigger flex items-center justify-between w-full text-left">
+                <span class="font-ibm-sans font-semibold text-[18px] md:text-[24px] text-[#1a1a1a] leading-[1.3] md:leading-[31.2px] tracking-[0.48px]">How can I get started?</span>
+                <span class="faq-icon material-symbols-outlined text-[#e3e3e3] text-[32px] shrink-0 transition-transform duration-300">add</span>
+              </button>
+              <div class="faq-answer hidden">
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal">You can:</p>
+                <ul class="list-disc ml-6 mt-2 font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal space-y-1">
+                  <li>Sign up directly on our website (see pricing page)</li>
+                  <li>Request a demo</li>
+                  <li>Contact us for enterprise or pilot discussions (<a href="mailto:sales@alterasf.com" class="underline">sales@alterasf.com</a>)</li>
+                </ul>
+                <p class="font-ibm-sans text-[16px] text-[#1a1a1a] leading-normal mt-4">We typically onboard new customers in minutes.</p>
+              </div>
+              <div class="w-full h-[1px] bg-[#e3e3e3]"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 </section>
