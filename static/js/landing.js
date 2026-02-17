@@ -122,6 +122,69 @@
     });
   }
 
+  // ── FAQ Accordion ─────────────────────────────────────────────
+  const faqAccordion = document.getElementById('faq-accordion');
+  if (faqAccordion) {
+    const faqItems = faqAccordion.querySelectorAll('.faq-item');
+
+    faqAccordion.addEventListener('click', function (e) {
+      const trigger = e.target.closest('.faq-trigger');
+      if (!trigger) return;
+
+      const item = trigger.closest('.faq-item');
+      const answer = item.querySelector('.faq-answer');
+      const icon = item.querySelector('.faq-icon');
+      const wasOpen = !answer.classList.contains('hidden');
+
+      // Close all FAQ items
+      faqItems.forEach(function (fi) {
+        fi.querySelector('.faq-answer').classList.add('hidden');
+        fi.querySelector('.faq-icon').textContent = 'add';
+      });
+
+      // Toggle clicked (if it was closed, open it)
+      if (!wasOpen) {
+        answer.classList.remove('hidden');
+        icon.textContent = 'close';
+      }
+    });
+  }
+
+  // ── Demo Video Modal ──────────────────────────────────────────
+  var demoPlayBtn = document.getElementById('demo-play-btn');
+  var demoModal = document.getElementById('demo-modal');
+  var demoModalClose = document.getElementById('demo-modal-close');
+
+  if (demoPlayBtn && demoModal) {
+    demoPlayBtn.addEventListener('click', function () {
+      demoModal.classList.remove('hidden');
+      demoModal.classList.add('flex');
+      document.body.style.overflow = 'hidden';
+    });
+
+    function closeDemoModal() {
+      demoModal.classList.add('hidden');
+      demoModal.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+
+    if (demoModalClose) {
+      demoModalClose.addEventListener('click', closeDemoModal);
+    }
+
+    demoModal.addEventListener('click', function (e) {
+      if (e.target === demoModal) {
+        closeDemoModal();
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !demoModal.classList.contains('hidden')) {
+        closeDemoModal();
+      }
+    });
+  }
+
   // ── Smooth scroll for anchor links ─────────────────────────────
   document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
     anchor.addEventListener('click', function (e) {

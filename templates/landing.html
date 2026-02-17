@@ -47,6 +47,14 @@
     max-height: 200px;
   }
 
+  /* FAQ answer transition */
+  .faq-answer {
+    transition: all 0.3s ease;
+  }
+  .faq-answer.hidden {
+    display: none;
+  }
+
 </style>
 {% endblock %}
 
@@ -64,6 +72,7 @@
   {% include "landing/sections/testimonials.html" %}
   {% include "landing/sections/pain_points.html" %}
   {% include "landing/sections/apply_jobs.html" %}
+  {% include "landing/sections/faq.html" %}
   {% include "landing/sections/contact_us.html" %}
   {% include "landing/sections/footer.html" %}
 {% endblock %}

@@ -1,15 +1,15 @@
 <!-- Section 9: Video Demo -->
-<section id="video-demo" class="bg-landing-blue relative overflow-hidden" style="height: 873px;">
-  <div class="max-w-[1440px] mx-auto px-[210px]">
-    <div class="flex flex-col gap-[48px] items-center pt-[80px] w-[1020px]">
+<section id="video-demo" class="bg-landing-blue relative overflow-hidden py-[40px] md:py-0" style="min-height: auto;">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[210px]">
+    <div class="flex flex-col gap-[32px] md:gap-[48px] items-center pt-0 md:pt-[80px] w-full md:w-[1020px] pb-[40px] md:pb-[80px]">
       <!-- Header -->
-      <div class="flex flex-col gap-[24px] items-center w-[1020px]">
+      <div class="flex flex-col gap-[24px] items-center w-full md:w-[1020px]">
         <!-- Pill label -->
         <div class="bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
           <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Product Walkthrough</span>
         </div>
         <div class="flex flex-col items-center w-full">
-          <h2 class="font-ibm-sans font-bold text-[48px] text-black text-center tracking-[-0.96px] leading-normal w-[672px] reveal reveal-delay-1">
+          <h2 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-black text-center tracking-[-0.96px] leading-normal w-full md:w-[672px] reveal reveal-delay-1">
             Video Demo
           </h2>
         </div>
@@ -17,14 +17,13 @@
 
       <!-- Video container -->
       <div class="reveal reveal-delay-2 w-full">
-        <div class="bg-white border border-[#c1c7cd] rounded-[12px] overflow-hidden shadow-landing-card w-full h-[580px] flex items-center justify-center relative cursor-pointer">
+        <div id="demo-play-btn" class="bg-white border border-[#c1c7cd] rounded-[12px] overflow-hidden shadow-landing-card w-full h-[250px] md:h-[580px] flex items-center justify-center relative cursor-pointer group">
           <!-- Background image -->
-          <img src="https://www.figma.com/api/mcp/asset/38f5cfb6-ca07-494b-b9a2-871791b48fb2" alt="" class="absolute inset-0 w-full h-full object-cover opacity-75" onerror="this.parentElement.classList.add('bg-[#DDE1E6]');this.remove()">
-          <!-- Play icon (24px per Figma) -->
-          <div class="relative z-10">
-            <svg class="w-6 h-6 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z"/>
+          <img src="https://www.figma.com/api/mcp/asset/38f5cfb6-ca07-494b-b9a2-871791b48fb2" alt="" class="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-60 transition-opacity duration-300" onerror="this.parentElement.classList.add('bg-[#DDE1E6]');this.remove()">
+          <!-- Play icon -->
+          <div class="relative z-10 w-[56px] h-[56px] md:w-[72px] md:h-[72px] bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+            <svg class="w-6 h-6 md:w-8 md:h-8 text-landing-navy ml-1" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
             </svg>
           </div>
         </div>
@@ -32,3 +31,22 @@
     </div>
   </div>
 </section>
+
+<!-- Video Modal -->
+<div id="demo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+  <div class="relative w-full max-w-[900px] mx-4">
+    <!-- Close button -->
+    <button id="demo-modal-close" class="absolute -top-12 right-0 text-white text-[32px] hover:opacity-70 transition-opacity cursor-pointer">
+      <span class="material-symbols-outlined text-[32px]">close</span>
+    </button>
+    <!-- Video container -->
+    <div class="bg-black rounded-[12px] overflow-hidden aspect-video w-full flex items-center justify-center">
+      <div id="demo-video-container" class="w-full h-full flex items-center justify-center">
+        <p class="font-ibm-sans text-white text-[18px] md:text-[20px] text-center px-8">
+          Demo video coming soon.<br>
+          <span class="text-[14px] md:text-[16px] text-white/70 mt-2 block">Contact <a href="mailto:info@alterasf.com" class="underline text-landing-blue">info@alterasf.com</a> for a live walkthrough.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

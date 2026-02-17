@@ -1,51 +1,51 @@
 <!-- Section 14: Footer -->
-<footer id="footer" class="bg-landing-blue relative overflow-hidden" style="height: 441px;">
-  <div class="max-w-[1440px] mx-auto relative">
-    <div class="absolute left-[210px] top-[81px] w-[1016px] flex flex-wrap gap-x-[50px] gap-y-[40px] items-end content-end">
-      <!-- Divider line -->
-      <div class="w-[1016px] h-0 border-t border-black shrink-0"></div>
+<footer id="footer" class="bg-landing-blue relative overflow-hidden py-[40px] md:py-[81px]">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[210px]">
+    <!-- Divider line -->
+    <div class="w-full h-0 border-t border-black mb-8 md:mb-10"></div>
 
+    <div class="flex flex-col md:flex-row gap-8 md:gap-[50px]">
       <!-- Logo column -->
-      <div class="w-[387px] h-[176px] shrink-0">
+      <div class="md:w-[387px] shrink-0">
         <div class="h-[50px] w-[240px]">
           <img src="{{ url_for('static', filename='img/logo_word.png') }}" alt="AlteraSF" class="h-full w-auto object-contain" style="filter: brightness(0);" onerror="this.outerHTML='<span class=\'font-ibm-sans font-bold text-[28px] text-black\'>ALTERA</span>'">
         </div>
       </div>
 
-      <!-- Content columns container -->
-      <div class="w-[557px] h-[176px] relative shrink-0">
+      <!-- Content columns -->
+      <div class="flex flex-col sm:flex-row gap-8 sm:gap-[40px] md:gap-[36px] w-full md:w-[557px]">
         <!-- Reach Us -->
-        <div class="absolute left-0 top-0 w-[225px] flex flex-col gap-[24px]">
+        <div class="flex flex-col gap-[24px]">
           <h4 class="font-ibm-sans font-medium text-[24px] text-black leading-none">Reach Us</h4>
-          <div class="flex flex-col gap-[24px] w-[225px]">
+          <div class="flex flex-col gap-[24px]">
             <!-- Phone -->
             <div class="flex gap-[8px] items-center">
               <img src="https://www.figma.com/api/mcp/asset/4ce8ae31-3d8c-427c-bc75-16baa742fe45" alt="" class="w-[24px] h-[24px] flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[24px]\'>phone</span>'">
               <span class="font-ibm-sans text-[16px] text-black leading-none">603-306-7970</span>
             </div>
             <!-- Email -->
-            <div class="flex gap-[8px] items-center w-full">
+            <div class="flex gap-[8px] items-center">
               <img src="https://www.figma.com/api/mcp/asset/3adca054-990b-4cf5-abdc-544d441cc1c1" alt="" class="w-[24px] h-[24px] flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[24px]\'>mail</span>'">
-              <span class="font-ibm-sans text-[16px] text-black leading-none w-[193px]">info@alterasf.com</span>
+              <span class="font-ibm-sans text-[16px] text-black leading-none">info@alterasf.com</span>
             </div>
             <!-- Location -->
-            <div class="flex gap-[8px] items-center w-full">
+            <div class="flex gap-[8px] items-center">
               <img src="https://www.figma.com/api/mcp/asset/9e6149c7-6871-4476-9b80-16b4ba3e5206" alt="" class="w-[24px] h-[24px] flex-shrink-0" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[24px]\'>location_on</span>'">
-              <span class="font-ibm-sans text-[16px] text-black leading-none w-[252px]">550 Ortega Avenue #A315  Mountain View, CA 94040 </span>
+              <span class="font-ibm-sans text-[16px] text-black leading-none">550 Ortega Avenue #A315  Mountain View, CA 94040 </span>
             </div>
           </div>
         </div>
 
         <!-- Company -->
-        <div class="absolute left-[261px] top-0 w-[117px] flex flex-col gap-[24px] text-black">
+        <div class="flex flex-col gap-[24px] text-black">
           <h4 class="font-ibm-sans font-medium text-[24px] leading-none">Company</h4>
           <a href="#how-it-works" class="font-ibm-sans text-[16px] leading-none hover:opacity-80 transition-opacity cursor-pointer">Product</a>
-          <a href="#contact" class="font-ibm-sans text-[16px] leading-none hover:opacity-80 transition-opacity cursor-pointer">Pricing</a>
+          <a href="#faq" class="font-ibm-sans text-[16px] leading-none hover:opacity-80 transition-opacity cursor-pointer">Pricing</a>
           <a href="#footer" class="font-ibm-sans text-[16px] leading-none hover:opacity-80 transition-opacity cursor-pointer">About Us</a>
         </div>
 
         <!-- Legal -->
-        <div class="absolute left-[435px] top-0 w-[119px] flex flex-col gap-[24px] text-black leading-none">
+        <div class="flex flex-col gap-[24px] text-black leading-none">
           <h4 class="font-ibm-sans font-medium text-[24px]">Legal</h4>
           <a href="#" class="font-ibm-sans text-[16px] hover:opacity-80 transition-opacity cursor-pointer">Privacy Policy</a>
           <a href="#" class="font-ibm-sans text-[16px] hover:opacity-80 transition-opacity cursor-pointer">Terms of Service</a>
@@ -54,7 +54,7 @@
     </div>
 
     <!-- Copyright -->
-    <p class="absolute left-1/2 -translate-x-1/2 top-[393px] font-ibm-sans text-[16px] text-black text-center leading-none w-[1016px]">
+    <p class="font-ibm-sans text-[16px] text-black text-center leading-none w-full mt-10 md:mt-16">
       &copy; 2026 Altera Strategy Foundry Inc. All rights reserved.
     </p>
   </div>
