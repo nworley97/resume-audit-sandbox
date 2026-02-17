@@ -155,6 +155,41 @@
     });
   }
 
+  // ── Pricing Toggle (Monthly / Yearly) ────────────────────────
+  var monthlyBtn = document.getElementById('pricing-monthly-btn');
+  var yearlyBtn = document.getElementById('pricing-yearly-btn');
+  if (monthlyBtn && yearlyBtn) {
+    var priceEls = document.querySelectorAll('.pricing-amount');
+    var ctaEls = document.querySelectorAll('.pricing-cta');
+
+    function setPricingCycle(cycle) {
+      // Toggle button styles
+      if (cycle === 'monthly') {
+        monthlyBtn.classList.add('bg-landing-blue', 'text-white');
+        monthlyBtn.classList.remove('bg-white', 'text-black', 'border', 'border-landing-blue');
+        yearlyBtn.classList.remove('bg-landing-blue', 'text-white');
+        yearlyBtn.classList.add('bg-white', 'text-black', 'border', 'border-landing-blue');
+      } else {
+        yearlyBtn.classList.add('bg-landing-blue', 'text-white');
+        yearlyBtn.classList.remove('bg-white', 'text-black', 'border', 'border-landing-blue');
+        monthlyBtn.classList.remove('bg-landing-blue', 'text-white');
+        monthlyBtn.classList.add('bg-white', 'text-black', 'border', 'border-landing-blue');
+      }
+      // Swap price text
+      priceEls.forEach(function (el) {
+        el.textContent = cycle === 'monthly' ? el.dataset.monthly : el.dataset.yearly;
+      });
+      // Swap CTA URLs
+      ctaEls.forEach(function (el) {
+        var url = cycle === 'monthly' ? el.dataset.monthlyUrl : el.dataset.yearlyUrl;
+        if (url) el.href = url;
+      });
+    }
+
+    monthlyBtn.addEventListener('click', function () { setPricingCycle('monthly'); });
+    yearlyBtn.addEventListener('click', function () { setPricingCycle('yearly'); });
+  }
+
   // ── FAQ Accordion ─────────────────────────────────────────────
   const faqAccordion = document.getElementById('faq-accordion');
   if (faqAccordion) {

@@ -26,7 +26,7 @@
   <!-- Monthly/Yearly Toggle -->
   <div class="max-w-[1440px] mx-auto px-6 flex flex-col items-center gap-[8px] mb-[32px] reveal reveal-delay-2">
     <div class="flex shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] rounded-[8px]">
-      <button id="pricing-monthly-btn" class="bg-landing-blue text-black font-ibm-sans font-medium text-[16px] w-[160px] md:w-[200px] h-[48px] rounded-l-[8px] transition-colors duration-200">
+      <button id="pricing-monthly-btn" class="bg-landing-blue text-white font-ibm-sans font-medium text-[16px] w-[160px] md:w-[200px] h-[48px] rounded-l-[8px] cursor-pointer transition-colors duration-200">
         Monthly
       </button>
       <button id="pricing-yearly-btn" class="bg-white border border-landing-blue text-black font-ibm-sans font-medium text-[16px] w-[160px] md:w-[200px] h-[48px] rounded-r-[8px] cursor-pointer transition-colors duration-200">
@@ -70,7 +70,7 @@
             <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
           </div>
         </div>
-        <a href="/register" class="mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+        <a href="/billing/signup?plan=free&cycle=monthly" class="pricing-cta mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" data-plan="free" data-monthly-url="/billing/signup?plan=free&cycle=monthly" data-yearly-url="/billing/signup?plan=free&cycle=yearly" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
           Start Free
         </a>
       </div>
@@ -80,7 +80,7 @@
         <div class="flex flex-col gap-[4px] mb-[16px]">
           <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Pro</span>
           <div class="flex items-baseline">
-            <span class="font-bold text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">$129</span>
+            <span class="pricing-amount font-bold text-[30px] text-black" data-monthly="$129" data-yearly="$84" style="font-family: 'Poppins', sans-serif;">$129</span>
             <span class="text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">/mo*</span>
           </div>
         </div>
@@ -114,7 +114,7 @@
             <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
           </div>
         </div>
-        <a href="/register" class="mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+        <a href="/billing/signup?plan=pro&cycle=monthly" class="pricing-cta mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" data-plan="pro" data-monthly-url="/billing/signup?plan=pro&cycle=monthly" data-yearly-url="/billing/signup?plan=pro&cycle=yearly" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
           Select Plan
         </a>
       </div>
@@ -124,14 +124,14 @@
         <div class="flex flex-col gap-[4px] mb-[16px]">
           <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Ultra</span>
           <div class="flex items-baseline">
-            <span class="font-bold text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">$239</span>
+            <span class="pricing-amount font-bold text-[30px] text-black" data-monthly="$239" data-yearly="$155" style="font-family: 'Poppins', sans-serif;">$239</span>
             <span class="text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">/mo*</span>
           </div>
         </div>
         <div class="flex flex-col gap-[12px] flex-1">
           <div class="flex gap-[8px] items-center">
             <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">20 active job</span>
+            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">20 active jobs</span>
           </div>
           <div class="flex gap-[8px] items-center">
             <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
@@ -166,7 +166,7 @@
             <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Job Board</span>
           </div>
         </div>
-        <a href="/register" class="mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+        <a href="/billing/signup?plan=ultra&cycle=monthly" class="pricing-cta mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" data-plan="ultra" data-monthly-url="/billing/signup?plan=ultra&cycle=monthly" data-yearly-url="/billing/signup?plan=ultra&cycle=yearly" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
           Select Plan
         </a>
       </div>
