@@ -158,11 +158,12 @@
   // ── Pricing Toggle (Monthly / Yearly) ────────────────────────
   var monthlyBtn = document.getElementById('pricing-monthly-btn');
   var yearlyBtn = document.getElementById('pricing-yearly-btn');
+  var currentPricingCycle = 'monthly';
   if (monthlyBtn && yearlyBtn) {
     var priceEls = document.querySelectorAll('.pricing-amount');
-    var ctaEls = document.querySelectorAll('.pricing-cta');
 
     function setPricingCycle(cycle) {
+      currentPricingCycle = cycle;
       // Toggle button styles
       if (cycle === 'monthly') {
         monthlyBtn.classList.add('bg-landing-blue', 'text-white');
@@ -179,15 +180,42 @@
       priceEls.forEach(function (el) {
         el.textContent = cycle === 'monthly' ? el.dataset.monthly : el.dataset.yearly;
       });
-      // Swap CTA URLs
-      ctaEls.forEach(function (el) {
-        var url = cycle === 'monthly' ? el.dataset.monthlyUrl : el.dataset.yearlyUrl;
-        if (url) el.href = url;
-      });
     }
 
     monthlyBtn.addEventListener('click', function () { setPricingCycle('monthly'); });
     yearlyBtn.addEventListener('click', function () { setPricingCycle('yearly'); });
+  }
+
+  // ── Landing Signup Modal ────────────────────────────────────
+  var signupModal = document.getElementById('landing-signup-modal');
+  var signupClose = document.getElementById('landing-signup-close');
+  var signupBtns = document.querySelectorAll('.landing-signup-btn');
+  if (signupModal && signupBtns.length) {
+    signupBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var plan = btn.dataset.plan;
+        var planName = btn.dataset.planName;
+        var price = currentPricingCycle === 'monthly' ? btn.dataset.monthlyPrice : btn.dataset.yearlyPrice;
+        document.getElementById('landing-form-plan').value = plan;
+        document.getElementById('landing-form-cycle').value = currentPricingCycle;
+        document.getElementById('landing-display-plan').textContent = planName;
+        document.getElementById('landing-display-price').textContent = price;
+        signupModal.classList.remove('hidden');
+        signupModal.classList.add('flex');
+      });
+    });
+    if (signupClose) {
+      signupClose.addEventListener('click', function () {
+        signupModal.classList.add('hidden');
+        signupModal.classList.remove('flex');
+      });
+    }
+    signupModal.addEventListener('click', function (e) {
+      if (e.target === signupModal) {
+        signupModal.classList.add('hidden');
+        signupModal.classList.remove('flex');
+      }
+    });
   }
 
   // ── FAQ Accordion ─────────────────────────────────────────────

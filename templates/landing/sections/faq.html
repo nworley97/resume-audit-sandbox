@@ -70,9 +70,9 @@
             <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
           </div>
         </div>
-        <a href="/billing/signup?plan=free&cycle=monthly" class="pricing-cta mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" data-plan="free" data-monthly-url="/billing/signup?plan=free&cycle=monthly" data-yearly-url="/billing/signup?plan=free&cycle=yearly" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="free" data-plan-name="Free" data-monthly-price="$0" data-yearly-price="$0" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
           Start Free
-        </a>
+        </button>
       </div>
 
       <!-- Pro Card -->
@@ -114,9 +114,9 @@
             <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
           </div>
         </div>
-        <a href="/billing/signup?plan=pro&cycle=monthly" class="pricing-cta mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" data-plan="pro" data-monthly-url="/billing/signup?plan=pro&cycle=monthly" data-yearly-url="/billing/signup?plan=pro&cycle=yearly" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="pro" data-plan-name="Pro" data-monthly-price="$129/mo" data-yearly-price="$84/mo" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
           Select Plan
-        </a>
+        </button>
       </div>
 
       <!-- Ultra Card -->
@@ -166,9 +166,9 @@
             <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Job Board</span>
           </div>
         </div>
-        <a href="/billing/signup?plan=ultra&cycle=monthly" class="pricing-cta mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity" data-plan="ultra" data-monthly-url="/billing/signup?plan=ultra&cycle=monthly" data-yearly-url="/billing/signup?plan=ultra&cycle=yearly" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="ultra" data-plan-name="Ultra" data-monthly-price="$239/mo" data-yearly-price="$155/mo" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
           Select Plan
-        </a>
+        </button>
       </div>
 
       <!-- Enterprise Card -->
@@ -516,3 +516,49 @@
     </div>
   </div>
 </section>
+
+<!-- Landing Signup Modal -->
+<div id="landing-signup-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm">
+  <div class="relative bg-white rounded-[16px] p-[32px] w-[90%] max-w-[440px] max-h-[90vh] overflow-y-auto shadow-xl">
+    <button type="button" id="landing-signup-close" class="absolute top-[16px] right-[16px] text-gray-400 hover:text-gray-700 cursor-pointer">
+      <span class="material-symbols-outlined text-[24px]">close</span>
+    </button>
+    <h2 class="font-ibm-sans font-bold text-[24px] text-black mb-[24px]">Create your account</h2>
+    <form method="POST" action="{{ url_for('billing.signup') }}" id="landing-signup-form">
+      <input type="hidden" name="plan_tier" id="landing-form-plan">
+      <input type="hidden" name="billing_cycle" id="landing-form-cycle" value="monthly">
+      <div class="mb-[16px]">
+        <label class="block font-ibm-sans text-[14px] text-gray-700 mb-[4px]" for="landing-company">Company Name</label>
+        <input type="text" id="landing-company" name="company_name" required placeholder="Acme Inc." class="w-full px-[12px] py-[10px] border border-gray-300 rounded-[8px] text-[14px] focus:outline-none focus:ring-2 focus:ring-landing-blue focus:border-transparent">
+      </div>
+      <div class="mb-[16px]">
+        <label class="block font-ibm-sans text-[14px] text-gray-700 mb-[4px]" for="landing-fullname">Your Full Name</label>
+        <input type="text" id="landing-fullname" name="full_name" required placeholder="Jane Doe" class="w-full px-[12px] py-[10px] border border-gray-300 rounded-[8px] text-[14px] focus:outline-none focus:ring-2 focus:ring-landing-blue focus:border-transparent">
+      </div>
+      <div class="mb-[16px]">
+        <label class="block font-ibm-sans text-[14px] text-gray-700 mb-[4px]" for="landing-email">Work Email</label>
+        <input type="email" id="landing-email" name="email" required placeholder="jane@acme.com" class="w-full px-[12px] py-[10px] border border-gray-300 rounded-[8px] text-[14px] focus:outline-none focus:ring-2 focus:ring-landing-blue focus:border-transparent">
+      </div>
+      <div class="mb-[24px]">
+        <label class="block font-ibm-sans text-[14px] text-gray-700 mb-[4px]" for="landing-password">Password</label>
+        <input type="password" id="landing-password" name="password" required minlength="6" placeholder="At least 6 characters" class="w-full px-[12px] py-[10px] border border-gray-300 rounded-[8px] text-[14px] focus:outline-none focus:ring-2 focus:ring-landing-blue focus:border-transparent">
+      </div>
+      <div id="landing-plan-display" class="mb-[24px] p-[12px] bg-gray-50 rounded-[8px]">
+        <div class="flex justify-between items-center">
+          <span class="font-ibm-sans text-[14px] text-gray-600">Selected Plan:</span>
+          <span class="font-ibm-sans font-semibold text-[14px] text-black" id="landing-display-plan">Free</span>
+        </div>
+        <div class="flex justify-between items-center mt-[4px]">
+          <span class="font-ibm-sans text-[14px] text-gray-600">Price:</span>
+          <span class="font-ibm-sans font-semibold text-[14px] text-black" id="landing-display-price">$0</span>
+        </div>
+      </div>
+      <button type="submit" class="w-full bg-landing-navy text-white font-ibm-sans font-medium text-[16px] h-[48px] rounded-[8px] cursor-pointer hover:opacity-90 transition-opacity">
+        Continue to Payment
+      </button>
+    </form>
+    <p class="text-center text-[13px] text-gray-500 mt-[16px]">
+      Already have an account? <a href="/login" class="text-landing-blue hover:underline font-medium">Sign in</a>
+    </p>
+  </div>
+</div>
