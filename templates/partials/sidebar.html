@@ -47,27 +47,29 @@
 </a>
 
     {% set is_analytics_active = request.path and '/recruiter/analytics' in request.path %}
-{# Analytics #}
-{% if tenant and tenant.slug %}
-  <a href="{{ url_for('analytics_dashboard', tenant=tenant.slug) }}"
-     class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M5 21v-6"></path>
-      <path d="M12 21V3"></path>
-      <path d="M19 21V9"></path>
-    </svg>
-    <span class="nav-label">Analytics</span>
-  </a>
-{% else %}
-  <a href="{{ url_for('analytics_dashboard') }}"
-     class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M5 21v-6"></path>
-      <path d="M12 21V3"></path>
-      <path d="M19 21V9"></path>
-    </svg>
-    <span class="nav-label">Analytics</span>
-  </a>
+{# Analytics – hidden for free-tier users #}
+{% if user_plan_tier != 'free' %}
+  {% if tenant and tenant.slug %}
+    <a href="{{ url_for('analytics_dashboard', tenant=tenant.slug) }}"
+       class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 21v-6"></path>
+        <path d="M12 21V3"></path>
+        <path d="M19 21V9"></path>
+      </svg>
+      <span class="nav-label">Analytics</span>
+    </a>
+  {% else %}
+    <a href="{{ url_for('analytics_dashboard') }}"
+       class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 21v-6"></path>
+        <path d="M12 21V3"></path>
+        <path d="M19 21V9"></path>
+      </svg>
+      <span class="nav-label">Analytics</span>
+    </a>
+  {% endif %}
 {% endif %}
 
 <!-- Divider -->

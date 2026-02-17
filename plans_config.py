@@ -75,6 +75,7 @@ EXTRA_SEAT_PRICE_MONTHLY = 20  # USD per additional seat per month
 FEATURE_ACCESS = {
     "job_relevancy_score": ["free", "starter", "pro", "ultra"],
     "job_board": ["free", "starter", "pro", "ultra"],
+    "analytics_dashboard": ["starter", "pro", "ultra"],
     "claim_validity_score": ["pro", "ultra"],
     "red_flag_detection": ["pro", "ultra"],
     "full_analytics_engine": ["ultra"],
@@ -85,6 +86,7 @@ FEATURE_ACCESS = {
 FEATURE_DISPLAY_NAMES = {
     "job_relevancy_score": "Job Relevancy Score",
     "job_board": "Job Board",
+    "analytics_dashboard": "Analytics Dashboard",
     "claim_validity_score": "Claim Validity Score",
     "red_flag_detection": "Red Flag Detection",
     "full_analytics_engine": "Full Analytics Engine",
@@ -259,7 +261,14 @@ def get_feature_notification(feature_key: str, current_plan: str) -> Dict[str, s
             upgrade_to = PLAN_PRICING[tier]["display_name"]
             break
     
-    if feature_key == "full_analytics_engine":
+    if feature_key == "analytics_dashboard":
+        return {
+            "title": "Analytics not included",
+            "message": "The Analytics Dashboard is available on Starter, Pro, and Ultra plans. Upgrade to unlock insights.",
+            "cta_text": "See Plans",
+            "cta_action": "see_plans",
+        }
+    elif feature_key == "full_analytics_engine":
         return {
             "title": "Analytics not included",
             "message": "The full Analytics Engine is available only on Ultra and Enterprise plans.",

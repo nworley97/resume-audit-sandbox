@@ -56,7 +56,7 @@ from analytics_service import bp as analytics_bp
 app.register_blueprint(analytics_bp)
 
 # Billing/Subscription blueprint
-from billing_routes import billing_bp
+from billing_routes import billing_bp, require_feature
 app.register_blueprint(billing_bp)
 
 # Subscription limit checking
@@ -198,10 +198,28 @@ def inject_brand():
 
     slug = t.slug if t else None
     display = t.display_name if t else "Altera"
+
+    # Determine plan tier for feature gating in templates (e.g. sidebar)
+    user_plan_tier = None
+    if current_user.is_authenticated and getattr(current_user, "tenant_id", None):
+        db = SessionLocal()
+        try:
+            sub = get_tenant_subscription(current_user.tenant_id, db)
+            if sub:
+                if sub.status == "grandfathered":
+                    user_plan_tier = "ultra"  # grandfathered = full access
+                else:
+                    user_plan_tier = sub.plan_tier or "free"
+            else:
+                user_plan_tier = "free"
+        finally:
+            db.close()
+
     return {
         "tenant": t,
         "tenant_slug": slug,
         "brand_name": display,
+        "user_plan_tier": user_plan_tier,
     }
 
 # ---------- Pagination helper (additive) ----------
@@ -1663,6 +1681,7 @@ def candidates_overview(tenant=None):
 @app.route("/analytics", strict_slashes=False)
 @app.route("/<tenant>/analytics", strict_slashes=False)
 @login_required
+@require_feature("analytics_dashboard")
 def analytics_dashboard(tenant=None):
     """Redirect to Next.js analytics dashboard"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1680,6 +1699,7 @@ def analytics_dashboard(tenant=None):
 @app.route("/<tenant>/recruiter/analytics", strict_slashes=False)
 @app.route("/<tenant>/recruiter/analytics/", strict_slashes=False)
 @login_required
+@require_feature("analytics_dashboard")
 def analytics_overview_nextjs(tenant=None):
     """Serve Vite static files for analytics overview page"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1694,6 +1714,7 @@ def analytics_overview_nextjs(tenant=None):
 @app.route("/<tenant>/recruiter/analytics/<jobCode>", strict_slashes=False)
 @app.route("/<tenant>/recruiter/analytics/<jobCode>/", strict_slashes=False)
 @login_required
+@require_feature("analytics_dashboard")
 def analytics_detail_nextjs(tenant=None, jobCode=None):
     """Serve Vite static files for analytics detail page (client-side routing)"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
