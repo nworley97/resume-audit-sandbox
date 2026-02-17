@@ -22,7 +22,7 @@
         <!-- Accordion -->
         <div class="w-full md:w-[479px] reveal reveal-delay-3 mt-8" id="apply-accordion">
           <!-- Step 1 -->
-          <div class="accordion-item open border-t border-gray-300">
+          <div class="accordion-item open border-t border-gray-300" data-step="0">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
               <div class="flex items-center gap-2">
                 <img src="https://www.figma.com/api/mcp/asset/0941b912-4f36-4c35-9a39-4a6ef4f42c2f" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>upload</span>'">
@@ -40,7 +40,7 @@
           </div>
 
           <!-- Step 2 -->
-          <div class="accordion-item border-t border-gray-300">
+          <div class="accordion-item border-t border-gray-300" data-step="1">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
               <div class="flex items-center gap-2">
                 <img src="https://www.figma.com/api/mcp/asset/f1c88eb9-053d-4e7a-8b48-70b361ae4fa1" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>video_camera_front</span>'">
@@ -58,7 +58,7 @@
           </div>
 
           <!-- Step 3 -->
-          <div class="accordion-item border-t border-gray-300">
+          <div class="accordion-item border-t border-gray-300" data-step="2">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
               <div class="flex items-center gap-2">
                 <img src="https://www.figma.com/api/mcp/asset/302247dc-5d48-4c49-82b4-3e756e58f472" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>description</span>'">
@@ -76,7 +76,7 @@
           </div>
 
           <!-- Step 4 -->
-          <div class="accordion-item border-t border-gray-300 border-b">
+          <div class="accordion-item border-t border-gray-300 border-b" data-step="3">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
               <div class="flex items-center gap-2">
                 <img src="https://www.figma.com/api/mcp/asset/6556b85c-e193-4096-9118-04391ee9fd3d" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>send</span>'">
@@ -101,15 +101,19 @@
       </div>
 
       <!-- Right: Application screenshot with cycling step images -->
-      <div class="w-full md:w-[498px] md:h-[704px] md:absolute md:left-[732px] md:top-[80px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] reveal reveal-delay-2 relative overflow-hidden">
-        <img src="https://www.figma.com/api/mcp/asset/74a606e8-4983-438b-9e1e-72313fad4014" alt="AlteraSF Application Process" class="rounded-[12px] w-full h-full object-cover" onerror="this.style.display='none'">
+      <div id="apply-images" class="w-full md:w-[498px] md:h-[704px] md:absolute md:left-[732px] md:top-[80px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] reveal reveal-delay-2 relative overflow-hidden">
+        <!-- Step images (cycle based on active accordion) -->
+        <img data-step-img="0" src="https://www.figma.com/api/mcp/asset/74a606e8-4983-438b-9e1e-72313fad4014" alt="Submit Resume" class="apply-step-img rounded-[12px] w-full h-full object-cover" onerror="this.style.display='none'">
+        <img data-step-img="1" src="https://www.figma.com/api/mcp/asset/cb85eb93-ceac-4e82-84a7-0c812f4af69e" alt="Allow Camera Access" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden" onerror="this.style.display='none'">
+        <img data-step-img="2" src="https://www.figma.com/api/mcp/asset/14025499-d71c-4d92-8969-745f6bc628b9" alt="Answer Questions" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden" onerror="this.style.display='none'">
+        <img data-step-img="3" src="https://www.figma.com/api/mcp/asset/a39e9246-f9a1-4507-8335-ab740f92674d" alt="Submit Application" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden" onerror="this.style.display='none'">
         <!-- Step icons overlay -->
         <div class="absolute top-[24px] left-[24px] bg-white rounded-[8px] shadow-[0px_2px_2px_rgba(0,0,0,0.25)] p-[10px]">
           <div class="flex flex-col gap-[8px] w-[16px]">
-            <img src="https://www.figma.com/api/mcp/asset/deac12bc-5ca5-4cb7-b8e4-039aa4a866a4" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>upload</span>'">
-            <img src="https://www.figma.com/api/mcp/asset/d81c6e44-d910-4ebd-b18f-ae129f0e34ed" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>video_camera_front</span>'">
-            <img src="https://www.figma.com/api/mcp/asset/8c20ee0e-2a35-4a3c-a9d3-5f9b4e0d3d64" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>description</span>'">
-            <img src="https://www.figma.com/api/mcp/asset/b62cda28-c4f6-4be5-ad7c-43aeabe488db" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>send</span>'">
+            <span data-step-icon="0" class="material-symbols-outlined text-[16px] text-landing-blue">upload</span>
+            <span data-step-icon="1" class="material-symbols-outlined text-[16px] text-gray-400">video_camera_front</span>
+            <span data-step-icon="2" class="material-symbols-outlined text-[16px] text-gray-400">description</span>
+            <span data-step-icon="3" class="material-symbols-outlined text-[16px] text-gray-400">send</span>
           </div>
         </div>
       </div>

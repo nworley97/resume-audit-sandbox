@@ -69,10 +69,34 @@
     });
   }
 
-  // ── Accordion (Apply for Jobs section) ─────────────────────────
+  // ── Accordion (Apply for Jobs section) with cycling images ─────
   const accordion = document.getElementById('apply-accordion');
+  const applyImages = document.getElementById('apply-images');
   if (accordion) {
     const items = accordion.querySelectorAll('.accordion-item');
+    const stepImgs = applyImages ? applyImages.querySelectorAll('.apply-step-img') : [];
+    const stepIcons = applyImages ? applyImages.querySelectorAll('[data-step-icon]') : [];
+
+    function updateApplyStep(stepIndex) {
+      // Swap images
+      stepImgs.forEach(function (img) {
+        if (img.dataset.stepImg === String(stepIndex)) {
+          img.classList.remove('hidden');
+        } else {
+          img.classList.add('hidden');
+        }
+      });
+      // Highlight active icon
+      stepIcons.forEach(function (icon) {
+        if (icon.dataset.stepIcon === String(stepIndex)) {
+          icon.classList.remove('text-gray-400');
+          icon.classList.add('text-landing-blue');
+        } else {
+          icon.classList.remove('text-landing-blue');
+          icon.classList.add('text-gray-400');
+        }
+      });
+    }
 
     accordion.addEventListener('click', function (e) {
       const trigger = e.target.closest('.accordion-trigger');
@@ -82,11 +106,15 @@
       const wasOpen = item.classList.contains('open');
 
       // Close all
-      items.forEach((i) => i.classList.remove('open'));
+      items.forEach(function (i) { i.classList.remove('open'); });
 
       // Toggle clicked (if it was closed, open it)
       if (!wasOpen) {
         item.classList.add('open');
+        var step = item.dataset.step;
+        if (step !== undefined) {
+          updateApplyStep(parseInt(step, 10));
+        }
       }
     });
   }
