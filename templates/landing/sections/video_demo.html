@@ -15,12 +15,14 @@
         </div>
       </div>
 
-      <!-- Video container -->
+      <!-- Video container with preview -->
       <div class="reveal reveal-delay-2 w-full">
-        <div id="demo-play-btn" class="bg-white border border-[#c1c7cd] rounded-[12px] overflow-hidden shadow-landing-card w-full h-[250px] md:h-[580px] flex items-center justify-center relative cursor-pointer group">
-          <!-- Background image -->
-          <img src="https://www.figma.com/api/mcp/asset/38f5cfb6-ca07-494b-b9a2-871791b48fb2" alt="" class="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:opacity-60 transition-opacity duration-300" onerror="this.parentElement.classList.add('bg-[#DDE1E6]');this.remove()">
-          <!-- Play icon -->
+        <div id="demo-play-btn" class="bg-black border border-[#c1c7cd] rounded-[12px] overflow-hidden shadow-landing-card w-full h-[250px] md:h-[580px] flex items-center justify-center relative cursor-pointer group">
+          <!-- Video preview (first frame) -->
+          <video class="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-70 transition-opacity duration-300" preload="metadata" muted>
+            <source src="{{ url_for('static', filename='video/AlteraSF_Demo.mp4') }}#t=0.5" type="video/mp4">
+          </video>
+          <!-- Play icon overlay -->
           <div class="relative z-10 w-[56px] h-[56px] md:w-[72px] md:h-[72px] bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
             <svg class="w-6 h-6 md:w-8 md:h-8 text-landing-navy ml-1" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z"/>
