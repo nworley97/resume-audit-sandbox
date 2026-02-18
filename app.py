@@ -60,7 +60,7 @@ from billing_routes import billing_bp
 app.register_blueprint(billing_bp)
 
 # Subscription limit checking
-from subscription_models import check_can_post_job, get_tenant_subscription
+from subscription_models import check_can_post_job, get_tenant_subscription, TenantSubscription
 
 # Stripe Webhooks blueprint
 from stripe_webhooks import stripe_webhooks_bp
@@ -669,7 +669,19 @@ def super_tenants():
 
             u = User(username=username, tenant_id=t.id)
             u.set_pw(password)
-            db.add(u); db.commit()
+            db.add(u)
+
+            # Create a default free subscription so the tenant can create jobs
+            sub = TenantSubscription(
+                tenant_id=t.id,
+                plan_tier="free",
+                billing_cycle="monthly",
+                status="active",
+                created_at=datetime.utcnow(),
+                current_period_start=datetime.utcnow(),
+            )
+            db.add(sub)
+            db.commit()
 
             flash(f"Tenant '{slug}' created with user '{username}'.")
             return redirect(url_for("super_tenants"))
@@ -1760,16 +1772,14 @@ def session_identity():
     tenant_slug = None
     tenant_display = None
     if getattr(user, "tenant_id", None):
-        tenant = getattr(user, "tenant", None)
-        if tenant is None:
-            db = SessionLocal()
-            try:
-                tenant = db.get(Tenant, user.tenant_id)
-            finally:
-                db.close()
-        if tenant:
-            tenant_slug = getattr(tenant, "slug", None)
-            tenant_display = getattr(tenant, "display_name", None) or tenant_slug
+        db = SessionLocal()
+        try:
+            tenant = db.get(Tenant, user.tenant_id)
+            if tenant:
+                tenant_slug = getattr(tenant, "slug", None)
+                tenant_display = getattr(tenant, "display_name", None) or tenant_slug
+        finally:
+            db.close()
 
     return jsonify({
         "username": username,
