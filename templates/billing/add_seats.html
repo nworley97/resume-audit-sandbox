@@ -16,17 +16,7 @@
       Add additional seats for your team members. Each seat costs ${{ seat_price }}/month.
     </p>
     
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div class="mb-6">
-      {% for category, message in messages %}
-      <div class="p-4 rounded-lg {% if category == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
-        {{ message }}
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
+    {# Flash messages are now rendered by base_app.html #}
     
     <!-- Current Usage -->
     <div class="bg-slate-50 rounded-lg p-4 mb-6">

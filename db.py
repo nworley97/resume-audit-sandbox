@@ -12,7 +12,19 @@ if not DATABASE_URL:
 # SQLite requires special connect args
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
+# Append sslmode=require for PostgreSQL if not already in the URL
+if not DATABASE_URL.startswith("sqlite") and "sslmode" not in DATABASE_URL:
+    separator = "&" if "?" in DATABASE_URL else "?"
+    DATABASE_URL = DATABASE_URL + separator + "sslmode=require"
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=300,       # recycle connections every 5 min (Render kills idle ones)
+    pool_size=5,
+    max_overflow=10,
+    connect_args=connect_args,
+)
 
 SessionLocal = scoped_session(
     sessionmaker(bind=engine, expire_on_commit=False, autoflush=False, autocommit=False)

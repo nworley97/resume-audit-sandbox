@@ -79,6 +79,11 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
+@app.teardown_appcontext
+def _shutdown_session(exception=None):
+    """Remove the scoped session at the end of every request/app-context."""
+    SessionLocal.remove()
+
 # Modified for Playwright tests - safe fallback for test environment
 try:
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -1031,7 +1036,6 @@ def edit_jd(tenant=None):
                 existing.title           = title
                 existing.markdown        = raw_markdown
                 existing.html            = html_sanitized
-                existing.markdown        = raw_markdown
                 existing.status          = status
                 existing.department      = department
                 existing.team            = team
@@ -1048,9 +1052,15 @@ def edit_jd(tenant=None):
                 existing.id_surveys_enabled = id_surveys_enabled
                 existing.question_count     = question_count
 
-                db.add(existing); db.commit()
-                flash("JD saved", "recruiter")
-                return redirect(url_for("recruiter", tenant=t.slug))
+                try:
+                    db.add(existing); db.commit()
+                    flash("JD saved", "recruiter")
+                    return redirect(url_for("recruiter", tenant=t.slug))
+                except SQLAlchemyError as e:
+                    db.rollback()
+                    logger.error("Failed to save existing JD %s: %s", existing.code, e)
+                    flash("An error occurred while saving the job. Please try again.", "error")
+                    return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code))
 
             else:
                 if not posted_code:
@@ -1080,7 +1090,6 @@ def edit_jd(tenant=None):
                 jd.title           = title
                 jd.markdown        = raw_markdown
                 jd.html            = html_sanitized
-                jd.markdown   = raw_markdown
                 jd.status          = status
                 jd.department      = department
                 jd.team            = team
@@ -1796,13 +1805,14 @@ def session_identity():
     tenant_slug = None
     tenant_display = None
     if getattr(user, "tenant_id", None):
-        tenant = getattr(user, "tenant", None)
-        if tenant is None:
-            db = SessionLocal()
-            try:
-                tenant = db.get(Tenant, user.tenant_id)
-            finally:
-                db.close()
+        # user is detached from its session after load_user() closes the DB
+        # session, so lazy-loading user.tenant raises DetachedInstanceError.
+        # Always fetch tenant via a fresh session to avoid this.
+        db = SessionLocal()
+        try:
+            tenant = db.get(Tenant, user.tenant_id)
+        finally:
+            db.close()
         if tenant:
             tenant_slug = getattr(tenant, "slug", None)
             tenant_display = getattr(tenant, "display_name", None) or tenant_slug

@@ -14,8 +14,24 @@
   <script src="{{ url_for('static', filename='js/loader.js') }}" defer></script>
 </head>
 <body class="bg-background text-title font-sans min-h-screen flex flex-col">
-  {# silently consume any lingering flashes from previous redirects (admin scope) #}
-  {% set _discard = get_flashed_messages(with_categories=true) %}
+  {# ── Flash messages (errors, success, info) ── #}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div id="flash-messages" class="fixed top-4 right-4 z-[60] flex flex-col gap-2 max-w-md">
+    {% for category, message in messages %}
+    <div class="flash-msg flex items-start gap-2 px-4 py-3 rounded-lg shadow-lg text-sm border
+      {% if category == 'error' %}bg-red-50 text-red-800 border-red-200
+      {% elif category == 'recruiter' %}bg-green-50 text-green-800 border-green-200
+      {% else %}bg-blue-50 text-blue-800 border-blue-200{% endif %}"
+      role="alert">
+      <span class="flex-1">{{ message }}</span>
+      <button onclick="this.parentElement.remove()" class="ml-2 opacity-60 hover:opacity-100">&times;</button>
+    </div>
+    {% endfor %}
+  </div>
+  <script>setTimeout(function(){var el=document.getElementById('flash-messages');if(el)el.style.transition='opacity .5s',el.style.opacity='0',setTimeout(function(){el.remove()},600)},5000);</script>
+  {% endif %}
+  {% endwith %}
   <!-- Loader Overlay -->
   <div id="loading-overlay"
        class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-80 hidden opacity-0 transition-opacity duration-200 z-50">

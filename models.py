@@ -31,7 +31,7 @@ class User(Base, UserMixin):
     is_super = Column(Boolean, default=False)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
-    tenant = relationship("Tenant")
+    tenant = relationship("Tenant", lazy="joined")
 
     def set_pw(self, pw: str) -> None:
         self.pw_hash = generate_password_hash(pw)
@@ -48,9 +48,8 @@ class JobDescription(Base):
 
     title = Column(String(200), nullable=False)
     # ET-23: Raw Markdown (source of truth) and sanitized HTML (rendered)
-    markdown = Column(Text, nullable=True)
+    markdown = Column(Text, nullable=True)  # job description in markdown format
     html = Column(Text, nullable=True)
-    markdown = Column(Text, nullable=True) # job description in markdown format
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # Columns also checked by ensure_schema()
@@ -72,7 +71,7 @@ class JobDescription(Base):
     question_count = Column(Integer, default=4)          # 1–5 questions
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
-    tenant = relationship("Tenant")
+    tenant = relationship("Tenant", lazy="joined")
 
 
 class Candidate(Base):
@@ -103,4 +102,4 @@ class Candidate(Base):
     left_tab_count = Column(Integer, default=0)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
-    tenant = relationship("Tenant")
+    tenant = relationship("Tenant", lazy="joined")
