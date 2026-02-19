@@ -1,0 +1,217 @@
+{% extends "base_landing.html" %}
+
+{% block title %}About Us - AlteraSF{% endblock %}
+
+{% block head_extra %}
+<style>
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+
+  .navbar-scrolled {
+    box-shadow: 0 1px 12px rgba(0,0,0,0.08);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" style="height: 64px;">
+  <div class="max-w-[1440px] mx-auto px-4 md:px-[210px] h-full flex items-center md:gap-[233px]">
+    <a href="/" class="flex-shrink-0">
+      <img src="{{ url_for('static', filename='img/logo_word.png') }}" alt="AlteraSF" class="h-10 w-[119px] object-contain" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\'font-ibm-sans font-bold text-[22px] text-black\'>ALTERA</span>'">
+    </a>
+    <div class="hidden md:flex items-center gap-[48px]">
+      <a href="/" class="font-ibm-sans text-[16px] text-black hover:text-landing-blue transition-colors duration-200">Home</a>
+      <a href="/product" class="font-ibm-sans text-[16px] text-black hover:text-landing-blue transition-colors duration-200">Product</a>
+      <a href="/pricing" class="font-ibm-sans text-[16px] text-black hover:text-landing-blue transition-colors duration-200">Pricing</a>
+      <a href="/about" class="font-ibm-sans text-[16px] text-black underline hover:text-landing-blue transition-colors duration-200">About Us</a>
+    </div>
+    <div class="hidden md:flex items-center ml-auto">
+      <a href="/login" class="inline-flex items-center justify-center border border-landing-blue text-landing-blue font-ibm-sans font-medium text-[16px] rounded-[12px] px-[16px] py-[12px] hover:bg-landing-blue hover:text-white transition-all duration-200">
+        Log in
+      </a>
+    </div>
+    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Toggle menu">
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot"></span>
+    </button>
+  </div>
+  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100">
+    <div class="px-6 py-4 flex flex-col gap-4">
+      <a href="/" class="font-ibm-sans text-[16px] text-black py-2">Home</a>
+      <a href="/product" class="font-ibm-sans text-[16px] text-black py-2">Product</a>
+      <a href="/pricing" class="font-ibm-sans text-[16px] text-black py-2">Pricing</a>
+      <a href="/about" class="font-ibm-sans text-[16px] text-black underline py-2">About Us</a>
+      <a href="/login" class="inline-flex items-center justify-center border border-landing-blue text-landing-blue font-ibm-sans font-medium text-[16px] rounded-[12px] px-[16px] py-[12px] hover:bg-landing-blue hover:text-white transition-all duration-200 w-full">
+        Log in
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Section 1: Hero -->
+<section class="bg-white relative overflow-hidden py-[40px] md:py-[80px]">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[210px]">
+    <div class="flex flex-col md:flex-row gap-[48px] items-start">
+      <!-- Left: Text -->
+      <div class="w-full md:w-[498px] flex flex-col gap-[24px]">
+        <div class="inline-flex self-start bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+          <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">About Us</span>
+        </div>
+        <div class="flex flex-col gap-[48px]">
+          <h1 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-[#1a1a1a] tracking-[-0.96px] leading-normal w-full md:w-[411px] reveal reveal-delay-1">
+            AlteraSF: Smarter, Faster, More Trustworthy Hiring
+          </h1>
+          <p class="font-ibm-sans text-[16px] text-black leading-[1.4] reveal reveal-delay-2">
+            AlteraSF is an AI-powered resume checking platform that helps companies review job applications much faster and more accurately.
+          </p>
+        </div>
+      </div>
+      <!-- Right: Colored grid -->
+      <div class="hidden md:grid grid-cols-4 gap-[8px] w-[498px] reveal reveal-delay-2">
+        <div class="bg-[#c2e5fc] h-[59px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] flex items-center justify-center">
+          <span class="material-symbols-outlined text-[24px] text-landing-blue">diamond</span>
+        </div>
+        <div class="bg-[#ece9fd] h-[59px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#d5faf2] h-[59px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#fae3e3] h-[59px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#ece9fd] h-[58px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#ece9fd] h-[58px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#d5faf2] h-[58px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#fae3e3] h-[58px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#d5faf2] h-[60px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#d5faf2] h-[60px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#d5faf2] h-[60px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#fae3e3] h-[60px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#fae3e3] h-[58px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#fae3e3] h-[58px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#fae3e3] h-[58px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+        <div class="bg-[#fae3e3] h-[58px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)]"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Section 2: Our Job Platform + Why This Matters (blue background) -->
+<section class="bg-landing-blue relative overflow-hidden">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[210px] py-[60px] md:py-[80px]">
+
+    <!-- Row 1: Our Job Platform (text left, image right) -->
+    <div class="flex flex-col md:flex-row gap-[48px] items-start mb-[80px] md:mb-[120px]">
+      <!-- Left: Text -->
+      <div class="w-full md:w-[498px] flex flex-col gap-[24px]">
+        <div class="inline-flex self-start bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+          <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Our Job Platform</span>
+        </div>
+        <div class="flex flex-col gap-[48px]">
+          <h2 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-[#1a1a1a] tracking-[-0.96px] leading-normal w-full md:w-[411px] reveal reveal-delay-1">
+            Real Results from Real Hiring Data
+          </h2>
+          <div class="font-ibm-sans text-[16px] text-black leading-[1.4] reveal reveal-delay-2">
+            <p class="mb-[16px]">We studied how AlteraSF performed across 1,700 job applications in six different job categories. The are the results we received:</p>
+            <ul class="list-disc ml-[24px] mb-[16px] space-y-[4px]">
+              <li>90-95% less time spent on screening candidates</li>
+              <li>Compared to traditional manual screening, AlteraSF dramatically speeds up the process.</li>
+              <li>Detects AI-generated or copied responses</li>
+            </ul>
+            <p>The platform finds patterns in writing that suggest whether answers were created by AI or copied - not just whether the facts are correct.</p>
+          </div>
+        </div>
+        <a href="/product" class="inline-flex self-start items-center justify-center bg-white border border-black h-[56px] p-[16px] rounded-[12px] reveal reveal-delay-3 cursor-pointer hover:opacity-90 transition-opacity">
+          <span class="px-[16px] font-ibm-sans font-medium text-[20px] text-black leading-none">Learn More &gt;</span>
+        </a>
+      </div>
+      <!-- Right: Image -->
+      <div class="w-full md:w-[498px] h-[300px] md:h-[552px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] overflow-hidden reveal reveal-delay-2">
+        <img src="{{ url_for('static', filename='img/about/hiring_photo.jpg') }}" alt="Real Results from Real Hiring Data" class="w-full h-full object-cover rounded-[12px]">
+      </div>
+    </div>
+
+    <!-- Row 2: Why This Matters (image left, text right) -->
+    <div class="flex flex-col-reverse md:flex-row gap-[48px] items-start">
+      <!-- Left: Tall white card with two platform screenshots -->
+      <div class="w-full md:w-[498px] md:h-[568px] bg-white rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] flex items-center justify-center px-[24px] md:px-[63px] py-[18px] reveal reveal-delay-2">
+        <div class="flex flex-col gap-[24px] w-full shadow-[0px_2px_8px_0px_rgba(0,0,0,0.5)]">
+          <img src="{{ url_for('static', filename='img/about/flow_resume.jpg') }}" alt="AlteraSF Resume Highlighting" class="w-full h-auto">
+          <img src="{{ url_for('static', filename='img/about/flow_questions.jpg') }}" alt="AlteraSF Question Generation" class="w-full h-auto">
+        </div>
+      </div>
+      <!-- Right: Text -->
+      <div class="w-full md:w-[498px] flex flex-col gap-[24px]">
+        <div class="inline-flex self-start bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+          <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Why this Matters</span>
+        </div>
+        <div class="flex flex-col gap-[48px]">
+          <h2 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-[#1a1a1a] tracking-[-0.96px] leading-normal w-full md:w-[411px] reveal reveal-delay-1">
+            What AlteraSF does differently
+          </h2>
+          <div class="font-ibm-sans text-[16px] text-black leading-[1.4] reveal reveal-delay-2">
+            <p class="mb-[16px]">Most hiring tools only check facts. AlteraSF goes further by evaluating the authenticity of language so it can better judge how truthful a candidates responses are.</p>
+            <p class="mb-[8px]">This means:</p>
+            <ul class="list-disc ml-[24px] mb-[16px] space-y-[4px]">
+              <li>Faster hiring decisions</li>
+              <li>more reliable candidate evaluation</li>
+              <li>Better trust in the overall screening process</li>
+            </ul>
+            <p>AlteraSF uses advanced AI to make hiring faster and smarter - saving time while improving the quality and trustworthiness of candidate reviews.</p>
+          </div>
+        </div>
+        <a href="{{ url_for('billing.signup', plan='free') }}" class="inline-flex self-start items-center justify-center bg-white border border-black h-[56px] p-[16px] rounded-[12px] reveal reveal-delay-3 cursor-pointer hover:opacity-90 transition-opacity">
+          <span class="px-[16px] font-ibm-sans font-medium text-[20px] text-black leading-none">Try it Free</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Section 3: Contact -->
+{% include "landing/sections/contact_us.html" %}
+
+<!-- Section 4: Footer -->
+{% include "landing/sections/footer.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // Scroll reveal
+  var reveals = document.querySelectorAll('.reveal');
+  if (reveals.length && 'IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+    }, { threshold: 0.15 });
+    reveals.forEach(function (el) { observer.observe(el); });
+  }
+
+  // Navbar scroll shadow
+  var nav = document.getElementById('landing-nav');
+  if (nav) {
+    window.addEventListener('scroll', function () {
+      nav.classList.toggle('navbar-scrolled', window.scrollY > 10);
+    });
+  }
+
+  // Mobile menu toggle
+  var menuBtn = document.getElementById('mobile-menu-btn');
+  var menu = document.getElementById('mobile-menu');
+  if (menuBtn && menu) {
+    menuBtn.addEventListener('click', function () {
+      var open = menu.style.maxHeight && menu.style.maxHeight !== '0px';
+      menu.style.maxHeight = open ? '0px' : menu.scrollHeight + 'px';
+    });
+  }
+})();
+</script>
+{% endblock %}

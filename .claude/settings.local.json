@@ -1,7 +1,50 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "WebFetch(domain:www.figma.com)",
+      "WebSearch",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp list:*)",
+      "Bash(claude mcp auth:*)",
+      "WebFetch(domain:help.figma.com)",
+      "WebFetch(domain:developers.figma.com)",
+      "mcp__figma__get_screenshot",
+      "mcp__figma__get_metadata",
+      "mcp__figma__get_design_context",
+      "Bash(powershell -Command \"Get-Content ''mcp-figma-get_metadata-1771283793944.txt'' | Select-Object -First 50\")",
+      "Bash(powershell:*)",
+      "Bash(python:*)",
+      "Bash(del \"C:\\\\resume-audit-sandbox-dev\\\\parse_figma.ps1\" \"C:\\\\resume-audit-sandbox-dev\\\\parse_figma2.ps1\" \"C:\\\\resume-audit-sandbox-dev\\\\parse_figma3.ps1\" \"C:\\\\resume-audit-sandbox-dev\\\\parse_figma4.ps1\" \"C:\\\\resume-audit-sandbox-dev\\\\parse_figma5.ps1\" \"C:\\\\resume-audit-sandbox-dev\\\\parse_figma6.ps1\" \"C:\\\\resume-audit-sandbox-dev\\\\parse_figma7.ps1\")",
+      "Bash(npm run build:css:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(npm ls:*)",
+      "Bash(ls:*)",
+      "Bash(node:*)",
+      "Bash(git -C \"C:\\\\resume-audit-sandbox-dev\" status)",
+      "Bash(git -C \"C:\\\\resume-audit-sandbox-dev\" diff)",
+      "Bash(git -C \"C:\\\\resume-audit-sandbox-dev\" log --oneline -5)",
+      "Bash(git -C \"C:\\\\resume-audit-sandbox-dev\" add app.py static/css/app.css static/css/output.css tailwind.config.js static/js/landing.js templates/base_landing.html templates/landing.html templates/landing/)",
+      "Bash(git commit:*)",
+      "Bash(git -C \"C:\\\\resume-audit-sandbox-dev\" push origin Dev)",
+      "Bash(git -C \"C:\\\\resume-audit-sandbox-dev\" diff --stat)",
+      "Bash(git -C \"C:\\\\resume-audit-sandbox-dev\" log --oneline -3)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "mcp__figma__get_variable_defs",
+      "Bash(npx --yes tailwindcss:*)",
+      "Bash(dir:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(npm install:*)",
+      "Bash(git -C \"C:\\\\resume-audit-sandbox-dev\" lfs version:*)",
+      "Bash(git lfs track:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout /t:*)"
     ]
+  },
+  "enabledPlugins": {
+    "figma@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": false
   }
 }

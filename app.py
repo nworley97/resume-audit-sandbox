@@ -56,11 +56,11 @@ from analytics_service import bp as analytics_bp
 app.register_blueprint(analytics_bp)
 
 # Billing/Subscription blueprint
-from billing_routes import billing_bp
+from billing_routes import billing_bp, require_feature
 app.register_blueprint(billing_bp)
 
 # Subscription limit checking
-from subscription_models import check_can_post_job, get_tenant_subscription, TenantSubscription
+from subscription_models import check_can_post_job, get_tenant_subscription
 
 # Stripe Webhooks blueprint
 from stripe_webhooks import stripe_webhooks_bp
@@ -198,10 +198,28 @@ def inject_brand():
 
     slug = t.slug if t else None
     display = t.display_name if t else "Altera"
+
+    # Determine plan tier for feature gating in templates (e.g. sidebar)
+    user_plan_tier = None
+    if current_user.is_authenticated and getattr(current_user, "tenant_id", None):
+        db = SessionLocal()
+        try:
+            sub = get_tenant_subscription(current_user.tenant_id, db)
+            if sub:
+                if sub.status == "grandfathered":
+                    user_plan_tier = "ultra"  # grandfathered = full access
+                else:
+                    user_plan_tier = sub.plan_tier or "free"
+            else:
+                user_plan_tier = "free"
+        finally:
+            db.close()
+
     return {
         "tenant": t,
         "tenant_slug": slug,
         "brand_name": display,
+        "user_plan_tier": user_plan_tier,
     }
 
 # ---------- Pagination helper (additive) ----------
@@ -494,19 +512,34 @@ def docx_to_html_simple(docx_path: Path) -> Markup:
 # ─── Home ─────────────────────────────────────────────────────────
 @app.route("/")
 def home():
-    if not current_user.is_authenticated:
-        return redirect(url_for("login"))
-    slug = session.get("tenant_slug")
-    if not slug and current_user and current_user.tenant_id:
-        db = SessionLocal()
-        try:
-            t = db.get(Tenant, current_user.tenant_id)
-            if t: slug = t.slug
-        finally:
-            db.close()
-    if slug:
-        return redirect(url_for("recruiter", tenant=slug))
-    return redirect(url_for("login"))
+    if current_user.is_authenticated:
+        slug = session.get("tenant_slug")
+        if not slug and current_user.tenant_id:
+            db = SessionLocal()
+            try:
+                t = db.get(Tenant, current_user.tenant_id)
+                if t: slug = t.slug
+            finally:
+                db.close()
+        if slug:
+            return redirect(url_for("recruiter", tenant=slug))
+        return redirect(url_for("recruiter"))
+    return render_template("landing.html")
+
+
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
+@app.route("/product")
+def product_page():
+    return render_template("product.html")
+
+
+@app.route("/pricing")
+def pricing_page():
+    return render_template("pricing_page.html")
 
 
 # ─── CSV Export (All or Current View), tenant-scoped ─────────────
@@ -669,19 +702,7 @@ def super_tenants():
 
             u = User(username=username, tenant_id=t.id)
             u.set_pw(password)
-            db.add(u)
-
-            # Create a default free subscription so the tenant can create jobs
-            sub = TenantSubscription(
-                tenant_id=t.id,
-                plan_tier="free",
-                billing_cycle="monthly",
-                status="active",
-                created_at=datetime.utcnow(),
-                current_period_start=datetime.utcnow(),
-            )
-            db.add(sub)
-            db.commit()
+            db.add(u); db.commit()
 
             flash(f"Tenant '{slug}' created with user '{username}'.")
             return redirect(url_for("super_tenants"))
@@ -1675,6 +1696,7 @@ def candidates_overview(tenant=None):
 @app.route("/analytics", strict_slashes=False)
 @app.route("/<tenant>/analytics", strict_slashes=False)
 @login_required
+@require_feature("analytics_dashboard")
 def analytics_dashboard(tenant=None):
     """Redirect to Next.js analytics dashboard"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1692,6 +1714,7 @@ def analytics_dashboard(tenant=None):
 @app.route("/<tenant>/recruiter/analytics", strict_slashes=False)
 @app.route("/<tenant>/recruiter/analytics/", strict_slashes=False)
 @login_required
+@require_feature("analytics_dashboard")
 def analytics_overview_nextjs(tenant=None):
     """Serve Vite static files for analytics overview page"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1706,6 +1729,7 @@ def analytics_overview_nextjs(tenant=None):
 @app.route("/<tenant>/recruiter/analytics/<jobCode>", strict_slashes=False)
 @app.route("/<tenant>/recruiter/analytics/<jobCode>/", strict_slashes=False)
 @login_required
+@require_feature("analytics_dashboard")
 def analytics_detail_nextjs(tenant=None, jobCode=None):
     """Serve Vite static files for analytics detail page (client-side routing)"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
@@ -1772,14 +1796,16 @@ def session_identity():
     tenant_slug = None
     tenant_display = None
     if getattr(user, "tenant_id", None):
-        db = SessionLocal()
-        try:
-            tenant = db.get(Tenant, user.tenant_id)
-            if tenant:
-                tenant_slug = getattr(tenant, "slug", None)
-                tenant_display = getattr(tenant, "display_name", None) or tenant_slug
-        finally:
-            db.close()
+        tenant = getattr(user, "tenant", None)
+        if tenant is None:
+            db = SessionLocal()
+            try:
+                tenant = db.get(Tenant, user.tenant_id)
+            finally:
+                db.close()
+        if tenant:
+            tenant_slug = getattr(tenant, "slug", None)
+            tenant_display = getattr(tenant, "display_name", None) or tenant_slug
 
     return jsonify({
         "username": username,

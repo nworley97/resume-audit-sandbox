@@ -1,0 +1,189 @@
+{% extends "base_landing.html" %}
+
+{% block title %}Plan Pricing - AlteraSF{% endblock %}
+
+{% block head_extra %}
+<style>
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+
+  .navbar-scrolled {
+    box-shadow: 0 1px 12px rgba(0,0,0,0.08);
+  }
+
+  .faq-answer {
+    transition: all 0.3s ease;
+  }
+  .faq-answer.hidden {
+    display: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" style="height: 64px;">
+  <div class="max-w-[1440px] mx-auto px-4 md:px-[210px] h-full flex items-center md:gap-[233px]">
+    <a href="/" class="flex-shrink-0">
+      <img src="{{ url_for('static', filename='img/logo_word.png') }}" alt="AlteraSF" class="h-10 w-[119px] object-contain" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\'font-ibm-sans font-bold text-[22px] text-black\'>ALTERA</span>'">
+    </a>
+    <div class="hidden md:flex items-center gap-[48px]">
+      <a href="/" class="font-ibm-sans text-[16px] text-black hover:text-landing-blue transition-colors duration-200">Home</a>
+      <a href="/product" class="font-ibm-sans text-[16px] text-black hover:text-landing-blue transition-colors duration-200">Product</a>
+      <a href="/pricing" class="font-ibm-sans text-[16px] text-black underline hover:text-landing-blue transition-colors duration-200">Pricing</a>
+      <a href="/about" class="font-ibm-sans text-[16px] text-black hover:text-landing-blue transition-colors duration-200">About Us</a>
+    </div>
+    <div class="hidden md:flex items-center ml-auto">
+      <a href="/login" class="inline-flex items-center justify-center border border-landing-blue text-landing-blue font-ibm-sans font-medium text-[16px] rounded-[12px] px-[16px] py-[12px] hover:bg-landing-blue hover:text-white transition-all duration-200">
+        Log in
+      </a>
+    </div>
+    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Toggle menu">
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot"></span>
+    </button>
+  </div>
+  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100">
+    <div class="px-6 py-4 flex flex-col gap-4">
+      <a href="/" class="font-ibm-sans text-[16px] text-black py-2">Home</a>
+      <a href="/product" class="font-ibm-sans text-[16px] text-black py-2">Product</a>
+      <a href="/pricing" class="font-ibm-sans text-[16px] text-black underline py-2">Pricing</a>
+      <a href="/about" class="font-ibm-sans text-[16px] text-black py-2">About Us</a>
+      <a href="/login" class="inline-flex items-center justify-center border border-landing-blue text-landing-blue font-ibm-sans font-medium text-[16px] rounded-[12px] px-[16px] py-[12px] hover:bg-landing-blue hover:text-white transition-all duration-200 w-full">
+        Log in
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Pricing & FAQ Section -->
+{% include "landing/sections/faq.html" %}
+
+<!-- Footer -->
+{% include "landing/sections/footer.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // Scroll reveal
+  var reveals = document.querySelectorAll('.reveal');
+  if (reveals.length && 'IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+    }, { threshold: 0.15 });
+    reveals.forEach(function (el) { observer.observe(el); });
+  }
+
+  // Navbar scroll shadow
+  var nav = document.getElementById('landing-nav');
+  if (nav) {
+    window.addEventListener('scroll', function () {
+      nav.classList.toggle('navbar-scrolled', window.scrollY > 10);
+    });
+  }
+
+  // Mobile menu toggle
+  var menuBtn = document.getElementById('mobile-menu-btn');
+  var menu = document.getElementById('mobile-menu');
+  if (menuBtn && menu) {
+    menuBtn.addEventListener('click', function () {
+      var open = menu.style.maxHeight && menu.style.maxHeight !== '0px';
+      menu.style.maxHeight = open ? '0px' : menu.scrollHeight + 'px';
+    });
+  }
+
+  // Pricing Toggle (Monthly / Yearly)
+  var monthlyBtn = document.getElementById('pricing-monthly-btn');
+  var yearlyBtn = document.getElementById('pricing-yearly-btn');
+  var currentPricingCycle = 'monthly';
+  if (monthlyBtn && yearlyBtn) {
+    var priceEls = document.querySelectorAll('.pricing-amount');
+
+    function setPricingCycle(cycle) {
+      currentPricingCycle = cycle;
+      if (cycle === 'monthly') {
+        monthlyBtn.classList.add('bg-landing-blue', 'text-white');
+        monthlyBtn.classList.remove('bg-white', 'text-black', 'border', 'border-landing-blue');
+        yearlyBtn.classList.remove('bg-landing-blue', 'text-white');
+        yearlyBtn.classList.add('bg-white', 'text-black', 'border', 'border-landing-blue');
+      } else {
+        yearlyBtn.classList.add('bg-landing-blue', 'text-white');
+        yearlyBtn.classList.remove('bg-white', 'text-black', 'border', 'border-landing-blue');
+        monthlyBtn.classList.remove('bg-landing-blue', 'text-white');
+        monthlyBtn.classList.add('bg-white', 'text-black', 'border', 'border-landing-blue');
+      }
+      priceEls.forEach(function (el) {
+        el.textContent = cycle === 'monthly' ? el.dataset.monthly : el.dataset.yearly;
+      });
+    }
+
+    monthlyBtn.addEventListener('click', function () { setPricingCycle('monthly'); });
+    yearlyBtn.addEventListener('click', function () { setPricingCycle('yearly'); });
+  }
+
+  // Landing Signup Modal
+  var signupModal = document.getElementById('landing-signup-modal');
+  var signupClose = document.getElementById('landing-signup-close');
+  var signupBtns = document.querySelectorAll('.landing-signup-btn');
+  if (signupModal && signupBtns.length) {
+    signupBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var plan = btn.dataset.plan;
+        var planName = btn.dataset.planName;
+        var price = currentPricingCycle === 'monthly' ? btn.dataset.monthlyPrice : btn.dataset.yearlyPrice;
+        document.getElementById('landing-form-plan').value = plan;
+        document.getElementById('landing-form-cycle').value = currentPricingCycle;
+        document.getElementById('landing-display-plan').textContent = planName;
+        document.getElementById('landing-display-price').textContent = price;
+        signupModal.classList.remove('hidden');
+        signupModal.classList.add('flex');
+      });
+    });
+    if (signupClose) {
+      signupClose.addEventListener('click', function () {
+        signupModal.classList.add('hidden');
+        signupModal.classList.remove('flex');
+      });
+    }
+    signupModal.addEventListener('click', function (e) {
+      if (e.target === signupModal) {
+        signupModal.classList.add('hidden');
+        signupModal.classList.remove('flex');
+      }
+    });
+  }
+
+  // FAQ Accordion
+  var faqAccordion = document.getElementById('faq-accordion');
+  if (faqAccordion) {
+    faqAccordion.addEventListener('click', function (e) {
+      var trigger = e.target.closest('.faq-trigger');
+      if (!trigger) return;
+      var item = trigger.closest('.faq-item');
+      var answer = item.querySelector('.faq-answer');
+      var icon = item.querySelector('.faq-icon');
+      if (!answer) return;
+      var isOpen = !answer.classList.contains('hidden');
+      faqAccordion.querySelectorAll('.faq-answer').forEach(function (a) { a.classList.add('hidden'); });
+      faqAccordion.querySelectorAll('.faq-icon').forEach(function (i) { i.textContent = 'add'; i.style.transform = ''; });
+      if (!isOpen) {
+        answer.classList.remove('hidden');
+        if (icon) { icon.textContent = 'remove'; icon.style.transform = 'rotate(180deg)'; }
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

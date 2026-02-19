@@ -131,6 +131,13 @@
     font-weight: 500;
   }
 
+  .landing-gradient-text {
+    background: linear-gradient(90deg, rgb(57, 130, 185), rgb(49, 71, 88));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   .prose h1,
   .prose h2,
   .prose h3,

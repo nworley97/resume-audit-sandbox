@@ -1,0 +1,52 @@
+<!-- Section 9: Video Demo -->
+<section id="video-demo" class="bg-landing-blue relative overflow-hidden py-[40px] md:py-0" style="min-height: auto;">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[210px]">
+    <div class="flex flex-col gap-[32px] md:gap-[48px] items-center pt-0 md:pt-[80px] w-full md:w-[1020px] pb-[40px] md:pb-[80px]">
+      <!-- Header -->
+      <div class="flex flex-col gap-[24px] items-center w-full md:w-[1020px]">
+        <!-- Pill label -->
+        <div class="bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+          <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Product Walkthrough</span>
+        </div>
+        <div class="flex flex-col items-center w-full">
+          <h2 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-black text-center tracking-[-0.96px] leading-normal w-full md:w-[672px] reveal reveal-delay-1">
+            Video Demo
+          </h2>
+        </div>
+      </div>
+
+      <!-- Video container with preview -->
+      <div class="reveal reveal-delay-2 w-full">
+        <div id="demo-play-btn" class="bg-black border border-[#c1c7cd] rounded-[12px] overflow-hidden shadow-landing-card w-full h-[250px] md:h-[580px] flex items-center justify-center relative cursor-pointer group">
+          <!-- Video preview (first frame) -->
+          <video class="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-70 transition-opacity duration-300" preload="metadata" muted>
+            <source src="{{ url_for('static', filename='video/AlteraSF_Demo.mp4') }}#t=0.5" type="video/mp4">
+          </video>
+          <!-- Play icon overlay -->
+          <div class="relative z-10 w-[56px] h-[56px] md:w-[72px] md:h-[72px] bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+            <svg class="w-6 h-6 md:w-8 md:h-8 text-landing-navy ml-1" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Video Modal -->
+<div id="demo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+  <div class="relative w-full max-w-[900px] mx-4">
+    <!-- Close button -->
+    <button id="demo-modal-close" class="absolute -top-12 right-0 text-white text-[32px] hover:opacity-70 transition-opacity cursor-pointer">
+      <span class="material-symbols-outlined text-[32px]">close</span>
+    </button>
+    <!-- Video container -->
+    <div class="bg-black rounded-[12px] overflow-hidden aspect-video w-full flex items-center justify-center">
+      <video id="demo-video" class="w-full h-full" controls>
+        <source src="{{ url_for('static', filename='video/AlteraSF_Demo.mp4') }}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  </div>
+</div>
