@@ -166,21 +166,81 @@ def signup():
         finally:
             db.close()
         
-        # Get Stripe payment link for paid plans
+        # Free plan: create account immediately — no payment needed
+        if plan_tier == 'free':
+            db2 = SessionLocal()
+            try:
+                # Create tenant
+                slug = company_name.lower().replace(' ', '-')[:50]
+                slug = ''.join(c for c in slug if c.isalnum() or c == '-')
+                # Ensure slug is unique
+                base_slug = slug or 'company'
+                counter = 0
+                while db2.query(Tenant).filter_by(slug=slug or base_slug).first():
+                    counter += 1
+                    slug = f"{base_slug}-{counter}"
+                if not slug:
+                    slug = base_slug
+
+                tenant = Tenant(slug=slug, display_name=company_name)
+                db2.add(tenant)
+                db2.flush()
+
+                # Create user
+                user = User(username=email, tenant_id=tenant.id)
+                user.pw_hash = generate_password_hash(password)
+                db2.add(user)
+                db2.flush()
+
+                # Create subscription record
+                sub = TenantSubscription(
+                    tenant_id=tenant.id,
+                    plan_tier='free',
+                    billing_cycle='monthly',
+                    status='active',
+                )
+                db2.add(sub)
+
+                # Create initial usage record
+                usage = TenantUsage(
+                    tenant_id=tenant.id,
+                    resumes_reviewed=0,
+                    period_start=datetime.utcnow(),
+                    period_end=datetime.utcnow() + timedelta(days=30),
+                )
+                db2.add(usage)
+
+                # Mark pending signup as processed
+                pending_record = db2.query(PendingSignup).filter_by(email=email, processed=False).first()
+                if pending_record:
+                    pending_record.processed = True
+
+                db2.commit()
+
+                # Log user in
+                login_user(user)
+                session['tenant_slug'] = tenant.slug
+
+                flash('Welcome! Your free account is ready.', 'success')
+                return redirect(url_for('recruiter', tenant=tenant.slug))
+            except Exception as e:
+                db2.rollback()
+                flash(f'Error creating account: {str(e)}', 'error')
+                return redirect(url_for('billing.signup'))
+            finally:
+                db2.close()
+
+        # Paid plans: redirect to Stripe payment link
         from stripe_config import get_payment_link
         from urllib.parse import quote
-        
+
         payment_link = get_payment_link(plan_tier, billing_cycle)
-        
+
         if not payment_link:
             flash('Payment link not configured for this plan. Please contact support.', 'error')
             return redirect(url_for('billing.signup'))
-        
-        # Prefill email in Stripe payment link to ensure webhook can match the pending signup
-        # Stripe Payment Links support ?prefilled_email= parameter
+
         payment_link_with_email = f"{payment_link}?prefilled_email={quote(email)}"
-        
-        # Redirect to Stripe payment link
         return redirect(payment_link_with_email)
     
     # Pre-select plan from query param
