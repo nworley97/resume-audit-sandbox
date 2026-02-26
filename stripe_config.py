@@ -109,6 +109,7 @@ def is_live_mode() -> bool:
 # Events we handle from Stripe webhooks
 
 WEBHOOK_EVENTS = [
+    "checkout.session.completed",
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
@@ -118,7 +119,6 @@ WEBHOOK_EVENTS = [
     "payment_method.attached",
     "payment_method.detached",
     "customer.created",
-    "customer.updated",
 ]
 
 

@@ -999,11 +999,11 @@ def edit_jd(tenant=None):
             end_date        = _parse_dt(request.form.get("jd_end",""))
 
             # Server-side date validation
-            if start_date and start_date.year < 2020:
-                flash("Start date year must be 2020 or later.", "error")
+            if start_date and (start_date.year < 2020 or start_date.year > 2099):
+                flash("Start date year must be between 2020 and 2099.", "error")
                 return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code if existing else None))
-            if end_date and end_date.year < 2020:
-                flash("End date year must be 2020 or later.", "error")
+            if end_date and (end_date.year < 2020 or end_date.year > 2099):
+                flash("End date year must be between 2020 and 2099.", "error")
                 return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code if existing else None))
             if start_date and end_date and end_date < start_date:
                 flash("End date must be on or after the start date.", "error")
@@ -1045,7 +1045,6 @@ def edit_jd(tenant=None):
                 existing.title           = title
                 existing.markdown        = raw_markdown
                 existing.html            = html_sanitized
-                existing.markdown        = raw_markdown
                 existing.status          = status
                 existing.department      = department
                 existing.team            = team
@@ -1088,7 +1087,6 @@ def edit_jd(tenant=None):
                 jd.title           = title
                 jd.markdown        = raw_markdown
                 jd.html            = html_sanitized
-                jd.markdown   = raw_markdown
                 jd.status          = status
                 jd.department      = department
                 jd.team            = team
@@ -2468,7 +2466,7 @@ def apply(tenant, code):
                     jd_code=jd.code, email=email, tenant_id=t.id
                 ).first()
                 if existing_app:
-                    flash("An application with this email already exists for this position.", "error")
+                    flash("An application with this email already exists for this position.", "applicant")
                     return redirect(url_for("public_apply", tenant=t.slug, code=code))
 
             c  = Candidate(
@@ -2596,6 +2594,8 @@ def camera_gate(tenant, code, cid):
         c=c,
         tenant=t,
         tenant_slug=t.slug,
+        code=code,
+        cid=cid,
         first_name=first_name,
         next_url=next_url,
     )

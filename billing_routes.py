@@ -220,6 +220,7 @@ def signup():
                 # Log user in
                 login_user(user)
                 session['tenant_slug'] = tenant.slug
+                session.pop('signup_data', None)
 
                 flash('Welcome! Your free account is ready.', 'success')
                 return redirect(url_for('recruiter', tenant=tenant.slug))
@@ -756,7 +757,7 @@ def add_seats():
                 return redirect(url_for('billing.add_seats'))
 
             # Prefill email so Stripe knows which customer this is
-            email = current_user.email or ''
+            email = current_user.username or ''
             if email:
                 payment_link = f"{payment_link}?prefilled_email={quote(email)}"
 
