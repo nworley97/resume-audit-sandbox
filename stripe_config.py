@@ -62,7 +62,7 @@ STRIPE_PRICE_LOOKUP_KEYS = {
     },
     "extra_seat": {
         "monthly": "extra_seat_monthly",
-        # No annual option for extra seats
+        "yearly": "extra_seat_annual",
     },
 }
 
@@ -143,6 +143,10 @@ STRIPE_PAYMENT_LINKS = {
     "ultra": {
         "monthly": "https://buy.stripe.com/dRm9AT5bNe0O06E5n8cjS00",
         "yearly": "https://buy.stripe.com/aFa8wP33F6ym6v25n8cjS08",
+    },
+    "extra_seat": {
+        "monthly": "https://buy.stripe.com/00w7sL47J7Cq06EaHscjS0b",
+        "yearly": "https://buy.stripe.com/bJebJ10Vx4qe4mU5n8cjS0a",
     },
 }
 

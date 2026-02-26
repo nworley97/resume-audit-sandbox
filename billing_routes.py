@@ -725,74 +725,45 @@ def change_plan():
 @billing_bp.route('/add-seats', methods=['GET', 'POST'])
 @login_required
 def add_seats():
-    """Add additional seats to subscription."""
+    """Add additional seats to subscription via Stripe payment links."""
     if not current_user.tenant_id:
         flash('No billing account found.')
         return redirect(url_for('home'))
-    
+
     db = SessionLocal()
     try:
         subscription = db.query(TenantSubscription).filter(
             TenantSubscription.tenant_id == current_user.tenant_id
         ).first()
-        
+
         if not subscription:
             flash('No subscription found.')
             return redirect(url_for('billing.signup'))
-        
+
         if subscription.status == 'grandfathered':
             flash('Your account has grandfathered access with unlimited seats.')
             return redirect(url_for('billing.account'))
-        
-        # Check if we have a Stripe customer to charge
-        if not subscription.stripe_customer_id:
-            flash('Unable to process payment. Please contact support.', 'error')
-            return redirect(url_for('billing.account'))
-        
+
         if request.method == 'POST':
-            num_seats = int(request.form.get('num_seats', 1))
-            
-            if num_seats < 1 or num_seats > 10:
-                flash('Please select between 1 and 10 seats.')
+            from stripe_config import get_payment_link
+            from urllib.parse import quote
+
+            billing_cycle = request.form.get('billing_cycle', 'monthly')
+            payment_link = get_payment_link('extra_seat', billing_cycle)
+
+            if not payment_link:
+                flash('Payment link not configured. Please contact support.', 'error')
                 return redirect(url_for('billing.add_seats'))
-            
-            amount = num_seats * EXTRA_SEAT_PRICE_MONTHLY
-            
-            # Process payment
-            success, error, payment_id = PaymentService.charge_additional_seats(
-                subscription.stripe_customer_id,
-                num_seats,
-                EXTRA_SEAT_PRICE_MONTHLY
-            )
-            
-            if not success:
-                flash(error or 'Payment failed. Please try again.', 'error')
-                return redirect(url_for('billing.add_seats'))
-            
-            # Update subscription
-            subscription.extra_seats = (subscription.extra_seats or 0) + num_seats
-            
-            # Record payment
-            payment = PaymentHistory(
-                tenant_id=current_user.tenant_id,
-                amount=amount,
-                currency='USD',
-                description=f"Added {num_seats} additional seat(s)",
-                status='succeeded',
-                extra_seats=num_seats,
-                stripe_payment_intent_id=payment_id,
-                payment_method_last4=subscription.payment_method_last4,
-                payment_method_brand=subscription.payment_method_brand,
-            )
-            db.add(payment)
-            
-            db.commit()
-            
-            flash(f'Successfully added {num_seats} seat(s)!')
-            return redirect(url_for('billing.account'))
-        
+
+            # Prefill email so Stripe knows which customer this is
+            email = current_user.email or ''
+            if email:
+                payment_link = f"{payment_link}?prefilled_email={quote(email)}"
+
+            return redirect(payment_link)
+
         summary = get_usage_summary(current_user.tenant_id, db)
-        
+
         return render_template(
             'billing/add_seats.html',
             subscription=subscription,
