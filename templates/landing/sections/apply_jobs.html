@@ -25,7 +25,7 @@
           <div class="accordion-item open border-t border-gray-300" data-step="0">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
               <div class="flex items-center gap-2">
-                <img src="https://www.figma.com/api/mcp/asset/0941b912-4f36-4c35-9a39-4a6ef4f42c2f" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>upload</span>'">
+                <span class="material-symbols-outlined text-black text-[16px]">upload</span>
                 <span class="font-ibm-sans text-[16px] text-black leading-[24px]">Submit your resume to job posting</span>
               </div>
               <span class="material-symbols-outlined accordion-chevron text-landing-blue text-[16px]">expand_more</span>
@@ -43,7 +43,7 @@
           <div class="accordion-item border-t border-gray-300" data-step="1">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
               <div class="flex items-center gap-2">
-                <img src="https://www.figma.com/api/mcp/asset/f1c88eb9-053d-4e7a-8b48-70b361ae4fa1" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>checklist</span>'">
+                <span class="material-symbols-outlined text-black text-[16px]">checklist</span>
                 <span class="font-ibm-sans text-[16px] text-black leading-[24px]">Review interview guidelines</span>
               </div>
               <span class="material-symbols-outlined accordion-chevron text-landing-blue text-[16px]">expand_more</span>
@@ -61,7 +61,7 @@
           <div class="accordion-item border-t border-gray-300" data-step="2">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
               <div class="flex items-center gap-2">
-                <img src="https://www.figma.com/api/mcp/asset/302247dc-5d48-4c49-82b4-3e756e58f472" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>description</span>'">
+                <span class="material-symbols-outlined text-black text-[16px]">description</span>
                 <span class="font-ibm-sans text-[16px] text-black leading-[24px]">Answer questions</span>
               </div>
               <span class="material-symbols-outlined accordion-chevron text-landing-blue text-[16px]">expand_more</span>
@@ -79,7 +79,7 @@
           <div class="accordion-item border-t border-gray-300 border-b" data-step="3">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
               <div class="flex items-center gap-2">
-                <img src="https://www.figma.com/api/mcp/asset/6556b85c-e193-4096-9118-04391ee9fd3d" alt="" class="w-4 h-4" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-black text-[16px]\'>send</span>'">
+                <span class="material-symbols-outlined text-black text-[16px]">send</span>
                 <span class="font-ibm-sans text-[16px] text-black leading-[24px]">Submit application</span>
               </div>
               <span class="material-symbols-outlined accordion-chevron text-landing-blue text-[16px]">expand_more</span>
@@ -103,10 +103,10 @@
       <!-- Right: Application screenshot with cycling step images -->
       <div id="apply-images" class="w-full md:w-[50%] lg:w-[498px] md:min-h-[704px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] reveal reveal-delay-2 relative overflow-hidden">
         <!-- Step images (cycle based on active accordion) -->
-        <img data-step-img="0" src="https://www.figma.com/api/mcp/asset/74a606e8-4983-438b-9e1e-72313fad4014" alt="Submit Resume" class="apply-step-img rounded-[12px] w-full h-full object-cover" onerror="this.style.display='none'">
-        <img data-step-img="1" src="https://www.figma.com/api/mcp/asset/cb85eb93-ceac-4e82-84a7-0c812f4af69e" alt="Allow Camera Access" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden" onerror="this.style.display='none'">
-        <img data-step-img="2" src="https://www.figma.com/api/mcp/asset/14025499-d71c-4d92-8969-745f6bc628b9" alt="Answer Questions" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden" onerror="this.style.display='none'">
-        <img data-step-img="3" src="https://www.figma.com/api/mcp/asset/a39e9246-f9a1-4507-8335-ab740f92674d" alt="Submit Application" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden" onerror="this.style.display='none'">
+        <img data-step-img="0" src="{{ url_for('static', filename='img/landing/apply-step-resume.gif') }}" alt="Submit Resume" class="apply-step-img rounded-[12px] w-full h-full object-cover">
+        <img data-step-img="1" src="{{ url_for('static', filename='img/landing/apply-step-guidelines.gif') }}" alt="Review Guidelines" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden">
+        <img data-step-img="2" src="{{ url_for('static', filename='img/landing/apply-step-questions.gif') }}" alt="Answer Questions" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden">
+        <img data-step-img="3" src="{{ url_for('static', filename='img/landing/apply-step-submit.gif') }}" alt="Submit Application" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden">
         <!-- Step icons overlay -->
         <div class="absolute top-[24px] left-[24px] bg-white rounded-[8px] shadow-[0px_2px_2px_rgba(0,0,0,0.25)] p-[10px]">
           <div class="flex flex-col gap-[8px] w-[16px]">

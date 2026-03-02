@@ -24,7 +24,7 @@
 
       <!-- Right: Image with gradient overlay -->
       <div class="w-full md:w-[50%] lg:w-[498px] h-[200px] md:h-[264px] rounded-[12px] shadow-landing-card overflow-hidden reveal reveal-delay-2 relative">
-        <img src="https://www.figma.com/api/mcp/asset/fe570a04-e925-4c7e-9419-1407363bcc05" alt="" class="absolute w-full h-full object-cover" onerror="this.parentElement.classList.add('bg-gray-200');this.remove()">
+        <img src="{{ url_for('static', filename='img/landing/contact-map.png') }}" alt="" class="absolute w-full h-full object-cover">
         <div class="absolute inset-0 rounded-[12px]" style="background: linear-gradient(to bottom, rgba(30,62,84,0.5), rgba(48,134,192,0.5));"></div>
       </div>
     </div>
