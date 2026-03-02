@@ -1,7 +1,8 @@
 # models.py
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Integer, Boolean, DateTime, JSON, ForeignKey, Text, Time
+    Column, String, Integer, Boolean, DateTime, JSON, ForeignKey, Text, Time,
+    UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.mutable import MutableDict, MutableList
@@ -44,13 +45,12 @@ class JobDescription(Base):
     __tablename__ = "job_description"
 
     id = Column(Integer, primary_key=True)
-    code = Column(String(20), unique=True, nullable=False)
+    code = Column(String(20), nullable=False)  # unique per tenant, not globally
 
     title = Column(String(200), nullable=False)
     # ET-23: Raw Markdown (source of truth) and sanitized HTML (rendered)
     markdown = Column(Text, nullable=True)
     html = Column(Text, nullable=True)
-    markdown = Column(Text, nullable=True) # job description in markdown format
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # Columns also checked by ensure_schema()
@@ -74,6 +74,10 @@ class JobDescription(Base):
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")
 
+    __table_args__ = (
+        UniqueConstraint('code', 'tenant_id', name='uq_job_code_per_tenant'),
+    )
+
 
 class Candidate(Base):
     __tablename__ = "candidate"
@@ -95,7 +99,7 @@ class Candidate(Base):
     answers = Column(MutableList.as_mutable(JSON), nullable=True)
     answer_scores = Column(MutableList.as_mutable(JSON), nullable=True)
 
-    jd_code = Column(String(20), ForeignKey("job_description.code", ondelete="SET NULL"))
+    jd_code = Column(String(20), nullable=True)  # references job_description.code within same tenant (no FK — code is per-tenant unique, not globally)
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
@@ -104,3 +108,7 @@ class Candidate(Base):
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")
+
+    __table_args__ = (
+        UniqueConstraint('jd_code', 'email', 'tenant_id', name='uq_candidate_per_job_email'),
+    )

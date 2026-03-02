@@ -1,0 +1,34 @@
+{% extends "base_app.html" %}
+{% block title %}{{ title or 'Analytics' }} - ALTERA{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* Let the iframe fill the entire main content area */
+  .analytics-iframe-wrap {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 130px); /* full viewport minus header + padding */
+    min-height: 500px;
+  }
+  .analytics-iframe-wrap iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 0.75rem;
+    background: #fff;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-iframe-wrap">
+  <iframe src="{{ spa_url }}"
+          title="Analytics Dashboard"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          loading="lazy">
+  </iframe>
+</div>
+{% endblock %}

@@ -166,21 +166,82 @@ def signup():
         finally:
             db.close()
         
-        # Get Stripe payment link for paid plans
+        # Free plan: create account immediately — no payment needed
+        if plan_tier == 'free':
+            db2 = SessionLocal()
+            try:
+                # Create tenant
+                slug = company_name.lower().replace(' ', '-')[:50]
+                slug = ''.join(c for c in slug if c.isalnum() or c == '-')
+                # Ensure slug is unique
+                base_slug = slug or 'company'
+                counter = 0
+                while db2.query(Tenant).filter_by(slug=slug or base_slug).first():
+                    counter += 1
+                    slug = f"{base_slug}-{counter}"
+                if not slug:
+                    slug = base_slug
+
+                tenant = Tenant(slug=slug, display_name=company_name)
+                db2.add(tenant)
+                db2.flush()
+
+                # Create user
+                user = User(username=email, tenant_id=tenant.id)
+                user.pw_hash = generate_password_hash(password)
+                db2.add(user)
+                db2.flush()
+
+                # Create subscription record
+                sub = TenantSubscription(
+                    tenant_id=tenant.id,
+                    plan_tier='free',
+                    billing_cycle='monthly',
+                    status='active',
+                )
+                db2.add(sub)
+
+                # Create initial usage record
+                usage = TenantUsage(
+                    tenant_id=tenant.id,
+                    resumes_reviewed=0,
+                    period_start=datetime.utcnow(),
+                    period_end=datetime.utcnow() + timedelta(days=30),
+                )
+                db2.add(usage)
+
+                # Mark pending signup as processed
+                pending_record = db2.query(PendingSignup).filter_by(email=email, processed=False).first()
+                if pending_record:
+                    pending_record.processed = True
+
+                db2.commit()
+
+                # Log user in
+                login_user(user)
+                session['tenant_slug'] = tenant.slug
+                session.pop('signup_data', None)
+
+                flash('Welcome! Your free account is ready.', 'success')
+                return redirect(url_for('recruiter', tenant=tenant.slug))
+            except Exception as e:
+                db2.rollback()
+                flash(f'Error creating account: {str(e)}', 'error')
+                return redirect(url_for('billing.signup'))
+            finally:
+                db2.close()
+
+        # Paid plans: redirect to Stripe payment link
         from stripe_config import get_payment_link
         from urllib.parse import quote
-        
+
         payment_link = get_payment_link(plan_tier, billing_cycle)
-        
+
         if not payment_link:
             flash('Payment link not configured for this plan. Please contact support.', 'error')
             return redirect(url_for('billing.signup'))
-        
-        # Prefill email in Stripe payment link to ensure webhook can match the pending signup
-        # Stripe Payment Links support ?prefilled_email= parameter
+
         payment_link_with_email = f"{payment_link}?prefilled_email={quote(email)}"
-        
-        # Redirect to Stripe payment link
         return redirect(payment_link_with_email)
     
     # Pre-select plan from query param
@@ -665,74 +726,45 @@ def change_plan():
 @billing_bp.route('/add-seats', methods=['GET', 'POST'])
 @login_required
 def add_seats():
-    """Add additional seats to subscription."""
+    """Add additional seats to subscription via Stripe payment links."""
     if not current_user.tenant_id:
         flash('No billing account found.')
         return redirect(url_for('home'))
-    
+
     db = SessionLocal()
     try:
         subscription = db.query(TenantSubscription).filter(
             TenantSubscription.tenant_id == current_user.tenant_id
         ).first()
-        
+
         if not subscription:
             flash('No subscription found.')
             return redirect(url_for('billing.signup'))
-        
+
         if subscription.status == 'grandfathered':
             flash('Your account has grandfathered access with unlimited seats.')
             return redirect(url_for('billing.account'))
-        
-        # Check if we have a Stripe customer to charge
-        if not subscription.stripe_customer_id:
-            flash('Unable to process payment. Please contact support.', 'error')
-            return redirect(url_for('billing.account'))
-        
+
         if request.method == 'POST':
-            num_seats = int(request.form.get('num_seats', 1))
-            
-            if num_seats < 1 or num_seats > 10:
-                flash('Please select between 1 and 10 seats.')
+            from stripe_config import get_payment_link
+            from urllib.parse import quote
+
+            billing_cycle = request.form.get('billing_cycle', 'monthly')
+            payment_link = get_payment_link('extra_seat', billing_cycle)
+
+            if not payment_link:
+                flash('Payment link not configured. Please contact support.', 'error')
                 return redirect(url_for('billing.add_seats'))
-            
-            amount = num_seats * EXTRA_SEAT_PRICE_MONTHLY
-            
-            # Process payment
-            success, error, payment_id = PaymentService.charge_additional_seats(
-                subscription.stripe_customer_id,
-                num_seats,
-                EXTRA_SEAT_PRICE_MONTHLY
-            )
-            
-            if not success:
-                flash(error or 'Payment failed. Please try again.', 'error')
-                return redirect(url_for('billing.add_seats'))
-            
-            # Update subscription
-            subscription.extra_seats = (subscription.extra_seats or 0) + num_seats
-            
-            # Record payment
-            payment = PaymentHistory(
-                tenant_id=current_user.tenant_id,
-                amount=amount,
-                currency='USD',
-                description=f"Added {num_seats} additional seat(s)",
-                status='succeeded',
-                extra_seats=num_seats,
-                stripe_payment_intent_id=payment_id,
-                payment_method_last4=subscription.payment_method_last4,
-                payment_method_brand=subscription.payment_method_brand,
-            )
-            db.add(payment)
-            
-            db.commit()
-            
-            flash(f'Successfully added {num_seats} seat(s)!')
-            return redirect(url_for('billing.account'))
-        
+
+            # Prefill email so Stripe knows which customer this is
+            email = current_user.username or ''
+            if email:
+                payment_link = f"{payment_link}?prefilled_email={quote(email)}"
+
+            return redirect(payment_link)
+
         summary = get_usage_summary(current_user.tenant_id, db)
-        
+
         return render_template(
             'billing/add_seats.html',
             subscription=subscription,

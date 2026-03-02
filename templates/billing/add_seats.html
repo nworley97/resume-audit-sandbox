@@ -9,25 +9,13 @@
     </svg>
     Back to Billing
   </a>
-  
+
   <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
     <h1 class="text-xl font-semibold text-title mb-2">Add Team Seats</h1>
     <p class="text-slate-500 text-sm mb-6">
       Add additional seats for your team members. Each seat costs ${{ seat_price }}/month.
     </p>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div class="mb-6">
-      {% for category, message in messages %}
-      <div class="p-4 rounded-lg {% if category == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
-        {{ message }}
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
-    
+
     <!-- Current Usage -->
     <div class="bg-slate-50 rounded-lg p-4 mb-6">
       <div class="flex justify-between items-center">
@@ -40,43 +28,66 @@
       </div>
       {% endif %}
     </div>
-    
-    <form method="POST" action="{{ url_for('billing.add_seats') }}">
-      <div class="mb-6">
-        <label for="num_seats" class="block text-sm font-medium text-slate-700 mb-2">
-          Number of Seats to Add
-        </label>
-        <select id="num_seats" name="num_seats" 
-                class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
-          {% for n in range(1, 11) %}
-          <option value="{{ n }}">{{ n }} seat{% if n > 1 %}s{% endif %} — ${{ n * seat_price }}/mo</option>
-          {% endfor %}
-        </select>
-      </div>
-      
-      <div class="bg-slate-50 rounded-lg p-4 mb-6">
-        <div class="flex justify-between items-center">
-          <span class="text-slate-600">Total (monthly)</span>
-          <span class="text-xl font-semibold text-title" id="total-price">${{ seat_price }}</span>
-        </div>
-        <p class="text-xs text-slate-400 mt-2">
-          You will be charged immediately and this amount will be added to your monthly bill.
-        </p>
-      </div>
-      
-      <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors">
-        Add Seats & Pay
+
+    <!-- Billing Cycle Toggle -->
+    <div class="flex items-center justify-center gap-3 mb-6">
+      <span id="label-monthly" class="text-sm font-medium text-title">Monthly</span>
+      <button type="button" id="cycle-toggle"
+              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-slate-300 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              role="switch" aria-checked="false">
+        <span class="pointer-events-none inline-block h-5 w-5 translate-x-0 rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
       </button>
+      <span id="label-yearly" class="text-sm text-slate-400">Yearly</span>
+    </div>
+
+    <form method="POST" action="{{ url_for('billing.add_seats') }}">
+      <input type="hidden" name="billing_cycle" id="billing_cycle" value="monthly">
+
+      <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors">
+        Add Seat via Stripe
+      </button>
+      <p class="text-xs text-slate-400 text-center mt-3">
+        You will be redirected to Stripe to complete your purchase securely.
+      </p>
     </form>
   </div>
 </div>
 
 <script>
-document.getElementById('num_seats').addEventListener('change', function() {
-  const seats = parseInt(this.value);
-  const price = seats * {{ seat_price }};
-  document.getElementById('total-price').textContent = '$' + price;
-});
+(function() {
+  const toggle = document.getElementById('cycle-toggle');
+  const knob = toggle.querySelector('span');
+  const labelMonthly = document.getElementById('label-monthly');
+  const labelYearly = document.getElementById('label-yearly');
+  const cycleInput = document.getElementById('billing_cycle');
+  let isYearly = false;
+
+  toggle.addEventListener('click', function() {
+    isYearly = !isYearly;
+    toggle.setAttribute('aria-checked', isYearly);
+
+    if (isYearly) {
+      knob.classList.remove('translate-x-0');
+      knob.classList.add('translate-x-5');
+      toggle.classList.remove('bg-slate-300');
+      toggle.classList.add('bg-primary');
+      labelYearly.classList.remove('text-slate-400');
+      labelYearly.classList.add('text-title', 'font-medium');
+      labelMonthly.classList.remove('font-medium', 'text-title');
+      labelMonthly.classList.add('text-slate-400');
+      cycleInput.value = 'yearly';
+    } else {
+      knob.classList.remove('translate-x-5');
+      knob.classList.add('translate-x-0');
+      toggle.classList.remove('bg-primary');
+      toggle.classList.add('bg-slate-300');
+      labelMonthly.classList.remove('text-slate-400');
+      labelMonthly.classList.add('text-title', 'font-medium');
+      labelYearly.classList.remove('text-title', 'font-medium');
+      labelYearly.classList.add('text-slate-400');
+      cycleInput.value = 'monthly';
+    }
+  });
+})();
 </script>
 {% endblock %}
-

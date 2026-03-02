@@ -640,7 +640,9 @@ def login(tenant=None):
                     if tt:
                         session["tenant_slug"] = tt.slug
                         return redirect(url_for("recruiter", tenant=tt.slug))
-                return redirect(url_for("recruiter"))
+                # User has no tenant — send to billing signup instead of infinite loop
+                flash("Please complete your account setup.", "warning")
+                return redirect(url_for("billing.signup"))
         finally:
             db.close()
     return render_template("login.html", title="Login")
@@ -995,6 +997,18 @@ def edit_jd(tenant=None):
             salary_range    = (request.form.get("jd_salary_range","") or "").strip() or None
             start_date      = _parse_dt(request.form.get("jd_start",""))
             end_date        = _parse_dt(request.form.get("jd_end",""))
+
+            # Server-side date validation
+            if start_date and (start_date.year < 2020 or start_date.year > 2099):
+                flash("Start date year must be between 2020 and 2099.", "error")
+                return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code if existing else None))
+            if end_date and (end_date.year < 2020 or end_date.year > 2099):
+                flash("End date year must be between 2020 and 2099.", "error")
+                return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code if existing else None))
+            if start_date and end_date and end_date < start_date:
+                flash("End date must be on or after the start date.", "error")
+                return redirect(url_for("edit_jd", tenant=t.slug, code=existing.code if existing else None))
+
             # NEW: feature/ET-12-FE(Jen) - Fix form data persistence issue
             # Problem: start_time, end_time, work_arrangement fields were not being saved
             # Solution: Add proper form data extraction and parsing
@@ -1031,7 +1045,6 @@ def edit_jd(tenant=None):
                 existing.title           = title
                 existing.markdown        = raw_markdown
                 existing.html            = html_sanitized
-                existing.markdown        = raw_markdown
                 existing.status          = status
                 existing.department      = department
                 existing.team            = team
@@ -1062,12 +1075,6 @@ def edit_jd(tenant=None):
                     flash(f"The job code '{posted_code}' is already in use in your account. Please choose a different code.", "error")
                     return redirect(url_for("edit_jd", tenant=t.slug, code=conflict.code))
                 
-                # Also check globally (since constraint is global unique)
-                global_conflict = db.query(JobDescription).filter_by(code=posted_code).first()
-                if global_conflict:
-                    flash(f"The job code '{posted_code}' is already in use. Please choose a different code.", "error")
-                    return redirect(url_for("edit_jd", tenant=t.slug))
-
                 # Check job limit when creating a new job with status "open"
                 new_status = (status or "").lower()
                 if new_status == "open":
@@ -1080,7 +1087,6 @@ def edit_jd(tenant=None):
                 jd.title           = title
                 jd.markdown        = raw_markdown
                 jd.html            = html_sanitized
-                jd.markdown   = raw_markdown
                 jd.status          = status
                 jd.department      = department
                 jd.team            = team
@@ -1716,29 +1722,37 @@ def analytics_dashboard(tenant=None):
 @login_required
 @require_feature("analytics_dashboard")
 def analytics_overview_nextjs(tenant=None):
-    """Serve Vite static files for analytics overview page"""
+    """Serve analytics SPA within Flask layout (preserves sidebar)"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
             return redirect(url_for("analytics_overview_nextjs", tenant=slug))
         return redirect(url_for("login"))
-    
-    return send_from_directory('analytics_ui/dashboard/dist', 'index.html')
+
+    spa_url = url_for('analytics_spa_raw', tenant=t.slug)
+    return render_template('analytics_embed.html', title='Analytics', spa_url=spa_url, tenant=t)
 
 @app.route("/<tenant>/recruiter/analytics/<jobCode>", strict_slashes=False)
 @app.route("/<tenant>/recruiter/analytics/<jobCode>/", strict_slashes=False)
 @login_required
 @require_feature("analytics_dashboard")
 def analytics_detail_nextjs(tenant=None, jobCode=None):
-    """Serve Vite static files for analytics detail page (client-side routing)"""
+    """Serve analytics SPA detail page within Flask layout"""
     t = load_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
             return redirect(url_for("analytics_detail_nextjs", tenant=slug, jobCode=jobCode))
         return redirect(url_for("login"))
-    
+
+    spa_url = url_for('analytics_spa_raw', tenant=t.slug) + ('/' + jobCode if jobCode else '')
+    return render_template('analytics_embed.html', title='Analytics', spa_url=spa_url, tenant=t)
+
+@app.route("/<tenant>/recruiter/analytics-spa", strict_slashes=False)
+@login_required
+def analytics_spa_raw(tenant=None):
+    """Serve raw Vite SPA HTML (used inside iframe)"""
     return send_from_directory('analytics_ui/dashboard/dist', 'index.html')
 
 @app.route("/assets/<path:path>")
@@ -2446,6 +2460,15 @@ def apply(tenant, code):
 
         db = SessionLocal()
         try:
+            # Prevent duplicate applications from same email for same job
+            if email:
+                existing_app = db.query(Candidate).filter_by(
+                    jd_code=jd.code, email=email, tenant_id=t.id
+                ).first()
+                if existing_app:
+                    flash("An application with this email already exists for this position.", "applicant")
+                    return redirect(url_for("public_apply", tenant=t.slug, code=code))
+
             c  = Candidate(
                 id            = cid,
                 name          = name,
@@ -2571,6 +2594,8 @@ def camera_gate(tenant, code, cid):
         c=c,
         tenant=t,
         tenant_slug=t.slug,
+        code=code,
+        cid=cid,
         first_name=first_name,
         next_url=next_url,
     )

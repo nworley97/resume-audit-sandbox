@@ -175,7 +175,7 @@
               <label class="block text-sm text-gray-700 mb-1">
                 Start Date <span class="text-red-500">*</span>
               </label>
-              <input type="date" name="jd_start" value="{{ jd.start_date.strftime('%Y-%m-%d') if jd.start_date else '' }}" required # 2025-10-01(Jen): Fix date format for HTML date input - convert DateTime to YYYY-MM-DD format
+              <input type="date" name="jd_start" id="jd_start" value="{{ jd.start_date.strftime('%Y-%m-%d') if jd.start_date else '' }}" required
                      class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
             <div>
@@ -193,7 +193,7 @@
               <label class="block text-sm text-gray-700 mb-1">
                 End Date <span class="text-red-500">*</span>
               </label>
-              <input type="date" name="jd_end" value="{{ jd.end_date.strftime('%Y-%m-%d') if jd.end_date else '' }}" required # 2025-10-01(Jen): Fix date format for HTML date input - convert DateTime to YYYY-MM-DD format
+              <input type="date" name="jd_end" id="jd_end" value="{{ jd.end_date.strftime('%Y-%m-%d') if jd.end_date else '' }}" required
                      class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
             <div>
@@ -209,9 +209,14 @@
           <label class="block text-sm text-gray-700 mb-1">
             Employment Type <span class="text-red-500">*</span>
           </label>
-          <input name="jd_employment_type" value="{{ jd.employment_type or '' }}" required
-                 placeholder="e.g., Full-time"
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <select name="jd_employment_type" required
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="" disabled {{ 'selected' if not jd.employment_type else '' }}>Select type</option>
+            {% set emp_options = ['Full-time', 'Part-time', 'Internship', 'Contract', 'Temporary', 'Freelance'] %}
+            {% for opt in emp_options %}
+              <option value="{{ opt }}" {{ 'selected' if jd.employment_type == opt else '' }}>{{ opt }}</option>
+            {% endfor %}
+          </select>
         </div>
 
         <!-- Work Arrangement -->
@@ -294,12 +299,12 @@
       </div>
     </div>
 
-    <!-- Application Link (Figma-style) -->
+    <!-- Application Link (only shown once job is published/open) -->
+    {% if status in ('open', 'published') and apply_url %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
       <h2 class="text-xl font-semibold text-title" style="font-family: 'Poppins', sans-serif;">Application Link</h2>
       <p class="text-sm text-gray-500 mt-1">
-        Once you publish this job posting, candidates will be able to apply using the link below.
-        Share this link on your website, social media, or job boards.
+        Your job is live! Share this application link on your website, social media, or job boards.
       </p>
 
       <div class="mt-3 flex items-center gap-2 max-w-2xl">
@@ -312,6 +317,14 @@
         </button>
       </div>
     </div>
+    {% elif status not in ('open', 'published') %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <h2 class="text-xl font-semibold text-title" style="font-family: 'Poppins', sans-serif;">Application Link</h2>
+      <p class="text-sm text-gray-400 mt-1">
+        The application link will be available after you publish this job posting.
+      </p>
+    </div>
+    {% endif %}
 
     <!-- Actions -->
     <div class="flex items-center justify-between gap-2">
@@ -367,6 +380,64 @@ if (copyBtn) {
     catch { el.select(); document.execCommand('copy'); copyBtn.textContent = 'Copied'; setTimeout(()=>copyBtn.textContent='Copy', 1400); }
   });
 }
+
+// Date validation: end date must be after start date, year must be realistic
+(function() {
+  const startEl = document.getElementById('jd_start');
+  const endEl   = document.getElementById('jd_end');
+  if (!startEl || !endEl) return;
+
+  // Set min date to today for new jobs
+  const today = new Date().toISOString().split('T')[0];
+  if (!startEl.value) startEl.setAttribute('min', today);
+
+  function validateDates() {
+    const startVal = startEl.value;
+    const endVal   = endEl.value;
+
+    // Clear custom validity first
+    startEl.setCustomValidity('');
+    endEl.setCustomValidity('');
+
+    if (startVal) {
+      const startYear = parseInt(startVal.split('-')[0], 10);
+      if (startYear < 2020 || startYear > 2099) {
+        startEl.setCustomValidity('Please enter a realistic year (2020\u20132099).');
+      }
+      // Set end date minimum to start date
+      endEl.setAttribute('min', startVal);
+    }
+
+    if (endVal) {
+      const endYear = parseInt(endVal.split('-')[0], 10);
+      if (endYear < 2020 || endYear > 2099) {
+        endEl.setCustomValidity('Please enter a realistic year (2020\u20132099).');
+      }
+    }
+
+    if (startVal && endVal && endVal < startVal) {
+      endEl.setCustomValidity('End date must be on or after the start date.');
+    }
+  }
+
+  startEl.addEventListener('change', validateDates);
+  endEl.addEventListener('change', validateDates);
+
+  // Also validate on form submit
+  const form = startEl.closest('form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      validateDates();
+      if (!form.checkValidity()) {
+        e.preventDefault();
+        form.reportValidity();
+      }
+    });
+  }
+
+  // Run once on load in case values are pre-filled
+  validateDates();
+})();
 </script>
 {% endblock %}
 

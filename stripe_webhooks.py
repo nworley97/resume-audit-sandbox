@@ -316,7 +316,7 @@ def handle_checkout_session_completed(event) -> Dict[str, Any]:
     checkout_session = event.data.object
     customer_id = _safe_get(checkout_session, 'customer')
     session_id = _safe_get(checkout_session, 'id')
-    
+
     # Extract email - try multiple fields for compatibility
     customer_email = None
     customer_details = _safe_get(checkout_session, 'customer_details')
@@ -325,21 +325,26 @@ def handle_checkout_session_completed(event) -> Dict[str, Any]:
     # Fallback to customer_email field
     if not customer_email:
         customer_email = _safe_get(checkout_session, 'customer_email')
-    
+
     logger.info(f"Checkout session completed: {session_id} for customer {customer_id}, email: {customer_email}")
-    
-    # If we have customer email, try to create account from pending signup
+
+    # Check if this is an extra_seat purchase
+    seat_added = _maybe_add_extra_seat(session_id, customer_id)
+    if seat_added:
+        return {"session_id": session_id, "customer_id": customer_id, "seat_added": True}
+
+    # Otherwise, try to create account from pending signup (new plan purchase)
     account_created = False
     if customer_email:
         account_created = _maybe_create_account_from_pending_signup(customer_email, customer_id)
-    
+
     if not account_created:
         # Log for debugging - this might indicate an email mismatch
         logger.warning(
             f"Checkout completed but no account created for email: {customer_email}, "
             f"customer_id: {customer_id}. Check if pending signup exists with matching email."
         )
-    
+
     return {"session_id": session_id, "customer_id": customer_id, "account_created": account_created}
 
 
@@ -477,6 +482,93 @@ def _update_payment_method_in_db(
             
     except Exception as e:
         logger.error(f"Error updating payment method in database: {e}", exc_info=True)
+        return False
+
+
+def _maybe_add_extra_seat(session_id: str, stripe_customer_id: str) -> bool:
+    """
+    Check if a checkout session is for an extra_seat product and increment seats.
+
+    Expands the checkout session's line_items via the Stripe API to determine
+    the purchased product. If it matches the extra_seat product ID, find the
+    tenant's subscription by stripe_customer_id and increment extra_seats.
+    """
+    if not stripe_customer_id:
+        return False
+
+    try:
+        import stripe
+        from stripe_config import STRIPE_SECRET_KEY, STRIPE_PRODUCTS
+        from db import SessionLocal
+        from subscription_models import TenantSubscription, PaymentHistory
+
+        extra_seat_product_id = STRIPE_PRODUCTS.get("extra_seat")
+        if not extra_seat_product_id or not STRIPE_SECRET_KEY:
+            return False
+
+        stripe.api_key = STRIPE_SECRET_KEY
+
+        # Retrieve the checkout session with line_items expanded
+        cs = stripe.checkout.Session.retrieve(session_id, expand=["line_items"])
+        line_items = cs.line_items.data if cs.line_items else []
+
+        # Check if any line item matches the extra_seat product
+        seat_quantity = 0
+        for item in line_items:
+            product_id = None
+            if item.price and item.price.product:
+                product_id = item.price.product
+                if isinstance(product_id, dict):
+                    product_id = product_id.get('id')
+            if product_id == extra_seat_product_id:
+                seat_quantity += item.quantity or 1
+
+        if seat_quantity == 0:
+            return False
+
+        logger.info(f"Extra seat purchase detected: {seat_quantity} seat(s) for customer {stripe_customer_id}")
+
+        # Increment extra_seats on the tenant's subscription
+        db = SessionLocal()
+        try:
+            subscription = db.query(TenantSubscription).filter(
+                TenantSubscription.stripe_customer_id == stripe_customer_id
+            ).first()
+
+            if not subscription:
+                logger.warning(f"No subscription found for customer {stripe_customer_id} to add seats")
+                return False
+
+            subscription.extra_seats = (subscription.extra_seats or 0) + seat_quantity
+
+            # Record payment history
+            amount = cs.amount_total / 100.0 if cs.amount_total else 0
+            payment = PaymentHistory(
+                tenant_id=subscription.tenant_id,
+                amount=amount,
+                currency=(cs.currency or 'usd').upper(),
+                status='succeeded',
+                description=f"Added {seat_quantity} additional seat(s)",
+                extra_seats=seat_quantity,
+                stripe_payment_intent_id=cs.payment_intent if isinstance(cs.payment_intent, str) else None,
+                payment_method_last4=subscription.payment_method_last4,
+                payment_method_brand=subscription.payment_method_brand,
+            )
+            db.add(payment)
+
+            db.commit()
+            logger.info(f"Added {seat_quantity} extra seat(s) to subscription {subscription.id}")
+            return True
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error adding extra seats: {e}", exc_info=True)
+            return False
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Error checking for extra seat purchase: {e}", exc_info=True)
         return False
 
 
