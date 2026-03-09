@@ -1,9 +1,9 @@
 <!-- Section 12: Submit Resume / Apply for Jobs -->
 <section id="apply" class="bg-landing-light relative overflow-hidden py-[40px] md:py-0" style="min-height: auto;">
-  <div class="max-w-[1440px] mx-auto px-6 md:px-[210px]">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[40px] lg:px-[80px] xl:px-[210px]">
     <div class="flex flex-col md:flex-row md:items-start md:gap-12 gap-8 md:py-[80px]">
       <!-- Left: Text + Accordion -->
-      <div class="w-full md:w-[45%] lg:w-[498px]">
+      <div class="w-full md:w-[45%] xl:w-[498px]">
         <div class="flex flex-col gap-[24px]">
           <!-- Pill label -->
           <div class="inline-flex self-start bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
@@ -20,7 +20,7 @@
         </div>
 
         <!-- Accordion -->
-        <div class="w-full md:w-[479px] reveal reveal-delay-3 mt-8" id="apply-accordion">
+        <div class="w-full xl:w-[479px] reveal reveal-delay-3 mt-8" id="apply-accordion">
           <!-- Step 1 -->
           <div class="accordion-item open border-t border-gray-300" data-step="0">
             <button class="accordion-trigger w-full py-3 px-[7px] flex items-center justify-between text-left">
@@ -101,7 +101,7 @@
       </div>
 
       <!-- Right: Application screenshot with cycling step images -->
-      <div id="apply-images" class="w-full md:w-[50%] lg:w-[498px] md:min-h-[704px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] reveal reveal-delay-2 relative overflow-hidden">
+      <div id="apply-images" class="w-full md:w-[50%] xl:w-[498px] md:min-h-[704px] rounded-[12px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] reveal reveal-delay-2 relative overflow-hidden">
         <!-- Step images (cycle based on active accordion) -->
         <img data-step-img="0" src="{{ url_for('static', filename='img/landing/apply-step-resume.gif') }}" alt="Submit Resume" class="apply-step-img rounded-[12px] w-full h-full object-cover">
         <img data-step-img="1" src="{{ url_for('static', filename='img/landing/apply-step-guidelines.gif') }}" alt="Review Guidelines" class="apply-step-img rounded-[12px] w-full h-full object-cover hidden">

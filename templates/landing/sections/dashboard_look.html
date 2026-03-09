@@ -1,6 +1,6 @@
 <!-- Section 5: Recruiters Dashboard Overview -->
 <section id="dashboard" class="bg-landing-light relative overflow-hidden py-[40px] md:py-[80px]">
-  <div class="max-w-[1440px] mx-auto px-6 md:px-[159px]">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[40px] lg:px-[80px] xl:px-[159px]">
     <div class="w-full max-w-[1122px] flex flex-col gap-[48px] items-center mx-auto">
       <!-- Header -->
       <div class="flex flex-col gap-[8px] items-center justify-center w-full">
@@ -18,15 +18,15 @@
         </div>
       </div>
 
-      <!-- Dashboard screenshots (overlapping) -->
-      <div class="relative reveal reveal-delay-3 w-full" style="display: inline-grid; grid-template-columns: 1fr; grid-template-rows: max-content;">
-        <!-- Main image -->
-        <div class="rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)] w-full max-w-[933px] aspect-[933/397]" style="grid-column: 1; grid-row: 1;">
-          <img src="{{ url_for('static', filename='img/landing/dashboard-overview.png') }}" alt="Analytics Dashboard" class="rounded-[12px] w-full h-full object-cover">
+      <!-- Dashboard screenshots (overlapping) — matches Figma 1020×463 image group -->
+      <div class="relative reveal reveal-delay-3 w-full max-w-[1020px] mx-auto aspect-[1020/463]">
+        <!-- Main image: 933×397 at left:5%, top:0 -->
+        <div class="absolute rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)]" style="left: 5%; top: 0; width: 91.5%; aspect-ratio: 933/397;">
+          <img src="{{ url_for('static', filename='img/landing/dashboard-matrix.png') }}" alt="Cross Validation Matrix" class="rounded-[12px] w-full h-full object-cover">
         </div>
-        <!-- Overlapping smaller image -->
-        <div class="hidden md:block rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)] w-[498px] h-[249px]" style="grid-column: 1; grid-row: 1; margin-left: 522px; margin-top: 214px;">
-          <img src="{{ url_for('static', filename='img/landing/dashboard-overview.png') }}" alt="Dashboard Detail" class="rounded-[12px] w-full h-full object-cover">
+        <!-- Overlapping detail: 498×249 at left:56.2%, top:46.2% -->
+        <div class="hidden lg:block absolute rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)]" style="left: 56.2%; top: 46.2%; width: 48.8%; aspect-ratio: 2/1;">
+          <img src="{{ url_for('static', filename='img/landing/dashboard-detail.png') }}" alt="Diamonds in the Rough" class="rounded-[12px] w-full h-full object-cover">
         </div>
       </div>
     </div>
