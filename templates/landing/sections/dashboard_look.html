@@ -19,13 +19,13 @@
       </div>
 
       <!-- Dashboard screenshots (overlapping) -->
-      <div class="relative reveal reveal-delay-3 w-full" style="display: inline-grid; grid-template-columns: 1fr; grid-template-rows: max-content;">
+      <div class="relative reveal reveal-delay-3 w-full pb-[15%] lg:pb-[20%]">
         <!-- Main image -->
-        <div class="rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)] w-full max-w-[933px] aspect-[933/397]" style="grid-column: 1; grid-row: 1;">
+        <div class="rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)] w-full max-w-[933px] aspect-[4096/1739]">
           <img src="{{ url_for('static', filename='img/landing/dashboard-matrix.png') }}" alt="Cross Validation Matrix" class="rounded-[12px] w-full h-full object-cover">
         </div>
         <!-- Overlapping smaller image -->
-        <div class="hidden lg:block rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)] w-[498px] h-[249px]" style="grid-column: 1; grid-row: 1; margin-left: 522px; margin-top: 214px;">
+        <div class="hidden lg:block absolute rounded-[12px] shadow-[0px_0px_8px_rgba(0,0,0,0.5)] w-[38%] aspect-[2/1]" style="right: 0; top: 50%;">
           <img src="{{ url_for('static', filename='img/landing/dashboard-detail.png') }}" alt="Diamonds in the Rough" class="rounded-[12px] w-full h-full object-cover">
         </div>
       </div>
