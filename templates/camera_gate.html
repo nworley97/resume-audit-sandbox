@@ -71,6 +71,46 @@
     </div>
   </div>
 
+  <!-- Camera Access -->
+  <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4 md:p-5 mb-4">
+    <div class="font-semibold text-gray-900 mb-2">Allow Camera Access</div>
+    <p class="text-xs text-gray-500 mb-3">
+      To ensure fairness and authenticity for all candidates, please allow access to your camera before starting.
+    </p>
+
+    <div class="divide-y divide-gray-200">
+      <div class="py-2 flex items-start gap-3">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#ecfdf5] ring-1 ring-[#99f6e4]">
+          <svg class="h-3.5 w-3.5 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 00-1.408-1.418L8.5 10.67 5.7 7.87a1 1 0 10-1.4 1.43l3.5 3.5a1 1 0 001.42 0l7.484-7.51z" clip-rule="evenodd"/>
+          </svg>
+        </span>
+        <div class="flex-grow">
+          <div class="text-primary text-sm font-medium">Camera Access</div>
+          <div class="text-xs text-gray-500 mb-3">
+            Your video and activity data will only be used for identity verification and evaluation integrity purposes.
+            They will not be stored or shared externally.
+          </div>
+
+          <!-- Browser prompt mock -->
+          <div class="max-w-[280px] mx-auto border border-gray-200 rounded-xl p-3 shadow-sm bg-white">
+            <div class="text-xs font-semibold text-gray-400 mb-1">alterasf.com wants to</div>
+            <div class="text-sm text-gray-700 mb-3">Use your camera</div>
+            <div class="flex flex-col gap-2">
+              <div class="text-center text-xs py-1.5 border border-gray-200 rounded-lg text-gray-600 bg-gray-50">Allow this time</div>
+              <div class="text-center text-xs py-1.5 border border-gray-200 rounded-lg text-gray-600 bg-gray-50">Allow on every visit</div>
+              <div class="text-center text-xs py-1.5 border border-gray-200 rounded-lg text-gray-600 bg-gray-50">Don't allow</div>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500 mt-3">
+            <span class="font-medium">Note:</span> You can proceed even if you choose "Don't allow," but doing so may void your application.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Agreement -->
   <div class="bg-white rounded-xl ring-1 ring-gray-200 p-4 md:p-5 mb-6">
     <div class="text-xs text-gray-700 font-medium mb-2">
@@ -78,12 +118,12 @@
     </div>
     <label class="flex items-start gap-2 text-xs text-gray-700">
       <input id="agree" type="checkbox" class="mt-0.5 rounded border-gray-300">
-      <span>I understand that not responding to questions may forfeit my opportunity</span>
+      <span>I understand that not responding to questions may forfeit my opportunity, and that declining camera access may void my application</span>
     </label>
   </div>
 
   <!-- Start -->
-  <form method="get" action="{{ next_url }}">
+  <form id="cam-form" method="get" action="{{ next_url }}">
     <div class="text-center">
       <button id="btnStart" type="submit"
               class="inline-flex items-center justify-center rounded-lg bg-gray-300 px-4 py-2 text-sm font-semibold text-white cursor-not-allowed"
@@ -97,8 +137,9 @@
 
 {% block body_extra %}
 <script>
-  const agree      = document.getElementById('agree');
-  const btnStart   = document.getElementById('btnStart');
+  const agree    = document.getElementById('agree');
+  const btnStart = document.getElementById('btnStart');
+  const camForm  = document.getElementById('cam-form');
 
   function updateStartState() {
     const ok = !!agree.checked;
@@ -110,8 +151,22 @@
   }
 
   agree?.addEventListener('change', updateStartState);
-
   updateStartState();
+
+  // Request camera permission before navigating to questions
+  btnStart.addEventListener('click', async function (e) {
+    if (btnStart.disabled) return;
+    e.preventDefault();
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(t => t.stop());
+      }
+    } catch (err) {
+      // Permission denied or no device — intentionally ignored
+    }
+    window.location.href = camForm.action;
+  });
 </script>
 <script>
 (function () {
@@ -124,5 +179,4 @@
   window.addEventListener('pagehide', sendFlag);
 })();
 </script>
-
 {% endblock %}
