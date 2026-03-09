@@ -1730,7 +1730,11 @@ def analytics_overview_nextjs(tenant=None):
             return redirect(url_for("analytics_overview_nextjs", tenant=slug))
         return redirect(url_for("login"))
 
-    spa_url = url_for('analytics_spa_raw', tenant=t.slug)
+    # When raw=1, serve the SPA HTML directly (used by iframe)
+    if request.args.get('raw') == '1':
+        return send_from_directory('analytics_ui/dashboard/dist', 'index.html')
+
+    spa_url = url_for('analytics_overview_nextjs', tenant=t.slug) + '?raw=1'
     return render_template('analytics_embed.html', title='Analytics', spa_url=spa_url, tenant=t)
 
 @app.route("/<tenant>/recruiter/analytics/<jobCode>", strict_slashes=False)
@@ -1746,7 +1750,11 @@ def analytics_detail_nextjs(tenant=None, jobCode=None):
             return redirect(url_for("analytics_detail_nextjs", tenant=slug, jobCode=jobCode))
         return redirect(url_for("login"))
 
-    spa_url = url_for('analytics_spa_raw', tenant=t.slug) + ('/' + jobCode if jobCode else '')
+    # When raw=1, serve the SPA HTML directly (used by iframe)
+    if request.args.get('raw') == '1':
+        return send_from_directory('analytics_ui/dashboard/dist', 'index.html')
+
+    spa_url = url_for('analytics_detail_nextjs', tenant=t.slug, jobCode=jobCode) + '?raw=1'
     return render_template('analytics_embed.html', title='Analytics', spa_url=spa_url, tenant=t)
 
 @app.route("/<tenant>/recruiter/analytics-spa", strict_slashes=False)
