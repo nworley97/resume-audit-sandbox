@@ -269,7 +269,7 @@ export function DashboardChrome({
   return (
     <div className="min-h-screen flex bg-white text-slate-900">
       <aside
-        className={`bg-white border-r border-gray-200 relative transition-all duration-300 ease-out overflow-hidden ${
+        className={`bg-white border-r border-gray-200 relative transition-all duration-300 ease-out overflow-hidden hidden lg:block ${
           sidebarCollapsed ? "w-[4.5rem]" : "w-56"
         }`}
       >
@@ -391,7 +391,7 @@ export function DashboardChrome({
               <button
                 type="button"
                 onClick={toggleSidebar}
-                className="sidebar-toggle inline-flex items-center justify-center bg-white text-slate-700 px-3 py-2 rounded-lg hover:bg-[#EAEAEA] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60"
+                className="sidebar-toggle hidden lg:inline-flex items-center justify-center bg-white text-slate-700 px-3 py-2 rounded-lg hover:bg-[#EAEAEA] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/60"
                 aria-label="Toggle navigation"
                 aria-pressed={sidebarCollapsed ? "true" : "false"}
               >
