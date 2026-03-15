@@ -269,7 +269,7 @@ export function DashboardChrome({
   return (
     <div className="min-h-screen flex bg-white text-slate-900">
       <aside
-        className={`bg-white border-r border-gray-200 relative transition-all duration-300 ease-out overflow-hidden hidden lg:block ${
+        className={`bg-white border-r border-gray-200 relative transition-all duration-300 ease-out overflow-hidden hidden ${
           sidebarCollapsed ? "w-[4.5rem]" : "w-56"
         }`}
       >
@@ -385,7 +385,7 @@ export function DashboardChrome({
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="w-full bg-white border-b border-gray-200">
+        <header className="w-full bg-white border-b border-gray-200 hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
               <button
