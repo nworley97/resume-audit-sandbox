@@ -330,6 +330,7 @@ export function RetentionHeatmap({ detail, tenant }: RetentionHeatmapProps) {
                                       <a
                                         key={candidate.id}
                                         href={`/${tenant}/recruiter/candidate/${candidate.id}`}
+                                        target="_top"
                                         className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-2 transition hover:bg-muted cursor-pointer"
                                       >
                                         <div className="flex items-center gap-2">
