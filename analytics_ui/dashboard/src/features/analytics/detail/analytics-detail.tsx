@@ -135,6 +135,7 @@ function DiamondsCarousel({ detail, tenant }: { detail: AnalyticsJobDetail; tena
               viewport={{ once: true }}
               transition={{ delay: idx * 0.05 }}
               href={`/${tenant}/recruiter/candidate/${diamond.id}`}
+              target="_top"
               className="group min-w-[280px] cursor-pointer overflow-hidden rounded-2xl border border-border/40 bg-card/95 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-brand/20 hover:shadow-lg hover:shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <div className="flex items-center justify-between mb-4">
