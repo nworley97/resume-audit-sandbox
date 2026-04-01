@@ -137,10 +137,10 @@
     </div>
 
     <!-- Contact Card -->
-    <div class="max-w-[1020px] mx-auto rounded-[12px] reveal reveal-delay-2 relative shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15)] flex flex-col" id="contact-card" style="/* md:flex-row handled below */">
+    <div class="max-w-[1020px] mx-auto rounded-[12px] overflow-hidden reveal reveal-delay-2 relative shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15)] flex flex-col" id="contact-card">
       <style>#contact-card { display: flex; flex-direction: column; } @media(min-width:768px) { #contact-card { flex-direction: row; align-items: stretch; } #contact-card > .contact-info-panel { width: 348px; height: auto !important; } #contact-form-panel { padding: 24px 25px 24px 48px !important; } }</style>
       <!-- Left: Contact Information Panel -->
-      <div class="contact-info-panel flex-shrink-0 overflow-hidden rounded-t-[12px] md:rounded-t-none md:rounded-l-[12px] relative w-full h-[250px]">
+      <div class="contact-info-panel flex-shrink-0 relative w-full h-[250px]">
         <img src="{{ url_for('static', filename='img/landing/contact-info-bg.jpg') }}" alt="" class="absolute inset-0 w-full h-full object-cover">
         <div class="absolute inset-0" style="background: rgba(0,0,0,0.3);"></div>
         <div class="relative z-10 flex flex-col justify-between h-full" style="padding: 24px 40px 25px 40px;">
