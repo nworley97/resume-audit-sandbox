@@ -138,7 +138,7 @@
 
     <!-- Contact Card -->
     <div class="max-w-[1020px] mx-auto rounded-[12px] reveal reveal-delay-2 relative shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15)] flex flex-col" id="contact-card" style="/* md:flex-row handled below */">
-      <style>#contact-card { display: flex; flex-direction: column; } @media(min-width:768px) { #contact-card { flex-direction: row; align-items: stretch; } #contact-card > .contact-info-panel { width: 348px; height: auto !important; } }</style>
+      <style>#contact-card { display: flex; flex-direction: column; } @media(min-width:768px) { #contact-card { flex-direction: row; align-items: stretch; } #contact-card > .contact-info-panel { width: 348px; height: auto !important; } #contact-form-panel { padding: 24px 25px 24px 48px !important; } }</style>
       <!-- Left: Contact Information Panel -->
       <div class="contact-info-panel flex-shrink-0 overflow-hidden rounded-t-[12px] md:rounded-t-none md:rounded-l-[12px] relative w-full h-[250px]">
         <img src="{{ url_for('static', filename='img/landing/contact-info-bg.jpg') }}" alt="" class="absolute inset-0 w-full h-full object-cover">
@@ -169,7 +169,7 @@
       </div>
 
       <!-- Right: Contact Form -->
-      <div class="bg-white rounded-b-[12px] md:rounded-b-none md:rounded-r-[12px] flex-1 px-[20px] md:pl-[48px] md:pr-[25px] py-[24px]">
+      <div id="contact-form-panel" class="bg-white rounded-b-[12px] md:rounded-b-none md:rounded-r-[12px] flex-1" style="padding: 24px 20px;">
         <form id="contact-form" class="flex flex-col gap-[24px]">
           <p class="font-ibm-sans font-medium italic text-[12px] text-black leading-[20px]">
             Fields marked <span class="text-red-500">*</span> are required
