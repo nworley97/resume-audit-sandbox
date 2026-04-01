@@ -1,0 +1,380 @@
+{% extends "base_landing.html" %}
+
+{% block title %}Contact Us - AlteraSF{% endblock %}
+
+{% block head_extra %}
+<style>
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+
+  .navbar-scrolled {
+    box-shadow: 0 1px 12px rgba(0,0,0,0.08);
+  }
+
+  /* Custom select arrow */
+  .custom-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z' fill='%23333'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 24px;
+    border: 1px solid #e0e0e0;
+  }
+  .custom-select:focus {
+    border-color: #3086c0;
+    outline: none;
+  }
+
+  /* Radio button styles */
+  .radio-option input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #8d8d8d;
+    border-radius: 50%;
+    flex-shrink: 0;
+    cursor: pointer;
+    position: relative;
+  }
+  .radio-option input[type="radio"]:checked {
+    border-color: #3086c0;
+  }
+  .radio-option input[type="radio"]:checked::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: #3086c0;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Form field underline */
+  .field-underline {
+    border-bottom: 1px solid #8d8d8d;
+  }
+  .field-underline:focus {
+    border-bottom-color: #3086c0;
+    outline: none;
+  }
+
+  /* Success modal */
+  .success-overlay {
+    background: rgba(0,0,0,0.3);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Navbar -->
+<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" style="height: 64px;">
+  <div class="max-w-[1440px] mx-auto px-4 md:px-[40px] lg:px-[80px] xl:px-[210px] h-full flex items-center md:gap-[48px] xl:gap-[233px]">
+    <a href="/" class="flex-shrink-0">
+      <img src="{{ url_for('static', filename='img/logo_text.svg') }}" alt="Altera" class="h-6 w-[119px] object-contain">
+    </a>
+    <div class="hidden md:flex items-center gap-[48px]">
+      <a href="/" class="font-ibm-sans text-[16px] text-black whitespace-nowrap hover:text-landing-blue transition-colors duration-200">Home</a>
+      <a href="/product" class="font-ibm-sans text-[16px] text-black whitespace-nowrap hover:text-landing-blue transition-colors duration-200">Product</a>
+      <a href="/pricing" class="font-ibm-sans text-[16px] text-black whitespace-nowrap hover:text-landing-blue transition-colors duration-200">Pricing</a>
+      <a href="/about" class="font-ibm-sans text-[16px] text-black whitespace-nowrap hover:text-landing-blue transition-colors duration-200">About Us</a>
+      <a href="/contact" class="font-ibm-sans text-[16px] text-black whitespace-nowrap underline hover:text-landing-blue transition-colors duration-200">Contact</a>
+    </div>
+    <div class="hidden md:flex items-center ml-auto flex-shrink-0">
+      <a href="/login" class="inline-flex items-center justify-center border border-landing-blue text-landing-blue font-ibm-sans font-medium text-[16px] rounded-[12px] px-[16px] py-[12px] whitespace-nowrap hover:bg-landing-blue hover:text-white transition-all duration-200">
+        Log in
+      </a>
+    </div>
+    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Toggle menu">
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot"></span>
+    </button>
+  </div>
+  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100">
+    <div class="px-6 py-4 flex flex-col gap-4">
+      <a href="/" class="font-ibm-sans text-[16px] text-black py-2">Home</a>
+      <a href="/product" class="font-ibm-sans text-[16px] text-black py-2">Product</a>
+      <a href="/pricing" class="font-ibm-sans text-[16px] text-black py-2">Pricing</a>
+      <a href="/about" class="font-ibm-sans text-[16px] text-black py-2">About Us</a>
+      <a href="/contact" class="font-ibm-sans text-[16px] text-black underline py-2">Contact</a>
+      <a href="/login" class="inline-flex items-center justify-center border border-landing-blue text-landing-blue font-ibm-sans font-medium text-[16px] rounded-[12px] px-[16px] py-[12px] hover:bg-landing-blue hover:text-white transition-all duration-200 w-full">
+        Log in
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Contact Form Section -->
+<section class="bg-white py-[40px] md:py-[80px]">
+  <div class="max-w-[1440px] mx-auto px-6 md:px-[108px] lg:px-[210px]">
+    <!-- Header -->
+    <div class="flex flex-col items-center gap-[24px] mb-[48px]">
+      <div class="bg-white border-2 border-landing-label-border rounded-[8px] px-[10px] py-[8px] shadow-landing-label reveal">
+        <span class="font-ibm-sans font-semibold text-[16px] text-black leading-[30px]">Get in Touch</span>
+      </div>
+      <div class="flex flex-col gap-[48px] items-center text-center w-full md:w-[498px]">
+        <h1 class="font-ibm-sans font-bold text-[28px] md:text-[48px] text-[#1a1a1a] tracking-[-0.96px] leading-normal reveal reveal-delay-1">
+          Contact Us
+        </h1>
+        <p class="font-ibm-sans text-[16px] text-black leading-[1.4] reveal reveal-delay-2">
+          Ready to get started or have questions about our product? Contact our team and we'll get back to you shortly.
+        </p>
+      </div>
+    </div>
+
+    <!-- Contact Card -->
+    <div class="max-w-[1020px] mx-auto rounded-[12px] reveal reveal-delay-2 relative shadow-[0px_2px_8px_0px_rgba(0,0,0,0.15)] flex flex-col md:flex-row" id="contact-card" style="align-items: stretch;">
+      <!-- Left: Contact Information Panel -->
+      <div class="flex-shrink-0 overflow-hidden rounded-t-[12px] md:rounded-t-none md:rounded-l-[12px] relative w-full md:w-[348px] h-[250px] md:h-auto">
+        <img src="{{ url_for('static', filename='img/landing/contact-info-bg.jpg') }}" alt="" class="absolute inset-0 w-full h-full object-cover">
+        <div class="absolute inset-0" style="background: rgba(0,0,0,0.3);"></div>
+        <div class="relative z-10 flex flex-col justify-between h-full" style="padding: 24px 40px 25px 40px;">
+          <div class="flex flex-col gap-[24px]">
+            <h3 class="font-ibm-sans font-semibold text-[24px] text-white leading-normal">Contact Information</h3>
+            <div class="flex flex-col gap-[16px]">
+              <a href="mailto:info@alterasf.com" class="flex gap-[16px] items-center group">
+                <span class="material-symbols-outlined text-white text-[24px]">mail</span>
+                <span class="font-ibm-sans font-medium text-[16px] text-white group-hover:underline">info@alterasf.com</span>
+              </a>
+              <div class="flex gap-[16px] items-center">
+                <span class="material-symbols-outlined text-white text-[24px]">location_on</span>
+                <span class="font-ibm-sans font-medium text-[16px] text-white">Mountain View, CA</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-[16px] items-center">
+            <a href="https://www.instagram.com/alterasf/" target="_blank" rel="noopener noreferrer" class="block hover:opacity-80 transition-opacity" style="width: 30px; height: 30px;">
+              <img src="{{ url_for('static', filename='img/landing/social-instagram.svg') }}" alt="Instagram" style="width: 30px; height: 30px; display: block;">
+            </a>
+            <a href="https://www.linkedin.com/company/alterasf/posts/?feedView=all" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center bg-white hover:opacity-80 transition-opacity" style="width: 30px; height: 30px; border-radius: 15px; padding: 7px;">
+              <img src="{{ url_for('static', filename='img/landing/social-linkedin.svg') }}" alt="LinkedIn" style="width: 15px; height: 15px; display: block;">
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Contact Form -->
+      <div class="bg-white rounded-b-[12px] md:rounded-b-none md:rounded-r-[12px] flex-1 px-[20px] md:px-[34px] py-[24px]">
+        <form id="contact-form" class="flex flex-col gap-[24px]">
+          <p class="font-ibm-sans font-medium italic text-[12px] text-black leading-[20px]">
+            Fields marked <span class="text-red-500">*</span> are required
+          </p>
+
+          <!-- Row: First Name / Last Name -->
+          <div class="flex flex-col md:flex-row gap-[24px] md:gap-[48px]">
+            <div class="flex flex-col gap-[15px] w-full md:w-[278px]">
+              <label for="first_name" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">First Name<span class="text-red-500">*</span></label>
+              <input type="text" id="first_name" name="first_name" placeholder="John" required class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] field-underline pb-[4px] bg-transparent w-full">
+            </div>
+            <div class="flex flex-col gap-[15px] w-full md:w-[278px]">
+              <label for="last_name" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Last Name<span class="text-red-500">*</span></label>
+              <input type="text" id="last_name" name="last_name" placeholder="Doe" required class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] field-underline pb-[4px] bg-transparent w-full">
+            </div>
+          </div>
+
+          <!-- Row: Email / Phone -->
+          <div class="flex flex-col md:flex-row gap-[24px] md:gap-[48px]">
+            <div class="flex flex-col gap-[15px] w-full md:w-[278px]">
+              <label for="email" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Company Email<span class="text-red-500">*</span></label>
+              <input type="email" id="email" name="email" placeholder="johndoe@gmail.com" required class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] field-underline pb-[4px] bg-transparent w-full">
+            </div>
+            <div class="flex flex-col gap-[15px] w-full md:w-[278px]">
+              <label for="phone" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Phone Number</label>
+              <input type="tel" id="phone" name="phone" placeholder="+1 012 345 6789" class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] field-underline pb-[4px] bg-transparent w-full">
+            </div>
+          </div>
+
+          <!-- Row: Company Name / Country -->
+          <div class="flex flex-col md:flex-row gap-[24px] md:gap-[48px]">
+            <div class="flex flex-col gap-[15px] w-full md:w-[278px]">
+              <label for="company_name" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Company Name<span class="text-red-500">*</span></label>
+              <input type="text" id="company_name" name="company_name" placeholder="Company" required class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] field-underline pb-[4px] bg-transparent w-full">
+            </div>
+            <div class="flex flex-col gap-[16px] w-full md:w-[278px]">
+              <label for="country" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Country<span class="text-red-500">*</span></label>
+              <select id="country" name="country" required class="custom-select font-ibm-sans font-medium text-[16px] text-black leading-[20px] bg-white w-full cursor-pointer" style="border-radius: 8px; box-shadow: 0px 2px 4px 0px rgba(0,0,0,0.25); padding: 10px 16px; height: 43px; border: 1px solid #e0e0e0;">
+                <option value="">- Select -</option>
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+                <option value="UK">United Kingdom</option>
+                <option value="AU">Australia</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+                <option value="IN">India</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Row: Role / Company Size -->
+          <div class="flex flex-col md:flex-row gap-[24px] md:gap-[48px]">
+            <div class="flex flex-col gap-[16px] w-full md:w-[278px]">
+              <label for="role" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Your Role<span class="text-red-500">*</span></label>
+              <select id="role" name="role" required class="custom-select font-ibm-sans font-medium text-[16px] text-black leading-[20px] bg-white w-full cursor-pointer" style="border-radius: 8px; box-shadow: 0px 2px 4px 0px rgba(0,0,0,0.25); padding: 10px 16px; height: 43px; border: 1px solid #e0e0e0;">
+                <option value="">Select</option>
+                <option value="recruiter">Recruiter</option>
+                <option value="hr_manager">HR Manager</option>
+                <option value="talent_acquisition">Talent Acquisition</option>
+                <option value="hiring_manager">Hiring Manager</option>
+                <option value="executive">Executive</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-[16px] w-full md:w-[278px]">
+              <label for="company_size" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Size of the Company<span class="text-red-500">*</span></label>
+              <select id="company_size" name="company_size" required class="custom-select font-ibm-sans font-medium text-[16px] text-black leading-[20px] bg-white w-full cursor-pointer" style="border-radius: 8px; box-shadow: 0px 2px 4px 0px rgba(0,0,0,0.25); padding: 10px 16px; height: 43px; border: 1px solid #e0e0e0;">
+                <option value="">Select</option>
+                <option value="1-10">1-10</option>
+                <option value="11-50">11-50</option>
+                <option value="51-200">51-200</option>
+                <option value="201-500">201-500</option>
+                <option value="500+">500+</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Are you Hiring? -->
+          <div class="flex flex-col" style="gap: 32px;">
+            <label class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Are you Hiring?<span class="text-red-500">*</span></label>
+            <div class="flex flex-col" style="gap: 24px;">
+              <div class="flex items-center" style="gap: 40px;">
+                <label class="radio-option flex gap-[8px] items-center cursor-pointer">
+                  <input type="radio" name="hiring" value="yes" required>
+                  <span class="font-ibm-sans font-medium text-[16px] text-black leading-[20px]">Yes</span>
+                </label>
+                <label class="radio-option flex gap-[8px] items-center cursor-pointer">
+                  <input type="radio" name="hiring" value="planning" required>
+                  <span class="font-ibm-sans font-medium text-[16px] text-black leading-[20px]">Planning to hire within 1-2 months</span>
+                </label>
+              </div>
+              <label class="radio-option flex gap-[8px] items-center cursor-pointer">
+                <input type="radio" name="hiring" value="exploring" required>
+                <span class="font-ibm-sans font-medium text-[16px] text-black leading-[20px]">Just exploring hiring tools</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Subject -->
+          <div class="flex flex-col gap-[15px]">
+            <label for="subject" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Subject<span class="text-red-500">*</span></label>
+            <input type="text" id="subject" name="subject" placeholder="Title" required class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] field-underline pb-[4px] bg-transparent w-full">
+          </div>
+
+          <!-- Message -->
+          <div>
+            <textarea id="message" name="message" required placeholder="Write your message.." class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] bg-white w-full resize-none" style="border-radius: 8px; box-shadow: 0px 2px 4px 0px rgba(0,0,0,0.25); padding: 16px; height: 276px;"></textarea>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="flex justify-end">
+            <button type="submit" class="inline-flex items-center justify-center bg-landing-blue rounded-[12px] cursor-pointer hover:opacity-90 transition-opacity" style="width: 202px; height: 56px; padding: 16px;">
+              <span class="font-medium text-[20px] text-white leading-none tracking-[0.5px]" style="font-family: 'Roboto', sans-serif;">Send Message</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Success Modal (hidden by default) -->
+<div id="success-modal" class="fixed inset-0 z-[100] hidden items-center justify-center success-overlay">
+  <div class="bg-white rounded-[12px] text-center" style="box-shadow: 0px 4px 4px 0px rgba(0,0,0,0.25); padding: 33px 80px; max-width: 795px; width: 90%;">
+    <div class="flex flex-col items-center" style="gap: 48px; max-width: 506px; margin: 0 auto;">
+      <div class="flex flex-col" style="gap: 32px;">
+        <h2 class="font-ibm-sans font-bold text-[#1a1a1a] tracking-[-0.96px] leading-normal" style="font-size: 48px;">Message Sent!</h2>
+        <p class="font-ibm-sans text-[16px] text-black leading-[1.4]">
+          Thank you for reaching out! Our team will review your message and get back to you.
+        </p>
+      </div>
+      <div class="flex justify-center">
+        <button id="close-modal" class="inline-flex items-center justify-center bg-landing-blue rounded-[12px] cursor-pointer hover:opacity-90 transition-opacity" style="height: 56px; padding: 16px 32px;">
+          <span class="font-medium text-[20px] text-white leading-none tracking-[0.5px]" style="font-family: 'Roboto', sans-serif;">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+{% include "landing/sections/footer.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // Scroll reveal
+  var reveals = document.querySelectorAll('.reveal');
+  if (reveals.length && 'IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+    }, { threshold: 0.15 });
+    reveals.forEach(function (el) { observer.observe(el); });
+  }
+
+  // Navbar scroll shadow
+  var nav = document.getElementById('landing-nav');
+  if (nav) {
+    window.addEventListener('scroll', function () {
+      nav.classList.toggle('navbar-scrolled', window.scrollY > 10);
+    });
+  }
+
+  // Mobile menu toggle
+  var menuBtn = document.getElementById('mobile-menu-btn');
+  var menu = document.getElementById('mobile-menu');
+  if (menuBtn && menu) {
+    menuBtn.addEventListener('click', function () {
+      var open = menu.style.maxHeight && menu.style.maxHeight !== '0px';
+      menu.style.maxHeight = open ? '0px' : menu.scrollHeight + 'px';
+    });
+  }
+
+  // Contact form submission
+  var form = document.getElementById('contact-form');
+  var modal = document.getElementById('success-modal');
+  var closeBtn = document.getElementById('close-modal');
+
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      // Show success modal
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      form.reset();
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function() {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+  }
+
+  // Close modal on backdrop click
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

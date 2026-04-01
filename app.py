@@ -537,6 +537,11 @@ def product_page():
     return render_template("product.html")
 
 
+@app.route("/contact")
+def contact_page():
+    return render_template("contact.html")
+
+
 @app.route("/pricing")
 def pricing_page():
     return render_template("pricing_page.html")
