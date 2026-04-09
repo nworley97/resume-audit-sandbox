@@ -28,6 +28,7 @@ from openai import OpenAI
 from sqlalchemy import or_, text, inspect, func, literal_column
 from sqlalchemy.exc import SQLAlchemyError
 from dateutil import parser as dtparse
+import resend
 
 from db import SessionLocal, Base, DATABASE_URL
 from models import (
@@ -537,9 +538,68 @@ def product_page():
     return render_template("product.html")
 
 
-@app.route("/contact")
+@app.route("/contact", methods=["GET", "POST"])
 def contact_page():
-    return render_template("contact.html")
+    if request.method == "GET":
+        return render_template("contact.html")
+
+    # POST: handle contact form submission
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+
+    required = [
+        "first_name", "last_name", "email", "company_name",
+        "country", "role", "company_size", "hiring", "subject", "message",
+    ]
+    missing = [f for f in required if not data.get(f, "").strip()]
+    if missing:
+        return jsonify({"success": False, "error": f"Missing required fields: {', '.join(missing)}"}), 400
+
+    resend.api_key = os.environ.get("RESEND_API_KEY", "")
+    if not resend.api_key:
+        app.logger.error("RESEND_API_KEY not configured")
+        return jsonify({"success": False, "error": "Email service not configured"}), 500
+
+    email_html = f"""
+    <h2>New Contact Form Submission</h2>
+    <table style="border-collapse:collapse;width:100%;max-width:600px;">
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Name</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data['first_name'])} {html.escape(data['last_name'])}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Email</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data['email'])}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Phone</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data.get('phone', 'N/A'))}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Company</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data['company_name'])}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Country</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data['country'])}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Role</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data['role'])}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Company Size</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data['company_size'])}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Hiring</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data['hiring'])}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Subject</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{html.escape(data['subject'])}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;vertical-align:top;">Message</td>
+          <td style="padding:8px;white-space:pre-wrap;">{html.escape(data['message'])}</td></tr>
+    </table>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": "AlteraSF Contact Form <onboarding@resend.dev>",
+            "to": ["info@alterasf.com"],
+            "reply_to": data["email"],
+            "subject": f"[Contact Form] {data['subject']}",
+            "html": email_html,
+        })
+    except Exception as e:
+        app.logger.error(f"Resend API error: {e}")
+        return jsonify({"success": False, "error": "Failed to send message. Please try again."}), 500
+
+    return jsonify({"success": True})
 
 
 @app.route("/pricing")
