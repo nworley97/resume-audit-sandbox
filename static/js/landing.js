@@ -40,32 +40,67 @@
   const tabContainer = document.getElementById('tools-tabs');
   const panelContainer = document.getElementById('tools-panels');
   if (tabContainer && panelContainer) {
-    const tabs = tabContainer.querySelectorAll('.tab-pill');
-    const panels = panelContainer.querySelectorAll('.tab-panel');
+    const tabs = Array.from(tabContainer.querySelectorAll('[role="tab"]'));
+    const panels = panelContainer.querySelectorAll('[role="tabpanel"]');
 
     // Default: activate first tab
     if (tabs.length > 0) {
       tabs[0].classList.add('active');
     }
 
-    tabContainer.addEventListener('click', function (e) {
-      const pill = e.target.closest('.tab-pill');
-      if (!pill) return;
+    function activateTab(tab) {
+      var target = tab.dataset.tab;
 
-      const target = pill.dataset.tab;
+      // Update ARIA and visual state on all tabs
+      tabs.forEach(function (t) {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+        t.setAttribute('tabindex', '-1');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      tab.setAttribute('tabindex', '0');
+      tab.focus();
 
-      // Update active tab
-      tabs.forEach((t) => t.classList.remove('active'));
-      pill.classList.add('active');
-
-      // Show matching panel
-      panels.forEach((p) => {
+      // Show matching panel, hide others
+      panels.forEach(function (p) {
         if (p.dataset.panel === target) {
           p.classList.remove('hidden');
         } else {
           p.classList.add('hidden');
         }
       });
+    }
+
+    // Click handler
+    tabContainer.addEventListener('click', function (e) {
+      var pill = e.target.closest('[role="tab"]');
+      if (!pill) return;
+      activateTab(pill);
+    });
+
+    // Keyboard navigation
+    tabContainer.addEventListener('keydown', function (e) {
+      var currentTab = e.target.closest('[role="tab"]');
+      if (!currentTab) return;
+
+      var index = tabs.indexOf(currentTab);
+      var newIndex;
+
+      if (e.key === 'ArrowRight') {
+        newIndex = (index + 1) % tabs.length;
+      } else if (e.key === 'ArrowLeft') {
+        newIndex = (index - 1 + tabs.length) % tabs.length;
+      } else if (e.key === 'Home') {
+        newIndex = 0;
+      } else if (e.key === 'End') {
+        newIndex = tabs.length - 1;
+      } else {
+        return;
+      }
+
+      e.preventDefault();
+      activateTab(tabs[newIndex]);
     });
   }
 
