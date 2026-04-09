@@ -81,7 +81,7 @@
 
 {% block content %}
 <!-- Navbar -->
-<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" style="height: 64px;">
+<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" aria-label="Main navigation" style="height: 64px;">
   <div class="max-w-[1440px] mx-auto px-4 md:px-[40px] lg:px-[80px] xl:px-[210px] h-full flex items-center md:gap-[48px] xl:gap-[233px]">
     <a href="/" class="flex-shrink-0">
       <img src="{{ url_for('static', filename='img/logo_text.svg') }}" alt="Altera" class="h-6 w-[119px] object-contain">
@@ -98,13 +98,13 @@
         Log in
       </a>
     </div>
-    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Toggle menu">
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top"></span>
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid"></span>
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot"></span>
+    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Main menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top" aria-hidden="true"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid" aria-hidden="true"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot" aria-hidden="true"></span>
     </button>
   </div>
-  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100">
+  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100" aria-hidden="true">
     <div class="px-6 py-4 flex flex-col gap-4">
       <a href="/" class="font-ibm-sans text-[16px] text-black py-2">Home</a>
       <a href="/product" class="font-ibm-sans text-[16px] text-black py-2">Product</a>
@@ -117,6 +117,7 @@
     </div>
   </div>
 </nav>
+<main id="main-content">
 
 <!-- Contact Form Section -->
 <section class="bg-white py-[40px] md:py-[80px]">
@@ -276,7 +277,8 @@
           </div>
 
           <!-- Message -->
-          <div>
+          <div class="flex flex-col gap-[15px]">
+            <label for="message" class="font-ibm-sans font-medium text-[12px] text-black leading-[20px]">Message<span class="text-red-500">*</span></label>
             <textarea id="message" name="message" required placeholder="Write your message.." class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] bg-white w-full resize-none" style="border-radius: 8px; box-shadow: 0px 2px 4px 0px rgba(0,0,0,0.25); padding: 16px; height: 276px;"></textarea>
           </div>
 
@@ -293,7 +295,7 @@
 </section>
 
 <!-- Success Modal (hidden by default) -->
-<div id="success-modal" class="fixed inset-0 z-[100] hidden items-center justify-center success-overlay">
+<div id="success-modal" class="fixed inset-0 z-[100] hidden items-center justify-center success-overlay" role="dialog" aria-modal="true" aria-label="Message sent confirmation">
   <div class="bg-white rounded-[12px] text-center" style="box-shadow: 0px 4px 4px 0px rgba(0,0,0,0.25); padding: 33px 80px; max-width: 795px; width: 90%;">
     <div class="flex flex-col items-center" style="gap: 48px; max-width: 506px; margin: 0 auto;">
       <div class="flex flex-col" style="gap: 32px;">
@@ -310,6 +312,8 @@
     </div>
   </div>
 </div>
+
+</main>
 
 <!-- Footer -->
 {% include "landing/sections/footer.html" %}
@@ -342,6 +346,8 @@
     menuBtn.addEventListener('click', function () {
       var open = menu.style.maxHeight && menu.style.maxHeight !== '0px';
       menu.style.maxHeight = open ? '0px' : menu.scrollHeight + 'px';
+      menuBtn.setAttribute('aria-expanded', String(!open));
+      menu.setAttribute('aria-hidden', String(open));
     });
   }
 
@@ -353,10 +359,10 @@
   if (form) {
     form.addEventListener('submit', function(e) {
       e.preventDefault();
-      // Show success modal
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       form.reset();
+      if (closeBtn) closeBtn.focus();
     });
   }
 
@@ -364,6 +370,8 @@
     closeBtn.addEventListener('click', function() {
       modal.classList.add('hidden');
       modal.classList.remove('flex');
+      var submitBtn = form ? form.querySelector('[type="submit"]') : null;
+      if (submitBtn) submitBtn.focus();
     });
   }
 
