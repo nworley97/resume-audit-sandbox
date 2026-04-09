@@ -163,9 +163,11 @@
     const burgerMid = document.getElementById('burger-mid');
     const burgerBot = document.getElementById('burger-bot');
 
-    menuBtn.addEventListener('click', function () {
-      isOpen = !isOpen;
-      if (isOpen) {
+    function setMobileMenuState(open) {
+      isOpen = open;
+      menuBtn.setAttribute('aria-expanded', String(open));
+      mobileMenu.setAttribute('aria-hidden', String(!open));
+      if (open) {
         mobileMenu.style.maxHeight = mobileMenu.scrollHeight + 'px';
         burgerTop.style.transform = 'rotate(45deg) translateY(5px)';
         burgerMid.style.opacity = '0';
@@ -176,16 +178,16 @@
         burgerMid.style.opacity = '';
         burgerBot.style.transform = '';
       }
+    }
+
+    menuBtn.addEventListener('click', function () {
+      setMobileMenuState(!isOpen);
     });
 
     // Close menu on link click
     mobileMenu.querySelectorAll('a').forEach(function (link) {
       link.addEventListener('click', function () {
-        isOpen = false;
-        mobileMenu.style.maxHeight = '0';
-        burgerTop.style.transform = '';
-        burgerMid.style.opacity = '';
-        burgerBot.style.transform = '';
+        setMobileMenuState(false);
       });
     });
   }

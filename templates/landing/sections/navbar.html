@@ -1,5 +1,5 @@
 <!-- Section 1: Navbar -->
-<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" style="height: 64px;">
+<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" style="height: 64px;" aria-label="Main navigation">
   <div class="max-w-[1440px] mx-auto px-4 md:px-[40px] lg:px-[80px] xl:px-[210px] h-full flex items-center md:gap-[48px] xl:gap-[233px]">
     <!-- Logo -->
     <a href="/" class="flex-shrink-0">
@@ -23,15 +23,15 @@
     </div>
 
     <!-- Mobile hamburger -->
-    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Toggle menu">
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top"></span>
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid"></span>
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot"></span>
+    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Main menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top" aria-hidden="true"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid" aria-hidden="true"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot" aria-hidden="true"></span>
     </button>
   </div>
 
   <!-- Mobile menu -->
-  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100">
+  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100" aria-hidden="true">
     <div class="px-6 py-4 flex flex-col gap-4">
       <a href="#hero" class="font-ibm-sans text-[16px] text-black py-2">Home</a>
       <a href="/product" class="font-ibm-sans text-[16px] text-black py-2">Product</a>
