@@ -271,14 +271,18 @@
 
       // Close all FAQ items
       faqItems.forEach(function (fi) {
+        fi.querySelector('.faq-trigger').setAttribute('aria-expanded', 'false');
         fi.querySelector('.faq-answer').classList.add('hidden');
+        fi.querySelector('.faq-answer').setAttribute('aria-hidden', 'true');
         fi.querySelector('.faq-icon').textContent = 'add';
       });
 
       // Toggle clicked (if it was closed, open it)
       if (!wasOpen) {
         answer.classList.remove('hidden');
-        icon.textContent = 'close';
+        answer.setAttribute('aria-hidden', 'false');
+        trigger.setAttribute('aria-expanded', 'true');
+        icon.textContent = 'remove';
       }
     });
   }

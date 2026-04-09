@@ -381,6 +381,18 @@
       if (e.target === modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        var submitBtn = form ? form.querySelector('[type="submit"]') : null;
+        if (submitBtn) submitBtn.focus();
+      }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        var submitBtn = form ? form.querySelector('[type="submit"]') : null;
+        if (submitBtn) submitBtn.focus();
       }
     });
   }
