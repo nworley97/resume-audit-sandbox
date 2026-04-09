@@ -282,6 +282,9 @@
             <textarea id="message" name="message" required placeholder="Write your message.." class="font-ibm-sans font-medium text-[16px] text-[#1a1a1a] placeholder-[#8d8d8d] leading-[20px] bg-white w-full resize-none" style="border-radius: 8px; box-shadow: 0px 2px 4px 0px rgba(0,0,0,0.25); padding: 16px; height: 276px;"></textarea>
           </div>
 
+          <!-- Error Message -->
+          <p id="contact-error" class="hidden text-red-500 font-ibm-sans text-[14px]"></p>
+
           <!-- Submit Button -->
           <div class="flex justify-end">
             <button type="submit" class="inline-flex items-center justify-center bg-landing-blue rounded-[12px] cursor-pointer hover:opacity-90 transition-opacity" style="width: 202px; height: 56px; padding: 16px;">
@@ -355,14 +358,58 @@
   var form = document.getElementById('contact-form');
   var modal = document.getElementById('success-modal');
   var closeBtn = document.getElementById('close-modal');
+  var submitBtn = form ? form.querySelector('[type="submit"]') : null;
+  var submitText = submitBtn ? submitBtn.querySelector('span') : null;
+  var errorMsg = document.getElementById('contact-error');
 
   if (form) {
     form.addEventListener('submit', function(e) {
       e.preventDefault();
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      form.reset();
-      if (closeBtn) closeBtn.focus();
+
+      // Collect form data
+      var data = {
+        first_name: form.first_name.value.trim(),
+        last_name: form.last_name.value.trim(),
+        email: form.email.value.trim(),
+        phone: form.phone ? form.phone.value.trim() : '',
+        company_name: form.company_name.value.trim(),
+        country: form.country.value,
+        role: form.role.value,
+        company_size: form.company_size.value,
+        hiring: form.querySelector('input[name="hiring"]:checked') ? form.querySelector('input[name="hiring"]:checked').value : '',
+        subject: form.subject.value.trim(),
+        message: form.message.value.trim()
+      };
+
+      // Disable button
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.6'; }
+      if (submitText) submitText.textContent = 'Sending...';
+      if (errorMsg) { errorMsg.classList.add('hidden'); errorMsg.textContent = ''; }
+
+      fetch('/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(function(res) { return res.json().then(function(body) { return { ok: res.ok, body: body }; }); })
+      .then(function(result) {
+        if (result.ok && result.body.success) {
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+          form.reset();
+          if (closeBtn) closeBtn.focus();
+        } else {
+          var msg = result.body.error || 'Something went wrong. Please try again.';
+          if (errorMsg) { errorMsg.textContent = msg; errorMsg.classList.remove('hidden'); }
+        }
+      })
+      .catch(function() {
+        if (errorMsg) { errorMsg.textContent = 'Network error. Please check your connection and try again.'; errorMsg.classList.remove('hidden'); }
+      })
+      .finally(function() {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; }
+        if (submitText) submitText.textContent = 'Send Message';
+      });
     });
   }
 
