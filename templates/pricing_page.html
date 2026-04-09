@@ -32,7 +32,7 @@
 
 {% block content %}
 <!-- Navbar -->
-<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" style="height: 64px;">
+<nav id="landing-nav" class="sticky top-0 z-50 bg-white transition-shadow duration-300" aria-label="Main navigation" style="height: 64px;">
   <div class="max-w-[1440px] mx-auto px-4 md:px-[40px] lg:px-[80px] xl:px-[210px] h-full flex items-center md:gap-[48px] xl:gap-[233px]">
     <a href="/" class="flex-shrink-0">
       <img src="{{ url_for('static', filename='img/logo_text.svg') }}" alt="Altera" class="h-6 w-[119px] object-contain">
@@ -49,13 +49,13 @@
         Log in
       </a>
     </div>
-    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Toggle menu">
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top"></span>
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid"></span>
-      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot"></span>
+    <button id="mobile-menu-btn" class="md:hidden flex flex-col gap-[5px] p-2 ml-auto" aria-label="Main menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-top" aria-hidden="true"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300" id="burger-mid" aria-hidden="true"></span>
+      <span class="block w-5 h-[2px] bg-gray-900 transition-all duration-300 origin-center" id="burger-bot" aria-hidden="true"></span>
     </button>
   </div>
-  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100">
+  <div id="mobile-menu" class="md:hidden overflow-hidden max-h-0 transition-all duration-300 bg-white border-t border-gray-100" aria-hidden="true">
     <div class="px-6 py-4 flex flex-col gap-4">
       <a href="/" class="font-ibm-sans text-[16px] text-black py-2">Home</a>
       <a href="/product" class="font-ibm-sans text-[16px] text-black py-2">Product</a>
@@ -69,8 +69,11 @@
   </div>
 </nav>
 
+<main id="main-content">
 <!-- Pricing & FAQ Section -->
 {% include "landing/sections/faq.html" %}
+
+</main>
 
 <!-- Footer -->
 {% include "landing/sections/footer.html" %}
@@ -103,6 +106,8 @@
     menuBtn.addEventListener('click', function () {
       var open = menu.style.maxHeight && menu.style.maxHeight !== '0px';
       menu.style.maxHeight = open ? '0px' : menu.scrollHeight + 'px';
+      menuBtn.setAttribute('aria-expanded', String(!open));
+      menu.setAttribute('aria-hidden', String(open));
     });
   }
 
@@ -117,10 +122,15 @@
       var icon = item.querySelector('.faq-icon');
       if (!answer) return;
       var isOpen = !answer.classList.contains('hidden');
-      faqAccordion.querySelectorAll('.faq-answer').forEach(function (a) { a.classList.add('hidden'); });
+      // Close all
+      faqAccordion.querySelectorAll('.faq-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+      faqAccordion.querySelectorAll('.faq-answer').forEach(function (a) { a.classList.add('hidden'); a.setAttribute('aria-hidden', 'true'); });
       faqAccordion.querySelectorAll('.faq-icon').forEach(function (i) { i.textContent = 'add'; i.style.transform = ''; });
+      // Open clicked if was closed
       if (!isOpen) {
         answer.classList.remove('hidden');
+        answer.setAttribute('aria-hidden', 'false');
+        trigger.setAttribute('aria-expanded', 'true');
         if (icon) { icon.textContent = 'remove'; icon.style.transform = 'rotate(180deg)'; }
       }
     });
