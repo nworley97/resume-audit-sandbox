@@ -53,19 +53,21 @@
 
 {% block content %}
   {% include "landing/sections/navbar.html" %}
-  {% include "landing/sections/hero.html" %}
-  {% include "landing/sections/how_it_works.html" %}
-  {% include "landing/sections/why_choose_us.html" %}
-  {% include "landing/sections/recruiter_quote.html" %}
-  {% include "landing/sections/dashboard_look.html" %}
-  {% include "landing/sections/tools_tabs.html" %}
-  {% include "landing/sections/ai_screening.html" %}
-  {% include "landing/sections/app_platform.html" %}
-  {% include "landing/sections/video_demo.html" %}
-  {% include "landing/sections/testimonials.html" %}
-  {% include "landing/sections/pain_points.html" %}
-  {% include "landing/sections/apply_jobs.html" %}
-  {% include "landing/sections/contact_us.html" %}
+  <main id="main-content">
+    {% include "landing/sections/hero.html" %}
+    {% include "landing/sections/how_it_works.html" %}
+    {% include "landing/sections/why_choose_us.html" %}
+    {% include "landing/sections/recruiter_quote.html" %}
+    {% include "landing/sections/dashboard_look.html" %}
+    {% include "landing/sections/tools_tabs.html" %}
+    {% include "landing/sections/ai_screening.html" %}
+    {% include "landing/sections/app_platform.html" %}
+    {% include "landing/sections/video_demo.html" %}
+    {% include "landing/sections/testimonials.html" %}
+    {% include "landing/sections/pain_points.html" %}
+    {% include "landing/sections/apply_jobs.html" %}
+    {% include "landing/sections/contact_us.html" %}
+  </main>
   {% include "landing/sections/footer.html" %}
 {% endblock %}
 

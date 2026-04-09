@@ -295,6 +295,7 @@
       demoModal.classList.add('flex');
       document.body.style.overflow = 'hidden';
       if (demoVideo) demoVideo.play();
+      if (demoModalClose) demoModalClose.focus();
     });
 
     function closeDemoModal() {
@@ -302,6 +303,7 @@
       demoModal.classList.add('hidden');
       demoModal.classList.remove('flex');
       document.body.style.overflow = '';
+      demoPlayBtn.focus();
     }
 
     if (demoModalClose) {

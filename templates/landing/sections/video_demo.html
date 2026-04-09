@@ -17,28 +17,28 @@
 
       <!-- Video container with preview -->
       <div class="reveal reveal-delay-2 w-full">
-        <div id="demo-play-btn" class="bg-black border border-[#c1c7cd] rounded-[12px] overflow-hidden shadow-landing-card w-full h-[250px] md:h-[580px] flex items-center justify-center relative cursor-pointer group">
+        <button type="button" id="demo-play-btn" class="bg-black border border-[#c1c7cd] rounded-[12px] overflow-hidden shadow-landing-card w-full h-[250px] md:h-[580px] flex items-center justify-center relative cursor-pointer group" aria-label="Play demo video">
           <!-- Video preview (first frame) -->
-          <video class="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-70 transition-opacity duration-300" preload="metadata" muted>
+          <video class="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-70 transition-opacity duration-300" preload="metadata" muted aria-hidden="true">
             <source src="{{ url_for('static', filename='video/AlteraSF_Demo.mp4') }}#t=0.5" type="video/mp4">
           </video>
           <!-- Play icon overlay -->
-          <div class="relative z-10 w-[56px] h-[56px] md:w-[72px] md:h-[72px] bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+          <div class="relative z-10 w-[56px] h-[56px] md:w-[72px] md:h-[72px] bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300" aria-hidden="true">
             <svg class="w-6 h-6 md:w-8 md:h-8 text-landing-navy ml-1" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z"/>
             </svg>
           </div>
-        </div>
+        </button>
       </div>
     </div>
   </div>
 </section>
 
 <!-- Video Modal -->
-<div id="demo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+<div id="demo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/70 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Demo video">
   <div class="relative w-full max-w-[900px] mx-4">
     <!-- Close button -->
-    <button id="demo-modal-close" class="absolute -top-12 right-0 text-white text-[32px] hover:opacity-70 transition-opacity cursor-pointer">
+    <button id="demo-modal-close" class="absolute -top-12 right-0 text-white text-[32px] hover:opacity-70 transition-opacity cursor-pointer" aria-label="Close video">
       <span class="material-symbols-outlined text-[32px]">close</span>
     </button>
     <!-- Video container -->
