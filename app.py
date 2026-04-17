@@ -589,7 +589,7 @@ def contact_page():
 
     try:
         resend.Emails.send({
-            "from": "AlteraSF Contact Form <onboarding@resend.dev>",
+            "from": "AlteraSF <noreply@alterasf.com>",
             "to": ["info@alterasf.com"],
             "reply_to": data["email"],
             "subject": f"[Contact Form] {data['subject']}",
