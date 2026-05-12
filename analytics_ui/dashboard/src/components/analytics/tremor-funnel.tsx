@@ -85,9 +85,9 @@ export function CompletionFunnelChart({ data, completionRate, onOverallConversio
           beforeSeparatorOffset={20}
           afterSeparatorLength={100}
           afterSeparatorOffset={20}
-          currentPartSizeExtension={10}
-          currentBorderWidth={40}
-          motionConfig="wobbly"
+          currentPartSizeExtension={0}
+          currentBorderWidth={0}
+          animate={false}
           direction="horizontal"
           theme={{
             text: {
