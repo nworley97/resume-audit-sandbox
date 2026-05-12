@@ -1,6 +1,5 @@
 "use client";
 
-import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -38,7 +37,6 @@ function JobCard({
   index: number;
   tenant: string;
 }) {
-  const navigate = useNavigate();
   const { setSelectedJob } = useAnalyticsStore();
 
   return (
@@ -50,12 +48,10 @@ function JobCard({
     >
       {/* ET-12: Job card with Figma-style design */}
       <Card className="group overflow-hidden rounded-2xl border border-border/40 bg-card/95 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-brand/20 hover:shadow-brand/10">
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedJob(job.jd_code);
-            navigate(`/${tenant}/recruiter/analytics/${job.jd_code}`);
-          }}
+        <a
+          href={`/${tenant}/recruiter/analytics/${job.jd_code}`}
+          target="_top"
+          onClick={() => setSelectedJob(job.jd_code)}
           className="flex h-full w-full flex-col items-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label={`View analytics for ${job.jd_title || job.jd_code}`}
         >
@@ -103,7 +99,7 @@ function JobCard({
               </div>
             </div>
           </CardContent>
-        </button>
+        </a>
       </Card>
     </motion.article>
   );
