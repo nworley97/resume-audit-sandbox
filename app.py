@@ -420,14 +420,16 @@ def generate_questions(rjs: dict, jd_text: str, *, count: int = 4) -> list[str]:
     try:
         raw = chat(
             "You are an interviewer.",
-            f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY {count} interview questions as a JSON array of strings."
+            f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY {count} interview questions as a JSON array of objects, each with keys: question, source_section, source_detail, reason"
         )
         parsed = json.loads(_normalize_quotes(raw))
         if isinstance(parsed, list):
             cleaned = []
             for q in parsed:
-                if isinstance(q, str) and len(q.strip()) > 10:
-                    cleaned.append(_tidy_q(q))
+                if isinstance(q, dict) and q.get("question"):
+                    cleaned.append(q)
+                elif isinstance(q, str) and len(q.strip()) > 10:
+                    cleaned.append({"question": _tidy_q(q), "source_section": "", "source_detail": "", "reason": ""})
             cleaned = cleaned[:count]
             while len(cleaned) < count:
                 cleaned.append("Please share a relevant experience.")
@@ -444,10 +446,10 @@ def generate_questions(rjs: dict, jd_text: str, *, count: int = 4) -> list[str]:
             cleaned.append(_tidy_q(line))
     if not cleaned:
         cleaned = [
-            "Tell us about a project you’re most proud of and your specific contributions.",
-            "Describe a time you overcame a technical challenge—what was the root cause and outcome?",
-            "How do you prioritize tasks when timelines are tight and requirements change?",
-            "Which skills from your résumé would make the biggest impact in this role, and why?"
+            {"question": "Tell us about a project you're most proud of and your specific contributions.", "source_section": "", "source_detail": "", "reason": ""},
+            {"question": "Describe a time you overcame a technical challenge — what was the root cause and outcome?", "source_section": "", "source_detail": "", "reason": ""},
+            {"question": "How do you prioritize tasks when timelines are tight and requirements change?", "source_section": "", "source_detail": "", "reason": ""},
+            {"question": "Which skills from your résumé would make the biggest impact in this role, and why?", "source_section": "", "source_detail": "", "reason": ""},
         ]
     cleaned = cleaned[:count]
     while len(cleaned) < count:
@@ -1454,7 +1456,7 @@ def candidates_overview(tenant=None):
         job_titles_all = sorted({jd.title for jd in job_descriptions_all if jd.title})
         departments_all = sorted({jd.department for jd in job_descriptions_all if jd.department})
 
-        qry = db.query(Candidate).filter_by(tenant_id=t.id)
+        qry = db.query(Candidate).filter_by(tenant_id=t.id).filter(Candidate.archived != True)
 
         # Free-text search across available columns (defensive)
         if q:
@@ -1987,7 +1989,7 @@ def view_candidates(code, tenant=None):
 
         jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
 
-        qry = db.query(Candidate).filter_by(tenant_id=t.id, jd_code=code)
+        qry = db.query(Candidate).filter_by(tenant_id=t.id, jd_code=code).filter(Candidate.archived != True)
 
         # Free-text search across available columns (defensive)
         if q:
@@ -2240,7 +2242,7 @@ def candidates_overview_legacy(tenant):
     # Build filters safely
     db = SessionLocal()
     try:
-        qry = db.query(Candidate).filter_by(tenant_id=tenant_obj.id)
+        qry = db.query(Candidate).filter_by(tenant_id=tenant_obj.id).filter(Candidate.archived != True)
         
         # Free-text search
         if q:
@@ -2453,7 +2455,10 @@ def apply(tenant, code):
         fit  = fit_score(rjs, jd.html)
         real = realism_check(rjs)
         count = getattr(jd, "question_count", 4) or 4
-        qs   = generate_questions(rjs, jd.html, count=count)
+        qs_raw = generate_questions(rjs, jd.html, count=count)
+        question_meta = qs_raw  # already dicts
+        qs = [q["question"] for q in qs_raw]
+        rjs["_question_meta"] = question_meta
 
         cid     = str(uuid.uuid4())[:8]
         storage = upload_pdf(path)
@@ -2532,6 +2537,7 @@ def apply(tenant, code):
         tenant=t,
         posted_label=posted_label,  # NEW: posted label for header - added with ET-12-FE Jen
         end_label=end_label,        # NEW: end label for header - added with ET-12-FE Jen
+        question_meta = (c.resume_json or {}).get("_question_meta", [])
     )  # 2025-10-01 added: Pass tenant object to template for logo display
 
 # ─── Camera gate ─────────────────────────────────────────────────
@@ -2992,6 +2998,27 @@ def delete_candidate(cid, tenant=None):
         return redirect(url_for("view_candidates", tenant=t.slug, code=code or ""))
     finally:
         db.close()
+    
+@app.route('/<tenant>/recruiter/candidate/<cid>/archive', methods=['POST'])
+def archive_candidate(tenant, cid):
+    from datetime import datetime
+    db = SessionLocal()
+    try:
+        t = db.query(Tenant).filter(Tenant.slug == tenant).first()
+        if not t:
+            abort(404)
+        c = db.query(Candidate).filter(Candidate.id == cid, Candidate.tenant_id == t.id).first()
+        if not c:
+            abort(404)
+        jd_code = c.jd_code
+        c.archived = True
+        c.archived_at = datetime.utcnow()
+        db.commit()
+    finally:
+        db.close()
+    if jd_code:
+        return redirect(url_for('view_candidates', tenant=tenant, code=jd_code))
+    return redirect(url_for('candidates_overview', tenant=tenant))
 
 # ─── Candidate Detail (admin) ────────────────────────────────────
 @app.route("/recruiter/<cid>", strict_slashes=False)

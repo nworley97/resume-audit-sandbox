@@ -106,6 +106,9 @@ class Candidate(Base):
     # NEW: anti-cheat flag counter
     left_tab_count = Column(Integer, default=0)
 
+    archived = Column(Boolean, default=False, nullable=False, server_default='0')
+    archived_at = Column(DateTime, nullable=True)
+
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")
 

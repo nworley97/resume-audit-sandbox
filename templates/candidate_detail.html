@@ -6,53 +6,56 @@
 
   <!-- Breadcrumb -->
   <div class="mb-4">
-    <div class="text-xs text-gray-500 mb-1">
-      Recruiter / Candidates
-    </div>
+    <a href="{{ url_for('analytics_detail_nextjs', tenant=tenant.slug, jobCode=jd.code) if jd else url_for('candidates_overview', tenant=tenant.slug) }}"
+      class="inline-flex items-center text-xs text-gray-500 hover:text-gray-700 mb-1">
+      ← Back to Analytics
+    </a>
     <h1 class="text-2xl font-semibold text-gray-900">
       Candidate Details
     </h1>
-  </div>
+  </div> 
 
   <!-- Summary Card -->
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6">
-    <h2 class="text-lg font-semibold text-gray-900 mb-6">{{ c.name or 'Candidate' }}</h2>
-    
+
+    <!-- Header: Name + Diamond Badge -->
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-semibold text-gray-900">{{ c.name or 'Candidate' }}</h2>
+      {% set is_diamond = (relevancy is not none and relevancy >= 5) and (claim_validity is not none and claim_validity > 4) %}
+      {% if is_diamond %}
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700 ring-1 ring-amber-200">
+        <svg class="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 3l-4 7h16l-4-7H6zm-4 7l6 11h8l6-11H2zm10 8.5L8.5 10h7L12 18.5z"/>
+        </svg>
+        Diamond Candidate
+      </span>
+      {% else %}
+      <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-500 ring-1 ring-gray-200">
+        Not a Diamond
+      </span>
+      {% endif %}
+    </div>
+
     <div class="grid grid-cols-2 gap-0 divide-x divide-gray-200">
       <!-- Left Column - Basic Information -->
       <div class="pr-8 space-y-3">
-        <!-- Role -->
-        <div class="flex items-start">
+        <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Role</div>
           <div class="text-sm text-gray-900">
-            {% if jd %}
-              {{ jd.title or '-' }}
-            {% else %}
-              {{ c.job_title or '-' }}
-            {% endif %}
+            {% if jd %}{{ jd.title or '-' }}{% else %}{{ c.job_title or '-' }}{% endif %}
           </div>
         </div>
-        
-        <!-- Department -->
-        <div class="flex items-start">
+        <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Department</div>
           <div class="text-sm text-gray-900">
-            {% if c.department or (jd and jd.department) %}
-              {{ c.department or jd.department }}
-            {% else %}
-              -
-            {% endif %}
+            {{ c.department or (jd and jd.department) or '-' }}
           </div>
         </div>
-        
-        <!-- Phone -->
-        <div class="flex items-start">
+        <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Phone</div>
           <div class="text-sm text-gray-900">{{ c.phone or '-' }}</div>
         </div>
-        
-        <!-- Email -->
-        <div class="flex items-start">
+        <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Email</div>
           <div class="text-sm text-gray-900 break-all">{{ c.email or '-' }}</div>
         </div>
@@ -60,8 +63,7 @@
 
       <!-- Right Column - Scores & Metrics -->
       <div class="pl-8 space-y-3">
-        <!-- Relevancy Score -->
-        <div class="flex items-start">
+        <div class="flex items-center">
           <div class="text-sm text-gray-500 w-40 flex-shrink-0">Relevancy Score</div>
           {% set rel = relevancy or 0 %}
           {% set rel_chip = 'bg-emerald-100 text-emerald-700' if rel >= REL_GREEN
@@ -71,21 +73,17 @@
             {{ '%.1f'|format(rel) }}/5
           </span>
         </div>
-
-        <!-- Claim Validity -->
-        <div class="flex items-start">
+        <div class="flex items-center">
           <div class="text-sm text-gray-500 w-40 flex-shrink-0">Claim Validity</div>
           {% set cv = claim_validity or 0 %}
           {% set cv_chip = 'bg-emerald-100 text-emerald-700' if cv >= SCORE_GREEN
-                           else ('bg-amber-100 text-amber-700' if cv >= SCORE_YELLOW
-                                 else 'bg-rose-100 text-rose-700') %}
+                          else ('bg-amber-100 text-amber-700' if cv >= SCORE_YELLOW
+                                else 'bg-rose-100 text-rose-700') %}
           <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ cv_chip }}">
             {{ '%.1f'|format(cv) }}/5
           </span>
         </div>
-
-        <!-- Tab Switches -->
-        <div class="flex items-start">
+        <div class="flex items-center">
           <div class="text-sm text-gray-500 w-40 flex-shrink-0">Tab Switches</div>
           <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium bg-red-100 text-red-700">
             {{ focus_changes or 0 }}
@@ -108,7 +106,6 @@
           id="expandPdfBtn"
           class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           title="View fullscreen">
-          <!-- Expand icon -->
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -120,7 +117,6 @@
            download
            data-noload
            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          <!-- download icon -->
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
             <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
@@ -143,8 +139,6 @@
       <div data-role="loading" class="absolute inset-0 flex items-center justify-center">
         <div class="h-[86%] w-[86%] rounded-xl bg-white shadow animate-pulse"></div>
       </div>
-
-      <!-- toolbar removed: controls are intentionally hidden for a clean preview -->
 
       <div data-role="canvas" class="hidden h-full w-full overflow-hidden">
         <iframe
@@ -209,19 +203,13 @@
 
   <!-- PDF Fullscreen Modal -->
   <div id="pdfModal" class="hidden fixed inset-0 z-50 overflow-hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <!-- Backdrop -->
     <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" id="modalBackdrop"></div>
-    
-    <!-- Modal Content -->
     <div class="fixed inset-0 z-10 overflow-y-auto">
       <div class="flex min-h-full items-center justify-center p-4 sm:p-6 lg:p-8">
         <div class="relative w-full max-w-7xl bg-white rounded-lg shadow-xl" style="height: 90vh;">
-          
-          <!-- Header -->
           <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-900" id="modal-title">Resume - {{ c.name or 'Candidate' }}</h3>
             <div class="flex items-center gap-2">
-              <!-- Close button -->
               <button type="button" id="closeModalBtn" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500">
                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
@@ -229,8 +217,6 @@
               </button>
             </div>
           </div>
-          
-          <!-- PDF Viewer -->
           <div class="relative" style="height: calc(90vh - 60px);">
             <iframe 
               id="modalPdfIframe"
@@ -238,7 +224,6 @@
               title="Resume PDF Fullscreen">
             </iframe>
           </div>
-          
         </div>
       </div>
     </div>
@@ -263,7 +248,7 @@
           <p class="text-sm text-gray-500 mt-0.5">
             {{ (qa or answers or [])|length }} questions · Total time: 
             {%- set _sum = _qt.values()|map('int')|sum -%}
-            {%- if _sum > 0 -%}{{ _mmss(_sum) }}{%- else -%}0:00{%- endif -%}
+            {%- if _sum > 0 %} {{ _mmss(_sum) }}{% else %} 0:00{% endif %}
           </p>
         </div>
       </div>
@@ -280,30 +265,54 @@
                             else 'bg-rose-100 text-rose-700') %}
         
         <div class="qa-item" data-qa-index="{{ loop.index0 }}">
-          <!-- Question Header (Always Visible) -->
           <div class="py-4 flex items-start gap-3 sm:gap-4" style="padding-left: 32px; padding-right: 32px;">
             <div class="flex items-start gap-2 sm:gap-3" style="flex: 1; min-width: 0;">
               <span class="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold mt-0.5 sm:mt-0">
                 {{ loop.index }}
               </span>
               <p class="font-medium text-gray-900 text-sm leading-relaxed break-words" style="flex: 1; min-width: 0;">{{ qtxt }}</p>
+              {% set meta = question_meta[loop.index0] if question_meta and loop.index0 < question_meta|length else none %}
+              {% if meta and meta.source_section %}
+              <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
+                  {{ meta.source_section }}
+                </span>
+                {% if meta.source_detail %}
+                <span class="text-xs text-gray-400 italic truncate max-w-xs">{{ meta.source_detail }}</span>
+                {% endif %}
+                {% if meta.reason %}
+                <div class="relative group/tip">
+                  <svg class="w-3.5 h-3.5 text-gray-400 cursor-help flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75S21.75 6.615 21.75 12 17.385 21.75 12 21.75 2.25 17.385 2.25 12zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 01.67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 11-.671-1.34l.041-.022zM12 9a.75.75 0 100-1.5.75.75 0 000 1.5z" clip-rule="evenodd"/>
+                  </svg>
+                  <div class="absolute left-0 bottom-full mb-2 hidden group-hover/tip:block w-64 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg z-20 pointer-events-none">
+                    {{ meta.reason }}
+                    <div class="absolute top-full left-3 -mt-px border-4 border-transparent border-t-gray-900"></div>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+              {% endif %}
             </div>
             
-            <div class="flex items-center gap-1 flex-shrink-0">
-              <!-- Score Badge -->
-              <span class="inline-flex items-center rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium {{ chip }} whitespace-nowrap">
-                {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
-              </span>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <div class="flex flex-col items-center gap-0.5">
+                <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none">Score</span>
+                <span class="inline-flex items-center rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium {{ chip }} whitespace-nowrap">
+                  {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
+                </span>
+              </div>
 
-              <!-- Time Badge -->
               {% set _key = loop.index0 ~ '' %}
               {% set _ms  = (_qt.get(_key) or 0) %}
-              <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium whitespace-nowrap ml-1">
-                {{ _mmss(_ms) }}
-              </span>
+              <div class="flex flex-col items-center gap-0.5">
+                <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none">Time</span>
+                <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium whitespace-nowrap">
+                  {{ _mmss(_ms) }}
+                </span>
+              </div>
 
-              <!-- Expand/Collapse Button (Hover only on this button) -->
-              <button type="button" class="p-2 ml-1 rounded hover:bg-gray-100 transition-colors duration-150 toggle-qa-btn" data-qa-id="{{ loop.index0 }}">
+              <button type="button" class="p-2 rounded hover:bg-gray-100 transition-colors duration-150 toggle-qa-btn" data-qa-id="{{ loop.index0 }}">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform duration-200 chevron-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
@@ -311,9 +320,7 @@
             </div>
           </div>
 
-          <!-- Answer (Collapsible) -->
           <div class="qa-answer pt-2" style="padding-left: 32px; padding-right: 32px; padding-bottom: 32px;">
-            <!-- Answer text aligned with question text by using same left margin as question number + gap -->
             <div class="answer-content text-sm text-gray-700 leading-relaxed break-words overflow-wrap-anywhere" style="margin-left: 32px;" data-question-index="{{ loop.index0 }}">{{ atxt }}</div>
           </div>
         </div>
@@ -339,12 +346,11 @@
     </div>
   </div>
 
-  <!-- Voluntary Self-Identification (single white block) -->
+  <!-- Voluntary Self-Identification -->
   {% set sid = (c.resume_json or {}).get('_self_id', {}) %}
   {% if sid %}
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4">
     <h2 class="text-lg font-semibold text-gray-900 mb-3">Voluntary Self-Identification</h2>
-
     <dl class="rounded-lg ring-1 ring-gray-200 bg-white">
       <div class="grid grid-cols-2 gap-x-6 px-4 py-3 border-b border-gray-200">
         <dt class="text-gray-500 text-sm">Gender</dt>
@@ -368,18 +374,23 @@
 
   <!-- Action Buttons -->
   <div class="flex items-center justify-between pt-8 pb-8">
-    <a href="{{ url_for('view_candidates', tenant=tenant.slug, code=jd.code) if jd else url_for('candidates_overview', tenant=tenant.slug) }}"
-       class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-      ← Back to Candidates
+    <a href="{{ url_for('analytics_detail_nextjs', tenant=tenant.slug, jobCode=jd.code) if jd else url_for('candidates_overview', tenant=tenant.slug) }}"
+      class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+      ← Back to Analytics
     </a>
-    
-    <a href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}"
-       class="inline-flex items-center gap-2 rounded-lg border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
-       onclick="return confirm('Delete this candidate permanently?');">
-      Delete Candidate
-    </a>
-  </div>
 
+    <form method="POST"
+          action="{{ url_for('archive_candidate', tenant=tenant.slug, cid=c.id) }}"
+          onsubmit="return confirm('Archive this candidate? They will be preserved in analytics.')">
+      <button type="submit"
+        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+        <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Archive Candidate
+      </button>
+    </form>
+  </div>
 </div>
 
 
@@ -389,27 +400,16 @@
     previews.forEach((container) => {
       const iframeWrapper = container.querySelector("[data-role='canvas']");
       const iframe = iframeWrapper?.querySelector("iframe");
-        const loadingEl = container.querySelector("[data-role='loading']");
-        const errorEl = container.querySelector("[data-role='error']");
-        const toolbar = null;
+      const loadingEl = container.querySelector("[data-role='loading']");
+      const errorEl = container.querySelector("[data-role='error']");
       const previewUrl = container.dataset.src || "";
-      const downloadUrl = container.dataset.downloadUrl || "";
       const baseSrc = previewUrl.split('#')[0];
-      let scale = 1;
       let viewMode = "fit-width";
-        
-        const fitToggle = null;
-        const iconFitWidth = null;
-        const iconFitPage = null;
 
-        const buildSrc = (mode) => {
+      const buildSrc = (mode) => {
         const viewParam = mode === "fit-page" ? "Fit" : "FitH";
         return `${baseSrc}#toolbar=0&navpanes=0&scrollbar=0&view=${viewParam}`;
       };
-
-        const updateFitButton = () => {};
-
-        const toggleToolbar = () => {};
 
       const setState = (state) => {
         container.dataset.state = state;
@@ -419,7 +419,6 @@
           errorEl?.classList.add("hidden");
           iframeWrapper?.classList.remove("hidden");
           iframe?.classList.remove("hidden");
-          // controls removed
         } else if (state === "error") {
           container.style.height = "260px";
           loadingEl?.classList.add("hidden");
@@ -435,62 +434,35 @@
         }
       };
 
-      const applyScale = () => {
-        if (!iframe) return;
-        iframe.style.transform = `scale(${scale})`;
-        iframe.style.transformOrigin = "top center";
-      };
-
-      const bindAction = (selector, handler) => {
-        container.querySelectorAll(selector).forEach((btn) => {
-          btn.addEventListener("click", (event) => {
-            event.preventDefault();
-            handler();
-          });
-        });
-      };
-
-        // controls removed
-
       const attachEvents = () => {
         if (!iframe) return;
-          iframe.onload = () => {
-            // Detect server-side inline 404 placeholder and collapse to error state
-            try {
-              const doc = iframe.contentDocument || iframe.contentWindow?.document;
-              const missing = doc?.querySelector('[data-resume-missing]') || doc?.querySelector('meta[name="resume-missing"][content="1"]');
-              if (missing) {
-                setState("error");
-                return;
-              }
-            } catch (e) {
-              // ignore cross-origin access errors
-            }
-            setState("ready");
-            applyScale();
-          };
-        iframe.onerror = () => {
-          setState("error");
+        iframe.onload = () => {
+          try {
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            const missing = doc?.querySelector('[data-resume-missing]') || doc?.querySelector('meta[name="resume-missing"][content="1"]');
+            if (missing) { setState("error"); return; }
+          } catch (e) {}
+          setState("ready");
         };
+        iframe.onerror = () => setState("error");
       };
 
-        const loadIframe = () => {
-          if (!iframe) return;
-          setState("loading");
-          attachEvents();
-          iframe.src = buildSrc(viewMode);
-        };
+      const loadIframe = () => {
+        if (!iframe) return;
+        setState("loading");
+        attachEvents();
+        iframe.src = buildSrc(viewMode);
+      };
 
-  loadIframe();
-});
-});
+      loadIframe();
+    });
+  });
 </script>
+
 <script>
-// Improved Q&A Accordion functionality
 document.addEventListener('DOMContentLoaded', function() {
   const toggleButtons = document.querySelectorAll('.toggle-qa-btn');
   
-  // Initialize: Expand all questions by default
   document.querySelectorAll('.qa-item').forEach(qaItem => {
     const answer = qaItem.querySelector('.qa-answer');
     const chevron = qaItem.querySelector('.chevron-icon');
@@ -500,15 +472,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
-  // Add click event listeners
   toggleButtons.forEach(button => {
     button.addEventListener('click', function() {
       const qaItem = this.closest('.qa-item');
       const answer = qaItem.querySelector('.qa-answer');
       const chevron = qaItem.querySelector('.chevron-icon');
       const isExpanded = answer.style.display !== 'none';
-      
-      // Toggle answer visibility
       if (isExpanded) {
         answer.style.display = 'none';
         chevron.style.transform = 'rotate(0deg)';
@@ -521,95 +490,60 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- ET-7: Debug Total Time Calculation -->
 <script>
+// @ts-nocheck
 (function() {
   const resumeJson = {{ c.resume_json | tojson | safe }};
   const qTimes = resumeJson._q_times || {};
-  
-  if (Object.keys(qTimes).length === 0) {
-    // No question times found - this is normal for new candidates
-  } else {
+  if (Object.keys(qTimes).length > 0) {
     let total = 0;
-    for (let key in qTimes) {
-      const value = parseInt(qTimes[key]) || 0;
-      total += value;
-    }
-    
+    for (let key in qTimes) { total += parseInt(qTimes[key]) || 0; }
     const totalSeconds = Math.floor(total / 1000);
     const totalMinutes = Math.floor(totalSeconds / 60);
     const totalSecs = totalSeconds % 60;
-    
-    // Update the display with calculated total time
     const timeDisplay = document.querySelector('.total-time-display');
-    if (timeDisplay) {
-      timeDisplay.textContent = `${totalMinutes}:${String(totalSecs).padStart(2, '0')}`;
-    }
+    if (timeDisplay) timeDisplay.textContent = `${totalMinutes}:${String(totalSecs).padStart(2, '0')}`;
   }
 })();
 </script>
 
-<!-- ET-7: Paste highlight detection for recruiter view -->
 <script>
+// @ts-nocheck
 (function() {
-  // ET-7: Get paste data from backend
   const pasteRanges = {{ (c.resume_json or {}).get('_paste_ranges', {}) | tojson | safe }};
   
-  // ET-7: Highlight pasted text portions
   function highlightPastedText() {
     const answerElements = document.querySelectorAll('.answer-content');
-    
     answerElements.forEach((element) => {
       const questionIndex = element.getAttribute('data-question-index');
       const ranges = pasteRanges[questionIndex];
-      
       if (!ranges || ranges.length === 0) return;
-      
       const text = element.textContent;
       let result = '';
       let lastIndex = 0;
-      
-      // Sort ranges by start position
       const sortedRanges = ranges.sort((a, b) => a.start - b.start);
-      
       sortedRanges.forEach(range => {
-        // Add text before paste
-        if (lastIndex < range.start) {
-          result += escapeHtml(text.substring(lastIndex, range.start));
-        }
-        
-        // Add pasted text with highlight (rose-100 color for low score)
+        if (lastIndex < range.start) result += escapeHtml(text.substring(lastIndex, range.start));
         const pastedText = text.substring(range.start, range.end);
         result += `<mark style="background-color: #ffe4e6; color: #881337; padding: 0 2px;">${escapeHtml(pastedText)}</mark>`;
-        
         lastIndex = range.end;
       });
-      
-      // Add remaining text
-      if (lastIndex < text.length) {
-        result += escapeHtml(text.substring(lastIndex));
-      }
-      
+      if (lastIndex < text.length) result += escapeHtml(text.substring(lastIndex));
       element.innerHTML = result;
     });
   }
   
-  // Escape HTML to prevent XSS
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
   
-  // ET-7: Initialize highlighting when page loads
   document.addEventListener('DOMContentLoaded', highlightPastedText);
-  
-  // ET-7: Also run after a short delay
   setTimeout(highlightPastedText, 300);
 })();
 </script>
 
-<!-- PDF Modal JavaScript -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const modal = document.getElementById('pdfModal');
@@ -623,90 +557,60 @@ document.addEventListener('DOMContentLoaded', function() {
   
   const resumeUrl = previewContainer.dataset.src;
   
-  // Open modal
   function openModal() {
     if (!resumeUrl) return;
-    
-    // Load PDF in modal iframe
     const baseSrc = resumeUrl.split('#')[0];
     modalIframe.src = `${baseSrc}#toolbar=1&navpanes=1&scrollbar=1&view=Fit`;
-    
-    // Show modal
     modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden'; // Prevent background scroll
+    document.body.style.overflow = 'hidden';
   }
   
-  // Close modal
   function closeModal() {
     modal.classList.add('hidden');
-    modalIframe.src = ''; // Clear iframe
-    document.body.style.overflow = ''; // Restore scroll
+    modalIframe.src = '';
+    document.body.style.overflow = '';
   }
   
-  // Check for error state and hide expand button if needed
   function checkForErrorState() {
     const errorEl = previewContainer.querySelector('[data-role="error"]');
-    if (errorEl && !errorEl.classList.contains('hidden')) {
-      // PDF failed to load, hide expand button
-      expandBtn.style.display = 'none';
-    }
+    if (errorEl && !errorEl.classList.contains('hidden')) expandBtn.style.display = 'none';
   }
   
-  // Monitor for error state changes
   const observer = new MutationObserver(function(mutations) {
     mutations.forEach(function(mutation) {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-        checkForErrorState();
-      }
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') checkForErrorState();
     });
   });
   
-  // Start observing the error element
   const errorEl = previewContainer.querySelector('[data-role="error"]');
-  if (errorEl) {
-    observer.observe(errorEl, { attributes: true, attributeFilter: ['class'] });
-  }
+  if (errorEl) observer.observe(errorEl, { attributes: true, attributeFilter: ['class'] });
   
-  // Initial check
   checkForErrorState();
-  
-  // Event listeners
   expandBtn.addEventListener('click', openModal);
   closeBtn.addEventListener('click', closeModal);
   backdrop.addEventListener('click', closeModal);
-  
-  // ESC key to close
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-      closeModal();
-    }
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
   });
 });
 </script>
 
-<!-- Download spinner fix -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const downloadLink = document.querySelector('a[href*="resume"][download]');
-    if (downloadLink) {
-        downloadLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // 모든 스피너 숨기기
-            document.querySelectorAll('*').forEach(el => {
-                if (el.classList.contains('animate-spin') || 
-                    el.classList.contains('animate-pulse') ||
-                    el.id.includes('loading') ||
-                    el.id.includes('loader')) {
-                    el.style.display = 'none';
-                }
-            });
-            
-            // 원래 링크로 이동
-            window.location.href = this.href;
-        });
-    }
+  const downloadLink = document.querySelector('a[href*="resume"][download]');
+  if (downloadLink) {
+    downloadLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll('*').forEach(el => {
+        if (el.classList.contains('animate-spin') || el.classList.contains('animate-pulse') ||
+            el.id.includes('loading') || el.id.includes('loader')) {
+          el.style.display = 'none';
+        }
+      });
+      window.location.href = this.href;
+    });
+  }
 });
 </script>
 {% endblock %}
