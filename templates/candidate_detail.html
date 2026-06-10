@@ -10,15 +10,11 @@
       class="inline-flex items-center text-xs text-gray-500 hover:text-gray-700 mb-1">
       ← Back to Analytics
     </a>
-    <h1 class="text-2xl font-semibold text-gray-900">
-      Candidate Details
-    </h1>
-  </div> 
+    <h1 class="text-2xl font-semibold text-gray-900">Candidate Details</h1>
+  </div>
 
   <!-- Summary Card -->
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6">
-
-    <!-- Header: Name + Diamond Badge -->
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-lg font-semibold text-gray-900">{{ c.name or 'Candidate' }}</h2>
       {% set is_diamond = (relevancy is not none and relevancy >= 5) and (claim_validity is not none and claim_validity > 4) %}
@@ -37,19 +33,14 @@
     </div>
 
     <div class="grid grid-cols-2 gap-0 divide-x divide-gray-200">
-      <!-- Left Column - Basic Information -->
       <div class="pr-8 space-y-3">
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Role</div>
-          <div class="text-sm text-gray-900">
-            {% if jd %}{{ jd.title or '-' }}{% else %}{{ c.job_title or '-' }}{% endif %}
-          </div>
+          <div class="text-sm text-gray-900">{% if jd %}{{ jd.title or '-' }}{% else %}{{ c.job_title or '-' }}{% endif %}</div>
         </div>
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Department</div>
-          <div class="text-sm text-gray-900">
-            {{ c.department or (jd and jd.department) or '-' }}
-          </div>
+          <div class="text-sm text-gray-900">{{ c.department or (jd and jd.department) or '-' }}</div>
         </div>
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Phone</div>
@@ -60,34 +51,22 @@
           <div class="text-sm text-gray-900 break-all">{{ c.email or '-' }}</div>
         </div>
       </div>
-
-      <!-- Right Column - Scores & Metrics -->
       <div class="pl-8 space-y-3">
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-40 flex-shrink-0">Relevancy Score</div>
           {% set rel = relevancy or 0 %}
-          {% set rel_chip = 'bg-emerald-100 text-emerald-700' if rel >= REL_GREEN
-                            else ('bg-amber-100 text-amber-700' if rel >= REL_YELLOW
-                                  else 'bg-rose-100 text-rose-700') %}
-          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ rel_chip }}">
-            {{ '%.1f'|format(rel) }}/5
-          </span>
+          {% set rel_chip = 'bg-emerald-100 text-emerald-700' if rel >= REL_GREEN else ('bg-amber-100 text-amber-700' if rel >= REL_YELLOW else 'bg-rose-100 text-rose-700') %}
+          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ rel_chip }}">{{ '%.1f'|format(rel) }}/5</span>
         </div>
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-40 flex-shrink-0">Claim Validity</div>
           {% set cv = claim_validity or 0 %}
-          {% set cv_chip = 'bg-emerald-100 text-emerald-700' if cv >= SCORE_GREEN
-                          else ('bg-amber-100 text-amber-700' if cv >= SCORE_YELLOW
-                                else 'bg-rose-100 text-rose-700') %}
-          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ cv_chip }}">
-            {{ '%.1f'|format(cv) }}/5
-          </span>
+          {% set cv_chip = 'bg-emerald-100 text-emerald-700' if cv >= SCORE_GREEN else ('bg-amber-100 text-amber-700' if cv >= SCORE_YELLOW else 'bg-rose-100 text-rose-700') %}
+          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ cv_chip }}">{{ '%.1f'|format(cv) }}/5</span>
         </div>
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-40 flex-shrink-0">Tab Switches</div>
-          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium bg-red-100 text-red-700">
-            {{ focus_changes or 0 }}
-          </span>
+          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium bg-red-100 text-red-700">{{ focus_changes or 0 }}</span>
         </div>
       </div>
     </div>
@@ -96,13 +75,18 @@
   <!-- Resume Card -->
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4">
     <div class="flex justify-between items-center">
-      <h2 class="text-lg font-semibold text-gray-900">Resume</h2>
+      <div>
+        <h2 class="text-lg font-semibold text-gray-900">Resume</h2>
+        {% if is_pdf and qa %}
+        <p class="text-xs text-gray-400 mt-0.5">Click a question below to highlight its source section in the resume</p>
+        {% endif %}
+      </div>
 
       {% if c and c.id %}
       <div class="flex gap-2">
-        <!-- Expand button (icon only) - only show for PDF files -->
+        <!-- Fullscreen button (PDF only) -->
         {% if resume_url and resume_url != 'None' and is_pdf %}
-        <button 
+        <button
           id="expandPdfBtn"
           class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           title="View fullscreen">
@@ -111,11 +95,10 @@
           </svg>
         </button>
         {% endif %}
-        
+
         <!-- Download button -->
         <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
-           download
-           data-noload
+           download data-noload
            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -127,111 +110,58 @@
       {% endif %}
     </div>
 
-    <!-- PDF preview area with enhanced states -->
     {% if resume_url and resume_url != 'None' %}
-    <div
-      class="group relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition-[height] duration-300"
-      style="height:520px;"
-      data-resume-preview
-      data-src="{{ resume_url }}"
-      data-download-url="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
-    >
-      <div data-role="loading" class="absolute inset-0 flex items-center justify-center">
-        <div class="h-[86%] w-[86%] rounded-xl bg-white shadow animate-pulse"></div>
-      </div>
-
-      <div data-role="canvas" class="hidden h-full w-full overflow-hidden">
-        <iframe
-          title="Resume PDF Preview"
-          class="h-full w-full border-0 bg-white transition-transform duration-200"
-          allowfullscreen
-        ></iframe>
-      </div>
-
-      <div
-        data-role="error"
-        class="hidden absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white px-6 text-center"
-      >
-        <div class="space-y-2">
-          <h3 class="text-sm font-semibold text-gray-900">We couldn't load this resume preview</h3>
-          <p class="text-sm text-gray-500">Please try again or download the PDF to view it locally.<br/>If the issue persists, the file may be unavailable or corrupted.</p>
+      {% if is_pdf %}
+      <!-- PDF.js viewer -->
+      <div id="pdfViewer" class="rounded-lg border border-gray-200 relative overflow-y-auto" style="height: 520px; background: #e8e8e8;">
+        <div id="pdfLoading" class="absolute inset-0 flex flex-col items-center justify-center gap-3">
+          <div class="w-8 h-8 rounded-full border-2 border-gray-300 border-t-primary animate-spin"></div>
+          <p class="text-sm text-gray-500">Loading resume…</p>
         </div>
-        <div class="mt-3">
-          <button 
-            type="button" 
-            onclick="window.location.reload()" 
-            class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            title="Retry">
-            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M21 3v5h-5" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M3 21v-5h5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
+        <div id="pdfError" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+          <p class="text-sm font-semibold text-gray-900">Couldn't load resume preview</p>
+          <p class="text-sm text-gray-500">Please download the file to view it locally.</p>
+          <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}" data-noload download
+             class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Download Resume</a>
         </div>
+        <div id="pdfPages" class="p-3 space-y-3"></div>
       </div>
-    </div>
-    {% else %}
-    <div class="h-56 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-center px-6">
-      <div>
-        <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        {% if c and c.resume_url and not is_pdf %}
-          <h3 class="mt-2 text-sm font-semibold text-gray-900">The resume is a DOCX file.</h3>
-          <p class="mt-1 text-sm text-gray-500">Please download the resume to view it.</p>
-          {% if download_url %}
+      {% else %}
+      <!-- Non-PDF fallback -->
+      <div class="h-48 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-center px-6">
+        <div>
+          <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <h3 class="mt-2 text-sm font-semibold text-gray-900">Resume is a DOCX file</h3>
+          <p class="mt-1 text-sm text-gray-500">Download the file to view it.</p>
+          {% if c and c.id %}
           <div class="mt-3">
-            <a href="{{ download_url }}" data-noload download class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
-                <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
-              </svg>
+            <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}" data-noload download
+               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
               Download DOCX
             </a>
           </div>
           {% endif %}
-        {% else %}
-          <h3 class="mt-2 text-sm font-semibold text-gray-900">No resume uploaded</h3>
-          <p class="mt-1 text-sm text-gray-500">This candidate has not provided a resume.</p>
-        {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    {% else %}
+    <div class="h-48 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-center px-6">
+      <div>
+        <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">No resume uploaded</h3>
+        <p class="mt-1 text-sm text-gray-500">This candidate has not provided a resume.</p>
       </div>
     </div>
     {% endif %}
   </div>
 
-  <!-- PDF Fullscreen Modal -->
-  <div id="pdfModal" class="hidden fixed inset-0 z-50 overflow-hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" id="modalBackdrop"></div>
-    <div class="fixed inset-0 z-10 overflow-y-auto">
-      <div class="flex min-h-full items-center justify-center p-4 sm:p-6 lg:p-8">
-        <div class="relative w-full max-w-7xl bg-white rounded-lg shadow-xl" style="height: 90vh;">
-          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900" id="modal-title">Resume - {{ c.name or 'Candidate' }}</h3>
-            <div class="flex items-center gap-2">
-              <button type="button" id="closeModalBtn" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="relative" style="height: calc(90vh - 60px);">
-            <iframe 
-              id="modalPdfIframe"
-              class="w-full h-full border-0"
-              title="Resume PDF Fullscreen">
-            </iframe>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- AI Q&A Assessment -->
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden mb-6">
-    {# --- timing calc + helper --- #}
+    {# timing helper #}
     {% macro _mmss(ms) -%}
       {%- set _ms_int = ms|int if ms else 0 -%}
       {%- set _s = _ms_int // 1000 -%}
@@ -240,101 +170,79 @@
       {{ _m }}:{{ _ss }}
     {%- endmacro %}
     {% set _qt = ((c.resume_json or {}).get('_q_times') or {}) %}
+
     <!-- Header -->
     <div class="px-6 py-4 border-b border-gray-200" style="background-color: #F2F1EE;">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-lg font-semibold text-gray-900">AI Q&A Assessment</h2>
-          <p class="text-sm text-gray-500 mt-0.5">
-            {{ (qa or answers or [])|length }} questions · Total time: 
-            {%- set _sum = _qt.values()|map('int')|sum -%}
-            {%- if _sum > 0 %} {{ _mmss(_sum) }}{% else %} 0:00{% endif %}
-          </p>
-        </div>
-      </div>
+      <h2 class="text-lg font-semibold text-gray-900">AI Q&amp;A Assessment</h2>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {{ (qa or [])|length }} questions · Total time:
+        {%- set _sum = _qt.values()|map('int')|sum -%}
+        {%- if _sum > 0 %} {{ _mmss(_sum) }}{% else %} 0:00{% endif %}
+      </p>
     </div>
 
     <!-- Q&A List -->
     <div class="divide-y divide-gray-100">
-      {% for item in (qa or answers or []) %}
+      {% for item in (qa or []) %}
         {% set qtxt = item.q if item.q is defined else item.question %}
         {% set atxt = item.a if item.a is defined else item.answer %}
         {% set s    = item.s if item.s is defined else (item.score if item.score is defined else none) %}
+        {% set src_reason = item.reason if item.reason is defined else '' %}
         {% set chip = 'bg-emerald-100 text-emerald-700' if (s or 0) >= SCORE_GREEN
                       else ('bg-amber-100 text-amber-700' if (s or 0) >= SCORE_YELLOW
                             else 'bg-rose-100 text-rose-700') %}
-        
+        {% set _key = loop.index0 ~ '' %}
+        {% set _ms  = (_qt.get(_key) or 0) %}
+
         <div class="qa-item" data-qa-index="{{ loop.index0 }}">
+          <!-- Question row -->
           <div class="py-4 flex items-start gap-3 sm:gap-4" style="padding-left: 32px; padding-right: 32px;">
-            <div class="flex items-start gap-2 sm:gap-3" style="flex: 1; min-width: 0;">
-              <span class="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold mt-0.5 sm:mt-0">
-                {{ loop.index }}
+            <!-- Question text: click target for PDF highlight -->
+            <p class="q-text font-medium text-gray-900 text-sm leading-relaxed break-words cursor-pointer hover:text-primary transition-colors"
+               style="flex: 1; min-width: 0;"
+               data-q-scroll="{{ loop.index0 }}"
+               title="Click to highlight source in resume">{{ qtxt }}</p>
+
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <!-- Score badge -->
+              <span class="inline-flex items-center rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium {{ chip }} whitespace-nowrap">
+                {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
               </span>
-              <p class="font-medium text-gray-900 text-sm leading-relaxed break-words" style="flex: 1; min-width: 0;">{{ qtxt }}</p>
-              {% set meta = question_meta[loop.index0] if question_meta and loop.index0 < question_meta|length else none %}
-              {% if meta and meta.source_section %}
-              <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
-                  {{ meta.source_section }}
-                </span>
-                {% if meta.source_detail %}
-                <span class="text-xs text-gray-400 italic truncate max-w-xs">{{ meta.source_detail }}</span>
-                {% endif %}
-                {% if meta.reason %}
-                <div class="relative group/tip">
-                  <svg class="w-3.5 h-3.5 text-gray-400 cursor-help flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                    <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75S21.75 6.615 21.75 12 17.385 21.75 12 21.75 2.25 17.385 2.25 12zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 01.67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 11-.671-1.34l.041-.022zM12 9a.75.75 0 100-1.5.75.75 0 000 1.5z" clip-rule="evenodd"/>
-                  </svg>
-                  <div class="absolute left-0 bottom-full mb-2 hidden group-hover/tip:block w-64 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg z-20 pointer-events-none">
-                    {{ meta.reason }}
-                    <div class="absolute top-full left-3 -mt-px border-4 border-transparent border-t-gray-900"></div>
-                  </div>
-                </div>
-                {% endif %}
-              </div>
+              <!-- Time badge -->
+              <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium whitespace-nowrap ml-1">
+                {{ _mmss(_ms) }}
+              </span>
+              {% if src_reason %}
+              <button
+                class="why-toggle-btn px-2 py-1 text-[11px] font-medium text-gray-500 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap ml-1"
+                data-qa-id="{{ loop.index0 }}">Why?</button>
               {% endif %}
-            </div>
-            
-            <div class="flex items-center gap-2 flex-shrink-0">
-              <div class="flex flex-col items-center gap-0.5">
-                <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none">Score</span>
-                <span class="inline-flex items-center rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium {{ chip }} whitespace-nowrap">
-                  {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
-                </span>
-              </div>
-
-              {% set _key = loop.index0 ~ '' %}
-              {% set _ms  = (_qt.get(_key) or 0) %}
-              <div class="flex flex-col items-center gap-0.5">
-                <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none">Time</span>
-                <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium whitespace-nowrap">
-                  {{ _mmss(_ms) }}
-                </span>
-              </div>
-
-              <button type="button" class="p-2 rounded hover:bg-gray-100 transition-colors duration-150 toggle-qa-btn" data-qa-id="{{ loop.index0 }}">
-                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform duration-200 chevron-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-              </button>
             </div>
           </div>
 
-          <div class="qa-answer pt-2" style="padding-left: 32px; padding-right: 32px; padding-bottom: 32px;">
-            <div class="answer-content text-sm text-gray-700 leading-relaxed break-words overflow-wrap-anywhere" style="margin-left: 32px;" data-question-index="{{ loop.index0 }}">{{ atxt }}</div>
+          <!-- Answer + why panel -->
+          <div style="padding-left: 32px; padding-right: 32px; padding-bottom: 32px;">
+            <div class="answer-content text-sm text-gray-700 leading-relaxed break-words overflow-wrap-anywhere"
+                 data-question-index="{{ loop.index0 }}">{{ atxt or '—' }}</div>
+            {% if src_reason %}
+            <div class="why-panel hidden mt-2 rounded-md bg-gray-50 px-3 py-2 text-xs border-l-2 border-primary">
+              <span class="font-semibold text-gray-700">Why this was asked: </span>
+              <span class="text-gray-500">{{ src_reason }}</span>
+            </div>
+            {% endif %}
           </div>
         </div>
       {% else %}
         <div class="px-6 py-8 text-center">
           <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           <h3 class="mt-2 text-sm font-medium text-gray-900">No questions available</h3>
           <p class="mt-1 text-sm text-gray-500">This candidate hasn't completed the AI assessment yet.</p>
         </div>
       {% endfor %}
     </div>
-    
+
     <!-- Paste Detection Notice -->
     <div class="py-3 bg-white border-t border-gray-100" style="padding-left: 32px; padding-right: 32px;">
       <div class="flex items-start gap-2" style="margin-left: 32px;">
@@ -378,7 +286,6 @@
       class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
       ← Back to Analytics
     </a>
-
     <form method="POST"
           action="{{ url_for('archive_candidate', tenant=tenant.slug, cid=c.id) }}"
           onsubmit="return confirm('Archive this candidate? They will be preserved in analytics.')">
@@ -393,224 +300,260 @@
   </div>
 </div>
 
-
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const previews = document.querySelectorAll("[data-resume-preview]");
-    previews.forEach((container) => {
-      const iframeWrapper = container.querySelector("[data-role='canvas']");
-      const iframe = iframeWrapper?.querySelector("iframe");
-      const loadingEl = container.querySelector("[data-role='loading']");
-      const errorEl = container.querySelector("[data-role='error']");
-      const previewUrl = container.dataset.src || "";
-      const baseSrc = previewUrl.split('#')[0];
-      let viewMode = "fit-width";
+// ─── PDF.js highlight renderer ────────────────────────────────────────────────
+(function () {
+  const RESUME_URL = {{ resume_url | tojson }};
+  const IS_PDF     = {{ is_pdf | tojson }};
 
-      const buildSrc = (mode) => {
-        const viewParam = mode === "fit-page" ? "Fit" : "FitH";
-        return `${baseSrc}#toolbar=0&navpanes=0&scrollbar=0&view=${viewParam}`;
-      };
+  if (!IS_PDF || !RESUME_URL) return;
 
-      const setState = (state) => {
-        container.dataset.state = state;
-        if (state === "ready") {
-          container.style.height = "520px";
-          loadingEl?.classList.add("hidden");
-          errorEl?.classList.add("hidden");
-          iframeWrapper?.classList.remove("hidden");
-          iframe?.classList.remove("hidden");
-        } else if (state === "error") {
-          container.style.height = "260px";
-          loadingEl?.classList.add("hidden");
-          iframeWrapper?.classList.add("hidden");
-          iframe?.classList.add("hidden");
-          errorEl?.classList.remove("hidden");
-        } else {
-          container.style.height = "520px";
-          loadingEl?.classList.remove("hidden");
-          iframeWrapper?.classList.add("hidden");
-          iframe?.classList.add("hidden");
-          errorEl?.classList.add("hidden");
-        }
-      };
+  // Single primary color for all highlights (#0D9488 = Teal 600)
+  const HL_ACTIVE   = 'rgba(13,148,136,0.35)';
+  const HL_INACTIVE = 'rgba(0,0,0,0)';      // hidden until question clicked
 
-      const attachEvents = () => {
-        if (!iframe) return;
-        iframe.onload = () => {
-          try {
-            const doc = iframe.contentDocument || iframe.contentWindow?.document;
-            const missing = doc?.querySelector('[data-resume-missing]') || doc?.querySelector('meta[name="resume-missing"][content="1"]');
-            if (missing) { setState("error"); return; }
-          } catch (e) {}
-          setState("ready");
-        };
-        iframe.onerror = () => setState("error");
-      };
+  const QA_META = {{ qa | tojson }};
 
-      const loadIframe = () => {
-        if (!iframe) return;
-        setState("loading");
-        attachEvents();
-        iframe.src = buildSrc(viewMode);
-      };
+  const STOP = new Set(['about','after','also','been','between','both','does','doing','done','during','each','even','every','from','given','have','here','into','just','like','made','make','many','more','most','much','must','need','never','next','none','only','other','over','same','should','since','some','such','take','than','that','their','them','then','there','these','they','this','through','time','under','very','well','were','what','when','where','which','will','with','work','would','your']);
 
-      loadIframe();
+  function keywords(text) {
+    return (text || '').toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 5 && !STOP.has(w))
+      .slice(0, 6);
+  }
+
+  const qKW    = QA_META.map(m => keywords((m.source_detail || '') + ' ' + (m.source_section || '')));
+  const firstHL = QA_META.map(() => null);
+  let   activeQ = -1;   // -1 = nothing active
+
+  // ── activate / deactivate question highlight ─────────────────────
+  function setActive(qi) {
+    const isToggleOff = (activeQ === qi);
+    activeQ = isToggleOff ? -1 : qi;
+
+    document.querySelectorAll('.pdf-hl').forEach(el => {
+      const elQ = parseInt(el.dataset.q, 10);
+      el.style.background = (!isToggleOff && elQ === qi) ? HL_ACTIVE : HL_INACTIVE;
     });
-  });
+
+    // Update question text active state
+    document.querySelectorAll('.q-text').forEach(el => {
+      const elQ = parseInt(el.dataset.qScroll, 10);
+      if (!isToggleOff && elQ === qi) {
+        el.classList.add('text-primary', 'font-semibold');
+        el.classList.remove('text-gray-900', 'font-medium');
+      } else {
+        el.classList.remove('text-primary', 'font-semibold');
+        el.classList.add('text-gray-900', 'font-medium');
+      }
+    });
+
+    if (isToggleOff) return;
+
+    // Scroll PDF viewer to first highlight for this question
+    const ref = firstHL[qi];
+    if (!ref) return;
+    const viewer = document.getElementById('pdfViewer');
+    if (!viewer) return;
+    const wTop     = ref.wrapper.offsetTop;
+    const innerOff = (ref.topPct / 100) * ref.wrapper.offsetHeight;
+    viewer.scrollTo({ top: wTop + innerOff - 80, behavior: 'smooth' });
+  }
+
+  // ── render all pages ──────────────────────────────────────────────
+  async function renderPDF() {
+    const pages   = document.getElementById('pdfPages');
+    const loading = document.getElementById('pdfLoading');
+    const errEl   = document.getElementById('pdfError');
+
+    try {
+      const pdfDoc = await pdfjsLib.getDocument({ url: RESUME_URL, withCredentials: true }).promise;
+      loading.style.display = 'none';
+
+      const SCALE = 1.5;
+
+      for (let pn = 1; pn <= pdfDoc.numPages; pn++) {
+        const page     = await pdfDoc.getPage(pn);
+        const viewport = page.getViewport({ scale: SCALE });
+
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:relative;display:block;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.15);border-radius:4px;overflow:hidden;';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        canvas.style.cssText = 'display:block;width:100%;height:auto;';
+        wrapper.appendChild(canvas);
+
+        const hlLayer = document.createElement('div');
+        hlLayer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+        wrapper.appendChild(hlLayer);
+
+        pages.appendChild(wrapper);
+
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+        const tc = await page.getTextContent();
+        for (const item of tc.items) {
+          const str = (item.str || '').trim();
+          if (str.length < 3) continue;
+
+          const low = str.toLowerCase();
+          let bestQ = -1, bestScore = 0;
+          for (let qi = 0; qi < qKW.length; qi++) {
+            const score = qKW[qi].filter(kw => low.includes(kw)).length;
+            if (score > bestScore) { bestScore = score; bestQ = qi; }
+          }
+          if (bestScore < 1 || bestQ < 0) continue;
+
+          const tx    = pdfjsLib.Util.transform(viewport.transform, item.transform);
+          const fontH = Math.abs(tx[3]);
+          const textW = (item.width || 0) * SCALE;
+          if (textW <= 0 || fontH <= 0) continue;
+
+          const lPct = (tx[4] / viewport.width)              * 100;
+          const tPct = ((tx[5] - fontH * 1.1) / viewport.height) * 100;
+          const wPct = (textW / viewport.width)              * 100;
+          const hPct = (fontH * 1.35 / viewport.height)     * 100;
+
+          const hl = document.createElement('div');
+          hl.className  = 'pdf-hl';
+          hl.dataset.q  = bestQ;
+          hl.style.cssText = `position:absolute;left:${lPct.toFixed(2)}%;top:${tPct.toFixed(2)}%;width:${wPct.toFixed(2)}%;height:${hPct.toFixed(2)}%;background:${HL_INACTIVE};border-radius:2px;transition:background .2s;`;
+          hlLayer.appendChild(hl);
+
+          if (!firstHL[bestQ]) firstHL[bestQ] = { wrapper, topPct: tPct };
+        }
+      }
+    } catch (err) {
+      console.error('PDF.js error:', err);
+      if (loading) loading.style.display = 'none';
+      if (errEl)   errEl.classList.remove('hidden');
+    }
+  }
+
+  // ── wire question-text click handlers ────────────────────────────
+  function initClickHandlers() {
+    document.querySelectorAll('[data-q-scroll]').forEach(el => {
+      el.addEventListener('click', function () {
+        setActive(parseInt(this.dataset.qScroll, 10));
+      });
+    });
+  }
+
+  // ── boot ─────────────────────────────────────────────────────────
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload = function () {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    renderPDF().then(initClickHandlers);
+  };
+  s.onerror = function () {
+    if (loading) loading.style.display = 'none';
+    if (errEl)   errEl.classList.remove('hidden');
+  };
+  document.head.appendChild(s);
+})();
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const toggleButtons = document.querySelectorAll('.toggle-qa-btn');
-  
-  document.querySelectorAll('.qa-item').forEach(qaItem => {
-    const answer = qaItem.querySelector('.qa-answer');
-    const chevron = qaItem.querySelector('.chevron-icon');
-    if (answer && chevron) {
-      answer.style.display = 'block';
-      chevron.style.transform = 'rotate(180deg)';
-    }
-  });
-  
-  toggleButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      const qaItem = this.closest('.qa-item');
-      const answer = qaItem.querySelector('.qa-answer');
-      const chevron = qaItem.querySelector('.chevron-icon');
-      const isExpanded = answer.style.display !== 'none';
-      if (isExpanded) {
-        answer.style.display = 'none';
-        chevron.style.transform = 'rotate(0deg)';
-      } else {
-        answer.style.display = 'block';
-        chevron.style.transform = 'rotate(180deg)';
-      }
+// ─── Why? toggle ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.why-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const qi    = this.dataset.qaId;
+      const panel = document.querySelector(`.qa-item[data-qa-index="${qi}"] .why-panel`);
+      if (!panel) return;
+      const open = !panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', open);
+      this.textContent = open ? 'Why?' : 'Hide';
     });
   });
 });
 </script>
 
 <script>
-// @ts-nocheck
-(function() {
-  const resumeJson = {{ c.resume_json | tojson | safe }};
-  const qTimes = resumeJson._q_times || {};
-  if (Object.keys(qTimes).length > 0) {
-    let total = 0;
-    for (let key in qTimes) { total += parseInt(qTimes[key]) || 0; }
-    const totalSeconds = Math.floor(total / 1000);
-    const totalMinutes = Math.floor(totalSeconds / 60);
-    const totalSecs = totalSeconds % 60;
-    const timeDisplay = document.querySelector('.total-time-display');
-    if (timeDisplay) timeDisplay.textContent = `${totalMinutes}:${String(totalSecs).padStart(2, '0')}`;
-  }
-})();
-</script>
-
-<script>
-// @ts-nocheck
-(function() {
+// ─── Paste highlighting ───────────────────────────────────────────────────────
+(function () {
   const pasteRanges = {{ (c.resume_json or {}).get('_paste_ranges', {}) | tojson | safe }};
-  
+
+  function escapeHtml(t) {
+    const d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
+  }
+
   function highlightPastedText() {
-    const answerElements = document.querySelectorAll('.answer-content');
-    answerElements.forEach((element) => {
-      const questionIndex = element.getAttribute('data-question-index');
-      const ranges = pasteRanges[questionIndex];
+    document.querySelectorAll('.answer-content').forEach(el => {
+      const qi     = el.getAttribute('data-question-index');
+      const ranges = pasteRanges[qi];
       if (!ranges || ranges.length === 0) return;
-      const text = element.textContent;
-      let result = '';
-      let lastIndex = 0;
-      const sortedRanges = ranges.sort((a, b) => a.start - b.start);
-      sortedRanges.forEach(range => {
-        if (lastIndex < range.start) result += escapeHtml(text.substring(lastIndex, range.start));
-        const pastedText = text.substring(range.start, range.end);
-        result += `<mark style="background-color: #ffe4e6; color: #881337; padding: 0 2px;">${escapeHtml(pastedText)}</mark>`;
-        lastIndex = range.end;
+      const text   = el.textContent;
+      let result   = '', last = 0;
+      ranges.slice().sort((a, b) => a.start - b.start).forEach(r => {
+        if (last < r.start) result += escapeHtml(text.slice(last, r.start));
+        result += `<mark style="background:#ffe4e6;color:#881337;padding:0 2px;">${escapeHtml(text.slice(r.start, r.end))}</mark>`;
+        last = r.end;
       });
-      if (lastIndex < text.length) result += escapeHtml(text.substring(lastIndex));
-      element.innerHTML = result;
+      if (last < text.length) result += escapeHtml(text.slice(last));
+      el.innerHTML = result;
     });
   }
-  
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-  
+
   document.addEventListener('DOMContentLoaded', highlightPastedText);
   setTimeout(highlightPastedText, 300);
 })();
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const modal = document.getElementById('pdfModal');
-  const expandBtn = document.getElementById('expandPdfBtn');
-  const closeBtn = document.getElementById('closeModalBtn');
-  const backdrop = document.getElementById('modalBackdrop');
-  const modalIframe = document.getElementById('modalPdfIframe');
-  const previewContainer = document.querySelector('[data-resume-preview]');
-  
-  if (!expandBtn || !modal || !previewContainer) return;
-  
-  const resumeUrl = previewContainer.dataset.src;
-  
-  function openModal() {
-    if (!resumeUrl) return;
-    const baseSrc = resumeUrl.split('#')[0];
-    modalIframe.src = `${baseSrc}#toolbar=1&navpanes=1&scrollbar=1&view=Fit`;
-    modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+// ─── Q&A timing display ───────────────────────────────────────────────────────
+(function () {
+  const resumeJson = {{ c.resume_json | tojson | safe }};
+  const qTimes = resumeJson._q_times || {};
+  if (Object.keys(qTimes).length > 0) {
+    let total = 0;
+    for (const k in qTimes) total += parseInt(qTimes[k]) || 0;
+    const s = Math.floor(total / 1000);
+    const el = document.querySelector('.total-time-display');
+    if (el) el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   }
-  
-  function closeModal() {
-    modal.classList.add('hidden');
-    modalIframe.src = '';
-    document.body.style.overflow = '';
-  }
-  
-  function checkForErrorState() {
-    const errorEl = previewContainer.querySelector('[data-role="error"]');
-    if (errorEl && !errorEl.classList.contains('hidden')) expandBtn.style.display = 'none';
-  }
-  
-  const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'class') checkForErrorState();
+})();
+</script>
+
+<script>
+// ─── Download link guard ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  const dl = document.querySelector('a[href*="resume"][download]');
+  if (dl) {
+    dl.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href = this.href;
     });
-  });
-  
-  const errorEl = previewContainer.querySelector('[data-role="error"]');
-  if (errorEl) observer.observe(errorEl, { attributes: true, attributeFilter: ['class'] });
-  
-  checkForErrorState();
-  expandBtn.addEventListener('click', openModal);
-  closeBtn.addEventListener('click', closeModal);
-  backdrop.addEventListener('click', closeModal);
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
-  });
+  }
 });
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const downloadLink = document.querySelector('a[href*="resume"][download]');
-  if (downloadLink) {
-    downloadLink.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      document.querySelectorAll('*').forEach(el => {
-        if (el.classList.contains('animate-spin') || el.classList.contains('animate-pulse') ||
-            el.id.includes('loading') || el.id.includes('loader')) {
-          el.style.display = 'none';
-        }
-      });
-      window.location.href = this.href;
-    });
+// ─── PDF fullscreen button ────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  const expandBtn = document.getElementById('expandPdfBtn');
+  const viewer    = document.getElementById('pdfViewer');
+  if (!expandBtn || !viewer) return;
+
+  expandBtn.addEventListener('click', function () {
+    if (viewer.requestFullscreen)       viewer.requestFullscreen();
+    else if (viewer.webkitRequestFullscreen) viewer.webkitRequestFullscreen();
+  });
+
+  function onFullscreenChange() {
+    const isFS = document.fullscreenElement === viewer || document.webkitFullscreenElement === viewer;
+    viewer.style.height = isFS ? '100vh' : '520px';
   }
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 });
 </script>
 {% endblock %}
