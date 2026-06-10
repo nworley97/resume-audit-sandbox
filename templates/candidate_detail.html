@@ -203,18 +203,22 @@
                data-q-scroll="{{ loop.index0 }}"
                title="Click to highlight source in resume">{{ qtxt }}</p>
 
-            <div class="flex items-center gap-1 flex-shrink-0">
-              <!-- Score badge -->
-              <span class="inline-flex items-center rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium {{ chip }} whitespace-nowrap">
-                {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
-              </span>
-              <!-- Time badge -->
-              <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium whitespace-nowrap ml-1">
-                {{ _mmss(_ms) }}
-              </span>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <div class="flex flex-col items-center gap-0.5">
+                <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none">Score</span>
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ chip }} whitespace-nowrap">
+                  {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
+                </span>
+              </div>
+              <div class="flex flex-col items-center gap-0.5">
+                <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none">Time</span>
+                <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-600 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
+                  {{ _mmss(_ms) }}
+                </span>
+              </div>
               {% if src_reason %}
               <button
-                class="why-toggle-btn px-2 py-1 text-[11px] font-medium text-gray-500 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap ml-1"
+                class="why-toggle-btn px-2 py-1 text-[11px] font-medium text-gray-500 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap"
                 data-qa-id="{{ loop.index0 }}">Why?</button>
               {% endif %}
             </div>
