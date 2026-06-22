@@ -11,12 +11,90 @@ Events are verified using webhook signatures before processing.
 """
 
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
+
+
+# ─── Email Helpers ───────────────────────────────────────────────────────────
+
+def _send_transactional_email(to: str, subject: str, html: str) -> bool:
+    try:
+        import resend
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            logger.warning("RESEND_API_KEY not set — skipping email")
+            return False
+        resend.Emails.send({
+            "from": "AlteraSF <noreply@alterasf.com>",
+            "to": [to],
+            "subject": subject,
+            "html": html,
+        })
+        logger.info(f"Email sent to {to}: {subject}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email to {to}: {e}")
+        return False
+
+
+def _send_welcome_email(to: str, company_name: str, plan_tier: str, tenant_slug: str) -> None:
+    plan_label = plan_tier.title()
+    login_url = f"https://app.alterasf.com/{tenant_slug}/login"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+      <h1 style="color:#2563eb;margin-bottom:8px;">Welcome to AlteraSF! 🎉</h1>
+      <p>Hi {company_name},</p>
+      <p>Your account is ready. You're on the <strong>{plan_label}</strong> plan.</p>
+      <p style="margin:24px 0;">
+        <a href="{login_url}"
+           style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">
+          Go to Dashboard
+        </a>
+      </p>
+      <p style="color:#6b7280;font-size:14px;">
+        Need help? Reply to this email or visit our support page.
+      </p>
+    </div>
+    """
+    _send_transactional_email(to, "Welcome to AlteraSF — your account is ready", html)
+
+
+def _send_payment_confirmation_email(
+    to: str,
+    company_name: str,
+    amount: float,
+    currency: str,
+    invoice_number: str,
+    plan_tier: str,
+    billing_cycle: str,
+    period_end: Optional[datetime],
+) -> None:
+    plan_label = plan_tier.title() if plan_tier else "Your plan"
+    currency_symbol = "$" if currency.lower() == "usd" else currency.upper()
+    next_billing = period_end.strftime("%B %d, %Y") if period_end else "—"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+      <h2 style="color:#16a34a;">Payment Confirmed</h2>
+      <p>Hi {company_name}, we received your payment. Thank you!</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+        <tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;">Invoice</td>
+            <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:right;">{invoice_number}</td></tr>
+        <tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;">Plan</td>
+            <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:right;">{plan_label} ({billing_cycle})</td></tr>
+        <tr><td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;">Amount</td>
+            <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">{currency_symbol}{amount:,.2f}</td></tr>
+        <tr><td style="padding:8px 0;color:#6b7280;">Next billing date</td>
+            <td style="padding:8px 0;text-align:right;">{next_billing}</td></tr>
+      </table>
+      <p style="color:#6b7280;font-size:14px;">Questions? Reply to this email and we'll help.</p>
+    </div>
+    """
+    _send_transactional_email(to, f"AlteraSF — payment confirmed ({currency_symbol}{amount:,.2f})", html)
 
 # Create Blueprint for webhook routes
 stripe_webhooks_bp = Blueprint('stripe_webhooks', __name__, url_prefix='/billing/webhooks')
@@ -225,18 +303,51 @@ def handle_invoice_payment_succeeded(event) -> Dict[str, Any]:
     invoice_id = _safe_get(invoice, 'id')
     
     logger.info(f"Payment succeeded: ${amount} for customer {customer_id}")
-    
+
+    currency = _safe_get(invoice, 'currency', 'usd')
+    invoice_number = _safe_get(invoice, 'number') or invoice_id
+
     # Record payment in history
     _record_payment_history(
         stripe_customer_id=customer_id,
         stripe_invoice_id=invoice_id,
         stripe_payment_intent_id=_safe_get(invoice, 'payment_intent'),
         amount=amount,
-        currency=_safe_get(invoice, 'currency', 'usd'),
+        currency=currency,
         status="succeeded",
-        description=f"Invoice {_safe_get(invoice, 'number') or invoice_id}",
+        description=f"Invoice {invoice_number}",
     )
-    
+
+    # Send payment confirmation email
+    try:
+        from db import SessionLocal
+        from models import Tenant, User
+        from subscription_models import TenantSubscription
+
+        db = SessionLocal()
+        try:
+            sub = db.query(TenantSubscription).filter(
+                TenantSubscription.stripe_customer_id == customer_id
+            ).first()
+            if sub:
+                tenant = db.query(Tenant).filter(Tenant.id == sub.tenant_id).first()
+                user = db.query(User).filter(User.tenant_id == sub.tenant_id).first()
+                if tenant and user:
+                    _send_payment_confirmation_email(
+                        to=user.username,
+                        company_name=tenant.display_name or tenant.slug,
+                        amount=amount,
+                        currency=currency,
+                        invoice_number=invoice_number,
+                        plan_tier=sub.plan_tier,
+                        billing_cycle=sub.billing_cycle,
+                        period_end=sub.current_period_end,
+                    )
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Failed to send payment confirmation email: {e}")
+
     return {"invoice_id": invoice_id, "amount": amount}
 
 
@@ -685,6 +796,13 @@ def _maybe_create_account_from_pending_signup(customer_email: str, stripe_custom
             db.commit()
             
             logger.info(f"Created account from pending signup: {pending.email} -> tenant {tenant.id}")
+
+            _send_welcome_email(
+                to=pending.email,
+                company_name=pending.company_name,
+                plan_tier=pending.plan_tier,
+                tenant_slug=tenant_slug,
+            )
             return True
             
         except Exception as e:

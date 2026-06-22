@@ -287,15 +287,27 @@
         </div>
       </div>
 
-      <div class="mt-4 max-w-xs">
-        <label class="block text-sm text-gray-700 mb-1">Number of Questions</label>
-        <select name="question_count"
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-          {% set qc = (jd.question_count if jd and jd.question_count is not none else 3) %}
-          {% for n in [1,2,3,4,5] %}
-          <option value="{{ n }}" {% if qc==n %}selected{% endif %}>{{ n }} question{{ '' if n==1 else 's' }}</option>
-          {% endfor %}
-        </select>
+      <div class="mt-4 flex flex-col sm:flex-row gap-4 max-w-sm">
+        <div class="flex-1">
+          <label class="block text-sm text-gray-700 mb-1">Number of Questions</label>
+          <select name="question_count"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            {% set qc = (jd.question_count if jd and jd.question_count is not none else 3) %}
+            {% for n in [1,2,3,4,5] %}
+            <option value="{{ n }}" {% if qc==n %}selected{% endif %}>{{ n }} question{{ '' if n==1 else 's' }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm text-gray-700 mb-1">Difficulty</label>
+          {% set qd = (jd.question_difficulty if jd and jd.question_difficulty else 'medium') %}
+          <select name="question_difficulty"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="easy"   {% if qd=='easy'   %}selected{% endif %}>Easy</option>
+            <option value="medium" {% if qd=='medium' %}selected{% endif %}>Medium</option>
+            <option value="hard"   {% if qd=='hard'   %}selected{% endif %}>Hard</option>
+          </select>
+        </div>
       </div>
     </div>
 

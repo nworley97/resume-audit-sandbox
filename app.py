@@ -118,8 +118,9 @@ def ensure_schema():
     if "work_arrangement" not in cols: adds.append("ADD COLUMN work_arrangement TEXT")
     if "markdown" not in cols:   adds.append("ADD COLUMN markdown TEXT")
     # NEW: per-JD toggles
-    if "id_surveys_enabled" not in cols: adds.append("ADD COLUMN id_surveys_enabled BOOLEAN DEFAULT TRUE")
-    if "question_count" not in cols:     adds.append("ADD COLUMN question_count INTEGER DEFAULT 4")
+    if "id_surveys_enabled" not in cols:   adds.append("ADD COLUMN id_surveys_enabled BOOLEAN DEFAULT TRUE")
+    if "question_count" not in cols:       adds.append("ADD COLUMN question_count INTEGER DEFAULT 4")
+    if "question_difficulty" not in cols:  adds.append("ADD COLUMN question_difficulty TEXT DEFAULT 'medium'")
     if adds:
     # Original PostgreSQL-optimized code
     # ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
@@ -146,6 +147,8 @@ def ensure_schema():
     cadds = []
     if "left_tab_count" not in ccols:
         cadds.append("ADD COLUMN left_tab_count INTEGER DEFAULT 0")
+    if "status" not in ccols:
+        cadds.append("ADD COLUMN status TEXT")
     if cadds:
         ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
         with models_engine.begin() as conn:
@@ -405,55 +408,74 @@ def realism_check(rjs: dict) -> bool:
 def _normalize_quotes(s: str) -> str:
     return (s or "").replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
 
-def generate_questions(rjs: dict, jd_text: str, *, count: int = 4) -> list[str]:
-    """Generate exactly `count` questions; robust to curly quotes."""
+_FALLBACK_QUESTIONS = [
+    {"question": "Tell us about a project you’re most proud of and your specific contributions.", "source_section": "Projects", "source_detail": "Listed projects", "reason": "Assesses depth of contribution"},
+    {"question": "Describe a time you overcame a technical challenge—what was the root cause and outcome?", "source_section": "Work Experience", "source_detail": "Job history", "reason": "Assesses problem-solving ability"},
+    {"question": "How do you prioritize tasks when timelines are tight and requirements change?", "source_section": "Work Experience", "source_detail": "Roles held", "reason": "Assesses time management and adaptability"},
+    {"question": "Which skills from your résumé would make the biggest impact in this role, and why?", "source_section": "Skills", "source_detail": "Skills section", "reason": "Assesses self-awareness and role fit"},
+    {"question": "Walk us through a situation where you had to collaborate across teams to deliver a result.", "source_section": "Work Experience", "source_detail": "Cross-functional experience", "reason": "Assesses collaboration skills"},
+]
+
+def generate_questions(rjs: dict, jd_text: str, *, count: int = 4, difficulty: str = "medium") -> list[dict]:
+    """Generate exactly `count` questions with sourcing metadata (source_section, source_detail, reason)."""
     count = max(1, min(5, int(count or 4)))
+    difficulty = difficulty if difficulty in ("easy", "medium", "hard") else "medium"
+    difficulty_instruction = {
+        "easy":   "Ask straightforward, entry-level questions that are easy to answer for any candidate.",
+        "medium": "Ask balanced questions that test both experience and problem-solving.",
+        "hard":   "Ask challenging, senior-level questions that require deep expertise and critical thinking.",
+    }[difficulty]
 
-    def _tidy_q(s: str) -> str:
-        s = _normalize_quotes(s)
-        s = s.strip()
-        s = re.sub(r'^[\'"`\s]+', '', s)
-        s = re.sub(r'[\'"`\s]+$', '', s)
-        s = re.sub(r'[,\s]+$', '', s)
-        return s
+    def _pad(lst):
+        i = 0
+        while len(lst) < count:
+            lst.append(_FALLBACK_QUESTIONS[i % len(_FALLBACK_QUESTIONS)])
+            i += 1
+        return lst
 
-    raw = ""
     try:
         raw = chat(
-            "You are an interviewer.",
-            f"Résumé:\n{json.dumps(rjs)}\n\nWrite EXACTLY {count} interview questions as a JSON array of strings."
+            "You are an expert interviewer. Return ONLY valid JSON.",
+            f"Résumé JSON:\n{json.dumps(rjs)}\n\n"
+            f"{difficulty_instruction}\n\n"
+            f"Generate EXACTLY {count} interview questions tailored to this résumé.\n"
+            f"Return a JSON object with a single key ‘questions’ containing an array of exactly {count} objects.\n"
+            f"Each object must have exactly these 4 keys:\n"
+            f"  question: the interview question text\n"
+            f"  source_section: résumé section targeted (e.g. Work Experience, Education, Skills, Projects)\n"
+            f"  source_detail: the specific line or entry from the résumé that inspired this question\n"
+            f"  reason: brief explanation of why this question is worth asking",
+            structured=True,
         )
         parsed = json.loads(_normalize_quotes(raw))
-        if isinstance(parsed, list):
-            cleaned = []
-            for q in parsed:
-                if isinstance(q, str) and len(q.strip()) > 10:
-                    cleaned.append(_tidy_q(q))
-            cleaned = cleaned[:count]
-            while len(cleaned) < count:
-                cleaned.append("Please share a relevant experience.")
-            return cleaned
+        questions_list = (
+            parsed.get("questions", []) if isinstance(parsed, dict)
+            else (parsed if isinstance(parsed, list) else [])
+        )
+        cleaned = []
+        for q in questions_list:
+            if isinstance(q, dict) and q.get("question"):
+                cleaned.append({
+                    "question":       str(q["question"]).strip(),
+                    "source_section": str(q.get("source_section") or "").strip(),
+                    "source_detail":  str(q.get("source_detail") or "").strip(),
+                    "reason":         str(q.get("reason") or "").strip(),
+                })
+        return _pad(cleaned[:count])
     except Exception as e:
-        logging.warning("Fallback in question generation: %s", e)
+        logging.warning("generate_questions failed (%s); using fallbacks", e)
+        return _pad([])
 
-    # Fallback: parse lines
-    lines = (_normalize_quotes(raw) or "").splitlines()
-    cleaned = []
-    for line in lines:
-        line = line.strip().lstrip("-• ").strip()
-        if line and not line.lower().startswith("json") and line not in ("[","]","```") and len(line) > 10:
-            cleaned.append(_tidy_q(line))
-    if not cleaned:
-        cleaned = [
-            "Tell us about a project you’re most proud of and your specific contributions.",
-            "Describe a time you overcame a technical challenge—what was the root cause and outcome?",
-            "How do you prioritize tasks when timelines are tight and requirements change?",
-            "Which skills from your résumé would make the biggest impact in this role, and why?"
-        ]
-    cleaned = cleaned[:count]
-    while len(cleaned) < count:
-        cleaned.append("Please share a relevant experience.")
-    return cleaned
+
+def _normalize_questions(qs) -> list[str]:
+    """Return plain question strings from a list that may contain dicts or strings."""
+    result = []
+    for q in (qs or []):
+        if isinstance(q, dict):
+            result.append(q.get("question") or "")
+        else:
+            result.append(str(q) if q is not None else "")
+    return result
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
@@ -1086,6 +1108,9 @@ def edit_jd(tenant=None):
                 question_count = min(5, max(1, int(request.form.get("question_count", 4))))
             except (TypeError, ValueError):
                 question_count = 4
+            question_difficulty = request.form.get("question_difficulty", "medium")
+            if question_difficulty not in ("easy", "medium", "hard"):
+                question_difficulty = "medium"
 
             if existing:
                 if posted_code != existing.code:
@@ -1123,8 +1148,9 @@ def edit_jd(tenant=None):
                 existing.work_arrangement = work_arrangement  # NEW: Fix missing field update with ET-12-FE(Jen)
                 existing.updated_at      = datetime.utcnow()
                 # NEW
-                existing.id_surveys_enabled = id_surveys_enabled
-                existing.question_count     = question_count
+                existing.id_surveys_enabled  = id_surveys_enabled
+                existing.question_count      = question_count
+                existing.question_difficulty = question_difficulty
 
                 db.add(existing); db.commit()
                 flash("JD saved", "recruiter")
@@ -1166,8 +1192,9 @@ def edit_jd(tenant=None):
                 jd.updated_at      = datetime.utcnow()
                 jd.tenant_id       = t.id
                 # NEW
-                jd.id_surveys_enabled = id_surveys_enabled
-                jd.question_count     = question_count
+                jd.id_surveys_enabled  = id_surveys_enabled
+                jd.question_count      = question_count
+                jd.question_difficulty = question_difficulty
 
                 try:
                     db.add(jd); db.commit()
@@ -2223,17 +2250,22 @@ def candidate_detail(id, tenant=None):
         scores = list(getattr(c, "answer_scores", None) or [])
         claim_validity = (sum(scores) / len(scores)) if scores else None
 
-        # Build zipped Q&A: list of {q, a, s}
-        qs  = list(getattr(c, "questions", None) or [])
-        ans = list(getattr(c, "answers", None) or [])
-        scs = list(getattr(c, "answer_scores", None) or [])
+        # Build zipped Q&A: list of {q, a, s, source_section, source_detail, reason}
+        qs   = _normalize_questions(getattr(c, "questions", None) or [])
+        ans  = list(getattr(c, "answers", None) or [])
+        scs  = list(getattr(c, "answer_scores", None) or [])
+        question_meta = list((c.resume_json or {}).get("_question_meta", []))
         qa = []
         n = max(len(qs), len(ans), len(scs))
         for i in range(n):
+            meta = question_meta[i] if i < len(question_meta) and isinstance(question_meta[i], dict) else {}
             qa.append({
-                "q": qs[i] if i < len(qs) else "",
-                "a": ans[i] if i < len(ans) else "",
-                "s": scs[i] if i < len(scs) else None,
+                "q":              qs[i]  if i < len(qs)  else "",
+                "a":              ans[i] if i < len(ans) else "",
+                "s":              scs[i] if i < len(scs) else None,
+                "source_section": meta.get("source_section", ""),
+                "source_detail":  meta.get("source_detail", ""),
+                "reason":         meta.get("reason", ""),
             })
 
         # Thresholds (0–5 scales)
@@ -2296,6 +2328,85 @@ def candidate_detail(id, tenant=None):
     finally:
         db.close()
 
+
+# ─── Direct Candidate Email (ET-11) ──────────────────────────────
+@app.route("/recruiter/candidate/<cid>/send-email", methods=["POST"])
+@app.route("/<tenant>/recruiter/candidate/<cid>/send-email", methods=["POST"])
+@login_required
+def send_candidate_email(cid, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        return redirect(url_for("login"))
+
+    db = SessionLocal()
+    try:
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first()
+        if not c:
+            abort(404)
+
+        subject = (request.form.get("subject") or "").strip()
+        body    = (request.form.get("body") or "").strip()
+
+        if not subject or not body:
+            flash("Subject and message are required.", "error")
+            return redirect(url_for("candidate_detail", tenant=t.slug, id=cid))
+
+        if not c.email:
+            flash("This candidate has no email address on file.", "error")
+            return redirect(url_for("candidate_detail", tenant=t.slug, id=cid))
+
+        import resend, html as html_lib
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        if not resend.api_key:
+            flash("Email service is not configured (missing RESEND_API_KEY).", "error")
+            return redirect(url_for("candidate_detail", tenant=t.slug, id=cid))
+
+        html_body = f"""
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+          <p style="white-space:pre-wrap;">{html_lib.escape(body)}</p>
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+          <p style="color:#6b7280;font-size:12px;">
+            This message was sent on behalf of {html_lib.escape(t.display_name or t.slug)} via AlteraSF.
+          </p>
+        </div>
+        """
+
+        try:
+            resend.Emails.send({
+                "from": f"{t.display_name or t.slug} via AlteraSF <noreply@alterasf.com>",
+                "to": [c.email],
+                "subject": subject,
+                "html": html_body,
+            })
+            flash(f"Email sent to {c.email}.", "recruiter")
+        except Exception as e:
+            app.logger.error(f"Failed to send candidate email: {e}")
+            flash("Failed to send email. Please try again.", "error")
+
+        return redirect(url_for("candidate_detail", tenant=t.slug, id=cid))
+    finally:
+        db.close()
+
+
+# ─── Candidate Stage Actions ─────────────────────────────────────
+@app.route("/recruiter/candidate/<string:cid>/set-status", methods=["POST"])
+@app.route("/<tenant>/recruiter/candidate/<string:cid>/set-status", methods=["POST"])
+@login_required
+def set_candidate_status(cid, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        return redirect(url_for("login"))
+    new_status = request.form.get("status")  # 'finalist', 'archived', or '' to clear
+    db = SessionLocal()
+    try:
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first()
+        if not c:
+            abort(404)
+        c.status = new_status if new_status else None
+        db.commit()
+    finally:
+        db.close()
+    return redirect(url_for("candidate_detail", tenant=t.slug, id=cid))
 
 
 # ─── Global Candidates (legacy) ──────────────────────────────────
@@ -2525,8 +2636,11 @@ def apply(tenant, code):
 
         fit  = fit_score(rjs, jd.html)
         real = realism_check(rjs)
-        count = getattr(jd, "question_count", 4) or 4
-        qs   = generate_questions(rjs, jd.html, count=count)
+        count      = getattr(jd, "question_count", 4) or 4
+        difficulty = getattr(jd, "question_difficulty", "medium") or "medium"
+        qs_raw     = generate_questions(rjs, jd.html, count=count, difficulty=difficulty)
+        rjs["_question_meta"] = qs_raw          # full dicts with sourcing metadata
+        qs = [q["question"] for q in qs_raw]    # plain strings for Candidate.questions
 
         cid     = str(uuid.uuid4())[:8]
         storage = upload_pdf(path)
@@ -2767,7 +2881,7 @@ def question_paged(tenant, code, cid, idx):
 
                 # --- ET-12: per-question immediate scoring (restore legacy behavior) ---
                 try:
-                    qs  = list(c2.questions or [])
+                    qs  = _normalize_questions(c2.questions)
                     ans = list(answers)
                     rjs = dict(getattr(c2, "resume_json", None) or {})
                     if qs and any(((a or "").strip() != "") for a in ans):
@@ -2872,7 +2986,7 @@ def finish_application(tenant, code, cid):
             db.close()
             abort(404)
 
-        qs  = list(getattr(c, "questions", None) or [])
+        qs  = _normalize_questions(getattr(c, "questions", None))
         ans = list(getattr(c, "answers", None) or [])
         cur = list(getattr(c, "answer_scores", None) or [])
 
