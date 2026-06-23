@@ -70,6 +70,7 @@ class JobDescription(Base):
     # NEW controls
     id_surveys_enabled = Column(Boolean, default=True)   # toggle surveys
     question_count = Column(Integer, default=4)          # 1–5 questions
+    question_difficulty = Column(String(10), default="medium")  # easy / medium / hard
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")
@@ -105,6 +106,9 @@ class Candidate(Base):
 
     # NEW: anti-cheat flag counter
     left_tab_count = Column(Integer, default=0)
+
+    # Recruiter stage: null = active, 'finalist', 'archived'
+    status = Column(String(20), nullable=True)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")

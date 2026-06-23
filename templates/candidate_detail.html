@@ -6,345 +6,493 @@
 
   <!-- Breadcrumb -->
   <div class="mb-4">
-    <div class="text-xs text-gray-500 mb-1">
-      Recruiter / Candidates
-    </div>
-    <h1 class="text-2xl font-semibold text-gray-900">
-      Candidate Details
-    </h1>
+    <a href="{{ url_for('analytics_detail_nextjs', tenant=tenant.slug, jobCode=jd.code) if jd else url_for('candidates_overview', tenant=tenant.slug) }}"
+      class="inline-flex items-center text-xs text-gray-500 hover:text-gray-700 mb-1">
+      ← Back to Analytics
+    </a>
+    <h1 class="text-2xl font-semibold text-gray-900">Candidate Details</h1>
   </div>
 
   <!-- Summary Card -->
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6">
-    <h2 class="text-lg font-semibold text-gray-900 mb-6">{{ c.name or 'Candidate' }}</h2>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-0 md:divide-x divide-gray-200">
-      <!-- Left Column - Basic Information -->
-      <div class="md:pr-8 space-y-3">
-        <!-- Role -->
-        <div class="flex items-start">
-          <div class="text-sm text-gray-500 w-24 sm:w-32 flex-shrink-0">Role</div>
-          <div class="text-sm text-gray-900">
-            {% if jd %}
-              {{ jd.title or '-' }}
-            {% else %}
-              {{ c.job_title or '-' }}
-            {% endif %}
-          </div>
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-semibold text-gray-900">{{ c.name or 'Candidate' }}</h2>
+      <div class="flex items-center gap-2">
+        {% if c.status == 'finalist' %}
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-200">
+          ★ Finalist
+        </span>
+        {% elif c.status == 'archived' %}
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-500 ring-1 ring-gray-300">
+          Archived
+        </span>
+        {% endif %}
+        {% set is_diamond = (relevancy is not none and relevancy >= 5) and (claim_validity is not none and claim_validity > 4) %}
+        {% if is_diamond %}
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700 ring-1 ring-amber-200">
+          <svg class="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 3l-4 7h16l-4-7H6zm-4 7l6 11h8l6-11H2zm10 8.5L8.5 10h7L12 18.5z"/>
+          </svg>
+          Diamond Candidate
+        </span>
+        {% else %}
+        <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-500 ring-1 ring-gray-200">
+          Not a Diamond
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-0 divide-x divide-gray-200">
+      <div class="pr-8 space-y-3">
+        <div class="flex items-center">
+          <div class="text-sm text-gray-500 w-32 flex-shrink-0">Role</div>
+          <div class="text-sm text-gray-900">{% if jd %}{{ jd.title or '-' }}{% else %}{{ c.job_title or '-' }}{% endif %}</div>
         </div>
-        
-        <!-- Department -->
-        <div class="flex items-start">
-          <div class="text-sm text-gray-500 w-24 sm:w-32 flex-shrink-0">Department</div>
-          <div class="text-sm text-gray-900">
-            {% if c.department or (jd and jd.department) %}
-              {{ c.department or jd.department }}
-            {% else %}
-              -
-            {% endif %}
-          </div>
+        <div class="flex items-center">
+          <div class="text-sm text-gray-500 w-32 flex-shrink-0">Department</div>
+          <div class="text-sm text-gray-900">{{ c.department or (jd and jd.department) or '-' }}</div>
         </div>
-        
-        <!-- Phone -->
-        <div class="flex items-start">
-          <div class="text-sm text-gray-500 w-24 sm:w-32 flex-shrink-0">Phone</div>
+        <div class="flex items-center">
+          <div class="text-sm text-gray-500 w-32 flex-shrink-0">Phone</div>
           <div class="text-sm text-gray-900">{{ c.phone or '-' }}</div>
         </div>
-        
-        <!-- Email -->
-        <div class="flex items-start">
-          <div class="text-sm text-gray-500 w-24 sm:w-32 flex-shrink-0">Email</div>
+        <div class="flex items-center">
+          <div class="text-sm text-gray-500 w-32 flex-shrink-0">Email</div>
           <div class="text-sm text-gray-900 break-all">{{ c.email or '-' }}</div>
         </div>
       </div>
-
-      <!-- Right Column - Scores & Metrics -->
-      <div class="md:pl-8 space-y-3">
-        <!-- Relevancy Score -->
-        <div class="flex items-start">
-          <div class="text-sm text-gray-500 w-28 sm:w-40 flex-shrink-0">Relevancy Score</div>
+      <div class="pl-8 space-y-3">
+        <div class="flex items-center">
+          <div class="text-sm text-gray-500 w-40 flex-shrink-0">Relevancy Score</div>
           {% set rel = relevancy or 0 %}
-          {% set rel_chip = 'bg-emerald-100 text-emerald-700' if rel >= REL_GREEN
-                            else ('bg-amber-100 text-amber-700' if rel >= REL_YELLOW
-                                  else 'bg-rose-100 text-rose-700') %}
-          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ rel_chip }}">
-            {{ '%.1f'|format(rel) }}/5
-          </span>
+          {% set rel_chip = 'bg-emerald-100 text-emerald-700' if rel >= REL_GREEN else ('bg-amber-100 text-amber-700' if rel >= REL_YELLOW else 'bg-rose-100 text-rose-700') %}
+          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ rel_chip }}">{{ '%.1f'|format(rel) }}/5</span>
         </div>
-
-        <!-- Claim Validity -->
-        <div class="flex items-start">
-          <div class="text-sm text-gray-500 w-28 sm:w-40 flex-shrink-0">Claim Validity</div>
+        <div class="flex items-center">
+          <div class="text-sm text-gray-500 w-40 flex-shrink-0">Claim Validity</div>
           {% set cv = claim_validity or 0 %}
-          {% set cv_chip = 'bg-emerald-100 text-emerald-700' if cv >= SCORE_GREEN
-                           else ('bg-amber-100 text-amber-700' if cv >= SCORE_YELLOW
-                                 else 'bg-rose-100 text-rose-700') %}
-          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ cv_chip }}">
-            {{ '%.1f'|format(cv) }}/5
-          </span>
+          {% set cv_chip = 'bg-emerald-100 text-emerald-700' if cv >= SCORE_GREEN else ('bg-amber-100 text-amber-700' if cv >= SCORE_YELLOW else 'bg-rose-100 text-rose-700') %}
+          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium {{ cv_chip }}">{{ '%.1f'|format(cv) }}/5</span>
         </div>
-
-        <!-- Tab Switches -->
-        <div class="flex items-start">
-          <div class="text-sm text-gray-500 w-28 sm:w-40 flex-shrink-0">Tab Switches</div>
-          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium bg-red-100 text-red-700">
-            {{ focus_changes or 0 }}
-          </span>
+        <div class="flex items-center">
+          <div class="text-sm text-gray-500 w-40 flex-shrink-0">Tab Switches</div>
+          <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium bg-red-100 text-red-700">{{ focus_changes or 0 }}</span>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Resume Card -->
-  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <h2 class="text-lg font-semibold text-gray-900">Resume</h2>
+  <!-- Side-by-side: Resume (left) | Q&A (right) -->
+  <div class="grid gap-6" style="grid-template-columns: 1fr 420px; align-items: start;">
 
-      {% if c and c.id %}
-      <div class="flex gap-2 flex-shrink-0">
-        <!-- Expand button (icon only) - only show for PDF files -->
-        {% if resume_url and resume_url != 'None' and is_pdf %}
-        <button 
-          id="expandPdfBtn"
-          class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          title="View fullscreen">
-          <!-- Expand icon -->
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        {% endif %}
-        
-        <!-- Download button -->
-        <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
-           download
-           data-noload
-           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          <!-- download icon -->
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
-          </svg>
-          Download Resume
-        </a>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- PDF preview area with enhanced states -->
-    {% if resume_url and resume_url != 'None' %}
-    <div
-      class="group relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition-[height] duration-300"
-      style="height:520px;"
-      data-resume-preview
-      data-src="{{ resume_url }}"
-      data-download-url="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
-    >
-      <div data-role="loading" class="absolute inset-0 flex items-center justify-center">
-        <div class="h-[86%] w-[86%] rounded-xl bg-white shadow animate-pulse"></div>
-      </div>
-
-      <!-- toolbar removed: controls are intentionally hidden for a clean preview -->
-
-      <div data-role="canvas" class="hidden h-full w-full overflow-hidden">
-        <iframe
-          title="Resume PDF Preview"
-          class="h-full w-full border-0 bg-white transition-transform duration-200"
-          allowfullscreen
-        ></iframe>
-      </div>
-
-      <div
-        data-role="error"
-        class="hidden absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white px-6 text-center"
-      >
-        <div class="space-y-2">
-          <h3 class="text-sm font-semibold text-gray-900">We couldn't load this resume preview</h3>
-          <p class="text-sm text-gray-500">Please try again or download the PDF to view it locally.<br/>If the issue persists, the file may be unavailable or corrupted.</p>
+    <!-- ── Left: Resume Card ── -->
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4">
+      <!-- Header -->
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Resume</h2>
+          {% if is_pdf and qa %}
+          <p id="pdfHintText" class="text-xs text-gray-400 mt-0.5 hidden">Click a question to highlight its source in the resume</p>
+          {% endif %}
         </div>
-        <div class="mt-3">
-          <button 
-            type="button" 
-            onclick="window.location.reload()" 
-            class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            title="Retry">
-            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M21 3v5h-5" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M3 21v-5h5" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <div class="flex gap-2 items-center flex-wrap">
+          <!-- AI Format / Original toggle -->
+          <div class="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+            <button id="btnAiFormat"
+              onclick="setResumeView('ai')"
+              class="px-3 py-1.5 font-medium bg-gray-900 text-white transition-colors">
+              AI Format
+            </button>
+            <button id="btnOriginal"
+              onclick="setResumeView('original')"
+              class="px-3 py-1.5 font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              Original
+            </button>
+          </div>
+
+          <!-- Expand button (original PDF only) -->
+          {% if resume_url and resume_url != 'None' and is_pdf %}
+          <button id="expandPdfBtn"
+            class="hidden inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            title="View fullscreen">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
+          {% endif %}
+
+          <!-- Download button -->
+          {% if c and c.id %}
+          <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
+             download data-noload
+             class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+            </svg>
+            Download
+          </a>
+          {% endif %}
         </div>
       </div>
-    </div>
-    {% else %}
-    <div class="h-56 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-center px-6">
-      <div>
-        <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        {% if c and c.resume_url and not is_pdf %}
-          <h3 class="mt-2 text-sm font-semibold text-gray-900">The resume is a DOCX file.</h3>
-          <p class="mt-1 text-sm text-gray-500">Please download the resume to view it.</p>
-          {% if download_url %}
-          <div class="mt-3">
-            <a href="{{ download_url }}" data-noload download class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
-                <rect x="4" y="17" width="16" height="4" rx="1.5"></rect>
+
+      <!-- ── AI Format View (default) ── -->
+      <div id="resumeAiView">
+        {% set rj = c.resume_json or {} %}
+        {% if rj %}
+        <div class="space-y-5 text-sm px-2 py-1">
+
+          {# Name + Contact header #}
+          <div class="pb-3 border-b border-gray-200">
+            <h1 class="text-xl font-bold text-gray-900">{{ c.name or rj.get('name') or 'Candidate' }}</h1>
+            <div class="flex flex-wrap items-center gap-x-1 gap-y-0.5 mt-1.5 text-xs text-gray-500">
+              {%- set ns = namespace(first=true) -%}
+              {%- if c.email -%}
+                {%- if not ns.first -%}<span class="text-gray-300 select-none px-1">·</span>{%- endif -%}
+                <span>{{ c.email }}</span>{%- set ns.first = false -%}
+              {%- endif -%}
+              {%- if c.phone -%}
+                {%- if not ns.first -%}<span class="text-gray-300 select-none px-1">·</span>{%- endif -%}
+                <span>{{ c.phone }}</span>{%- set ns.first = false -%}
+              {%- endif -%}
+              {%- set links = rj.get('links') or rj.get('contact') -%}
+              {%- if links is mapping -%}
+                {%- for k, v in links.items() -%}
+                  {%- if v and v is string and k not in ('email','phone') -%}
+                    {%- if not ns.first -%}<span class="text-gray-300 select-none px-1">·</span>{%- endif -%}
+                    <span>{{ v }}</span>{%- set ns.first = false -%}
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- elif links is string -%}
+                {%- if not ns.first -%}<span class="text-gray-300 select-none px-1">·</span>{%- endif -%}
+                <span>{{ links }}</span>
+              {%- endif -%}
+            </div>
+          </div>
+
+          {# Summary / Objective #}
+          {% set summary = rj.get('summary') or rj.get('objective') or rj.get('profile') %}
+          {% if summary %}
+          <div data-ai-section="Summary" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-2 border-b border-gray-200">Summary</h3>
+            <p class="text-gray-700 leading-relaxed text-sm">{{ summary }}</p>
+          </div>
+          {% endif %}
+
+          {# Education — handles dict OR list-of-dicts #}
+          {% set edu_raw = rj.get('education') %}
+          {% if edu_raw %}
+          {% set edu_list = [edu_raw] if edu_raw is mapping else edu_raw %}
+          <div data-ai-section="Education" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-3 border-b border-gray-200">Education</h3>
+            <div class="space-y-3">
+              {% for e in edu_list %}
+                {% if e is mapping %}
+                {%- set _einst = e.get('institution') or e.get('school') or e.get('university') or '' -%}
+                {%- set _edeg  = e.get('degree') or e.get('title') or e.get('program') or '' -%}
+                <div class="ai-item transition-all duration-200" data-ai-item="{{ (_einst ~ ' ' ~ _edeg) | lower }}">
+                  <div class="flex justify-between items-start gap-2">
+                    <span class="font-bold text-gray-900">{{ _einst }}</span>
+                    {% set yr = e.get('year') or e.get('graduation_year') or e.get('expected_graduation') or e.get('date') or e.get('dates') %}
+                    {% if yr %}<span class="text-xs text-gray-400 flex-shrink-0">{{ yr }}</span>{% endif %}
+                  </div>
+                  {% if _edeg %}<div class="text-sm font-semibold text-teal-600 mt-0.5">{{ _edeg }}</div>{% endif %}
+                  {% set loc = e.get('location') %}
+                  {% if loc %}<div class="text-xs text-gray-400">{{ loc }}</div>{% endif %}
+                  {% set gpa = e.get('gpa') %}
+                  {% if gpa %}<div class="text-xs text-gray-500 mt-0.5">GPA: {{ gpa }}</div>{% endif %}
+                  {% set coursework = e.get('relevant_coursework') or e.get('coursework') %}
+                  {% if coursework %}
+                  <div class="mt-1.5">
+                    <span class="text-xs text-gray-400">Relevant coursework</span>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      {% if coursework is string %}
+                        {% for cw in coursework.split(',') %}<span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{{ cw.strip() }}</span>{% endfor %}
+                      {% elif coursework is iterable %}
+                        {% for cw in coursework %}<span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{{ cw if cw is string else cw.get('name','') }}</span>{% endfor %}
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
+                </div>
+                {% elif e is string %}
+                <div class="text-gray-600">{{ e }}</div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          {# Skills #}
+          {% set skills = rj.get('skills') %}
+          {% if skills %}
+          <div data-ai-section="Skills" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-2 border-b border-gray-200">Skills</h3>
+            {% if skills is mapping %}
+              {% for cat, items in skills.items() %}
+              <div class="mb-1">
+                <span class="font-semibold text-gray-700">{{ cat.replace('_', ' ').title() }}:</span>
+                <span class="text-gray-600 ml-1">{% if items is string %}{{ items }}{% elif items is iterable %}{{ items | join(', ') }}{% else %}{{ items }}{% endif %}</span>
+              </div>
+              {% endfor %}
+            {% elif skills is string %}
+              <p class="text-gray-600">{{ skills }}</p>
+            {% else %}
+              <div class="flex flex-wrap gap-1.5">
+                {% for s in skills %}
+                  {% if s is string %}<span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{{ s }}</span>
+                  {% elif s is mapping %}<span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{{ s.get('name') or s.get('skill') or '' }}</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {# Experience — handles dict OR list-of-dicts #}
+          {% set exp_raw = rj.get('experience') or rj.get('work_experience') or rj.get('employment') %}
+          {% if exp_raw %}
+          {% set exp_list = [exp_raw] if exp_raw is mapping else exp_raw %}
+          <div data-ai-section="Work Experience" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-3 border-b border-gray-200">Experience</h3>
+            <div class="space-y-4">
+              {% for e in exp_list %}
+                {% if e is mapping %}
+                {%- set _etitle = e.get('title') or e.get('position') or e.get('role') or '' -%}
+                {%- set _eco   = e.get('company') or e.get('employer') or e.get('organization') or '' -%}
+                <div class="ai-item transition-all duration-200" data-ai-item="{{ (_etitle ~ ' ' ~ _eco) | lower }}">
+                  <div class="flex justify-between items-start gap-2">
+                    <span class="font-bold text-gray-900">{{ _etitle }}</span>
+                    {% set dt = e.get('duration') or e.get('dates') or e.get('date') %}
+                    {% if dt %}<span class="text-xs text-gray-400 flex-shrink-0">{{ dt }}</span>{% endif %}
+                  </div>
+                  {% if _eco %}<div class="text-sm font-semibold text-teal-600">{{ _eco }}</div>{% endif %}
+                  {% set loc = e.get('location') %}
+                  {% if loc %}<div class="text-xs text-gray-400">{{ loc }}</div>{% endif %}
+                  {% set desc = e.get('description') or e.get('responsibilities') or e.get('achievements') or e.get('bullets') %}
+                  {% if desc %}
+                    {% if desc is string %}
+                      <p class="text-gray-600 mt-1 leading-relaxed">{{ desc }}</p>
+                    {% elif desc is iterable %}
+                      <ul class="mt-1.5 space-y-1">
+                        {% for bullet in desc %}
+                          <li class="flex gap-2 text-gray-600">
+                            <span class="text-teal-500 flex-shrink-0 mt-0.5">•</span>
+                            <span>{{ bullet if bullet is string else (bullet.get('text') or bullet.get('point') or '') }}</span>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  {% endif %}
+                </div>
+                {% elif e is string %}
+                <div class="text-gray-600">{{ e }}</div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          {# Projects — handles dict OR list-of-dicts #}
+          {% set proj_raw = rj.get('projects') %}
+          {% if proj_raw %}
+          {% set proj_list = [proj_raw] if proj_raw is mapping else proj_raw %}
+          <div data-ai-section="Projects" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-3 border-b border-gray-200">Projects</h3>
+            <div class="space-y-3">
+              {% for p in proj_list %}
+                {% if p is mapping %}
+                {%- set _pname = p.get('name') or p.get('title') or '' -%}
+                <div class="ai-item transition-all duration-200" data-ai-item="{{ _pname | lower }}">
+                  <span class="font-bold text-gray-900">{{ _pname }}</span>
+                  {% set pd = p.get('description') or p.get('summary') %}
+                  {% if pd %}<p class="text-gray-600 mt-0.5 leading-relaxed">{{ pd if pd is string else (pd | join(' ') if pd is iterable else pd) }}</p>{% endif %}
+                  {% set tech = p.get('technologies') or p.get('tech') %}
+                  {% if tech %}<p class="text-xs text-gray-400 mt-0.5">{{ tech if tech is string else (tech | join(', ') if tech is iterable else tech) }}</p>{% endif %}
+                </div>
+                {% elif p is string %}
+                <div class="text-gray-600">{{ p }}</div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          {# Certifications #}
+          {% set certs = rj.get('certifications') or rj.get('certificates') %}
+          {% if certs %}
+          <div data-ai-section="Certifications" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-2 border-b border-gray-200">Certifications</h3>
+            <ul class="space-y-1">
+              {% for cert in certs %}
+              <li class="text-gray-600">
+                {% if cert is string %}{{ cert }}
+                {% elif cert is mapping %}{{ cert.get('name') or cert.get('title') or '' }}{% if cert.get('issuer') %} · <span class="text-gray-400">{{ cert.get('issuer') }}</span>{% endif %}
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+
+        </div>
+        {% else %}
+        <div class="py-8 text-center">
+          <p class="text-sm text-gray-500">No structured resume data available.</p>
+          <p class="text-xs text-gray-400 mt-1">Switch to Original view to see the uploaded resume.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ── Original PDF View (hidden by default) ── -->
+      <div id="resumeOriginalView" class="hidden">
+        {% if resume_url and resume_url != 'None' %}
+          {% if is_pdf %}
+          <div id="pdfViewer" class="rounded-lg border border-gray-200 relative overflow-y-auto" style="height: 520px; background: #e8e8e8;">
+            <div id="pdfLoading" class="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div class="w-8 h-8 rounded-full border-2 border-gray-300 border-t-primary animate-spin"></div>
+              <p class="text-sm text-gray-500">Loading resume…</p>
+            </div>
+            <div id="pdfError" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+              <p class="text-sm font-semibold text-gray-900">Couldn't load resume preview</p>
+              <p class="text-sm text-gray-500">Please download the file to view it locally.</p>
+              <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}" data-noload download
+                 class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Download Resume</a>
+            </div>
+            <div id="pdfPages" class="p-3 space-y-3"></div>
+          </div>
+          {% else %}
+          <div class="h-48 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-center px-6">
+            <div>
+              <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
-              Download DOCX
-            </a>
+              <h3 class="mt-2 text-sm font-semibold text-gray-900">Resume is a DOCX file</h3>
+              <p class="mt-1 text-sm text-gray-500">Download the file to view it.</p>
+              {% if c and c.id %}
+              <div class="mt-3">
+                <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}" data-noload download
+                   class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  Download DOCX
+                </a>
+              </div>
+              {% endif %}
+            </div>
           </div>
           {% endif %}
         {% else %}
-          <h3 class="mt-2 text-sm font-semibold text-gray-900">No resume uploaded</h3>
-          <p class="mt-1 text-sm text-gray-500">This candidate has not provided a resume.</p>
+        <div class="h-48 rounded-lg border border-dashed border-gray-200 bg-white flex items-center justify-center text-center px-6">
+          <div>
+            <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-semibold text-gray-900">No resume uploaded</h3>
+            <p class="mt-1 text-sm text-gray-500">This candidate has not provided a resume.</p>
+          </div>
+        </div>
         {% endif %}
       </div>
     </div>
-    {% endif %}
-  </div>
 
-  <!-- PDF Fullscreen Modal -->
-  <div id="pdfModal" class="hidden fixed inset-0 z-50 overflow-hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <!-- Backdrop -->
-    <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" id="modalBackdrop"></div>
-    
-    <!-- Modal Content -->
-    <div class="fixed inset-0 z-10 overflow-y-auto">
-      <div class="flex min-h-full items-center justify-center p-4 sm:p-6 lg:p-8">
-        <div class="relative w-full max-w-7xl bg-white rounded-lg shadow-xl" style="height: 90vh;">
-          
-          <!-- Header -->
-          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900" id="modal-title">Resume - {{ c.name or 'Candidate' }}</h3>
-            <div class="flex items-center gap-2">
-              <!-- Close button -->
-              <button type="button" id="closeModalBtn" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          
-          <!-- PDF Viewer -->
-          <div class="relative" style="height: calc(90vh - 60px);">
-            <iframe 
-              id="modalPdfIframe"
-              class="w-full h-full border-0"
-              title="Resume PDF Fullscreen">
-            </iframe>
-          </div>
-          
-        </div>
+    <!-- ── Right: Q&A Panel ── -->
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden" style="max-height: 640px; display: flex; flex-direction: column;">
+      {# timing helper #}
+      {% macro _mmss(ms) -%}
+        {%- set _ms_int = ms|int if ms else 0 -%}
+        {%- set _s = _ms_int // 1000 -%}
+        {%- set _m = _s // 60 -%}
+        {%- set _ss = '%02d' % (_s % 60) -%}
+        {{ _m }}:{{ _ss }}
+      {%- endmacro %}
+      {% set _qt = ((c.resume_json or {}).get('_q_times') or {}) %}
+
+      <!-- Q&A Header -->
+      <div class="px-5 py-4 border-b border-gray-200 flex-shrink-0" style="background-color: #F2F1EE;">
+        <h2 class="text-base font-semibold text-gray-900">AI Q&amp;A Assessment</h2>
+        <p class="text-xs text-gray-500 mt-0.5">
+          {{ (qa or [])|length }} questions · Total time:
+          {%- set _sum = _qt.values()|map('int')|sum -%}
+          {%- if _sum > 0 %} {{ _mmss(_sum) }}{% else %} 0:00{% endif %}
+        </p>
       </div>
-    </div>
-  </div>
 
-  <!-- AI Q&A Assessment -->
-  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden mb-6">
-    {# --- timing calc + helper --- #}
-    {% macro _mmss(ms) -%}
-      {%- set _ms_int = ms|int if ms else 0 -%}
-      {%- set _s = _ms_int // 1000 -%}
-      {%- set _m = _s // 60 -%}
-      {%- set _ss = '%02d' % (_s % 60) -%}
-      {{ _m }}:{{ _ss }}
-    {%- endmacro %}
-    {% set _qt = ((c.resume_json or {}).get('_q_times') or {}) %}
-    <!-- Header -->
-    <div class="px-6 py-4 border-b border-gray-200" style="background-color: #F2F1EE;">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-lg font-semibold text-gray-900">AI Q&A Assessment</h2>
-          <p class="text-sm text-gray-500 mt-0.5">
-            {{ (qa or answers or [])|length }} questions · Total time: 
-            {%- set _sum = _qt.values()|map('int')|sum -%}
-            {%- if _sum > 0 -%}{{ _mmss(_sum) }}{%- else -%}0:00{%- endif -%}
-          </p>
-        </div>
+      <!-- Q&A Scroll Area -->
+      <div class="overflow-y-auto flex-1 divide-y divide-gray-100">
+        {% for item in (qa or []) %}
+          {% set qtxt = item.q if item.q is defined else item.question %}
+          {% set atxt = item.a if item.a is defined else item.answer %}
+          {% set s    = item.s if item.s is defined else (item.score if item.score is defined else none) %}
+          {% set src_reason = item.reason if item.reason is defined else '' %}
+          {% set chip = 'bg-emerald-100 text-emerald-700' if (s or 0) >= SCORE_GREEN
+                        else ('bg-amber-100 text-amber-700' if (s or 0) >= SCORE_YELLOW
+                              else 'bg-rose-100 text-rose-700') %}
+          {% set _key = loop.index0 ~ '' %}
+          {% set _ms  = (_qt.get(_key) or 0) %}
+
+          <div class="qa-item px-5 py-4" data-qa-index="{{ loop.index0 }}">
+            <!-- Question row -->
+            <div class="flex items-start gap-2 mb-2">
+              <p class="q-text font-medium text-gray-900 text-sm leading-relaxed break-words cursor-pointer hover:text-primary transition-colors flex-1 min-w-0"
+                 data-q-scroll="{{ loop.index0 }}"
+                 title="Click to highlight source in resume">{{ qtxt }}</p>
+              <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ chip }} whitespace-nowrap">
+                  {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
+                </span>
+                <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-600 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap">
+                  {{ _mmss(_ms) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Answer -->
+            <div class="answer-content text-xs text-gray-600 leading-relaxed break-words"
+                 data-question-index="{{ loop.index0 }}">{{ atxt or '—' }}</div>
+
+            <!-- Why? -->
+            {% if src_reason %}
+            <div class="mt-2 flex items-center gap-2">
+              <button
+                class="why-toggle-btn px-2 py-0.5 text-[11px] font-medium text-gray-500 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                data-qa-id="{{ loop.index0 }}">Why?</button>
+            </div>
+            <div class="why-panel hidden mt-2 rounded-md bg-gray-50 px-3 py-2 text-xs border-l-2 border-primary">
+              <span class="font-semibold text-gray-700">Why this was asked: </span>
+              <span class="text-gray-500">{{ src_reason }}</span>
+            </div>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="px-5 py-8 text-center">
+            <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No questions available</h3>
+            <p class="mt-1 text-xs text-gray-500">This candidate hasn't completed the AI assessment yet.</p>
+          </div>
+        {% endfor %}
       </div>
-    </div>
 
-    <!-- Q&A List -->
-    <div class="divide-y divide-gray-100">
-      {% for item in (qa or answers or []) %}
-        {% set qtxt = item.q if item.q is defined else item.question %}
-        {% set atxt = item.a if item.a is defined else item.answer %}
-        {% set s    = item.s if item.s is defined else (item.score if item.score is defined else none) %}
-        {% set chip = 'bg-emerald-100 text-emerald-700' if (s or 0) >= SCORE_GREEN
-                      else ('bg-amber-100 text-amber-700' if (s or 0) >= SCORE_YELLOW
-                            else 'bg-rose-100 text-rose-700') %}
-        
-        <div class="qa-item" data-qa-index="{{ loop.index0 }}">
-          <!-- Question Header (Always Visible) -->
-          <div class="py-4 flex items-start gap-3 sm:gap-4 px-4 sm:px-8">
-            <div class="flex items-start gap-2 sm:gap-3" style="flex: 1; min-width: 0;">
-              <span class="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold mt-0.5 sm:mt-0">
-                {{ loop.index }}
-              </span>
-              <p class="font-medium text-gray-900 text-sm leading-relaxed break-words" style="flex: 1; min-width: 0;">{{ qtxt }}</p>
-            </div>
-            
-            <div class="flex items-center gap-1 flex-shrink-0">
-              <!-- Score Badge -->
-              <span class="inline-flex items-center rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium {{ chip }} whitespace-nowrap">
-                {{ s is not none and ('%.1f'|format(s)) or 'N/A' }}/5
-              </span>
-
-              <!-- Time Badge -->
-              {% set _key = loop.index0 ~ '' %}
-              {% set _ms  = (_qt.get(_key) or 0) %}
-              <span class="inline-flex items-center rounded-md bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium whitespace-nowrap ml-1">
-                {{ _mmss(_ms) }}
-              </span>
-
-              <!-- Expand/Collapse Button (Hover only on this button) -->
-              <button type="button" class="p-2 ml-1 rounded hover:bg-gray-100 transition-colors duration-150 toggle-qa-btn" data-qa-id="{{ loop.index0 }}">
-                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform duration-200 chevron-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Answer (Collapsible) -->
-          <div class="qa-answer pt-2 px-4 sm:px-8 pb-4 sm:pb-8">
-            <!-- Answer text aligned with question text by using same left margin as question number + gap -->
-            <div class="answer-content text-sm text-gray-700 leading-relaxed break-words overflow-wrap-anywhere ml-0 sm:ml-8" data-question-index="{{ loop.index0 }}">{{ atxt }}</div>
-          </div>
-        </div>
-      {% else %}
-        <div class="px-6 py-8 text-center">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <!-- Paste Detection Notice -->
+      <div class="px-5 py-3 bg-white border-t border-gray-100 flex-shrink-0">
+        <div class="flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
           </svg>
-          <h3 class="mt-2 text-sm font-medium text-gray-900">No questions available</h3>
-          <p class="mt-1 text-sm text-gray-500">This candidate hasn't completed the AI assessment yet.</p>
+          <p class="text-xs text-gray-500">Highlighted text indicates pasted content.</p>
         </div>
-      {% endfor %}
-    </div>
-    
-    <!-- Paste Detection Notice -->
-    <div class="py-3 bg-white border-t border-gray-100 px-4 sm:px-8">
-      <div class="flex items-start gap-2 sm:ml-8">
-        <svg class="w-4 h-4 text-primary mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-        </svg>
-        <p class="text-xs text-gray-600">Highlighted text indicates content that was pasted by the candidate.</p>
       </div>
     </div>
-  </div>
 
-  <!-- Voluntary Self-Identification (single white block) -->
+  </div><!-- end side-by-side grid -->
+
+  <!-- Voluntary Self-Identification -->
   {% set sid = (c.resume_json or {}).get('_self_id', {}) %}
   {% if sid %}
   <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4">
     <h2 class="text-lg font-semibold text-gray-900 mb-3">Voluntary Self-Identification</h2>
-
     <dl class="rounded-lg ring-1 ring-gray-200 bg-white">
       <div class="grid grid-cols-2 gap-x-6 px-4 py-3 border-b border-gray-200">
         <dt class="text-gray-500 text-sm">Gender</dt>
@@ -366,347 +514,434 @@
   </div>
   {% endif %}
 
-  <!-- Action Buttons -->
-  <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-8 pb-8">
-    <a href="{{ url_for('view_candidates', tenant=tenant.slug, code=jd.code) if jd else url_for('candidates_overview', tenant=tenant.slug) }}"
-       class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-      ← Back to Candidates
+  <!-- Action Bar -->
+  <div class="flex items-center justify-between pt-4 pb-8 flex-wrap gap-3">
+    <a href="{{ url_for('analytics_detail_nextjs', tenant=tenant.slug, jobCode=jd.code) if jd else url_for('candidates_overview', tenant=tenant.slug) }}"
+      class="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+      ← Back to Analytics
     </a>
-    
-    <a href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=c.id) }}"
-       class="inline-flex items-center gap-2 rounded-lg border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
-       onclick="return confirm('Delete this candidate permanently?');">
-      Delete Candidate
-    </a>
+
+    <div class="flex items-center gap-2 flex-wrap">
+      <!-- Email Candidate -->
+      {% if c.email %}
+      <button
+        onclick="document.getElementById('emailModal').classList.remove('hidden')"
+        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+        <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Email Candidate
+      </button>
+      {% endif %}
+
+      <!-- Archive / Unarchive -->
+      <form method="POST"
+            action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}"
+            {% if c.status != 'archived' %}onsubmit="return confirm('Archive this candidate? They will be preserved in analytics.')"{% endif %}>
+        <input type="hidden" name="status" value="{{ '' if c.status == 'archived' else 'archived' }}">
+        <button type="submit"
+          class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          {{ 'Unarchive' if c.status == 'archived' else 'Archive Candidate' }}
+        </button>
+      </form>
+    </div>
   </div>
 
+</div><!-- end main space-y-6 -->
+
+<!-- ── Email Candidate Modal ── -->
+{% if c.email %}
+<div id="emailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,0.4);">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900">Email {{ c.name or 'Candidate' }}</h3>
+      <button onclick="document.getElementById('emailModal').classList.add('hidden')"
+        class="text-gray-400 hover:text-gray-600 p-1 rounded">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <p class="text-sm text-gray-500">Sending to: <span class="font-medium text-gray-700">{{ c.email }}</span></p>
+    <form method="POST" action="{{ url_for('send_candidate_email', tenant=tenant.slug, cid=c.id) }}" class="space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+        <input type="text" name="subject" required
+          placeholder="e.g. Next steps for your application"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+        <textarea name="body" required rows="6"
+          placeholder="Write your message here..."
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button"
+          onclick="document.getElementById('emailModal').classList.add('hidden')"
+          class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          Cancel
+        </button>
+        <button type="submit"
+          class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700">
+          Send Email
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
-
+{% endif %}
 
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const previews = document.querySelectorAll("[data-resume-preview]");
-    previews.forEach((container) => {
-      const iframeWrapper = container.querySelector("[data-role='canvas']");
-      const iframe = iframeWrapper?.querySelector("iframe");
-        const loadingEl = container.querySelector("[data-role='loading']");
-        const errorEl = container.querySelector("[data-role='error']");
-        const toolbar = null;
-      const previewUrl = container.dataset.src || "";
-      const downloadUrl = container.dataset.downloadUrl || "";
-      const baseSrc = previewUrl.split('#')[0];
-      let scale = 1;
-      let viewMode = "fit-width";
-        
-        const fitToggle = null;
-        const iconFitWidth = null;
-        const iconFitPage = null;
+// ─── Shared highlight state (global so toggle + PDF.js can both access it) ───
+window._hl = {
+  activeQ:  -1,
+  firstHL:  [],
+  QA_META:  {{ qa | tojson }},
+  HL_ACTIVE:   'rgba(239,68,68,0.25)',
+  HL_INACTIVE: 'rgba(0,0,0,0)',
+};
 
-        const buildSrc = (mode) => {
-        const viewParam = mode === "fit-page" ? "Fit" : "FitH";
-        return `${baseSrc}#toolbar=0&navpanes=0&scrollbar=0&view=${viewParam}`;
-      };
-
-        const updateFitButton = () => {};
-
-        const toggleToolbar = () => {};
-
-      const setState = (state) => {
-        container.dataset.state = state;
-        if (state === "ready") {
-          container.style.height = "520px";
-          loadingEl?.classList.add("hidden");
-          errorEl?.classList.add("hidden");
-          iframeWrapper?.classList.remove("hidden");
-          iframe?.classList.remove("hidden");
-          // controls removed
-        } else if (state === "error") {
-          container.style.height = "260px";
-          loadingEl?.classList.add("hidden");
-          iframeWrapper?.classList.add("hidden");
-          iframe?.classList.add("hidden");
-          errorEl?.classList.remove("hidden");
-        } else {
-          container.style.height = "520px";
-          loadingEl?.classList.remove("hidden");
-          iframeWrapper?.classList.add("hidden");
-          iframe?.classList.add("hidden");
-          errorEl?.classList.add("hidden");
-        }
-      };
-
-      const applyScale = () => {
-        if (!iframe) return;
-        iframe.style.transform = `scale(${scale})`;
-        iframe.style.transformOrigin = "top center";
-      };
-
-      const bindAction = (selector, handler) => {
-        container.querySelectorAll(selector).forEach((btn) => {
-          btn.addEventListener("click", (event) => {
-            event.preventDefault();
-            handler();
-          });
-        });
-      };
-
-        // controls removed
-
-      const attachEvents = () => {
-        if (!iframe) return;
-          iframe.onload = () => {
-            // Detect server-side inline 404 placeholder and collapse to error state
-            try {
-              const doc = iframe.contentDocument || iframe.contentWindow?.document;
-              const missing = doc?.querySelector('[data-resume-missing]') || doc?.querySelector('meta[name="resume-missing"][content="1"]');
-              if (missing) {
-                setState("error");
-                return;
-              }
-            } catch (e) {
-              // ignore cross-origin access errors
-            }
-            setState("ready");
-            applyScale();
-          };
-        iframe.onerror = () => {
-          setState("error");
-        };
-      };
-
-        const loadIframe = () => {
-          if (!iframe) return;
-          setState("loading");
-          attachEvents();
-          iframe.src = buildSrc(viewMode);
-        };
-
-  loadIframe();
-});
-});
-</script>
-<script>
-// Improved Q&A Accordion functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const toggleButtons = document.querySelectorAll('.toggle-qa-btn');
-  
-  // Initialize: Expand all questions by default
-  document.querySelectorAll('.qa-item').forEach(qaItem => {
-    const answer = qaItem.querySelector('.qa-answer');
-    const chevron = qaItem.querySelector('.chevron-icon');
-    if (answer && chevron) {
-      answer.style.display = 'block';
-      chevron.style.transform = 'rotate(180deg)';
-    }
+// Clear all AI-side highlights (items + sections)
+function _clearAiHL() {
+  document.querySelectorAll('.ai-item, [data-ai-section]').forEach(el => {
+    el.style.background   = '';
+    el.style.borderLeft   = '';
+    el.style.paddingLeft  = '';
+    el.style.borderRadius = '';
   });
-  
-  // Add click event listeners
-  toggleButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      const qaItem = this.closest('.qa-item');
-      const answer = qaItem.querySelector('.qa-answer');
-      const chevron = qaItem.querySelector('.chevron-icon');
-      const isExpanded = answer.style.display !== 'none';
-      
-      // Toggle answer visibility
-      if (isExpanded) {
-        answer.style.display = 'none';
-        chevron.style.transform = 'rotate(0deg)';
-      } else {
-        answer.style.display = 'block';
-        chevron.style.transform = 'rotate(180deg)';
+}
+
+// Apply red highlight to a specific AI element
+function _setAiHL(el) {
+  el.style.background   = 'rgba(254,226,226,0.7)';
+  el.style.borderLeft   = '3px solid rgb(239,68,68)';
+  el.style.paddingLeft  = '8px';
+  el.style.borderRadius = '4px';
+}
+
+// Apply highlights to whichever view is currently visible
+function _applyResumeHL(qi) {
+  const { QA_META, firstHL, HL_ACTIVE, HL_INACTIVE } = window._hl;
+  const aiView = document.getElementById('resumeAiView');
+  const inAi   = aiView && !aiView.classList.contains('hidden');
+
+  // Clear both views first
+  document.querySelectorAll('.pdf-hl').forEach(el => el.style.background = HL_INACTIVE);
+  _clearAiHL();
+
+  if (qi < 0) return;
+
+  if (inAi) {
+    // Try specific item match on source_detail, fall back to section
+    const meta       = QA_META[qi] || {};
+    const srcDetail  = (meta.source_detail  || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+    const srcSection = (meta.source_section || '').toLowerCase();
+    const detailWords = srcDetail.split(/\s+/).filter(w => w.length >= 4);
+    let hit = false;
+
+    if (detailWords.length) {
+      document.querySelectorAll('.ai-item').forEach(el => {
+        const txt   = (el.dataset.aiItem || '').toLowerCase();
+        const score = detailWords.filter(w => txt.includes(w)).length;
+        if (score >= 1) {
+          _setAiHL(el);
+          if (!hit) { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); hit = true; }
+        }
+      });
+    }
+
+    if (!hit && srcSection) {
+      document.querySelectorAll('[data-ai-section]').forEach(el => {
+        const sec = el.dataset.aiSection.toLowerCase();
+        if (sec.includes(srcSection.split(' ')[0]) || srcSection.includes(sec.split(' ')[0])) {
+          _setAiHL(el);
+          if (!hit) { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); hit = true; }
+        }
+      });
+    }
+  } else {
+    // PDF highlights
+    document.querySelectorAll('.pdf-hl').forEach(el => {
+      if (parseInt(el.dataset.q, 10) === qi) el.style.background = HL_ACTIVE;
+    });
+    const ref = firstHL[qi];
+    if (!ref) return;
+    const viewer = document.getElementById('pdfViewer');
+    if (!viewer) return;
+    viewer.scrollTo({ top: ref.wrapper.offsetTop + (ref.topPct / 100) * ref.wrapper.offsetHeight - 80, behavior: 'smooth' });
+  }
+}
+
+// Called when a question is clicked
+function setActive(qi) {
+  const state = window._hl;
+  const isOff = (state.activeQ === qi);
+  state.activeQ = isOff ? -1 : qi;
+
+  // Reset Q&A card highlights
+  document.querySelectorAll('.qa-item').forEach(el => el.classList.remove('ring-2', 'ring-red-400', 'bg-red-50'));
+  document.querySelectorAll('.q-text').forEach(el => {
+    el.classList.remove('text-red-600', 'font-semibold');
+    el.classList.add('text-gray-900', 'font-medium');
+  });
+
+  if (!isOff) {
+    const card = document.querySelector(`.qa-item[data-qa-index="${qi}"]`);
+    if (card) card.classList.add('ring-2', 'ring-red-400', 'bg-red-50');
+    document.querySelectorAll('.q-text').forEach(el => {
+      if (parseInt(el.dataset.qScroll, 10) === qi) {
+        el.classList.add('text-red-600', 'font-semibold');
+        el.classList.remove('text-gray-900', 'font-medium');
       }
     });
-  });
-});
+  }
+
+  _applyResumeHL(state.activeQ);
+}
+
+// Toggle between AI Format and Original — carries active highlight over
+function setResumeView(view) {
+  const aiView    = document.getElementById('resumeAiView');
+  const origView  = document.getElementById('resumeOriginalView');
+  const btnAi     = document.getElementById('btnAiFormat');
+  const btnOrig   = document.getElementById('btnOriginal');
+  const expandBtn = document.getElementById('expandPdfBtn');
+  const hintText  = document.getElementById('pdfHintText');
+
+  if (view === 'ai') {
+    aiView.classList.remove('hidden');
+    origView.classList.add('hidden');
+    btnAi.classList.add('bg-gray-900', 'text-white');
+    btnAi.classList.remove('text-gray-600', 'hover:bg-gray-50');
+    btnOrig.classList.remove('bg-gray-900', 'text-white');
+    btnOrig.classList.add('text-gray-600', 'hover:bg-gray-50');
+    if (expandBtn) expandBtn.classList.add('hidden');
+    if (hintText)  hintText.classList.add('hidden');
+  } else {
+    origView.classList.remove('hidden');
+    aiView.classList.add('hidden');
+    btnOrig.classList.add('bg-gray-900', 'text-white');
+    btnOrig.classList.remove('text-gray-600', 'hover:bg-gray-50');
+    btnAi.classList.remove('bg-gray-900', 'text-white');
+    btnAi.classList.add('text-gray-600', 'hover:bg-gray-50');
+    if (expandBtn) expandBtn.classList.remove('hidden');
+    if (hintText)  hintText.classList.remove('hidden');
+  }
+
+  // Re-apply highlight for whichever question is currently active
+  _applyResumeHL(window._hl.activeQ);
+}
 </script>
 
-<!-- ET-7: Debug Total Time Calculation -->
 <script>
-(function() {
-  const resumeJson = {{ c.resume_json | tojson | safe }};
-  const qTimes = resumeJson._q_times || {};
-  
-  if (Object.keys(qTimes).length === 0) {
-    // No question times found - this is normal for new candidates
-  } else {
-    let total = 0;
-    for (let key in qTimes) {
-      const value = parseInt(qTimes[key]) || 0;
-      total += value;
-    }
-    
-    const totalSeconds = Math.floor(total / 1000);
-    const totalMinutes = Math.floor(totalSeconds / 60);
-    const totalSecs = totalSeconds % 60;
-    
-    // Update the display with calculated total time
-    const timeDisplay = document.querySelector('.total-time-display');
-    if (timeDisplay) {
-      timeDisplay.textContent = `${totalMinutes}:${String(totalSecs).padStart(2, '0')}`;
+// ─── PDF.js renderer ──────────────────────────────────────────────────────────
+(function () {
+  const RESUME_URL = {{ resume_url | tojson }};
+  const IS_PDF     = {{ is_pdf | tojson }};
+  if (!IS_PDF || !RESUME_URL) return;
+
+  const state  = window._hl;
+  const QA_META = state.QA_META;
+
+  const STOP = new Set(['about','after','also','been','between','both','does','doing','done','during','each','even','every','from','given','have','here','into','just','like','made','make','many','more','most','much','must','need','never','next','none','only','other','over','same','should','since','some','such','take','than','that','their','them','then','there','these','they','this','through','time','under','very','well','were','what','when','where','which','will','with','work','would','your']);
+
+  function keywords(text) {
+    return (text || '').toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 5 && !STOP.has(w))
+      .slice(0, 6);
+  }
+
+  const qKW = QA_META.map(m => keywords((m.source_detail || '') + ' ' + (m.source_section || '')));
+  state.firstHL = QA_META.map(() => null);
+
+  async function renderPDF() {
+    const pages   = document.getElementById('pdfPages');
+    const loading = document.getElementById('pdfLoading');
+    const errEl   = document.getElementById('pdfError');
+
+    try {
+      const pdfDoc = await pdfjsLib.getDocument({ url: RESUME_URL, withCredentials: true }).promise;
+      loading.style.display = 'none';
+      const SCALE = 1.5;
+
+      for (let pn = 1; pn <= pdfDoc.numPages; pn++) {
+        const page     = await pdfDoc.getPage(pn);
+        const viewport = page.getViewport({ scale: SCALE });
+
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:relative;display:block;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.15);border-radius:4px;overflow:hidden;';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        canvas.style.cssText = 'display:block;width:100%;height:auto;';
+        wrapper.appendChild(canvas);
+
+        const hlLayer = document.createElement('div');
+        hlLayer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+        wrapper.appendChild(hlLayer);
+        pages.appendChild(wrapper);
+
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+        const tc = await page.getTextContent();
+        for (const item of tc.items) {
+          const str = (item.str || '').trim();
+          if (str.length < 3) continue;
+          const low = str.toLowerCase();
+          let bestQ = -1, bestScore = 0;
+          for (let qi = 0; qi < qKW.length; qi++) {
+            const score = qKW[qi].filter(kw => low.includes(kw)).length;
+            if (score > bestScore) { bestScore = score; bestQ = qi; }
+          }
+          if (bestScore < 1 || bestQ < 0) continue;
+
+          const tx    = pdfjsLib.Util.transform(viewport.transform, item.transform);
+          const fontH = Math.abs(tx[3]);
+          const textW = (item.width || 0) * SCALE;
+          if (textW <= 0 || fontH <= 0) continue;
+
+          const lPct = (tx[4] / viewport.width)                  * 100;
+          const tPct = ((tx[5] - fontH * 1.1) / viewport.height) * 100;
+          const wPct = (textW / viewport.width)                   * 100;
+          const hPct = (fontH * 1.35 / viewport.height)          * 100;
+
+          const hl = document.createElement('div');
+          hl.className = 'pdf-hl';
+          hl.dataset.q = bestQ;
+          hl.style.cssText = `position:absolute;left:${lPct.toFixed(2)}%;top:${tPct.toFixed(2)}%;width:${wPct.toFixed(2)}%;height:${hPct.toFixed(2)}%;background:${state.HL_INACTIVE};border-radius:2px;transition:background .2s;`;
+          hlLayer.appendChild(hl);
+          if (!state.firstHL[bestQ]) state.firstHL[bestQ] = { wrapper, topPct: tPct };
+        }
+      }
+    } catch (err) {
+      console.error('PDF.js error:', err);
+      const loading = document.getElementById('pdfLoading');
+      const errEl   = document.getElementById('pdfError');
+      if (loading) loading.style.display = 'none';
+      if (errEl)   errEl.classList.remove('hidden');
     }
   }
+
+  function initClickHandlers() {
+    document.querySelectorAll('[data-q-scroll]').forEach(el => {
+      el.addEventListener('click', function () { setActive(parseInt(this.dataset.qScroll, 10)); });
+    });
+  }
+
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload = function () {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    renderPDF().then(initClickHandlers);
+  };
+  s.onerror = function () {
+    const loading = document.getElementById('pdfLoading');
+    const errEl   = document.getElementById('pdfError');
+    if (loading) loading.style.display = 'none';
+    if (errEl)   errEl.classList.remove('hidden');
+  };
+  document.head.appendChild(s);
 })();
 </script>
 
-<!-- ET-7: Paste highlight detection for recruiter view -->
 <script>
-(function() {
-  // ET-7: Get paste data from backend
+// ─── Why? toggle ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.why-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const qi    = this.dataset.qaId;
+      const panel = document.querySelector(`.qa-item[data-qa-index="${qi}"] .why-panel`);
+      if (!panel) return;
+      const open = !panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', open);
+      this.textContent = open ? 'Why?' : 'Hide';
+    });
+  });
+});
+</script>
+
+<script>
+// ─── Paste highlighting ───────────────────────────────────────────────────────
+(function () {
   const pasteRanges = {{ (c.resume_json or {}).get('_paste_ranges', {}) | tojson | safe }};
-  
-  // ET-7: Highlight pasted text portions
+
+  function escapeHtml(t) {
+    const d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
+  }
+
   function highlightPastedText() {
-    const answerElements = document.querySelectorAll('.answer-content');
-    
-    answerElements.forEach((element) => {
-      const questionIndex = element.getAttribute('data-question-index');
-      const ranges = pasteRanges[questionIndex];
-      
+    document.querySelectorAll('.answer-content').forEach(el => {
+      const qi     = el.getAttribute('data-question-index');
+      const ranges = pasteRanges[qi];
       if (!ranges || ranges.length === 0) return;
-      
-      const text = element.textContent;
-      let result = '';
-      let lastIndex = 0;
-      
-      // Sort ranges by start position
-      const sortedRanges = ranges.sort((a, b) => a.start - b.start);
-      
-      sortedRanges.forEach(range => {
-        // Add text before paste
-        if (lastIndex < range.start) {
-          result += escapeHtml(text.substring(lastIndex, range.start));
-        }
-        
-        // Add pasted text with highlight (rose-100 color for low score)
-        const pastedText = text.substring(range.start, range.end);
-        result += `<mark style="background-color: #ffe4e6; color: #881337; padding: 0 2px;">${escapeHtml(pastedText)}</mark>`;
-        
-        lastIndex = range.end;
+      const text   = el.textContent;
+      let result   = '', last = 0;
+      ranges.slice().sort((a, b) => a.start - b.start).forEach(r => {
+        if (last < r.start) result += escapeHtml(text.slice(last, r.start));
+        result += `<mark style="background:#ffe4e6;color:#881337;padding:0 2px;">${escapeHtml(text.slice(r.start, r.end))}</mark>`;
+        last = r.end;
       });
-      
-      // Add remaining text
-      if (lastIndex < text.length) {
-        result += escapeHtml(text.substring(lastIndex));
-      }
-      
-      element.innerHTML = result;
+      if (last < text.length) result += escapeHtml(text.slice(last));
+      el.innerHTML = result;
     });
   }
-  
-  // Escape HTML to prevent XSS
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-  
-  // ET-7: Initialize highlighting when page loads
+
   document.addEventListener('DOMContentLoaded', highlightPastedText);
-  
-  // ET-7: Also run after a short delay
   setTimeout(highlightPastedText, 300);
 })();
 </script>
 
-<!-- PDF Modal JavaScript -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const modal = document.getElementById('pdfModal');
-  const expandBtn = document.getElementById('expandPdfBtn');
-  const closeBtn = document.getElementById('closeModalBtn');
-  const backdrop = document.getElementById('modalBackdrop');
-  const modalIframe = document.getElementById('modalPdfIframe');
-  const previewContainer = document.querySelector('[data-resume-preview]');
-  
-  if (!expandBtn || !modal || !previewContainer) return;
-  
-  const resumeUrl = previewContainer.dataset.src;
-  
-  // Open modal
-  function openModal() {
-    if (!resumeUrl) return;
-    
-    // Load PDF in modal iframe
-    const baseSrc = resumeUrl.split('#')[0];
-    modalIframe.src = `${baseSrc}#toolbar=1&navpanes=1&scrollbar=1&view=Fit`;
-    
-    // Show modal
-    modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden'; // Prevent background scroll
-  }
-  
-  // Close modal
-  function closeModal() {
-    modal.classList.add('hidden');
-    modalIframe.src = ''; // Clear iframe
-    document.body.style.overflow = ''; // Restore scroll
-  }
-  
-  // Check for error state and hide expand button if needed
-  function checkForErrorState() {
-    const errorEl = previewContainer.querySelector('[data-role="error"]');
-    if (errorEl && !errorEl.classList.contains('hidden')) {
-      // PDF failed to load, hide expand button
-      expandBtn.style.display = 'none';
-    }
-  }
-  
-  // Monitor for error state changes
-  const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-        checkForErrorState();
-      }
+// ─── Download link guard ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  const dl = document.querySelector('a[href*="resume"][download]');
+  if (dl) {
+    dl.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href = this.href;
     });
-  });
-  
-  // Start observing the error element
-  const errorEl = previewContainer.querySelector('[data-role="error"]');
-  if (errorEl) {
-    observer.observe(errorEl, { attributes: true, attributeFilter: ['class'] });
   }
-  
-  // Initial check
-  checkForErrorState();
-  
-  // Event listeners
-  expandBtn.addEventListener('click', openModal);
-  closeBtn.addEventListener('click', closeModal);
-  backdrop.addEventListener('click', closeModal);
-  
-  // ESC key to close
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-      closeModal();
-    }
-  });
 });
 </script>
 
-<!-- Download spinner fix -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const downloadLink = document.querySelector('a[href*="resume"][download]');
-    if (downloadLink) {
-        downloadLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // 모든 스피너 숨기기
-            document.querySelectorAll('*').forEach(el => {
-                if (el.classList.contains('animate-spin') || 
-                    el.classList.contains('animate-pulse') ||
-                    el.id.includes('loading') ||
-                    el.id.includes('loader')) {
-                    el.style.display = 'none';
-                }
-            });
-            
-            // 원래 링크로 이동
-            window.location.href = this.href;
-        });
-    }
+// ─── PDF fullscreen button ────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  const expandBtn = document.getElementById('expandPdfBtn');
+  const viewer    = document.getElementById('pdfViewer');
+  if (!expandBtn || !viewer) return;
+
+  expandBtn.addEventListener('click', function () {
+    if (viewer.requestFullscreen)            viewer.requestFullscreen();
+    else if (viewer.webkitRequestFullscreen) viewer.webkitRequestFullscreen();
+  });
+
+  function onFullscreenChange() {
+    const isFS = document.fullscreenElement === viewer || document.webkitFullscreenElement === viewer;
+    viewer.style.height = isFS ? '100vh' : '520px';
+  }
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+});
+</script>
+
+<script>
+// ─── Close email modal on backdrop click ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  const modal = document.getElementById('emailModal');
+  if (!modal) return;
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) modal.classList.add('hidden');
+  });
 });
 </script>
 {% endblock %}
