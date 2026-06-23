@@ -142,26 +142,98 @@
       <div id="resumeAiView">
         {% set rj = c.resume_json or {} %}
         {% if rj %}
-        <div class="space-y-5 text-sm px-1">
+        <div class="space-y-5 text-sm px-2 py-1">
+
+          {# Name + Contact header #}
+          <div class="pb-3 border-b border-gray-200">
+            <h1 class="text-xl font-bold text-gray-900">{{ c.name or rj.get('name') or 'Candidate' }}</h1>
+            <div class="flex flex-wrap items-center gap-x-1 gap-y-0.5 mt-1.5 text-xs text-gray-500">
+              {%- set ns = namespace(first=true) -%}
+              {%- if c.email -%}
+                {%- if not ns.first -%}<span class="text-gray-300 select-none px-1">·</span>{%- endif -%}
+                <span>{{ c.email }}</span>{%- set ns.first = false -%}
+              {%- endif -%}
+              {%- if c.phone -%}
+                {%- if not ns.first -%}<span class="text-gray-300 select-none px-1">·</span>{%- endif -%}
+                <span>{{ c.phone }}</span>{%- set ns.first = false -%}
+              {%- endif -%}
+              {%- set links = rj.get('links') or rj.get('contact') -%}
+              {%- if links is mapping -%}
+                {%- for k, v in links.items() -%}
+                  {%- if v and v is string and k not in ('email','phone') -%}
+                    {%- if not ns.first -%}<span class="text-gray-300 select-none px-1">·</span>{%- endif -%}
+                    <span>{{ v }}</span>{%- set ns.first = false -%}
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- elif links is string -%}
+                {%- if not ns.first -%}<span class="text-gray-300 select-none px-1">·</span>{%- endif -%}
+                <span>{{ links }}</span>
+              {%- endif -%}
+            </div>
+          </div>
 
           {# Summary / Objective #}
           {% set summary = rj.get('summary') or rj.get('objective') or rj.get('profile') %}
           {% if summary %}
-          <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Summary</h3>
-            <p class="text-gray-700 leading-relaxed">{{ summary }}</p>
+          <div data-ai-section="Summary" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-2 border-b border-gray-200">Summary</h3>
+            <p class="text-gray-700 leading-relaxed text-sm">{{ summary }}</p>
+          </div>
+          {% endif %}
+
+          {# Education — handles dict OR list-of-dicts #}
+          {% set edu_raw = rj.get('education') %}
+          {% if edu_raw %}
+          {% set edu_list = [edu_raw] if edu_raw is mapping else edu_raw %}
+          <div data-ai-section="Education" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-3 border-b border-gray-200">Education</h3>
+            <div class="space-y-3">
+              {% for e in edu_list %}
+                {% if e is mapping %}
+                {%- set _einst = e.get('institution') or e.get('school') or e.get('university') or '' -%}
+                {%- set _edeg  = e.get('degree') or e.get('title') or e.get('program') or '' -%}
+                <div class="ai-item transition-all duration-200" data-ai-item="{{ (_einst ~ ' ' ~ _edeg) | lower }}">
+                  <div class="flex justify-between items-start gap-2">
+                    <span class="font-bold text-gray-900">{{ _einst }}</span>
+                    {% set yr = e.get('year') or e.get('graduation_year') or e.get('expected_graduation') or e.get('date') or e.get('dates') %}
+                    {% if yr %}<span class="text-xs text-gray-400 flex-shrink-0">{{ yr }}</span>{% endif %}
+                  </div>
+                  {% if _edeg %}<div class="text-sm font-semibold text-teal-600 mt-0.5">{{ _edeg }}</div>{% endif %}
+                  {% set loc = e.get('location') %}
+                  {% if loc %}<div class="text-xs text-gray-400">{{ loc }}</div>{% endif %}
+                  {% set gpa = e.get('gpa') %}
+                  {% if gpa %}<div class="text-xs text-gray-500 mt-0.5">GPA: {{ gpa }}</div>{% endif %}
+                  {% set coursework = e.get('relevant_coursework') or e.get('coursework') %}
+                  {% if coursework %}
+                  <div class="mt-1.5">
+                    <span class="text-xs text-gray-400">Relevant coursework</span>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      {% if coursework is string %}
+                        {% for cw in coursework.split(',') %}<span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{{ cw.strip() }}</span>{% endfor %}
+                      {% elif coursework is iterable %}
+                        {% for cw in coursework %}<span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{{ cw if cw is string else cw.get('name','') }}</span>{% endfor %}
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
+                </div>
+                {% elif e is string %}
+                <div class="text-gray-600">{{ e }}</div>
+                {% endif %}
+              {% endfor %}
+            </div>
           </div>
           {% endif %}
 
           {# Skills #}
           {% set skills = rj.get('skills') %}
           {% if skills %}
-          <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Skills</h3>
+          <div data-ai-section="Skills" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-2 border-b border-gray-200">Skills</h3>
             {% if skills is mapping %}
               {% for cat, items in skills.items() %}
-              <div class="mb-1 text-sm">
-                <span class="font-medium text-gray-700">{{ cat }}:</span>
+              <div class="mb-1">
+                <span class="font-semibold text-gray-700">{{ cat.replace('_', ' ').title() }}:</span>
                 <span class="text-gray-600 ml-1">{% if items is string %}{{ items }}{% elif items is iterable %}{{ items | join(', ') }}{% else %}{{ items }}{% endif %}</span>
               </div>
               {% endfor %}
@@ -170,10 +242,8 @@
             {% else %}
               <div class="flex flex-wrap gap-1.5">
                 {% for s in skills %}
-                  {% if s is string %}
-                    <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{{ s }}</span>
-                  {% elif s is mapping %}
-                    <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{{ s.get('name') or s.get('skill') or '' }}</span>
+                  {% if s is string %}<span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{{ s }}</span>
+                  {% elif s is mapping %}<span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">{{ s.get('name') or s.get('skill') or '' }}</span>
                   {% endif %}
                 {% endfor %}
               </div>
@@ -181,93 +251,69 @@
           </div>
           {% endif %}
 
-          {# Experience #}
-          {% set exp = rj.get('experience') or rj.get('work_experience') or rj.get('employment') %}
-          {% if exp %}
-          <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Experience</h3>
+          {# Experience — handles dict OR list-of-dicts #}
+          {% set exp_raw = rj.get('experience') or rj.get('work_experience') or rj.get('employment') %}
+          {% if exp_raw %}
+          {% set exp_list = [exp_raw] if exp_raw is mapping else exp_raw %}
+          <div data-ai-section="Work Experience" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-3 border-b border-gray-200">Experience</h3>
             <div class="space-y-4">
-              {% for e in exp %}
+              {% for e in exp_list %}
                 {% if e is mapping %}
-                <div class="border-l-2 border-gray-200 pl-3">
+                {%- set _etitle = e.get('title') or e.get('position') or e.get('role') or '' -%}
+                {%- set _eco   = e.get('company') or e.get('employer') or e.get('organization') or '' -%}
+                <div class="ai-item transition-all duration-200" data-ai-item="{{ (_etitle ~ ' ' ~ _eco) | lower }}">
                   <div class="flex justify-between items-start gap-2">
-                    <div>
-                      <span class="font-semibold text-gray-900">{{ e.get('title') or e.get('position') or e.get('role') or '' }}</span>
-                      {% set co = e.get('company') or e.get('employer') or e.get('organization') %}
-                      {% if co %}<span class="text-gray-500"> · {{ co }}</span>{% endif %}
-                    </div>
+                    <span class="font-bold text-gray-900">{{ _etitle }}</span>
                     {% set dt = e.get('duration') or e.get('dates') or e.get('date') %}
                     {% if dt %}<span class="text-xs text-gray-400 flex-shrink-0">{{ dt }}</span>{% endif %}
                   </div>
-                  {% set desc = e.get('description') or e.get('responsibilities') or e.get('achievements') %}
+                  {% if _eco %}<div class="text-sm font-semibold text-teal-600">{{ _eco }}</div>{% endif %}
+                  {% set loc = e.get('location') %}
+                  {% if loc %}<div class="text-xs text-gray-400">{{ loc }}</div>{% endif %}
+                  {% set desc = e.get('description') or e.get('responsibilities') or e.get('achievements') or e.get('bullets') %}
                   {% if desc %}
                     {% if desc is string %}
-                      <p class="text-gray-600 mt-1 text-xs leading-relaxed">{{ desc }}</p>
+                      <p class="text-gray-600 mt-1 leading-relaxed">{{ desc }}</p>
                     {% elif desc is iterable %}
-                      <ul class="mt-1 space-y-0.5 list-disc list-inside">
+                      <ul class="mt-1.5 space-y-1">
                         {% for bullet in desc %}
-                          <li class="text-xs text-gray-600">{{ bullet if bullet is string else (bullet.get('text') or bullet.get('point') or '') }}</li>
+                          <li class="flex gap-2 text-gray-600">
+                            <span class="text-teal-500 flex-shrink-0 mt-0.5">•</span>
+                            <span>{{ bullet if bullet is string else (bullet.get('text') or bullet.get('point') or '') }}</span>
+                          </li>
                         {% endfor %}
                       </ul>
                     {% endif %}
                   {% endif %}
                 </div>
                 {% elif e is string %}
-                <div class="border-l-2 border-gray-200 pl-3 text-gray-600 text-xs">{{ e }}</div>
+                <div class="text-gray-600">{{ e }}</div>
                 {% endif %}
               {% endfor %}
             </div>
           </div>
           {% endif %}
 
-          {# Education #}
-          {% set edu = rj.get('education') %}
-          {% if edu %}
-          <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Education</h3>
+          {# Projects — handles dict OR list-of-dicts #}
+          {% set proj_raw = rj.get('projects') %}
+          {% if proj_raw %}
+          {% set proj_list = [proj_raw] if proj_raw is mapping else proj_raw %}
+          <div data-ai-section="Projects" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-3 border-b border-gray-200">Projects</h3>
             <div class="space-y-3">
-              {% for e in edu %}
-                {% if e is mapping %}
-                <div class="border-l-2 border-gray-200 pl-3">
-                  <div class="flex justify-between items-start gap-2">
-                    <div>
-                      <span class="font-semibold text-gray-900">{{ e.get('degree') or e.get('title') or e.get('program') or '' }}</span>
-                      {% set school = e.get('institution') or e.get('school') or e.get('university') %}
-                      {% if school %}<span class="text-gray-500"> · {{ school }}</span>{% endif %}
-                    </div>
-                    {% set yr = e.get('year') or e.get('graduation_year') or e.get('date') or e.get('dates') %}
-                    {% if yr %}<span class="text-xs text-gray-400 flex-shrink-0">{{ yr }}</span>{% endif %}
-                  </div>
-                </div>
-                {% elif e is string %}
-                <div class="border-l-2 border-gray-200 pl-3 text-gray-600 text-xs">{{ e }}</div>
-                {% endif %}
-              {% endfor %}
-            </div>
-          </div>
-          {% endif %}
-
-          {# Projects #}
-          {% set proj = rj.get('projects') %}
-          {% if proj %}
-          <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Projects</h3>
-            <div class="space-y-3">
-              {% for p in proj %}
+              {% for p in proj_list %}
                 {% if p is mapping %}
-                <div class="border-l-2 border-gray-200 pl-3">
-                  <span class="font-semibold text-gray-900">{{ p.get('name') or p.get('title') or '' }}</span>
+                {%- set _pname = p.get('name') or p.get('title') or '' -%}
+                <div class="ai-item transition-all duration-200" data-ai-item="{{ _pname | lower }}">
+                  <span class="font-bold text-gray-900">{{ _pname }}</span>
                   {% set pd = p.get('description') or p.get('summary') %}
-                  {% if pd %}
-                    <p class="text-xs text-gray-600 mt-0.5">{{ pd if pd is string else (pd | join(' ') if pd is iterable else pd) }}</p>
-                  {% endif %}
+                  {% if pd %}<p class="text-gray-600 mt-0.5 leading-relaxed">{{ pd if pd is string else (pd | join(' ') if pd is iterable else pd) }}</p>{% endif %}
                   {% set tech = p.get('technologies') or p.get('tech') %}
-                  {% if tech %}
-                    <p class="text-xs text-gray-400 mt-0.5">{{ tech if tech is string else (tech | join(', ') if tech is iterable else tech) }}</p>
-                  {% endif %}
+                  {% if tech %}<p class="text-xs text-gray-400 mt-0.5">{{ tech if tech is string else (tech | join(', ') if tech is iterable else tech) }}</p>{% endif %}
                 </div>
                 {% elif p is string %}
-                <div class="border-l-2 border-gray-200 pl-3 text-gray-600 text-xs">{{ p }}</div>
+                <div class="text-gray-600">{{ p }}</div>
                 {% endif %}
               {% endfor %}
             </div>
@@ -277,11 +323,11 @@
           {# Certifications #}
           {% set certs = rj.get('certifications') or rj.get('certificates') %}
           {% if certs %}
-          <div>
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Certifications</h3>
+          <div data-ai-section="Certifications" class="transition-all duration-200">
+            <h3 class="text-[11px] font-bold text-teal-600 uppercase tracking-widest pb-1 mb-2 border-b border-gray-200">Certifications</h3>
             <ul class="space-y-1">
               {% for cert in certs %}
-              <li class="text-xs text-gray-600">
+              <li class="text-gray-600">
                 {% if cert is string %}{{ cert }}
                 {% elif cert is mapping %}{{ cert.get('name') or cert.get('title') or '' }}{% if cert.get('issuer') %} · <span class="text-gray-400">{{ cert.get('issuer') }}</span>{% endif %}
                 {% endif %}
@@ -488,21 +534,6 @@
       </button>
       {% endif %}
 
-      <!-- Add / Remove Finalist -->
-      <form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}">
-        <input type="hidden" name="status" value="{{ '' if c.status == 'finalist' else 'finalist' }}">
-        <button type="submit"
-          class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors
-            {% if c.status == 'finalist' %}border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %}">
-          <svg class="w-4 h-4" viewBox="0 0 24 24"
-               fill="{% if c.status == 'finalist' %}currentColor{% else %}none{% endif %}"
-               stroke="currentColor" stroke-width="1.8">
-            <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {{ 'Remove Finalist' if c.status == 'finalist' else 'Add Finalist' }}
-        </button>
-      </form>
-
       <!-- Archive / Unarchive -->
       <form method="POST"
             action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}"
@@ -565,12 +596,119 @@
 {% endif %}
 
 <script>
-// ─── AI Format / Original toggle ─────────────────────────────────────────────
+// ─── Shared highlight state (global so toggle + PDF.js can both access it) ───
+window._hl = {
+  activeQ:  -1,
+  firstHL:  [],
+  QA_META:  {{ qa | tojson }},
+  HL_ACTIVE:   'rgba(239,68,68,0.25)',
+  HL_INACTIVE: 'rgba(0,0,0,0)',
+};
+
+// Clear all AI-side highlights (items + sections)
+function _clearAiHL() {
+  document.querySelectorAll('.ai-item, [data-ai-section]').forEach(el => {
+    el.style.background   = '';
+    el.style.borderLeft   = '';
+    el.style.paddingLeft  = '';
+    el.style.borderRadius = '';
+  });
+}
+
+// Apply red highlight to a specific AI element
+function _setAiHL(el) {
+  el.style.background   = 'rgba(254,226,226,0.7)';
+  el.style.borderLeft   = '3px solid rgb(239,68,68)';
+  el.style.paddingLeft  = '8px';
+  el.style.borderRadius = '4px';
+}
+
+// Apply highlights to whichever view is currently visible
+function _applyResumeHL(qi) {
+  const { QA_META, firstHL, HL_ACTIVE, HL_INACTIVE } = window._hl;
+  const aiView = document.getElementById('resumeAiView');
+  const inAi   = aiView && !aiView.classList.contains('hidden');
+
+  // Clear both views first
+  document.querySelectorAll('.pdf-hl').forEach(el => el.style.background = HL_INACTIVE);
+  _clearAiHL();
+
+  if (qi < 0) return;
+
+  if (inAi) {
+    // Try specific item match on source_detail, fall back to section
+    const meta       = QA_META[qi] || {};
+    const srcDetail  = (meta.source_detail  || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+    const srcSection = (meta.source_section || '').toLowerCase();
+    const detailWords = srcDetail.split(/\s+/).filter(w => w.length >= 4);
+    let hit = false;
+
+    if (detailWords.length) {
+      document.querySelectorAll('.ai-item').forEach(el => {
+        const txt   = (el.dataset.aiItem || '').toLowerCase();
+        const score = detailWords.filter(w => txt.includes(w)).length;
+        if (score >= 1) {
+          _setAiHL(el);
+          if (!hit) { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); hit = true; }
+        }
+      });
+    }
+
+    if (!hit && srcSection) {
+      document.querySelectorAll('[data-ai-section]').forEach(el => {
+        const sec = el.dataset.aiSection.toLowerCase();
+        if (sec.includes(srcSection.split(' ')[0]) || srcSection.includes(sec.split(' ')[0])) {
+          _setAiHL(el);
+          if (!hit) { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); hit = true; }
+        }
+      });
+    }
+  } else {
+    // PDF highlights
+    document.querySelectorAll('.pdf-hl').forEach(el => {
+      if (parseInt(el.dataset.q, 10) === qi) el.style.background = HL_ACTIVE;
+    });
+    const ref = firstHL[qi];
+    if (!ref) return;
+    const viewer = document.getElementById('pdfViewer');
+    if (!viewer) return;
+    viewer.scrollTo({ top: ref.wrapper.offsetTop + (ref.topPct / 100) * ref.wrapper.offsetHeight - 80, behavior: 'smooth' });
+  }
+}
+
+// Called when a question is clicked
+function setActive(qi) {
+  const state = window._hl;
+  const isOff = (state.activeQ === qi);
+  state.activeQ = isOff ? -1 : qi;
+
+  // Reset Q&A card highlights
+  document.querySelectorAll('.qa-item').forEach(el => el.classList.remove('ring-2', 'ring-red-400', 'bg-red-50'));
+  document.querySelectorAll('.q-text').forEach(el => {
+    el.classList.remove('text-red-600', 'font-semibold');
+    el.classList.add('text-gray-900', 'font-medium');
+  });
+
+  if (!isOff) {
+    const card = document.querySelector(`.qa-item[data-qa-index="${qi}"]`);
+    if (card) card.classList.add('ring-2', 'ring-red-400', 'bg-red-50');
+    document.querySelectorAll('.q-text').forEach(el => {
+      if (parseInt(el.dataset.qScroll, 10) === qi) {
+        el.classList.add('text-red-600', 'font-semibold');
+        el.classList.remove('text-gray-900', 'font-medium');
+      }
+    });
+  }
+
+  _applyResumeHL(state.activeQ);
+}
+
+// Toggle between AI Format and Original — carries active highlight over
 function setResumeView(view) {
-  const aiView   = document.getElementById('resumeAiView');
-  const origView = document.getElementById('resumeOriginalView');
-  const btnAi    = document.getElementById('btnAiFormat');
-  const btnOrig  = document.getElementById('btnOriginal');
+  const aiView    = document.getElementById('resumeAiView');
+  const origView  = document.getElementById('resumeOriginalView');
+  const btnAi     = document.getElementById('btnAiFormat');
+  const btnOrig   = document.getElementById('btnOriginal');
   const expandBtn = document.getElementById('expandPdfBtn');
   const hintText  = document.getElementById('pdfHintText');
 
@@ -593,21 +731,21 @@ function setResumeView(view) {
     if (expandBtn) expandBtn.classList.remove('hidden');
     if (hintText)  hintText.classList.remove('hidden');
   }
+
+  // Re-apply highlight for whichever question is currently active
+  _applyResumeHL(window._hl.activeQ);
 }
 </script>
 
 <script>
-// ─── PDF.js highlight renderer ────────────────────────────────────────────────
+// ─── PDF.js renderer ──────────────────────────────────────────────────────────
 (function () {
   const RESUME_URL = {{ resume_url | tojson }};
   const IS_PDF     = {{ is_pdf | tojson }};
-
   if (!IS_PDF || !RESUME_URL) return;
 
-  const HL_ACTIVE   = 'rgba(13,148,136,0.35)';
-  const HL_INACTIVE = 'rgba(0,0,0,0)';
-
-  const QA_META = {{ qa | tojson }};
+  const state  = window._hl;
+  const QA_META = state.QA_META;
 
   const STOP = new Set(['about','after','also','been','between','both','does','doing','done','during','each','even','every','from','given','have','here','into','just','like','made','make','many','more','most','much','must','need','never','next','none','only','other','over','same','should','since','some','such','take','than','that','their','them','then','there','these','they','this','through','time','under','very','well','were','what','when','where','which','will','with','work','would','your']);
 
@@ -619,46 +757,8 @@ function setResumeView(view) {
       .slice(0, 6);
   }
 
-  const qKW    = QA_META.map(m => keywords((m.source_detail || '') + ' ' + (m.source_section || '')));
-  const firstHL = QA_META.map(() => null);
-  let   activeQ = -1;
-
-  function setActive(qi) {
-    const isToggleOff = (activeQ === qi);
-    activeQ = isToggleOff ? -1 : qi;
-
-    document.querySelectorAll('.pdf-hl').forEach(el => {
-      const elQ = parseInt(el.dataset.q, 10);
-      el.style.background = (!isToggleOff && elQ === qi) ? HL_ACTIVE : HL_INACTIVE;
-    });
-
-    document.querySelectorAll('.q-text').forEach(el => {
-      const elQ = parseInt(el.dataset.qScroll, 10);
-      if (!isToggleOff && elQ === qi) {
-        el.classList.add('text-primary', 'font-semibold');
-        el.classList.remove('text-gray-900', 'font-medium');
-      } else {
-        el.classList.remove('text-primary', 'font-semibold');
-        el.classList.add('text-gray-900', 'font-medium');
-      }
-    });
-
-    if (isToggleOff) return;
-
-    // Auto-switch to Original view so the highlight is visible
-    const origView = document.getElementById('resumeOriginalView');
-    if (origView && origView.classList.contains('hidden')) {
-      setResumeView('original');
-    }
-
-    const ref = firstHL[qi];
-    if (!ref) return;
-    const viewer = document.getElementById('pdfViewer');
-    if (!viewer) return;
-    const wTop     = ref.wrapper.offsetTop;
-    const innerOff = (ref.topPct / 100) * ref.wrapper.offsetHeight;
-    viewer.scrollTo({ top: wTop + innerOff - 80, behavior: 'smooth' });
-  }
+  const qKW = QA_META.map(m => keywords((m.source_detail || '') + ' ' + (m.source_section || '')));
+  state.firstHL = QA_META.map(() => null);
 
   async function renderPDF() {
     const pages   = document.getElementById('pdfPages');
@@ -668,7 +768,6 @@ function setResumeView(view) {
     try {
       const pdfDoc = await pdfjsLib.getDocument({ url: RESUME_URL, withCredentials: true }).promise;
       loading.style.display = 'none';
-
       const SCALE = 1.5;
 
       for (let pn = 1; pn <= pdfDoc.numPages; pn++) {
@@ -686,7 +785,6 @@ function setResumeView(view) {
         const hlLayer = document.createElement('div');
         hlLayer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
         wrapper.appendChild(hlLayer);
-
         pages.appendChild(wrapper);
 
         await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
@@ -695,7 +793,6 @@ function setResumeView(view) {
         for (const item of tc.items) {
           const str = (item.str || '').trim();
           if (str.length < 3) continue;
-
           const low = str.toLowerCase();
           let bestQ = -1, bestScore = 0;
           for (let qi = 0; qi < qKW.length; qi++) {
@@ -709,22 +806,23 @@ function setResumeView(view) {
           const textW = (item.width || 0) * SCALE;
           if (textW <= 0 || fontH <= 0) continue;
 
-          const lPct = (tx[4] / viewport.width)              * 100;
+          const lPct = (tx[4] / viewport.width)                  * 100;
           const tPct = ((tx[5] - fontH * 1.1) / viewport.height) * 100;
-          const wPct = (textW / viewport.width)              * 100;
-          const hPct = (fontH * 1.35 / viewport.height)     * 100;
+          const wPct = (textW / viewport.width)                   * 100;
+          const hPct = (fontH * 1.35 / viewport.height)          * 100;
 
           const hl = document.createElement('div');
-          hl.className  = 'pdf-hl';
-          hl.dataset.q  = bestQ;
-          hl.style.cssText = `position:absolute;left:${lPct.toFixed(2)}%;top:${tPct.toFixed(2)}%;width:${wPct.toFixed(2)}%;height:${hPct.toFixed(2)}%;background:${HL_INACTIVE};border-radius:2px;transition:background .2s;`;
+          hl.className = 'pdf-hl';
+          hl.dataset.q = bestQ;
+          hl.style.cssText = `position:absolute;left:${lPct.toFixed(2)}%;top:${tPct.toFixed(2)}%;width:${wPct.toFixed(2)}%;height:${hPct.toFixed(2)}%;background:${state.HL_INACTIVE};border-radius:2px;transition:background .2s;`;
           hlLayer.appendChild(hl);
-
-          if (!firstHL[bestQ]) firstHL[bestQ] = { wrapper, topPct: tPct };
+          if (!state.firstHL[bestQ]) state.firstHL[bestQ] = { wrapper, topPct: tPct };
         }
       }
     } catch (err) {
       console.error('PDF.js error:', err);
+      const loading = document.getElementById('pdfLoading');
+      const errEl   = document.getElementById('pdfError');
       if (loading) loading.style.display = 'none';
       if (errEl)   errEl.classList.remove('hidden');
     }
@@ -732,17 +830,14 @@ function setResumeView(view) {
 
   function initClickHandlers() {
     document.querySelectorAll('[data-q-scroll]').forEach(el => {
-      el.addEventListener('click', function () {
-        setActive(parseInt(this.dataset.qScroll, 10));
-      });
+      el.addEventListener('click', function () { setActive(parseInt(this.dataset.qScroll, 10)); });
     });
   }
 
   const s = document.createElement('script');
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
   s.onload = function () {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     renderPDF().then(initClickHandlers);
   };
   s.onerror = function () {
