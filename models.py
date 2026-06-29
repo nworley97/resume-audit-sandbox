@@ -13,6 +13,17 @@ from flask_login import UserMixin
 from db import Base, engine as engine
 
 
+class Department(Base):
+    __tablename__ = "department"
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(100), nullable=False)
+    team_lead = Column(String(100), nullable=True)
+    color = Column(String(20), nullable=True, default="#6366f1")
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_dept_per_tenant"),)
+
+
 class Tenant(Base):
     __tablename__ = "tenant"
 

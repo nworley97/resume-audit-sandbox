@@ -21,44 +21,62 @@
   </div>
 
   <div class="flex flex-col items-end gap-2">
-    {% if can_create_job or is_grandfathered %}
-    <a href="{{ url_for('edit_jd', tenant=tenant.slug if tenant else None) }}"
-       class="inline-flex items-center gap-2 rounded-lg bg-primary text-white text-sm font-medium px-3 py-2 hover:opacity-95">
-      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
-      </svg>
-      Create Job
-    </a>
-    {% if not is_grandfathered %}
-    <span class="text-xs text-slate-500">{{ open_jobs_count }} / {{ job_limit }} open jobs</span>
-    {% endif %}
-    {% else %}
-    <div class="relative group">
-      <span class="inline-flex items-center gap-2 rounded-lg bg-slate-300 text-slate-500 text-sm font-medium px-3 py-2 cursor-not-allowed">
+    <div class="flex items-center gap-2">
+      <button type="button"
+              id="add-dept-btn"
+              class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm font-medium px-3 py-2 text-title hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+        </svg>
+        Add Department
+      </button>
+      {% if can_create_job or is_grandfathered %}
+      <a href="{{ url_for('edit_jd', tenant=tenant.slug if tenant else None) }}"
+         class="inline-flex items-center gap-2 rounded-lg bg-primary text-white text-sm font-medium px-3 py-2 hover:opacity-95">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
         </svg>
         Create Job
-      </span>
-      <!-- Tooltip with better visibility -->
-      <div class="absolute right-0 top-full mt-2 w-72 p-4 bg-gray-900 text-white text-sm rounded-lg shadow-2xl border-2 border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[100]">
-        <p class="font-semibold mb-2 text-white">Job limit reached ({{ open_jobs_count }}/{{ job_limit }})</p>
-        <p class="text-gray-300 mb-3 text-xs leading-relaxed">Close an existing job or upgrade your plan to create more.</p>
-        <a href="{{ url_for('billing.change_plan') }}" class="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-medium underline text-sm">
-          Upgrade Plan
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-        </a>
-      </div>
-    </div>
-    <div class="flex flex-col items-end gap-1">
-      <span class="text-xs text-amber-700 font-semibold">{{ open_jobs_count }} / {{ job_limit }} open jobs (limit reached)</span>
-      <a href="{{ url_for('billing.change_plan') }}" class="text-xs text-primary hover:text-primary/80 font-medium underline">
-        Upgrade to create more →
       </a>
+      {% else %}
+      <button type="button"
+              onclick="showLimitNotification(window.__jobLimitNotification)"
+              class="inline-flex items-center gap-2 rounded-lg bg-primary text-white text-sm font-medium px-3 py-2 hover:opacity-90 transition-opacity">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+        </svg>
+        Create Job
+      </button>
+      {% endif %}
     </div>
+    {% if not is_grandfathered %}
+      {% if can_create_job %}
+      <span class="text-xs text-slate-500">{{ open_jobs_count }} / {{ job_limit }} open jobs</span>
+      {% else %}
+      <span class="text-xs text-amber-700 font-semibold">{{ open_jobs_count }} / {{ job_limit }} open jobs (limit reached)</span>
+      {% endif %}
     {% endif %}
+  </div>
+</div>
+
+{# ---------- SUMMARY CARDS ---------- #}
+{% set sc = status_counts or {} %}
+<div class="grid grid-cols-4 gap-4 mb-4">
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <p class="text-sm text-slate-500 mb-1">Open Roles</p>
+    <p class="text-2xl font-bold text-title">{{ sc.get('open', 0) }}</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <p class="text-sm text-slate-500 mb-1">Drafts</p>
+    <p class="text-2xl font-bold text-title">{{ (sc.get('draft', 0) or 0) + (sc.get('pending', 0) or 0) }}</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <p class="text-sm text-slate-500 mb-1">Closed</p>
+    <p class="text-2xl font-bold text-title">{{ sc.get('closed', 0) }}</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <p class="text-sm text-slate-500 mb-1">Total Applicants</p>
+    <p class="text-2xl font-bold text-title">{{ total_applicants or 0 }}</p>
   </div>
 </div>
 
@@ -133,17 +151,8 @@
     </div>
   </div>
 
-  {# ----- Counts line ----- #}
-  {% set sc = status_counts or {'open':0,'pending':0,'draft':0} %}
-  <div class="px-4 py-3 text-sm text-title/80">
-    {{ sc.open }} Open
-    <span class="mx-1 text-slate/40">•</span>
-    {{ sc.pending }} Pending
-    <span class="mx-1 text-slate/40">•</span>
-    {{ sc.draft }} Draft
-  </div>
+  {# ----- Job List ----- #}
 
-  {# ----- Table ----- #}
   {% macro sort_link(label, key) -%}
     {% set active = (sort==key) %}
     {% set asc = (active and dir=='asc') %}
@@ -169,167 +178,223 @@
     </div>
   {%- endmacro %}
 
+  {% macro job_row(jd, show_close=False) %}
+  <tr class="border-t border-gray-200 hover:bg-gray-50/60">
+    <td class="py-3 pl-4"><input type="checkbox" class="rounded border-gray-300"></td>
+    <td class="py-3">
+      <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
+         class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary">
+        {{ jd.code or '' }}
+      </a>
+    </td>
+    <td class="py-3">
+      <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
+         class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary">
+        {{ jd.title or '' }}
+      </a>
+    </td>
+    <td class="py-3">{{ jd.department or '' }}</td>
+    <td class="py-3">{% set sd = jd.start_date %}{{ sd.strftime('%b %d, %Y') if sd else '' }}</td>
+    <td class="py-3">{% set ed = jd.end_date %}{{ ed.strftime('%b %d, %Y') if ed else '' }}</td>
+    <td class="py-3">
+      {% set st = (jd.status or '')|lower %}
+      {% set chip = {'open':'bg-blue-100 text-blue-700','pending':'bg-gray-100 text-gray-700','draft':'bg-yellow-100 text-yellow-700','closed':'bg-rose-100 text-rose-700'} %}
+      <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ chip.get(st,'bg-gray-100 text-slate-700') }}">
+        {{ (jd.status or '')|capitalize }}
+      </span>
+    </td>
+    <td class="py-3 pr-4">
+      <div class="flex items-center justify-between gap-3">
+        <a href="{{ url_for('view_candidates', tenant=tenant_slug, code=jd.code) }}"
+           class="flex -space-x-2 max-w-[9rem] overflow-hidden cursor-pointer hover:scale-110 transition-all duration-300 hover:bg-blue-100 rounded-full p-2 -ml-1 hover:shadow-md">
+          {% for ini in (cand_peeks.get(jd.code) or []) %}
+            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-700 ring-2 ring-white">{{ ini }}</span>
+          {% endfor %}
+          {% if cand_more.get(jd.code) %}
+            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-600 ring-2 ring-white">+{{ cand_more.get(jd.code) }}</span>
+          {% endif %}
+        </a>
+        <div class="relative shrink-0" id="row-menu-{{ jd.code }}">
+          <button type="button"
+                  class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-300 text-slate-500 hover:bg-gray-50 hover:text-slate-700 transition-colors row-menu-btn"
+                  data-code="{{ jd.code }}"
+                  aria-label="Row actions">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+            </svg>
+          </button>
+          <div class="hidden absolute right-0 top-full mt-1 w-36 bg-white rounded-xl shadow-lg border border-gray-200 py-1" style="z-index:100"
+               id="row-menu-drop-{{ jd.code }}">
+            <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
+               class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Edit
+            </a>
+            {% if show_close %}
+            <div class="border-t border-gray-100 my-1"></div>
+            <form method="POST" action="{{ url_for('close_role', tenant=tenant_slug, code=jd.code) }}">
+              <button type="submit"
+                      class="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <circle cx="12" cy="12" r="10" stroke-linecap="round"/><path d="M15 9l-6 6M9 9l6 6" stroke-linecap="round"/>
+                </svg>
+                Close Role
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </td>
+  </tr>
+  {% endmacro %}
+
+  {% macro table_head() %}
+  <thead>
+    <tr class="text-slate border-y border-gray-200">
+      <th class="text-left font-medium py-3 pl-4 w-10"><input type="checkbox" class="rounded border-gray-300"></th>
+      <th class="text-left font-medium py-3 w-32">{{ sort_link('Job ID','job_id') }}</th>
+      <th class="text-left font-medium py-3">{{ sort_link('Job Title','job_title') }}</th>
+      <th class="text-left font-medium py-3 w-44">{{ sort_link('Department','department') }}</th>
+      <th class="text-left font-medium py-3 w-36">{{ sort_link('Start Date','start_date') }}</th>
+      <th class="text-left font-medium py-3 w-36">{{ sort_link('End Date','end_date') }}</th>
+      <th class="text-left font-medium py-3 w-28">{{ sort_link('Status','status') }}</th>
+      <th class="text-left font-medium py-3 pr-4 w-40">Actions</th>
+    </tr>
+  </thead>
+  {% endmacro %}
+
   <div class="px-2 pb-2">
+
+  {% if q or active_filter_count > 0 %}
+  {# ---- Search/filter: flat paginated table ---- #}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      {{ table_head() }}
+      <tbody>
+        {% for jd in items %}
+          {{ job_row(jd, show_close=(jd.status or '')|lower == 'open') }}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% set current = page|int %}
+  {% set total = pages|int %}
+  {% set window = 2 %}
+  {% if total > 1 %}
+    {% set ns = namespace(list=[]) %}
+    {% set _ = ns.list.append(1) %}
+    {% for i in range(current-window, current+window+1) %}
+      {% if 1 < i < total %}{% set _ = ns.list.append(i) %}{% endif %}
+    {% endfor %}
+    {% set _ = ns.list.append(total) %}
+    {% set pages_compact = ns.list|unique|sort %}
+    <nav class="flex items-center justify-center gap-1 sm:gap-2 px-2 py-4" role="navigation" aria-label="Pagination">
+      {% if current > 1 %}
+        <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=current-1, per_page=per_page, department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
+           rel="prev" class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50" aria-label="Previous page">&lt;</a>
+      {% else %}
+        <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400 cursor-not-allowed" aria-disabled="true">&lt;</span>
+      {% endif %}
+      {% set last = None %}
+      {% for p in pages_compact %}
+        {% if last is not none and p - last > 1 %}<span class="px-2 text-slate-400 select-none">...</span>{% endif %}
+        {% if p == current %}
+          <span class="inline-flex items-center rounded-lg text-white px-2.5 py-1.5 text-xs" style="background-color:#009689" aria-current="page">{{ p }}</span>
+        {% else %}
+          <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=p, per_page=per_page, department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
+             class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50">{{ p }}</a>
+        {% endif %}
+        {% set last = p %}
+      {% endfor %}
+      {% if current < total %}
+        <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=current+1, per_page=per_page, department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
+           rel="next" class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50" aria-label="Next page">&gt;</a>
+      {% else %}
+        <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400 cursor-not-allowed" aria-disabled="true">&gt;</span>
+      {% endif %}
+    </nav>
+  {% endif %}
+
+  {% else %}
+  {# ---- Default: grouped department view ---- #}
+
+  {% if open_by_dept %}
+  <div class="pt-2">
+    <div class="flex items-center gap-2 px-2 pt-3 pb-2">
+      <h3 class="text-sm font-semibold text-title">Open Roles</h3>
+      <span class="inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5">{{ (status_counts or {}).get('open', 0) }}</span>
+    </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
-        <thead>
-          <tr class="text-slate border-y border-gray-200">
-            <th class="text-left font-medium py-3 pl-4 w-10">
-              <input type="checkbox" class="rounded border-gray-300">
-            </th>
-            <th class="text-left font-medium py-3 w-32">{{ sort_link('Job ID','job_id') }}</th>
-            <th class="text-left font-medium py-3">{{ sort_link('Job Title','job_title') }}</th>
-            <th class="text-left font-medium py-3 w-44">{{ sort_link('Department','department') }}</th>
-            <th class="text-left font-medium py-3 w-36">{{ sort_link('Start Date','start_date') }}</th>
-            <th class="text-left font-medium py-3 w-36">{{ sort_link('End Date','end_date') }}</th>
-            <th class="text-left font-medium py-3 w-28">{{ sort_link('Status','status') }}</th>
-            <th class="text-left font-medium py-3 pr-4 w-40">Actions</th>
-          </tr>
-        </thead>
-
+        {{ table_head() }}
         <tbody>
-          {% for jd in items %}
-<tr class="border-t border-gray-200 hover:bg-gray-50/60">
-  <td class="py-3 pl-4">
-    <input type="checkbox" class="rounded border-gray-300">
-  </td>
-
-  <td class="py-3">
-    <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
-       class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary">
-      {{ jd.code or '' }}
-    </a>
-  </td>
-  <td class="py-3">
-    <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
-       class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary">
-      {{ jd.title or '' }}
-    </a>
-  </td>
-  <td class="py-3">{{ jd.department or '' }}</td>
-
-  <td class="py-3">
-    {% set sd = jd.start_date %}{{ sd.strftime('%b %d, %Y') if sd else '' }}
-  </td>
-  <td class="py-3">
-    {% set ed = jd.end_date %}{{ ed.strftime('%b %d, %Y') if ed else '' }}
-  </td>
-
-  <td class="py-3">
-    {% set st = (jd.status or '')|lower %}
-    {% set chip = {
-      'open':    'bg-blue-100 text-blue-700',
-      'pending': 'bg-gray-100 text-gray-700',
-      'draft':   'bg-yellow-100 text-yellow-700',
-      'closed':  'bg-rose-100 text-rose-700'
-    } %}
-    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ chip.get(st,'bg-gray-100 text-slate-700') }}">
-      {{ (jd.status or '')|capitalize }}
-    </span>
-  </td>
-
-  {# NEW: fixed-width actions cell to stop layout jumps #}
-{# Fixed-width actions + restored initials stack #}
-<td class="py-3 pr-4">
-  <div class="flex items-center justify-between gap-3">
-    <!-- Initials (+N) stack with width cap so buttons don't jump -->
-    <a href="{{ url_for('view_candidates', tenant=tenant_slug, code=jd.code) }}"
-       class="flex -space-x-2 max-w-[9rem] overflow-hidden cursor-pointer hover:scale-110 transition-all duration-300 hover:bg-blue-100 rounded-full p-2 -ml-1 hover:shadow-md">
-      {% for ini in (cand_peeks.get(jd.code) or []) %}
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-700 ring-2 ring-white">
-          {{ ini }}
-        </span>
-      {% endfor %}
-      {% if cand_more.get(jd.code) %}
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-600 ring-2 ring-white">
-          +{{ cand_more.get(jd.code) }}
-        </span>
-      {% endif %}
-    </a>
-
-    <!-- Buttons with fixed width; prevent shrinking -->
-    <div class="flex items-center gap-2 justify-end shrink-0">
-      <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
-         class="inline-flex items-center justify-center rounded-lg border border-gray-300
-                px-2.5 py-1.5 text-xs hover:bg-gray-50 w-20">
-        Edit
-      </a>
-    </div>
-  </div>
-</td>
-
-</tr>
-
+          {% for dept_name, dept_jobs in open_by_dept.items() %}
+          {% set dept_obj = (tenant_departments or []) | selectattr('name', 'equalto', dept_name) | first %}
+          <tr class="bg-slate-50/80 border-t border-gray-200">
+            <td colspan="8" class="py-1.5 pl-4 pr-3">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">{{ dept_name or 'No Department' }}</span>
+                <span class="text-xs text-slate-400">({{ dept_jobs|length }})</span>
+                {% if dept_obj %}
+                <button type="button"
+                        class="inline-flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+                        onclick="openEditDept({{ dept_obj.id }}, {{ dept_obj.name | tojson }}, {{ (dept_obj.team_lead or '') | tojson }}, {{ (dept_obj.color or '#6366f1') | tojson }})"
+                        title="Edit department">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% for jd in dept_jobs %}{{ job_row(jd, show_close=True) }}{% endfor %}
           {% endfor %}
         </tbody>
       </table>
     </div>
+  </div>
+  {% endif %}
 
-{% set current = page|int %}
-{% set total = pages|int %}
-{% set window = 2 %}
+  {% if draft_jobs_all %}
+  <div class="{{ 'border-t border-gray-100 mt-2 pt-2' if open_by_dept else 'pt-2' }}">
+    <div class="flex items-center gap-2 px-2 pt-3 pb-2">
+      <h3 class="text-sm font-semibold text-slate-500">Drafts</h3>
+      <span class="inline-flex items-center justify-center rounded-full bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-0.5">{{ draft_jobs_all|length }}</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <tbody>{% for jd in draft_jobs_all %}{{ job_row(jd) }}{% endfor %}</tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
-{% if total > 1 %}
-  {% set ns = namespace(list=[]) %}
-  {% set _ = ns.list.append(1) %}
-  {% for i in range(current-window, current+window+1) %}
-    {% if 1 < i < total %}
-      {% set _ = ns.list.append(i) %}
-    {% endif %}
-  {% endfor %}
-  {% set _ = ns.list.append(total) %}
-  {% set pages_compact = ns.list|unique|sort %}
+  {% if closed_jobs_all %}
+  <div class="{{ 'border-t border-gray-100 mt-2 pt-2' if (open_by_dept or draft_jobs_all) else 'pt-2' }}">
+    <div class="flex items-center gap-2 px-2 pt-3 pb-2">
+      <h3 class="text-sm font-semibold text-slate-500">Closed</h3>
+      <span class="inline-flex items-center justify-center rounded-full bg-rose-100 text-rose-700 text-xs font-semibold px-2 py-0.5">{{ closed_jobs_all|length }}</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <tbody>{% for jd in closed_jobs_all %}{{ job_row(jd) }}{% endfor %}</tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
-  <nav class="flex items-center justify-center gap-1 sm:gap-2 px-2 py-4"
-       role="navigation"
-       aria-label="Pagination">
+  {% if not open_by_dept and not draft_jobs_all and not closed_jobs_all %}
+  <div class="py-12 text-center text-slate-400 text-sm">No jobs yet. Create your first job posting above.</div>
+  {% endif %}
 
-    {# Prev #}
-    {% if current > 1 %}
-      <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=current-1, per_page=per_page,
-                            department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
-         rel="prev"
-         class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
-         aria-label="Previous page">&lt;</a>
-    {% else %}
-      <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400 cursor-not-allowed"
-            aria-disabled="true">&lt;</span>
-    {% endif %}
-
-    {# Pages with ellipses #}
-    {% set last = None %}
-    {% for p in pages_compact %}
-      {% if last is not none and p - last > 1 %}
-        <span class="px-2 text-slate-400 select-none" aria-hidden="true">...</span>
-      {% endif %}
-
-      {% if p == current %}
-        <span class="inline-flex items-center rounded-lg text-white px-2.5 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              style="background-color:#009689"
-              aria-current="page">{{ p }}</span>
-      {% else %}
-        <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=p, per_page=per_page,
-                              department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
-           class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500">
-          {{ p }}
-        </a>
-      {% endif %}
-      {% set last = p %}
-    {% endfor %}
-
-    {# Next #}
-    {% if current < total %}
-      <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, sort=sort, dir=dir, page=current+1, per_page=per_page,
-                            department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}"
-         rel="next"
-         class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
-         aria-label="Next page">&gt;</a>
-    {% else %}
-      <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400 cursor-not-allowed"
-            aria-disabled="true">&gt;</span>
-    {% endif %}
-  </nav>
-{% endif %}
+  {% endif %}
 
 <!-- Advanced Filter Modal -->
 <div id="job-filter-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="job-filter-title">
@@ -468,7 +533,214 @@
 
 
   </div>
-  
+
 </div>
 
+{% endblock %}
+
+{% block body_extra %}
+{{ super() }}
+
+<!-- Add Department Modal -->
+<div id="add-dept-modal" class="hidden fixed inset-0 flex items-center justify-center p-4" style="z-index:200">
+  <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" id="add-dept-overlay"></div>
+  <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <h2 class="text-base font-semibold text-title">Add Department</h2>
+      <button type="button" id="add-dept-close" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-gray-100 transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form method="POST" action="{{ url_for('create_department', tenant=tenant.slug if tenant else None) }}" class="px-6 py-5 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-title mb-1.5">Department Name <span class="text-rose-500">*</span></label>
+        <input type="text" name="name" required maxlength="100" placeholder="e.g. Engineering"
+               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-title focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-title mb-1.5">Team Lead <span class="text-slate-400 font-normal">(optional)</span></label>
+        <input type="text" name="team_lead" maxlength="100" placeholder="e.g. Jane Smith"
+               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-title focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-title mb-1.5">Color</label>
+        <input type="color" name="color" value="#6366f1"
+               class="h-9 w-16 rounded-lg border border-gray-300 px-1 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" id="add-dept-cancel"
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-title hover:bg-gray-50 transition-colors">Cancel</button>
+        <button type="submit"
+                class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">Add Department</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Department Modal -->
+<div id="edit-dept-modal" class="hidden fixed inset-0 flex items-center justify-center p-4" style="z-index:200">
+  <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" id="edit-dept-overlay"></div>
+  <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <h2 class="text-base font-semibold text-title">Edit Department</h2>
+      <button type="button" id="edit-dept-close" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-gray-100 transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form id="edit-dept-form" method="POST" action="" class="px-6 py-5 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-title mb-1.5">Department Name <span class="text-rose-500">*</span></label>
+        <input type="text" id="edit-dept-name" name="name" required maxlength="100"
+               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-title focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-title mb-1.5">Team Lead <span class="text-slate-400 font-normal">(optional)</span></label>
+        <input type="text" id="edit-dept-lead" name="team_lead" maxlength="100"
+               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-title focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-title mb-1.5">Color</label>
+        <input type="color" id="edit-dept-color" name="color"
+               class="h-9 w-16 rounded-lg border border-gray-300 px-1 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div class="flex items-center justify-between pt-2">
+        <button type="button" id="delete-dept-btn"
+                class="rounded-lg border border-rose-200 text-rose-600 px-4 py-2 text-sm hover:bg-rose-50 transition-colors">
+          Delete
+        </button>
+        <div class="flex gap-2">
+          <button type="button" id="edit-dept-cancel"
+                  class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-title hover:bg-gray-50 transition-colors">Cancel</button>
+          <button type="submit"
+                  class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">Save Changes</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Hidden delete-department form (outside edit modal form to avoid nesting) -->
+<form id="delete-dept-form" method="POST" action="" class="hidden"></form>
+
+{% if job_limit_notification %}
+<script type="application/json" id="__jobNotifData">{{ job_limit_notification | tojson }}</script>
+<script>
+(function () {
+  var el = document.getElementById('__jobNotifData');
+  if (el) window.__jobLimitNotification = JSON.parse(el.textContent);
+})();
+</script>
+{% endif %}
+<script>
+// ---- Three-dots row menus ----
+(function () {
+  var openCode = null;
+
+  function closeAllRowMenus() {
+    document.querySelectorAll('[id^="row-menu-drop-"]').forEach(function (el) {
+      el.classList.add('hidden');
+    });
+    openCode = null;
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.row-menu-btn');
+    if (btn) {
+      e.stopPropagation();
+      var code = btn.dataset.code;
+      var drop = document.getElementById('row-menu-drop-' + code);
+      if (!drop) return;
+      var wasOpen = !drop.classList.contains('hidden');
+      closeAllRowMenus();
+      if (!wasOpen) {
+        drop.classList.remove('hidden');
+        openCode = code;
+      }
+      return;
+    }
+    // click outside
+    if (!e.target.closest('[id^="row-menu-"]')) {
+      closeAllRowMenus();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAllRowMenus();
+  });
+})();
+
+// ---- Add Department modal ----
+(function () {
+  var modal = document.getElementById('add-dept-modal');
+  if (!modal) return;
+  var overlay = document.getElementById('add-dept-overlay');
+  var closeBtn = document.getElementById('add-dept-close');
+  var cancelBtn = document.getElementById('add-dept-cancel');
+  var openBtn = document.getElementById('add-dept-btn');
+
+  function open() {
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+  }
+  function close() {
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  openBtn && openBtn.addEventListener('click', open);
+  closeBtn && closeBtn.addEventListener('click', close);
+  cancelBtn && cancelBtn.addEventListener('click', close);
+  overlay && overlay.addEventListener('click', close);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+  });
+})();
+
+// ---- Edit Department modal ----
+(function () {
+  var modal = document.getElementById('edit-dept-modal');
+  if (!modal) return;
+  var overlay = document.getElementById('edit-dept-overlay');
+  var closeBtn = document.getElementById('edit-dept-close');
+  var cancelBtn = document.getElementById('edit-dept-cancel');
+  var form = document.getElementById('edit-dept-form');
+  var deleteForm = document.getElementById('delete-dept-form');
+  var deleteBtn = document.getElementById('delete-dept-btn');
+  var nameEl = document.getElementById('edit-dept-name');
+  var leadEl = document.getElementById('edit-dept-lead');
+  var colorEl = document.getElementById('edit-dept-color');
+
+  var baseEditUrl = '{{ url_for("edit_department", dept_id=0, tenant=tenant.slug if tenant else None) }}'.replace('/0/edit', '/');
+  var baseDeleteUrl = '{{ url_for("delete_department", dept_id=0, tenant=tenant.slug if tenant else None) }}'.replace('/0/delete', '/');
+
+  window.openEditDept = function (id, name, lead, color) {
+    if (nameEl) nameEl.value = name || '';
+    if (leadEl) leadEl.value = lead || '';
+    if (colorEl) colorEl.value = color || '#6366f1';
+    if (form) form.action = baseEditUrl + id + '/edit';
+    if (deleteForm) deleteForm.action = baseDeleteUrl + id + '/delete';
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    if (nameEl) nameEl.focus();
+  };
+
+  function close() {
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  deleteBtn && deleteBtn.addEventListener('click', function () {
+    if (deleteForm && deleteForm.action && confirm('Delete this department? Jobs assigned to it will become unassigned.')) {
+      deleteForm.submit();
+    }
+  });
+
+  closeBtn && closeBtn.addEventListener('click', close);
+  cancelBtn && cancelBtn.addEventListener('click', close);
+  overlay && overlay.addEventListener('click', close);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+  });
+})();
+</script>
 {% endblock %}
