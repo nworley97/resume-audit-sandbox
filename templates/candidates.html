@@ -146,6 +146,93 @@
     {% set filtered_display = "{:,}".format(filtered_total) %}
     {% set show_filtered_counts = showing_filtered|default(False) %}
 
+    {% if not jd and not q and not has_active_filters %}
+    {# ---- Candidates by Job: grouped overview ---- #}
+    <div class="divide-y divide-gray-100">
+      {% if jobs_order %}
+        {% for code in jobs_order %}
+          {% set job_candidates = candidates_by_job.get(code, []) %}
+          {% set this_jd = jd_lookup.get(code) %}
+          {% set job_title_text = (this_jd and this_jd.title) or code or 'Unknown Job' %}
+          {% set job_dept = (this_jd and this_jd.department) or '' %}
+          {% set count = job_candidates|length %}
+          {% set preview = job_candidates[:5] %}
+          <div class="px-4 pt-4 pb-3">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <a href="{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=code) }}"
+                     class="text-sm font-semibold text-title hover:text-primary transition-colors">
+                    {{ job_title_text }}
+                  </a>
+                  <span class="inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5">{{ count }}</span>
+                </div>
+                {% if job_dept %}<p class="text-xs text-slate-400 mt-0.5">{{ job_dept }}</p>{% endif %}
+              </div>
+              {% if count > 5 %}
+                <a href="{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=code) }}"
+                   class="text-xs text-primary hover:underline font-medium">View all {{ count }} →</a>
+              {% endif %}
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-slate border-y border-gray-200">
+                    <th class="text-left font-medium py-2.5 pl-4 w-56">Name</th>
+                    <th class="text-left font-medium py-2.5 w-32">Claim Validity</th>
+                    <th class="text-left font-medium py-2.5 w-32">Relevancy</th>
+                    <th class="text-left font-medium py-2.5 w-40">Applied</th>
+                    <th class="py-2.5 pr-4 w-16"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for c in preview %}
+                  <tr class="border-t border-gray-200 hover:bg-gray-50/60">
+                    <td class="py-2.5 pl-4">
+                      {% set display_name = c.name or (((c.first_name or '') ~ ' ' ~ (c.last_name or '')).strip()) %}
+                      <a class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary"
+                         href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">
+                        {{ display_name }}
+                      </a>
+                    </td>
+                    <td class="py-2.5">
+                      {% if c.score is not none %}
+                        {% set chip = 'bg-emerald-100 text-emerald-700' if c.score >= SCORE_GREEN else ('bg-amber-100 text-amber-700' if c.score >= SCORE_YELLOW else 'bg-rose-100 text-rose-700') %}
+                        <span class="inline-block min-w-[1.9rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium {{ chip }}">{{ '%.1f'|format(c.score) }}/5</span>
+                      {% else %}<span class="text-slate/60">—</span>{% endif %}
+                    </td>
+                    <td class="py-2.5">
+                      {% if not c._rel_missing %}
+                        {% set chip_r = 'bg-emerald-100 text-emerald-700' if c.relevancy >= REL_GREEN else ('bg-amber-100 text-amber-700' if c.relevancy >= REL_YELLOW else 'bg-rose-100 text-rose-700') %}
+                        <span class="inline-block min-w-[1.9rem] text-center px-1.5 py-0.5 rounded-full text-[11px] font-medium {{ chip_r }}">{{ '%.1f'|format(c.relevancy) }}/5</span>
+                      {% else %}<span class="text-slate/60">—</span>{% endif %}
+                    </td>
+                    <td class="py-2.5">
+                      {% if c.applied_at %}{{ c.applied_at.strftime('%b %d, %Y') }}{% else %}<span class="text-slate/60">—</span>{% endif %}
+                    </td>
+                    <td class="py-2.5 pr-4 text-right">
+                      <a class="text-blue-600 hover:underline text-xs" href="{{ url_for('candidate_detail', tenant=tenant.slug if tenant else None, id=c.id) }}">View</a>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% if count > 5 %}
+              <div class="pt-2 pb-1 text-center">
+                <a href="{{ url_for('view_candidates', tenant=tenant.slug if tenant else None, code=code) }}"
+                   class="text-xs text-primary hover:underline">+ {{ count - 5 }} more →</a>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="py-12 text-center text-slate-400 text-sm">No candidates yet.</div>
+      {% endif %}
+    </div>
+
+    {% else %}
+    {# ---- Flat table + pagination (search/filter/job-scoped view) ---- #}
     <div class="border-t border-gray-100"></div>
     <div class="px-4 py-3 text-sm text-title/80">
       {% if show_filtered_counts %}
@@ -308,6 +395,7 @@
       {% endif %}
 
     </div>
+    {% endif %}
   </div>
 
   {% endif %}
@@ -883,4 +971,17 @@
 })();
 </script>
 
+{% endblock %}
+
+{% block body_extra %}
+{{ super() }}
+{% if resume_limit_notification %}
+<script type="application/json" id="__resumeNotifData">{{ resume_limit_notification | tojson }}</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var el = document.getElementById('__resumeNotifData');
+  if (el) window.showLimitNotification(JSON.parse(el.textContent));
+});
+</script>
+{% endif %}
 {% endblock %}

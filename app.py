@@ -1,5 +1,9 @@
 # app.py
 import os, json, uuid, logging, tempfile, mimetypes, re, io, csv, html
+try:
+    from dotenv import load_dotenv; load_dotenv()
+except ImportError:
+    pass
 from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
@@ -32,7 +36,7 @@ import resend
 
 from db import SessionLocal, Base, DATABASE_URL
 from models import (
-    Tenant, User, JobDescription, Candidate,
+    Tenant, User, JobDescription, Candidate, Department,
     engine as models_engine
 )
 from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
@@ -62,6 +66,8 @@ app.register_blueprint(billing_bp)
 
 # Subscription limit checking
 from subscription_models import check_can_post_job, get_tenant_subscription
+from plans_config import get_limit_notification, get_feature_notification, has_feature_access
+from subscription_models import get_usage_summary
 
 # Stripe Webhooks blueprint
 from stripe_webhooks import stripe_webhooks_bp
@@ -157,6 +163,21 @@ def ensure_schema():
     # Create subscription-related tables (tenant_subscription, pending_signup, etc.)
     from subscription_models import ensure_subscription_schema
     ensure_subscription_schema()
+
+    # Create department table
+    if "department" not in tables:
+        with models_engine.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS department (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tenant_id INTEGER REFERENCES tenant(id) ON DELETE CASCADE,
+                    name TEXT NOT NULL,
+                    team_lead TEXT,
+                    color TEXT DEFAULT '#6366f1',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(tenant_id, name)
+                )
+            """))
 
 ensure_schema()
 
@@ -1199,6 +1220,8 @@ def edit_jd(tenant=None):
                 try:
                     db.add(jd); db.commit()
                     flash("JD saved", "recruiter")
+                    if request.form.get("preview") == "1":
+                        return redirect(url_for("apply", tenant=t.slug, code=jd.code, from_preview="1"))
                     return redirect(url_for("recruiter", tenant=t.slug))
                 except SQLAlchemyError as e:
                     db.rollback()
@@ -1231,6 +1254,25 @@ def edit_jd(tenant=None):
 
         prefill_markdown = jd.markdown or html_to_markdown_guess(jd.html)
 
+        tenant_departments = db.query(Department).filter_by(tenant_id=t.id).order_by(Department.name).all()
+
+        # Collect all distinct department names in use across jobs (covers names set before
+        # the Department table existed, or set via free-text on older jobs)
+        dept_table_names = {d.name for d in tenant_departments}
+        job_dept_rows = (
+            db.query(JobDescription.department)
+            .filter(
+                JobDescription.tenant_id == t.id,
+                JobDescription.department.isnot(None),
+                JobDescription.department != "",
+            )
+            .distinct()
+            .all()
+        )
+        extra_dept_names = sorted(
+            {row.department for row in job_dept_rows} - dept_table_names
+        )
+
         return render_template(
             "edit_jd.html",
             title="Edit Job",
@@ -1240,6 +1282,8 @@ def edit_jd(tenant=None):
             apply_url=apply_url,
             applicant_count=applicant_count,
             prefill_markdown=prefill_markdown,
+            tenant_departments=tenant_departments,
+            extra_dept_names=extra_dept_names,
         )
     finally:
         db.close()
@@ -1375,8 +1419,8 @@ def recruiter(tenant=None):
             page = pages
         items = q.offset((page - 1) * per_page).limit(per_page).all()
 
-        # Status counts (Open / Pending / Draft)
-        status_counts = {"open": 0, "pending": 0, "draft": 0}
+        # Status counts (Open / Pending / Draft / Closed)
+        status_counts = {"open": 0, "pending": 0, "draft": 0, "closed": 0}
         for s, c in (
             db.query(JobDescription.status, func.count(JobDescription.id))
               .filter_by(tenant_id=t.id)
@@ -1386,6 +1430,30 @@ def recruiter(tenant=None):
             key = (s or "").lower()
             if key in status_counts:
                 status_counts[key] = c
+
+        # Total applicants across all tenant jobs
+        total_applicants = db.query(func.count(Candidate.id)).filter_by(tenant_id=t.id).scalar() or 0
+
+        # All jobs grouped by status + department (for the department-grouped layout)
+        all_jobs_q = db.query(JobDescription).filter_by(tenant_id=t.id).order_by(JobDescription.department, JobDescription.created_at.desc())
+        all_jobs = all_jobs_q.all()
+
+        from collections import defaultdict
+        open_by_dept = defaultdict(list)
+        draft_jobs_all = []
+        closed_jobs_all = []
+        for jd_item in all_jobs:
+            st = (jd_item.status or "").lower()
+            if st == "open":
+                open_by_dept[jd_item.department or ""].append(jd_item)
+            elif st in ("draft", "pending"):
+                draft_jobs_all.append(jd_item)
+            elif st == "closed":
+                closed_jobs_all.append(jd_item)
+        open_by_dept = dict(open_by_dept)
+
+        # Departments for this tenant
+        tenant_departments = db.query(Department).filter_by(tenant_id=t.id).order_by(Department.name).all()
 
         # Filter options source lists
         dept_counts = (
@@ -1457,10 +1525,16 @@ def recruiter(tenant=None):
 
         # Check job posting limit for this tenant
         can_create_job, open_jobs_count, job_limit = check_can_post_job(t.id, db)
-        
+
         # Get subscription info for grandfathered check
         subscription = get_tenant_subscription(t.id, db)
         is_grandfathered = subscription and subscription.status == "grandfathered"
+
+        # Build notification payload when job limit is hit
+        job_limit_notification = None
+        if not can_create_job and not is_grandfathered:
+            plan_tier = (subscription.plan_tier if subscription else None) or "free"
+            job_limit_notification = get_limit_notification(plan_tier, "jobs", open_jobs_count)
 
         return render_template(
             "recruiter.html",
@@ -1482,6 +1556,12 @@ def recruiter(tenant=None):
             open_jobs_count=open_jobs_count,
             job_limit=job_limit,
             is_grandfathered=is_grandfathered,
+            job_limit_notification=job_limit_notification,
+            total_applicants=total_applicants,
+            open_by_dept=open_by_dept,
+            draft_jobs_all=draft_jobs_all,
+            closed_jobs_all=closed_jobs_all,
+            tenant_departments=tenant_departments,
         )
     finally:
         db.close()
@@ -1759,33 +1839,57 @@ def candidates_overview(tenant=None):
         end = start + per_page
         items = rows[start:end]
 
+        # Build "Candidates by Job" grouping for the overview page
+        from collections import defaultdict as _dd
+        _cbj = _dd(list)
+        for c in rows:
+            _cbj[getattr(c, 'jd_code', None) or ''].append(c)
+        candidates_by_job = dict(_cbj)
+        jobs_order = sorted(
+            candidates_by_job.keys(),
+            key=lambda code: ((jd_lookup.get(code) and jd_lookup[code].title) or '').lower()
+        )
+
         brand_name = getattr(t, "display_name", None) or getattr(t, "name", None) or t.slug
 
         # Get unique job titles and departments for filter dropdowns
         # Need to join with JobDescription to get job titles and departments
         job_titles = job_titles_all
         departments = departments_all
-        
+
+        resume_limit_notification = None
+        sub = get_tenant_subscription(t.id, db)
+        if sub and sub.status != 'grandfathered':
+            usage = get_usage_summary(t.id, db)
+            if usage and usage.get('resumes_used', 0) >= usage.get('resumes_limit', 999):
+                resume_limit_notification = get_limit_notification(
+                    sub.plan_tier or 'free', 'resumes', usage['resumes_used']
+                )
+
         return render_template(
             "candidates.html",
             tenant=t,
             brand_name=brand_name,
             tenant_slug=t.slug,
             jd=None,
-            items=items,  # Keep as items for template compatibility
+            items=items,
             total=total,
             page=page,
             pages=pages,
             q=q, sort=sort, dir=dir_,
             job_titles=job_titles,
             departments=departments,
-            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,   # claim validity thresholds (0–5)
-            REL_GREEN=4.0, REL_YELLOW=3.0,       # relevancy thresholds (0–5)
+            SCORE_GREEN=3.8, SCORE_YELLOW=3.3,
+            REL_GREEN=4.0, REL_YELLOW=3.0,
             has_candidate_detail=True,
             has_active_filters=has_active_filters,
             active_filter_count=active_filter_count,
             overall_total_count=overall_total,
             showing_filtered=bool(has_active_filters or q),
+            resume_limit_notification=resume_limit_notification,
+            candidates_by_job=candidates_by_job,
+            jobs_order=jobs_order,
+            jd_lookup=jd_lookup,
         )
     finally:
         db.close()
@@ -2307,6 +2411,26 @@ def candidate_detail(id, tenant=None):
 
         self_id = (c.resume_json or {}).get("_self_id", {})
 
+        sub = get_tenant_subscription(t.id, db)
+        plan_tier = 'free'
+        is_grandfathered = False
+        if sub:
+            is_grandfathered = sub.status == 'grandfathered'
+            plan_tier = 'ultra' if is_grandfathered else (sub.plan_tier or 'free')
+
+        resume_limit_notification = None
+        if sub and not is_grandfathered:
+            usage = get_usage_summary(t.id, db)
+            if usage and usage.get('resumes_used', 0) >= usage.get('resumes_limit', 999):
+                resume_limit_notification = get_limit_notification(
+                    plan_tier, 'resumes', usage['resumes_used']
+                )
+
+        claim_validity_notification = None
+        has_claim_validity = is_grandfathered or has_feature_access(plan_tier, 'claim_validity_score')
+        if not has_claim_validity:
+            claim_validity_notification = get_feature_notification('claim_validity_score', plan_tier)
+
         return render_template(
             "candidate_detail.html",
             tenant=t,
@@ -2320,9 +2444,12 @@ def candidate_detail(id, tenant=None):
             claim_validity=claim_validity,
             qa=qa,
             focus_changes=focus_changes,
-            self_id=self_id,   # <-- NEW
+            self_id=self_id,
             SCORE_GREEN=SCORE_GREEN, SCORE_YELLOW=SCORE_YELLOW,
             REL_GREEN=REL_GREEN, REL_YELLOW=REL_YELLOW,
+            has_claim_validity=has_claim_validity,
+            resume_limit_notification=resume_limit_notification,
+            claim_validity_notification=claim_validity_notification,
         )
 
     finally:
@@ -2717,9 +2844,10 @@ def apply(tenant, code):
         jd=jd,
         tenant_slug=t.slug,
         tenant=t,
-        posted_label=posted_label,  # NEW: posted label for header - added with ET-12-FE Jen
-        end_label=end_label,        # NEW: end label for header - added with ET-12-FE Jen
-    )  # 2025-10-01 added: Pass tenant object to template for logo display
+        posted_label=posted_label,
+        end_label=end_label,
+        preview_mode=request.args.get("from_preview") == "1",
+    )
 
 # ─── Camera gate ─────────────────────────────────────────────────
 # Camera gate (intro/instructions + camera permission)
@@ -3246,6 +3374,126 @@ def privacy(tenant=None):
         as_attachment=True,
         download_name=fn,
     )
+
+@app.route("/departments/create", methods=["POST"])
+@app.route("/<tenant>/departments/create", methods=["POST"])
+@login_required
+def create_department(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        abort(404)
+    name = request.form.get("name", "").strip()
+    team_lead = request.form.get("team_lead", "").strip()
+    color = request.form.get("color", "#6366f1").strip()
+    if not name:
+        flash("Department name is required.", "error")
+        return redirect(request.referrer or url_for("recruiter", tenant=t.slug))
+    db = SessionLocal()
+    try:
+        dept = Department(tenant_id=t.id, name=name, team_lead=team_lead or None, color=color)
+        db.add(dept)
+        db.commit()
+    except Exception:
+        db.rollback()
+        flash("A department with that name already exists.", "error")
+    finally:
+        db.close()
+    return redirect(request.referrer or url_for("recruiter", tenant=t.slug))
+
+
+@app.route("/departments/<int:dept_id>/edit", methods=["POST"])
+@app.route("/<tenant>/departments/<int:dept_id>/edit", methods=["POST"])
+@login_required
+def edit_department(dept_id, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        abort(404)
+    db = SessionLocal()
+    try:
+        dept = db.query(Department).filter_by(id=dept_id, tenant_id=t.id).first()
+        if not dept:
+            abort(404)
+        name = request.form.get("name", "").strip()
+        team_lead = request.form.get("team_lead", "").strip()
+        color = request.form.get("color", "#6366f1").strip()
+        if name:
+            dept.name = name
+        dept.team_lead = team_lead or None
+        dept.color = color
+        db.commit()
+    finally:
+        db.close()
+    return redirect(request.referrer or url_for("recruiter", tenant=t.slug))
+
+
+@app.route("/departments/<int:dept_id>/delete", methods=["POST"])
+@app.route("/<tenant>/departments/<int:dept_id>/delete", methods=["POST"])
+@login_required
+def delete_department(dept_id, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if not t:
+        abort(404)
+    db = SessionLocal()
+    try:
+        dept = db.query(Department).filter_by(id=dept_id, tenant_id=t.id).first()
+        if dept:
+            db.delete(dept)
+            db.commit()
+    finally:
+        db.close()
+    return redirect(request.referrer or url_for("recruiter", tenant=t.slug))
+
+
+@app.route("/recruiter/job/<string:code>/close", methods=["POST"])
+@app.route("/<tenant>/recruiter/job/<string:code>/close", methods=["POST"])
+@login_required
+def close_role(code, tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if t is None:
+        abort(404)
+    db = SessionLocal()
+    try:
+        jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
+        if not jd:
+            abort(404)
+        jd.status = "closed"
+        jd.updated_at = datetime.utcnow()
+        db.add(jd)
+        db.commit()
+    finally:
+        db.close()
+    flash("Role closed.", "recruiter")
+    return redirect(request.referrer or url_for("recruiter", tenant=t.slug))
+
+
+@app.route("/settings", strict_slashes=False)
+@app.route("/<tenant>/settings", strict_slashes=False)
+@login_required
+def app_settings(tenant=None):
+    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    if t is None:
+        slug = session.get("tenant_slug")
+        if slug:
+            return redirect(url_for("app_settings", tenant=slug))
+        return redirect(url_for("login"))
+    db = SessionLocal()
+    try:
+        sub = get_tenant_subscription(t.id, db)
+        plan_tier = sub.plan_tier if sub else "free"
+    finally:
+        db.close()
+    plan_labels = {"free": "Free", "starter": "Starter", "pro": "Pro", "ultra": "Ultra"}
+    plan_jobs = {"free": "1 active job / month", "starter": "10 active jobs / month",
+                 "pro": "Unlimited jobs", "ultra": "Unlimited jobs"}
+    return render_template(
+        "settings.html",
+        tenant=t,
+        tenant_slug=t.slug,
+        plan_tier=plan_tier,
+        plan_label=plan_labels.get(plan_tier, plan_tier.title()),
+        plan_jobs_desc=plan_jobs.get(plan_tier, ""),
+    )
+
 
 @app.route("/terms")
 @app.route("/<tenant>/terms")

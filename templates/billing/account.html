@@ -187,3 +187,16 @@
 </div>
 {% endblock %}
 
+{% if seat_limit_notification %}
+{% block body_extra %}
+{{ super() }}
+<script type="application/json" id="__seatNotifData">{{ seat_limit_notification | tojson }}</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var el = document.getElementById('__seatNotifData');
+  if (el) window.showLimitNotification(JSON.parse(el.textContent));
+});
+</script>
+{% endblock %}
+{% endif %}
+

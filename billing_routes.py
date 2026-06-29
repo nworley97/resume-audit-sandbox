@@ -634,11 +634,19 @@ def account():
             TenantSubscription.tenant_id == current_user.tenant_id
         ).first()
         
+        seat_limit_notification = None
+        if summary and not summary.get('is_grandfathered'):
+            if summary.get('seats_used', 0) >= summary.get('seats_limit', 999):
+                seat_limit_notification = get_limit_notification(
+                    summary['plan_tier'], 'seats', summary['seats_used']
+                )
+
         return render_template(
             'billing/account.html',
             summary=summary,
             subscription=subscription,
             plans=get_all_plans_for_display(),
+            seat_limit_notification=seat_limit_notification,
         )
     finally:
         db.close()
@@ -765,11 +773,19 @@ def add_seats():
 
         summary = get_usage_summary(current_user.tenant_id, db)
 
+        seat_limit_notification = None
+        if summary and not summary.get('is_grandfathered'):
+            if summary.get('seats_used', 0) >= summary.get('seats_limit', 999):
+                seat_limit_notification = get_limit_notification(
+                    summary['plan_tier'], 'seats', summary['seats_used']
+                )
+
         return render_template(
             'billing/add_seats.html',
             subscription=subscription,
             summary=summary,
             seat_price=EXTRA_SEAT_PRICE_MONTHLY,
+            seat_limit_notification=seat_limit_notification,
         )
     finally:
         db.close()
@@ -1074,7 +1090,9 @@ def require_feature(feature_key: str):
                 if not has_feature_access(subscription.plan_tier, feature_key):
                     notification = get_feature_notification(feature_key, subscription.plan_tier)
                     session['limit_notification'] = notification
-                    flash(notification['message'], 'feature_unavailable')
+                    referer = request.referrer
+                    if referer and referer != request.url:
+                        return redirect(referer)
                     return redirect(url_for('billing.change_plan'))
                 
                 return f(*args, **kwargs)

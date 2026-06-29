@@ -176,6 +176,9 @@
       {% include 'partials/footer.html' %}
     </div>
   </div>
+  {% if current_user.is_authenticated %}
+    {% include 'billing/notifications.html' %}
+  {% endif %}
   {% block body_extra %}{% endblock %}
   <script>
     (function() {

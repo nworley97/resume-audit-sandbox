@@ -154,8 +154,39 @@
         <!-- Department / Team -->
         <div>
           <label class="block text-sm text-gray-700 mb-1">Department / Team</label>
-          <input name="jd_department" value="{{ jd.department or '' }}"
-                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          {% set dept_names = ((tenant_departments or []) | map(attribute='name') | list) + (extra_dept_names or []) %}
+          {% set current_dept = jd.department or '' %}
+          <div id="dept-field-wrapper" class="relative">
+            <select id="dept-select"
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                    style="appearance:none;-webkit-appearance:none;padding-right:2rem"
+                    onchange="handleDeptSelect(this)">
+              <option value="">— No department —</option>
+              {% for d in (tenant_departments or []) %}
+              <option value="{{ d.name }}" {% if current_dept == d.name %}selected{% endif %}>{{ d.name }}</option>
+              {% endfor %}
+              {% for name in (extra_dept_names or []) %}
+              <option value="{{ name }}" {% if current_dept == name %}selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+              {% if current_dept and current_dept not in dept_names %}
+              <option value="{{ current_dept }}" selected>{{ current_dept }}</option>
+              {% endif %}
+              <option value="__new__">+ Add new department…</option>
+            </select>
+            <svg class="pointer-events-none absolute right-3 w-4 h-4 text-gray-400" style="top:50%;transform:translateY(-50%)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <!-- Hidden real input submitted with the form -->
+          <input type="hidden" id="dept-hidden" name="jd_department" value="{{ current_dept }}">
+          <!-- Inline "new department" input, shown when "+ Add new" is chosen -->
+          <div id="dept-new-row" class="hidden mt-2 flex gap-2 items-center">
+            <input type="text" id="dept-new-input" placeholder="New department name"
+                   class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                   oninput="document.getElementById('dept-hidden').value = this.value">
+            <button type="button" onclick="cancelNewDept()"
+                    class="shrink-0 text-xs text-gray-500 hover:text-gray-700 px-2 py-2">Cancel</button>
+          </div>
         </div>
 
         <!-- Location (required) -->
@@ -370,6 +401,20 @@
           Save as Draft
         </button>
 
+        {# Preview: new jobs only — saves as draft then opens the public apply page #}
+        {% if not (jd and jd.code) %}
+        <button type="submit"
+                onclick="document.getElementById('jd_status').value='draft';document.getElementById('jd_preview_flag').value='1'"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          Preview
+        </button>
+        <input type="hidden" id="jd_preview_flag" name="preview" value="0">
+        {% endif %}
+
         {# Publish (sets status to open) #}
         <button type="submit"
                 onclick="document.getElementById('jd_status').value='open'"
@@ -455,6 +500,35 @@ if (copyBtn) {
 
 {% block body_extra %}
 <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
+<script>
+function handleDeptSelect(sel) {
+  var hidden = document.getElementById('dept-hidden');
+  var newRow = document.getElementById('dept-new-row');
+  var newInput = document.getElementById('dept-new-input');
+  var wrapper = document.getElementById('dept-field-wrapper');
+  if (sel.value === '__new__') {
+    wrapper.classList.add('hidden');
+    newRow.classList.remove('hidden');
+    newInput.focus();
+    hidden.value = '';
+  } else {
+    newRow.classList.add('hidden');
+    newInput.value = '';
+    hidden.value = sel.value;
+  }
+}
+function cancelNewDept() {
+  var newRow = document.getElementById('dept-new-row');
+  var newInput = document.getElementById('dept-new-input');
+  var hidden = document.getElementById('dept-hidden');
+  var sel = document.getElementById('dept-select');
+  var wrapper = document.getElementById('dept-field-wrapper');
+  newRow.classList.add('hidden');
+  newInput.value = '';
+  sel.value = hidden.value || '';
+  wrapper.classList.remove('hidden');
+}
+</script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const textarea = document.getElementById('jd_markdown');

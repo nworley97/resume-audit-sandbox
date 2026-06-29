@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getAnalyticsSummary } from "@/lib/api";
 import { useAnalyticsStore } from "@/stores/analytics-store";
 import type { AnalyticsJobSummary } from "@/types/analytics";
-import { Sparkles } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { LocalNavBar } from "@/components/layout/local-nav-bar";
 import { formatNumber } from "@/lib/utils";
 
@@ -140,12 +140,70 @@ function JobCardSkeleton({ index }: { index: number }) {
   );
 }
 
+function JobGroup({
+  title,
+  jobs,
+  tenant,
+  defaultOpen,
+  startIndex,
+  accentColor,
+}: {
+  title: string;
+  jobs: AnalyticsJobSummary[];
+  tenant: string;
+  defaultOpen: boolean;
+  startIndex: number;
+  accentColor: string;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  if (jobs.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 py-2 text-left focus:outline-none"
+        aria-expanded={open}
+      >
+        <span
+          className="h-2 w-2 rounded-full flex-shrink-0"
+          style={{ background: accentColor }}
+        />
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+        <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+          {jobs.length}
+        </span>
+        <ChevronDown
+          className="ml-auto h-4 w-4 text-muted-foreground transition-transform duration-200"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
+      </button>
+
+      {open && (
+        <div className="mt-3 grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {jobs.map((job, i) => (
+            <JobCard
+              key={job.jd_code}
+              job={job}
+              index={startIndex + i}
+              tenant={tenant}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AnalyticsOverview({ tenant }: { tenant: string }) {
   const { setTenant: persistTenant } = useAnalyticsStore();
 
   useEffect(() => {
     persistTenant(tenant);
   }, [persistTenant, tenant]);
+
   const {
     data: jobs,
     isLoading,
@@ -158,6 +216,16 @@ export function AnalyticsOverview({ tenant }: { tenant: string }) {
   });
 
   const hasJobs = !!jobs && jobs.length > 0;
+
+  const openJobs = jobs?.filter((j) => (j.status ?? "").toLowerCase() === "open") ?? [];
+  const draftJobs = jobs?.filter((j) => {
+    const s = (j.status ?? "").toLowerCase();
+    return s === "" || s === "draft";
+  }) ?? [];
+  const closedJobs = jobs?.filter((j) => {
+    const s = (j.status ?? "").toLowerCase();
+    return s === "closed" || s === "archived";
+  }) ?? [];
 
   if (!tenant) {
     return (
@@ -175,7 +243,6 @@ export function AnalyticsOverview({ tenant }: { tenant: string }) {
 
   return (
     <div className="space-y-0">
-      {/* ET-12: Sticky Local Navigation Bar */}
       <LocalNavBar
         title="Analytics Dashboard"
         subtitle="Select a job posting to view detailed analytics"
@@ -183,50 +250,72 @@ export function AnalyticsOverview({ tenant }: { tenant: string }) {
         showRefreshButton={false}
         onRefreshClick={() => window.location.reload()}
       />
-      
+
       <section className="bg-white p-6">
+        {isError ? (
+          <Card className="rounded-2xl border-destructive/50 bg-destructive/5 p-6">
+            <CardHeader className="p-0">
+              <CardTitle className="text-base text-destructive">
+                Unable to load analytics summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="mt-2 space-y-4 p-0 text-sm text-destructive/80">
+              <p>Check that the analytics microservice is running on port 5055.</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
 
-      {isError ? (
-        <Card className="rounded-2xl border-destructive/50 bg-destructive/5 p-6">
-          <CardHeader className="p-0">
-            <CardTitle className="text-base text-destructive">
-              Unable to load analytics summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="mt-2 space-y-4 p-0 text-sm text-destructive/80">
-            <p>Check that the analytics microservice is running on port 5055.</p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {isLoading
-          ? Array.from({ length: 3 }).map((_, index) => (
+        {isLoading ? (
+          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {Array.from({ length: 3 }).map((_, index) => (
               <JobCardSkeleton key={`skeleton-${index}`} index={index} />
-            ))
-          : null}
+            ))}
+          </div>
+        ) : null}
 
-        {!isLoading && hasJobs
-          ? jobs?.map((job, index) => (
-              <JobCard key={job.jd_code} job={job} index={index} tenant={tenant} />
-            ))
-          : null}
-      </div>
+        {!isLoading && hasJobs ? (
+          <>
+            <JobGroup
+              title="Open"
+              jobs={openJobs}
+              tenant={tenant}
+              defaultOpen={true}
+              startIndex={0}
+              accentColor="#3b82f6"
+            />
+            <JobGroup
+              title="Drafts"
+              jobs={draftJobs}
+              tenant={tenant}
+              defaultOpen={true}
+              startIndex={openJobs.length}
+              accentColor="#f59e0b"
+            />
+            <JobGroup
+              title="Closed"
+              jobs={closedJobs}
+              tenant={tenant}
+              defaultOpen={false}
+              startIndex={openJobs.length + draftJobs.length}
+              accentColor="#9ca3af"
+            />
+          </>
+        ) : null}
 
-      {!isLoading && !hasJobs && !isError ? (
-        <Card className="rounded-2xl border-dashed border-border/70 bg-muted/40 p-10 text-center">
-          <CardContent className="space-y-3 p-0">
-            <Sparkles className="mx-auto size-10 text-primary" />
-            <p className="text-lg font-semibold text-foreground">No analytics yet</p>
-            <p className="text-sm text-muted-foreground">
-              Create a job posting and invite candidates to unlock the analytics dashboard.
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
+        {!isLoading && !hasJobs && !isError ? (
+          <Card className="rounded-2xl border-dashed border-border/70 bg-muted/40 p-10 text-center">
+            <CardContent className="space-y-3 p-0">
+              <Sparkles className="mx-auto size-10 text-primary" />
+              <p className="text-lg font-semibold text-foreground">No analytics yet</p>
+              <p className="text-sm text-muted-foreground">
+                Create a job posting and invite candidates to unlock the analytics dashboard.
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
       </section>
     </div>
   );
