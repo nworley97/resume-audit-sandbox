@@ -60,6 +60,10 @@ app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
 from analytics_service import bp as analytics_bp
 app.register_blueprint(analytics_bp)
 
+# Mobile JSON API blueprint
+from ios_api import mobile_api
+app.register_blueprint(mobile_api)
+
 # Billing/Subscription blueprint
 from billing_routes import billing_bp, require_feature
 app.register_blueprint(billing_bp)
@@ -3514,4 +3518,4 @@ def terms(tenant=None):
     )
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":
-    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT",5000)))
+    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT",5050)))

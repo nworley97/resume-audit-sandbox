@@ -1,0 +1,596 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00000000000000000000021 /* AlteraSFApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* AlteraSFApp.swift */; };
+		A00000000000000000000023 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ContentView.swift */; };
+		A00000000000000000000025 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000024 /* MainTabView.swift */; };
+		A00000000000000000000027 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000026 /* Assets.xcassets */; };
+		A00000000000000000000031 /* Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* Job.swift */; };
+		A00000000000000000000033 /* Candidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000032 /* Candidate.swift */; };
+		A00000000000000000000035 /* AnalyticsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000034 /* AnalyticsModel.swift */; };
+		A00000000000000000000037 /* AppNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000036 /* AppNotification.swift */; };
+		A00000000000000000000041 /* MockDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000040 /* MockDataService.swift */; };
+		A00000000000000000000051 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000050 /* AppTheme.swift */; };
+		A00000000000000000000061 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000060 /* AvatarView.swift */; };
+		A00000000000000000000063 /* ScoreBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000062 /* ScoreBadge.swift */; };
+		A00000000000000000000065 /* StatCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000064 /* StatCard.swift */; };
+		A00000000000000000000067 /* TagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000066 /* TagView.swift */; };
+		A00000000000000000000071 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000070 /* AuthViewModel.swift */; };
+		A00000000000000000000073 /* JobsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000072 /* JobsViewModel.swift */; };
+		A00000000000000000000075 /* CandidatesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000074 /* CandidatesViewModel.swift */; };
+		A00000000000000000000077 /* AnalyticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000076 /* AnalyticsViewModel.swift */; };
+		A00000000000000000000081 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000080 /* SignInView.swift */; };
+		A00000000000000000000083 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000082 /* ResetPasswordView.swift */; };
+		A00000000000000000000085 /* CheckEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000084 /* CheckEmailView.swift */; };
+		A00000000000000000000091 /* JobPostingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000090 /* JobPostingsView.swift */; };
+		A00000000000000000000093 /* JobRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000092 /* JobRowView.swift */; };
+		A00000000000000000000095 /* EditJobView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000094 /* EditJobView.swift */; };
+		A00000000000000000000097 /* CloseRoleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000096 /* CloseRoleSheet.swift */; };
+		A000000000000000000000A1 /* CandidatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A0 /* CandidatesView.swift */; };
+		A000000000000000000000A3 /* CandidateRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A2 /* CandidateRowView.swift */; };
+		A000000000000000000000A5 /* CandidateProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A4 /* CandidateProfileView.swift */; };
+		A000000000000000000000B1 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000B0 /* AnalyticsView.swift */; };
+		A000000000000000000000B3 /* JobAnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000B2 /* JobAnalyticsView.swift */; };
+		A000000000000000000000C1 /* JobBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C0 /* JobBoardView.swift */; };
+		A000000000000000000000D1 /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000D0 /* NotificationsView.swift */; };
+		A000000000000000000000E1 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E0 /* AppConfig.swift */; };
+		A000000000000000000000E3 /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E2 /* APIModels.swift */; };
+		A000000000000000000000E5 /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E4 /* APIService.swift */; };
+		A000000000000000000000F1 /* BillingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F0 /* BillingView.swift */; };
+		A000000000000000000000F3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F2 /* SettingsView.swift */; };
+		A000000000000000000000F5 /* TeamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F4 /* TeamView.swift */; };
+		A000000000000000000000F7 /* DepartmentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F6 /* DepartmentsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A00000000000000000000004 /* AlteraSF.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AlteraSF.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000020 /* AlteraSFApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlteraSFApp.swift; sourceTree = "<group>"; };
+		A00000000000000000000022 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A00000000000000000000024 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		A00000000000000000000026 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A00000000000000000000028 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A00000000000000000000030 /* Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Job.swift; sourceTree = "<group>"; };
+		A00000000000000000000032 /* Candidate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Candidate.swift; sourceTree = "<group>"; };
+		A00000000000000000000034 /* AnalyticsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000036 /* AppNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotification.swift; sourceTree = "<group>"; };
+		A00000000000000000000040 /* MockDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDataService.swift; sourceTree = "<group>"; };
+		A00000000000000000000050 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		A00000000000000000000060 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
+		A00000000000000000000062 /* ScoreBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreBadge.swift; sourceTree = "<group>"; };
+		A00000000000000000000064 /* StatCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCard.swift; sourceTree = "<group>"; };
+		A00000000000000000000066 /* TagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagView.swift; sourceTree = "<group>"; };
+		A00000000000000000000070 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000072 /* JobsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobsViewModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000074 /* CandidatesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidatesViewModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000076 /* AnalyticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsViewModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000080 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+		A00000000000000000000082 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
+		A00000000000000000000084 /* CheckEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckEmailView.swift; sourceTree = "<group>"; };
+		A00000000000000000000090 /* JobPostingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobPostingsView.swift; sourceTree = "<group>"; };
+		A00000000000000000000092 /* JobRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRowView.swift; sourceTree = "<group>"; };
+		A00000000000000000000094 /* EditJobView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditJobView.swift; sourceTree = "<group>"; };
+		A00000000000000000000096 /* CloseRoleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloseRoleSheet.swift; sourceTree = "<group>"; };
+		A000000000000000000000A0 /* CandidatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidatesView.swift; sourceTree = "<group>"; };
+		A000000000000000000000A2 /* CandidateRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRowView.swift; sourceTree = "<group>"; };
+		A000000000000000000000A4 /* CandidateProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateProfileView.swift; sourceTree = "<group>"; };
+		A000000000000000000000B0 /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
+		A000000000000000000000B2 /* JobAnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobAnalyticsView.swift; sourceTree = "<group>"; };
+		A000000000000000000000C0 /* JobBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobBoardView.swift; sourceTree = "<group>"; };
+		A000000000000000000000D0 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
+		A000000000000000000000E0 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		A000000000000000000000E2 /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
+		A000000000000000000000E4 /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
+		A000000000000000000000F0 /* BillingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillingView.swift; sourceTree = "<group>"; };
+		A000000000000000000000F2 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A000000000000000000000F4 /* TeamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamView.swift; sourceTree = "<group>"; };
+		A000000000000000000000F6 /* DepartmentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepartmentsView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A00000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A00000000000000000000002 /* = */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000010 /* AlteraSF */,
+				A00000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A00000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000004 /* AlteraSF.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000010 /* AlteraSF */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000020 /* AlteraSFApp.swift */,
+				A00000000000000000000022 /* ContentView.swift */,
+				A00000000000000000000026 /* Assets.xcassets */,
+				A00000000000000000000028 /* Info.plist */,
+				A00000000000000000000011 /* Models */,
+				A000000000000000000000E6 /* Config */,
+				A00000000000000000000012 /* Services */,
+				A00000000000000000000013 /* Theme */,
+				A00000000000000000000014 /* Components */,
+				A00000000000000000000015 /* ViewModels */,
+				A00000000000000000000016 /* Views */,
+			);
+			path = AlteraSF;
+			sourceTree = "<group>";
+		};
+		A000000000000000000000E6 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000E0 /* AppConfig.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000011 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000030 /* Job.swift */,
+				A00000000000000000000032 /* Candidate.swift */,
+				A00000000000000000000034 /* AnalyticsModel.swift */,
+				A00000000000000000000036 /* AppNotification.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000012 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000040 /* MockDataService.swift */,
+				A000000000000000000000E2 /* APIModels.swift */,
+				A000000000000000000000E4 /* APIService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000013 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000050 /* AppTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000014 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000060 /* AvatarView.swift */,
+				A00000000000000000000062 /* ScoreBadge.swift */,
+				A00000000000000000000064 /* StatCard.swift */,
+				A00000000000000000000066 /* TagView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000015 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000070 /* AuthViewModel.swift */,
+				A00000000000000000000072 /* JobsViewModel.swift */,
+				A00000000000000000000074 /* CandidatesViewModel.swift */,
+				A00000000000000000000076 /* AnalyticsViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000016 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000017 /* Auth */,
+				A00000000000000000000018 /* Jobs */,
+				A00000000000000000000019 /* Candidates */,
+				A0000000000000000000001A /* Analytics */,
+				A0000000000000000000001B /* JobBoard */,
+				A0000000000000000000001C /* Main */,
+				A0000000000000000000001D /* Notifications */,
+				A0000000000000000000001E /* Settings */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000017 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000080 /* SignInView.swift */,
+				A00000000000000000000082 /* ResetPasswordView.swift */,
+				A00000000000000000000084 /* CheckEmailView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000018 /* Jobs */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000090 /* JobPostingsView.swift */,
+				A00000000000000000000092 /* JobRowView.swift */,
+				A00000000000000000000094 /* EditJobView.swift */,
+				A00000000000000000000096 /* CloseRoleSheet.swift */,
+			);
+			path = Jobs;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000019 /* Candidates */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000A0 /* CandidatesView.swift */,
+				A000000000000000000000A2 /* CandidateRowView.swift */,
+				A000000000000000000000A4 /* CandidateProfileView.swift */,
+			);
+			path = Candidates;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000001A /* Analytics */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000B0 /* AnalyticsView.swift */,
+				A000000000000000000000B2 /* JobAnalyticsView.swift */,
+			);
+			path = Analytics;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000001B /* JobBoard */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000C0 /* JobBoardView.swift */,
+			);
+			path = JobBoard;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000001C /* Main */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000024 /* MainTabView.swift */,
+			);
+			path = Main;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000001D /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000D0 /* NotificationsView.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000001E /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000F0 /* BillingView.swift */,
+				A000000000000000000000F2 /* SettingsView.swift */,
+				A000000000000000000000F4 /* TeamView.swift */,
+				A000000000000000000000F6 /* DepartmentsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A00000000000000000000005 /* AlteraSF */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A0000000000000000000000E /* Build configuration list for PBXNativeTarget "AlteraSF" */;
+			buildPhases = (
+				A00000000000000000000006 /* Sources */,
+				A00000000000000000000007 /* Frameworks */,
+				A00000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AlteraSF;
+			productName = AlteraSF;
+			productReference = A00000000000000000000004 /* AlteraSF.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A00000000000000000000005 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A0000000000000000000000D /* Build configuration list for PBXProject "AlteraSF" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A00000000000000000000002;
+			productRefGroup = A00000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A00000000000000000000005 /* AlteraSF */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000027 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A00000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000021 /* AlteraSFApp.swift in Sources */,
+				A00000000000000000000023 /* ContentView.swift in Sources */,
+				A00000000000000000000025 /* MainTabView.swift in Sources */,
+				A00000000000000000000031 /* Job.swift in Sources */,
+				A00000000000000000000033 /* Candidate.swift in Sources */,
+				A00000000000000000000035 /* AnalyticsModel.swift in Sources */,
+				A00000000000000000000037 /* AppNotification.swift in Sources */,
+				A00000000000000000000041 /* MockDataService.swift in Sources */,
+				A00000000000000000000051 /* AppTheme.swift in Sources */,
+				A00000000000000000000061 /* AvatarView.swift in Sources */,
+				A00000000000000000000063 /* ScoreBadge.swift in Sources */,
+				A00000000000000000000065 /* StatCard.swift in Sources */,
+				A00000000000000000000067 /* TagView.swift in Sources */,
+				A00000000000000000000071 /* AuthViewModel.swift in Sources */,
+				A00000000000000000000073 /* JobsViewModel.swift in Sources */,
+				A00000000000000000000075 /* CandidatesViewModel.swift in Sources */,
+				A00000000000000000000077 /* AnalyticsViewModel.swift in Sources */,
+				A00000000000000000000081 /* SignInView.swift in Sources */,
+				A00000000000000000000083 /* ResetPasswordView.swift in Sources */,
+				A00000000000000000000085 /* CheckEmailView.swift in Sources */,
+				A00000000000000000000091 /* JobPostingsView.swift in Sources */,
+				A00000000000000000000093 /* JobRowView.swift in Sources */,
+				A00000000000000000000095 /* EditJobView.swift in Sources */,
+				A00000000000000000000097 /* CloseRoleSheet.swift in Sources */,
+				A000000000000000000000A1 /* CandidatesView.swift in Sources */,
+				A000000000000000000000A3 /* CandidateRowView.swift in Sources */,
+				A000000000000000000000A5 /* CandidateProfileView.swift in Sources */,
+				A000000000000000000000B1 /* AnalyticsView.swift in Sources */,
+				A000000000000000000000B3 /* JobAnalyticsView.swift in Sources */,
+				A000000000000000000000C1 /* JobBoardView.swift in Sources */,
+				A000000000000000000000D1 /* NotificationsView.swift in Sources */,
+				A000000000000000000000E1 /* AppConfig.swift in Sources */,
+				A000000000000000000000E3 /* APIModels.swift in Sources */,
+				A000000000000000000000E5 /* APIService.swift in Sources */,
+				A000000000000000000000F1 /* BillingView.swift in Sources */,
+				A000000000000000000000F3 /* SettingsView.swift in Sources */,
+				A000000000000000000000F5 /* TeamView.swift in Sources */,
+				A000000000000000000000F7 /* DepartmentsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A00000000000000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A0000000000000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A0000000000000000000000B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlteraSF/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alterasf.dashboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A0000000000000000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlteraSF/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alterasf.dashboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A0000000000000000000000D /* Build configuration list for PBXProject "AlteraSF" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000009 /* Debug */,
+				A0000000000000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A0000000000000000000000E /* Build configuration list for PBXNativeTarget "AlteraSF" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A0000000000000000000000B /* Debug */,
+				A0000000000000000000000C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = A00000000000000000000001 /* Project object */;
+}
