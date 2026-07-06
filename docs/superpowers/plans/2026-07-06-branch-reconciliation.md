@@ -193,11 +193,14 @@ git commit -m "feat(alembic): baseline migration matching current production sch
 
 - [ ] **Step 1: Delete `ensure_schema()` and its invocation** in `app.py`. Keep `subscription_models.ensure_subscription_schema()` behavior folded into Alembic (its tables are in the baseline).
 
-- [ ] **Step 2: Run migrations at deploy, before gunicorn**
+- [ ] **Step 2: (DEFERRED to Phase 6) migrations run at deploy, before gunicorn**
 
-Edit `Procfile`:
+> **Sequencing correction:** the `Procfile` change below must NOT ship before the prod DB is stamped
+> (Task 6.1). On an un-stamped shared DB, `alembic upgrade head` would try to CREATE existing tables and
+> the deploy would fail. So through Phases 2–5 the `Procfile` stays plain gunicorn; the alembic-on-boot
+> line lands in Phase 6 together with the stamp. Target `Procfile` (applied in Task 6.2):
 ```
-web: alembic upgrade head && gunicorn app:app --timeout 180 --graceful-timeout 120 --workers 2 --threads 4 -b 0.0.0.0:$PORT
+web: python -m alembic upgrade head && gunicorn app:app --timeout 180 --graceful-timeout 120 --workers 2 --threads 4 -b 0.0.0.0:$PORT
 ```
 
 - [ ] **Step 3: Local smoke test against scratch DB**
