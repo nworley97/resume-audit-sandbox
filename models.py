@@ -78,6 +78,11 @@ class JobDescription(Base):
     id = Column(Integer, primary_key=True)
     code = Column(String(20), nullable=False)  # unique per tenant, not globally
 
+    # Schema parity with prod: exists there (nullable, globally-unique varchar)
+    # but was undeclared here. Added so the Alembic baseline includes it
+    # instead of a future autogenerate trying to drop it.
+    slug = Column(String, nullable=True, unique=True)
+
     title = Column(String(200), nullable=False)
     # ET-23: Raw Markdown (source of truth) and sanitized HTML (rendered)
     markdown = Column(Text, nullable=True)

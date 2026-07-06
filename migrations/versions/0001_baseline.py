@@ -2,7 +2,7 @@
 
 Revision ID: 0001_baseline
 Revises:
-Create Date: 2026-07-06 16:33:23.608115
+Create Date: 2026-07-06 16:38:00.861677
 
 """
 from typing import Sequence, Union
@@ -81,6 +81,7 @@ def upgrade() -> None:
     op.create_table('job_description',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('code', sa.String(length=20), nullable=False),
+    sa.Column('slug', sa.String(), nullable=True),
     sa.Column('title', sa.String(length=200), nullable=False),
     sa.Column('markdown', sa.Text(), nullable=True),
     sa.Column('html', sa.Text(), nullable=True),
@@ -103,7 +104,8 @@ def upgrade() -> None:
     sa.Column('tenant_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['tenant_id'], ['tenant.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('code', 'tenant_id', name='uq_job_code_per_tenant')
+    sa.UniqueConstraint('code', 'tenant_id', name='uq_job_code_per_tenant'),
+    sa.UniqueConstraint('slug')
     )
     op.create_table('payment_history',
     sa.Column('id', sa.Integer(), nullable=False),
