@@ -45,6 +45,13 @@ class User(Base, UserMixin):
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")
 
+    # Per-tenant team role: admin / manager / viewer
+    role = Column(String(20), nullable=False, default="admin")
+    full_name = Column(String(200), nullable=True)
+    company = Column(String(200), nullable=True)
+    # IDs of derived notifications (e.g. "diamond_<candidate_id>") this user has marked read
+    read_notification_ids = Column(MutableList.as_mutable(JSON), nullable=False, default=list)
+
     def set_pw(self, pw: str) -> None:
         self.pw_hash = generate_password_hash(pw)
 

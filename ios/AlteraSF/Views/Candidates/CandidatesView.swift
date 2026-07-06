@@ -14,6 +14,13 @@ struct CandidatesView: View {
     }
 
     var body: some View {
+        NavigationStackWrapper(filterJobId: filterJobId) {
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         mainContent
             .navigationTitle(filterJobId == nil ? "Candidates" : "Candidates")
             .navigationBarTitleDisplayMode(.large)

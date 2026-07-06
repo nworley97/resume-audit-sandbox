@@ -5,6 +5,7 @@ struct SettingsView: View {
     @State private var showEditProfile = false
     @State private var showChangePassword = false
     @State private var showDangerZone = false
+    @AppStorage("appearance_mode") private var appearanceModeRaw = AppearanceMode.system.rawValue
 
     // Notification toggles
     @AppStorage("notif_new_application") var notifNewApplication = true
@@ -49,6 +50,15 @@ struct SettingsView: View {
                 } label: {
                     Label("Change Password", systemImage: "lock")
                         .foregroundColor(AppTheme.textPrimary)
+                }
+            }
+
+            // Appearance
+            Section("Appearance") {
+                Picker("Theme", selection: $appearanceModeRaw) {
+                    ForEach(AppearanceMode.allCases) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
                 }
             }
 
@@ -99,12 +109,12 @@ struct SettingsView: View {
                     Text("1.0.0").foregroundColor(AppTheme.textSecondary).font(.system(size: 14))
                 }
                 NavigationLink {
-                    PlaceholderView(title: "Help & Support", icon: "questionmark.circle")
+                    HelpSupportView()
                 } label: {
                     Label("Help & Support", systemImage: "questionmark.circle")
                 }
                 NavigationLink {
-                    PlaceholderView(title: "Privacy Policy", icon: "shield")
+                    PrivacyPolicyView()
                 } label: {
                     Label("Privacy Policy", systemImage: "shield")
                 }
@@ -143,6 +153,7 @@ struct EditProfileView: View {
     @State private var email: String = ""
     @State private var company: String = ""
     @State private var isSaving = false
+    @State private var error: String? = nil
 
     var body: some View {
         NavigationStack {
@@ -156,9 +167,6 @@ struct EditProfileView: View {
                                 Text(authVM.currentUserInitials)
                                     .font(.system(size: 24, weight: .bold)).foregroundColor(.white)
                             }
-                            Button("Change photo") {}
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(AppTheme.primary)
                         }
                         Spacer()
                     }
@@ -186,6 +194,12 @@ struct EditProfileView: View {
                         TextField("Company name", text: $company).multilineTextAlignment(.trailing)
                     }
                 }
+
+                if let err = error {
+                    Section {
+                        Text(err).foregroundColor(AppTheme.danger).font(.caption)
+                    }
+                }
             }
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
@@ -196,11 +210,7 @@ struct EditProfileView: View {
                         ProgressView().scaleEffect(0.8)
                     } else {
                         Button("Save") {
-                            isSaving = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                isSaving = false
-                                dismiss()
-                            }
+                            Task { await save() }
                         }
                         .fontWeight(.semibold).foregroundColor(AppTheme.primary)
                     }
@@ -210,6 +220,19 @@ struct EditProfileView: View {
                 name = authVM.currentUserName
                 email = authVM.currentUserEmail
             }
+        }
+    }
+
+    private func save() async {
+        isSaving = true
+        error = nil
+        do {
+            try await authVM.updateProfile(fullName: name, email: email, company: company)
+            isSaving = false
+            dismiss()
+        } catch {
+            isSaving = false
+            self.error = error.localizedDescription
         }
     }
 }
@@ -257,13 +280,25 @@ struct ChangePasswordView: View {
                         Button("Save") {
                             guard newPass == confirm else { error = "Passwords do not match."; return }
                             guard newPass.count >= 8 else { error = "Password must be at least 8 characters."; return }
-                            isSaving = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { isSaving = false; dismiss() }
+                            Task { await save() }
                         }
                         .fontWeight(.semibold).foregroundColor(AppTheme.primary)
                     }
                 }
             }
+        }
+    }
+
+    private func save() async {
+        isSaving = true
+        error = nil
+        do {
+            try await APIService.shared.changePassword(current: current, new: newPass)
+            isSaving = false
+            dismiss()
+        } catch {
+            isSaving = false
+            self.error = error.localizedDescription
         }
     }
 }

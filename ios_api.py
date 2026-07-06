@@ -6,6 +6,7 @@ Auth: same Flask-Login session cookies that the web app uses.
 """
 from __future__ import annotations
 import math
+import secrets
 from datetime import datetime
 from functools import wraps
 
@@ -143,7 +144,7 @@ def _candidate_list_dict(c: Candidate, jd: JobDescription | None) -> dict:
     }
 
 
-def _candidate_detail_dict(c: Candidate, jd: JobDescription | None) -> dict:
+def _candidate_detail_dict(c: Candidate, jd: JobDescription | None, t: Tenant) -> dict:
     base = _candidate_list_dict(c, jd)
 
     # Q&A
@@ -190,7 +191,7 @@ def _candidate_detail_dict(c: Candidate, jd: JobDescription | None) -> dict:
         skills = [s.strip() for s in skills.split(",") if s.strip()]
 
     base.update({
-        "resume_url": c.resume_url or "",
+        "resume_url": f"api/mobile/{t.slug}/candidates/{c.id}/resume" if c.resume_url else "",
         "education": education or "",
         "experience": experience or "",
         "skills": skills if isinstance(skills, list) else [],
@@ -290,11 +291,14 @@ def auth_login():
                 tenant_display = tenant.display_name or tenant.slug
                 session["tenant_slug"] = tenant_slug
 
-        initials = (username[:2]).upper()
+        display_name = user.full_name or username
+        initials = "".join(w[0] for w in display_name.split()[:2]).upper() or "U"
         return jsonify({
             "ok": True,
             "user": {
                 "username": username,
+                "full_name": user.full_name or "",
+                "company": user.company or "",
                 "initials": initials,
                 "is_super": bool(user.is_super),
                 "tenant_slug": tenant_slug,
@@ -317,7 +321,9 @@ def auth_logout():
 def auth_me():
     user = current_user
     username = getattr(user, "username", "") or ""
-    initials = username[:2].upper()
+    full_name = getattr(user, "full_name", "") or ""
+    display_name = full_name or username
+    initials = "".join(w[0] for w in display_name.split()[:2]).upper() or "U"
     tenant_slug = None
     tenant_display = None
     if getattr(user, "tenant_id", None):
@@ -331,6 +337,8 @@ def auth_me():
             db.close()
     return jsonify({
         "username": username,
+        "full_name": full_name,
+        "company": getattr(user, "company", "") or "",
         "initials": initials,
         "is_super": bool(getattr(user, "is_super", False)),
         "tenant_slug": tenant_slug,
@@ -642,7 +650,7 @@ def get_candidate(t: Tenant, cid: str):
         if not c:
             abort(404, "candidate not found")
         jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first() if c.jd_code else None
-        return jsonify(_candidate_detail_dict(c, jd))
+        return jsonify(_candidate_detail_dict(c, jd, t))
     finally:
         db.close()
 
@@ -665,6 +673,38 @@ def set_candidate_status(t: Tenant, cid: str):
         return jsonify({"ok": True, "status": c.status or ""})
     finally:
         db.close()
+
+
+@mobile_api.route("/<tenant>/candidates/<cid>/resume", methods=["GET"])
+@login_required
+@tenant_required
+def download_candidate_resume(t: Tenant, cid: str):
+    import os
+    from flask import send_file, redirect
+
+    db = SessionLocal()
+    try:
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first()
+        if not c or not c.resume_url:
+            abort(404, "resume not found")
+        storage_path = c.resume_url
+    finally:
+        db.close()
+
+    from app import S3_ENABLED, presign
+
+    fn = os.path.basename(storage_path)
+    if S3_ENABLED and storage_path.startswith("s3://"):
+        try:
+            url = presign(storage_path, content_disposition=f'attachment; filename="{fn}"')
+            return redirect(url)
+        except Exception:
+            abort(502, "unable to generate resume download link")
+
+    if os.path.exists(storage_path):
+        return send_file(storage_path, as_attachment=True, download_name=fn or "resume")
+
+    abort(404, "resume file not found")
 
 
 # ─── Analytics ────────────────────────────────────────────────────────────────
@@ -721,5 +761,416 @@ def analytics_job(t: Tenant, code: str):
         if not jd:
             abort(404)
         return jsonify(_analytics_for_job(jd, db, t))
+    finally:
+        db.close()
+
+
+# ─── Profile & Password ───────────────────────────────────────────────────────
+
+@mobile_api.route("/auth/profile", methods=["PATCH"])
+@login_required
+def update_profile():
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        user = db.get(User, current_user.id)
+        if "full_name" in data:
+            user.full_name = (data.get("full_name") or "").strip() or None
+        if "company" in data:
+            user.company = (data.get("company") or "").strip() or None
+        if "email" in data:
+            new_email = (data.get("email") or "").strip().lower()
+            if new_email and new_email != user.username:
+                if db.query(User).filter(User.username == new_email, User.id != user.id).first():
+                    abort(409, "email already in use")
+                user.username = new_email
+        db.commit()
+        return jsonify({
+            "username": user.username,
+            "full_name": user.full_name or "",
+            "company": user.company or "",
+            "initials": (user.full_name or user.username)[:2].upper(),
+        })
+    finally:
+        db.close()
+
+
+@mobile_api.route("/auth/change-password", methods=["POST"])
+@login_required
+def change_password():
+    data = request.get_json(silent=True) or {}
+    current_pw = data.get("current_password") or ""
+    new_pw = data.get("new_password") or ""
+    if len(new_pw) < 8:
+        abort(400, "new password must be at least 8 characters")
+    db = SessionLocal()
+    try:
+        user = db.get(User, current_user.id)
+        if not user.check_pw(current_pw):
+            abort(401, "current password is incorrect")
+        user.set_pw(new_pw)
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+# ─── Team ──────────────────────────────────────────────────────────────────────
+
+def _team_member_dict(u: User) -> dict:
+    display_name = u.full_name or u.username
+    return {
+        "id": u.id,
+        "name": display_name,
+        "email": u.username,
+        "role": (u.role or "admin"),
+        "initials": "".join(w[0] for w in display_name.split()[:2]).upper() or "U",
+    }
+
+
+@mobile_api.route("/<tenant>/team", methods=["GET"])
+@login_required
+@tenant_required
+def list_team(t: Tenant):
+    db = SessionLocal()
+    try:
+        members = db.query(User).filter_by(tenant_id=t.id).order_by(User.id.asc()).all()
+        return jsonify([_team_member_dict(u) for u in members])
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/team/invite", methods=["POST"])
+@login_required
+@tenant_required
+def invite_team_member(t: Tenant):
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    role = (data.get("role") or "manager").strip().lower()
+    if not name or not email:
+        abort(400, "name and email required")
+    if role not in ("admin", "manager", "viewer"):
+        abort(400, "role must be admin, manager, or viewer")
+
+    db = SessionLocal()
+    try:
+        from subscription_models import check_can_add_seat
+        can_add, used, limit = check_can_add_seat(t.id, db)
+        if not can_add:
+            abort(409, f"seat limit reached ({used}/{limit}). Upgrade your plan to add more members.")
+
+        if db.query(User).filter_by(username=email).first():
+            abort(409, "a user with this email already exists")
+
+        temp_password = secrets.token_urlsafe(9)
+        user = User(username=email, full_name=name, role=role, tenant_id=t.id)
+        user.set_pw(temp_password)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        result = _team_member_dict(user)
+        result["temp_password"] = temp_password
+        return jsonify(result), 201
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/team/<int:user_id>", methods=["PATCH"])
+@login_required
+@tenant_required
+def update_team_member(t: Tenant, user_id: int):
+    data = request.get_json(silent=True) or {}
+    role = (data.get("role") or "").strip().lower()
+    if role not in ("admin", "manager", "viewer"):
+        abort(400, "role must be admin, manager, or viewer")
+    db = SessionLocal()
+    try:
+        member = db.query(User).filter_by(id=user_id, tenant_id=t.id).first()
+        if not member:
+            abort(404)
+        member.role = role
+        db.commit()
+        return jsonify(_team_member_dict(member))
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/team/<int:user_id>", methods=["DELETE"])
+@login_required
+@tenant_required
+def remove_team_member(t: Tenant, user_id: int):
+    db = SessionLocal()
+    try:
+        member = db.query(User).filter_by(id=user_id, tenant_id=t.id).first()
+        if not member:
+            abort(404)
+        if member.id == current_user.id:
+            abort(400, "you cannot remove yourself")
+        remaining = db.query(func.count(User.id)).filter_by(tenant_id=t.id).scalar() or 0
+        if remaining <= 1:
+            abort(400, "cannot remove the last team member")
+        db.delete(member)
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+# ─── Notifications (derived from live job/candidate activity) ───────────────
+
+def _derive_notifications(t: Tenant, db) -> list[dict]:
+    notifs: list[dict] = []
+
+    jobs = db.query(JobDescription).filter_by(tenant_id=t.id).all()
+    jd_by_code = {jd.code: jd for jd in jobs}
+    cands = (
+        db.query(Candidate)
+        .filter_by(tenant_id=t.id)
+        .order_by(Candidate.created_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    for c in cands:
+        jd = jd_by_code.get(c.jd_code)
+        job_title = jd.title if jd else "a role"
+        created = c.created_at or datetime.utcnow()
+
+        notifs.append({
+            "id": f"app_{c.id}",
+            "type": "new_application",
+            "title": "New application",
+            "subtitle": f"{c.name} applied to {job_title}",
+            "created_at": created.isoformat(),
+        })
+
+        answers = getattr(c, "answers", None) or []
+        qcount = jd.question_count if jd and jd.question_count else 4
+        if len(answers) >= qcount:
+            notifs.append({
+                "id": f"assess_{c.id}",
+                "type": "assessment_completed",
+                "title": "Assessment completed",
+                "subtitle": f"{c.name} finished the {job_title} assessment",
+                "created_at": created.isoformat(),
+            })
+
+        rel = _normalize_score(getattr(c, "fit_score", None))
+        claim = _avg_answer_scores(getattr(c, "answer_scores", None) or [])
+        if _is_diamond(rel, claim):
+            notifs.append({
+                "id": f"diamond_{c.id}",
+                "type": "diamond_found",
+                "title": "Diamond candidate found",
+                "subtitle": f"{c.name} passed verification for {job_title}",
+                "created_at": created.isoformat(),
+            })
+
+    for jd in jobs:
+        if (jd.status or "").lower() == "draft" and jd.updated_at:
+            notifs.append({
+                "id": f"draft_{jd.id}",
+                "type": "draft_saved",
+                "title": "Draft saved",
+                "subtitle": f"{jd.title} draft was auto-saved",
+                "created_at": jd.updated_at.isoformat(),
+            })
+
+    notifs.sort(key=lambda n: n["created_at"], reverse=True)
+    return notifs[:50]
+
+
+@mobile_api.route("/<tenant>/notifications", methods=["GET"])
+@login_required
+@tenant_required
+def list_notifications(t: Tenant):
+    db = SessionLocal()
+    try:
+        user = db.get(User, current_user.id)
+        read_ids = set(user.read_notification_ids or [])
+        derived = _derive_notifications(t, db)
+        for n in derived:
+            n["is_read"] = n["id"] in read_ids
+        return jsonify(derived)
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/notifications/read-all", methods=["POST"])
+@login_required
+@tenant_required
+def mark_all_notifications_read(t: Tenant):
+    db = SessionLocal()
+    try:
+        user = db.get(User, current_user.id)
+        derived = _derive_notifications(t, db)
+        ids = {n["id"] for n in derived}
+        existing = set(user.read_notification_ids or [])
+        user.read_notification_ids = list(existing | ids)
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/notifications/<notif_id>/read", methods=["PATCH"])
+@login_required
+@tenant_required
+def mark_notification_read(t: Tenant, notif_id: str):
+    db = SessionLocal()
+    try:
+        user = db.get(User, current_user.id)
+        existing = set(user.read_notification_ids or [])
+        existing.add(notif_id)
+        user.read_notification_ids = list(existing)
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+# ─── Billing ───────────────────────────────────────────────────────────────────
+
+@mobile_api.route("/<tenant>/billing", methods=["GET"])
+@login_required
+@tenant_required
+def get_billing(t: Tenant):
+    from subscription_models import get_usage_summary, TenantSubscription, PaymentHistory
+    from plans_config import get_all_plans_for_display
+
+    db = SessionLocal()
+    try:
+        summary = get_usage_summary(t.id, db)
+        if not summary:
+            abort(404, "no billing account for this tenant")
+        if summary.get("period_end") is not None:
+            summary["period_end"] = summary["period_end"].isoformat()
+
+        sub = db.query(TenantSubscription).filter_by(tenant_id=t.id).first()
+        invoices = (
+            db.query(PaymentHistory)
+            .filter_by(tenant_id=t.id)
+            .order_by(PaymentHistory.created_at.desc())
+            .limit(24)
+            .all()
+        )
+
+        return jsonify({
+            "summary": summary,
+            "payment_method": {
+                "brand": sub.payment_method_brand if sub else None,
+                "last4": sub.payment_method_last4 if sub else None,
+                "exp_month": sub.payment_method_exp_month if sub else None,
+                "exp_year": sub.payment_method_exp_year if sub else None,
+            },
+            "has_stripe_customer": bool(sub and sub.stripe_customer_id),
+            "invoices": [
+                {
+                    "id": inv.id,
+                    "description": inv.description or "",
+                    "amount": inv.amount,
+                    "status": inv.status,
+                    "created_at": inv.created_at.isoformat() if inv.created_at else None,
+                }
+                for inv in invoices
+            ],
+            "plans": get_all_plans_for_display(),
+        })
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/billing/change-plan", methods=["POST"])
+@login_required
+@tenant_required
+def billing_change_plan(t: Tenant):
+    from subscription_models import TenantSubscription, PaymentHistory, get_tenant_subscription
+    from plans_config import PLAN_TIERS, PLAN_PRICING, get_plan_price
+
+    data = request.get_json(silent=True) or {}
+    new_tier = (data.get("plan_tier") or "").strip().lower()
+    if new_tier not in PLAN_TIERS:
+        abort(400, "invalid plan_tier")
+
+    db = SessionLocal()
+    try:
+        virtual = get_tenant_subscription(t.id, db)
+        if virtual and virtual.status == "grandfathered":
+            abort(400, "grandfathered accounts cannot change plans")
+
+        sub = db.query(TenantSubscription).filter_by(tenant_id=t.id).first()
+        if not sub:
+            sub = TenantSubscription(tenant_id=t.id, plan_tier="free", billing_cycle="monthly", status="active")
+            db.add(sub)
+            db.flush()
+
+        new_cycle = (data.get("billing_cycle") or sub.billing_cycle or "monthly").strip().lower()
+        old_amount = get_plan_price(sub.plan_tier, sub.billing_cycle)
+        new_amount = get_plan_price(new_tier, new_cycle)
+
+        sub.plan_tier = new_tier
+        sub.billing_cycle = new_cycle
+        db.add(PaymentHistory(
+            tenant_id=t.id,
+            amount=max(new_amount - old_amount, 0),
+            currency="USD",
+            description=f"Plan change to {PLAN_PRICING[new_tier]['display_name']} ({new_cycle})",
+            status="succeeded",
+            plan_tier=new_tier,
+            billing_cycle=new_cycle,
+            payment_method_last4=sub.payment_method_last4,
+            payment_method_brand=sub.payment_method_brand,
+        ))
+        db.commit()
+        return jsonify({"ok": True, "plan_tier": new_tier, "billing_cycle": new_cycle})
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/billing/cancel", methods=["POST"])
+@login_required
+@tenant_required
+def billing_cancel(t: Tenant):
+    from subscription_models import TenantSubscription, get_tenant_subscription
+
+    db = SessionLocal()
+    try:
+        virtual = get_tenant_subscription(t.id, db)
+        if virtual and virtual.status == "grandfathered":
+            abort(400, "grandfathered accounts cannot be canceled")
+
+        sub = db.query(TenantSubscription).filter_by(tenant_id=t.id).first()
+        if not sub or sub.status == "canceled":
+            abort(400, "no active subscription to cancel")
+
+        sub.status = "canceled"
+        sub.canceled_at = datetime.utcnow()
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/billing/portal", methods=["GET"])
+@login_required
+@tenant_required
+def billing_portal(t: Tenant):
+    from subscription_models import TenantSubscription
+
+    db = SessionLocal()
+    try:
+        sub = db.query(TenantSubscription).filter_by(tenant_id=t.id).first()
+        if not sub or not sub.stripe_customer_id:
+            abort(400, "no payment method on file to manage")
+
+        from stripe_service import create_billing_portal_session
+        success, error, portal_url = create_billing_portal_session(
+            sub.stripe_customer_id,
+            request.args.get("return_url", "https://alterasf.com"),
+        )
+        if not success or not portal_url:
+            abort(502, error or "unable to reach billing portal")
+        return jsonify({"url": portal_url})
     finally:
         db.close()

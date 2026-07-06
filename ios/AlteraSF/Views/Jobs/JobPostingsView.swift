@@ -98,6 +98,11 @@ struct JobPostingsView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button {
+                        vm.copyJobBoardLink()
+                    } label: {
+                        Image(systemName: "link").foregroundColor(AppTheme.textPrimary)
+                    }
                     NavigationLink { NotificationsView() } label: {
                         Image(systemName: "bell").foregroundColor(AppTheme.textPrimary)
                     }

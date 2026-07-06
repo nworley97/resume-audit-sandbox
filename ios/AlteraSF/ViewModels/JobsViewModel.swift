@@ -132,6 +132,11 @@ final class JobsViewModel: ObservableObject {
         }
     }
 
+    func copyJobBoardLink() {
+        UIPasteboard.general.string = "https://jobs.alterasf.com"
+        showToast("Job board link copied")
+    }
+
     private func showToast(_ msg: String) {
         toast = msg
         Task { @MainActor in

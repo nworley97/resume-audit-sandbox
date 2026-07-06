@@ -5,12 +5,16 @@ import Foundation
 
 struct APIUser: Decodable {
     let username: String
+    let fullName: String
+    let company: String
     let initials: String
     let isSuper: Bool
     let tenantSlug: String?
     let tenantDisplayName: String?
     enum CodingKeys: String, CodingKey {
         case username, initials
+        case fullName = "full_name"
+        case company
         case isSuper = "is_super"
         case tenantSlug = "tenant_slug"
         case tenantDisplayName = "tenant_display_name"
@@ -183,6 +187,7 @@ struct APICandidate: Decodable {
             appliedDate: parse(appliedDate),
             status: CandidateStatus(rawValue: status) ?? .active,
             resumeText: "",
+            resumeUrl: resumeUrl ?? "",
             education: education ?? "",
             experience: experience ?? "",
             skills: skills ?? [],
@@ -323,4 +328,181 @@ struct APIErrorResponse: Decodable {
     let description: String?
     let message: String?
     var text: String { description ?? message ?? "Unknown error" }
+}
+
+// MARK: – Profile
+
+struct APIProfile: Decodable {
+    let username: String
+    let fullName: String
+    let company: String
+    let initials: String
+    enum CodingKeys: String, CodingKey {
+        case username, initials
+        case fullName = "full_name"
+        case company
+    }
+}
+
+// MARK: – Team
+
+struct APITeamMember: Decodable, Identifiable {
+    let id: Int
+    let name: String
+    let email: String
+    let role: String
+    let initials: String
+    let tempPassword: String?
+    enum CodingKeys: String, CodingKey {
+        case id, name, email, role, initials
+        case tempPassword = "temp_password"
+    }
+}
+
+// MARK: – Notifications
+
+struct APINotification: Decodable, Identifiable {
+    let id: String
+    let type: String
+    let title: String
+    let subtitle: String
+    let createdAt: String
+    let isRead: Bool
+    enum CodingKeys: String, CodingKey {
+        case id, type, title, subtitle
+        case createdAt = "created_at"
+        case isRead = "is_read"
+    }
+
+    var domainType: NotificationType {
+        switch type {
+        case "new_application": return .newApplication
+        case "assessment_completed": return .assessmentCompleted
+        case "diamond_found": return .diamondFound
+        case "draft_saved": return .draftSaved
+        default: return .jobBoardViews
+        }
+    }
+
+    func toDomain() -> AppNotification {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallback = ISO8601DateFormatter()
+        let timestamp = formatter.date(from: createdAt) ?? fallback.date(from: createdAt) ?? Date()
+        return AppNotification(id: id, type: domainType, title: title, subtitle: subtitle, timestamp: timestamp, isRead: isRead)
+    }
+}
+
+// MARK: – Billing
+
+struct APIBillingSummary: Decodable {
+    let planTier: String
+    let planDisplay: String
+    let billingCycle: String
+    let status: String
+    let isGrandfathered: Bool
+    let jobsLimit: Int
+    let resumesLimit: Int
+    let seatsLimit: Int
+    let jobsUsed: Int
+    let resumesUsed: Int
+    let seatsUsed: Int
+    let hasClaimValidity: Bool
+    let hasRedFlag: Bool
+    let hasAnalytics: Bool
+    let periodEnd: String?
+    let extraSeats: Int
+    enum CodingKeys: String, CodingKey {
+        case status
+        case planTier = "plan_tier"
+        case planDisplay = "plan_display"
+        case billingCycle = "billing_cycle"
+        case isGrandfathered = "is_grandfathered"
+        case jobsLimit = "jobs_limit"
+        case resumesLimit = "resumes_limit"
+        case seatsLimit = "seats_limit"
+        case jobsUsed = "jobs_used"
+        case resumesUsed = "resumes_used"
+        case seatsUsed = "seats_used"
+        case hasClaimValidity = "has_claim_validity"
+        case hasRedFlag = "has_red_flag"
+        case hasAnalytics = "has_analytics"
+        case periodEnd = "period_end"
+        case extraSeats = "extra_seats"
+    }
+}
+
+struct APIPaymentMethod: Decodable {
+    let brand: String?
+    let last4: String?
+    let expMonth: Int?
+    let expYear: Int?
+    enum CodingKeys: String, CodingKey {
+        case brand, last4
+        case expMonth = "exp_month"
+        case expYear = "exp_year"
+    }
+}
+
+struct APIInvoice: Decodable, Identifiable {
+    let id: Int
+    let description: String
+    let amount: Double
+    let status: String
+    let createdAt: String?
+    enum CodingKeys: String, CodingKey {
+        case id, description, amount, status
+        case createdAt = "created_at"
+    }
+}
+
+struct APIPlanLimits: Decodable {
+    let activeJobs: Int
+    let monthlyResumes: Int
+    let seatsIncluded: Int
+    enum CodingKeys: String, CodingKey {
+        case activeJobs = "active_jobs"
+        case monthlyResumes = "monthly_resumes"
+        case seatsIncluded = "seats_included"
+    }
+}
+
+struct APIPlanFeature: Decodable, Identifiable {
+    let key: String
+    let name: String
+    var id: String { key }
+}
+
+struct APIPlan: Decodable, Identifiable {
+    let tier: String
+    let displayName: String
+    let tagline: String
+    let monthlyPrice: Double
+    let yearlyPrice: Double
+    let limits: APIPlanLimits
+    let features: [APIPlanFeature]
+    var id: String { tier }
+    enum CodingKeys: String, CodingKey {
+        case tier, tagline, limits, features
+        case displayName = "display_name"
+        case monthlyPrice = "monthly_price"
+        case yearlyPrice = "yearly_price"
+    }
+}
+
+struct APIBillingResponse: Decodable {
+    let summary: APIBillingSummary
+    let paymentMethod: APIPaymentMethod
+    let hasStripeCustomer: Bool
+    let invoices: [APIInvoice]
+    let plans: [APIPlan]
+    enum CodingKeys: String, CodingKey {
+        case summary, invoices, plans
+        case paymentMethod = "payment_method"
+        case hasStripeCustomer = "has_stripe_customer"
+    }
+}
+
+struct APIPortalResponse: Decodable {
+    let url: String
 }

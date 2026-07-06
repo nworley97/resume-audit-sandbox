@@ -9,6 +9,9 @@ struct CandidateProfileView: View {
     @State private var expandedQA: Set<UUID> = []
     @State private var showArchiveAlert = false
     @State private var showFinalistToast = false
+    @State private var isDownloadingResume = false
+    @State private var resumeShareURL: URL?
+    @State private var resumeDownloadError: String?
 
     private let api = APIService.shared
 
@@ -44,6 +47,34 @@ struct CandidateProfileView: View {
             }
         }
         .animation(.easeInOut, value: showFinalistToast)
+        .sheet(item: Binding(
+            get: { resumeShareURL.map { IdentifiableURL(url: $0) } },
+            set: { resumeShareURL = $0?.url }
+        )) { wrapped in
+            ShareSheet(items: [wrapped.url])
+        }
+        .alert("Couldn't download resume", isPresented: Binding(
+            get: { resumeDownloadError != nil },
+            set: { if !$0 { resumeDownloadError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(resumeDownloadError ?? "")
+        }
+    }
+
+    private func downloadResume(candidateId: String) async {
+        guard !isDownloadingResume else { return }
+        isDownloadingResume = true
+        defer { isDownloadingResume = false }
+        do {
+            let (data, filename) = try await api.fetchResumeData(candidateId: candidateId)
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+            try data.write(to: tempURL, options: .atomic)
+            resumeShareURL = tempURL
+        } catch {
+            resumeDownloadError = error.localizedDescription
+        }
     }
 
     private func loadDetail() async {
@@ -139,16 +170,23 @@ struct CandidateProfileView: View {
             .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2).padding(16)
 
             // Resume
-            if !c.education.isEmpty || !c.experience.isEmpty || !c.skills.isEmpty {
+            if !c.education.isEmpty || !c.experience.isEmpty || !c.skills.isEmpty || !c.resumeUrl.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Resume").font(.system(size: 16, weight: .semibold))
                         Spacer()
-                        if !c.resumeText.isEmpty {
-                            Button { } label: {
-                                Label("Download PDF", systemImage: "arrow.down.doc")
-                                    .font(.system(size: 12, weight: .medium)).foregroundColor(AppTheme.primary)
+                        if !c.resumeUrl.isEmpty {
+                            Button {
+                                Task { await downloadResume(candidateId: c.id) }
+                            } label: {
+                                if isDownloadingResume {
+                                    ProgressView().scaleEffect(0.7)
+                                } else {
+                                    Label("Download PDF", systemImage: "arrow.down.doc")
+                                        .font(.system(size: 12, weight: .medium)).foregroundColor(AppTheme.primary)
+                                }
                             }
+                            .disabled(isDownloadingResume)
                         }
                     }
                     .padding(.horizontal, 16).padding(.top, 16)

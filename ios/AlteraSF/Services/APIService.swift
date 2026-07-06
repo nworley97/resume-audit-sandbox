@@ -146,6 +146,100 @@ final class APIService: ObservableObject {
         )
     }
 
+    // MARK: – Profile & Password
+
+    func updateProfile(fullName: String, email: String, company: String) async throws -> APIProfile {
+        try await patch("/api/mobile/auth/profile", body: ["full_name": fullName, "email": email, "company": company])
+    }
+
+    func changePassword(current: String, new: String) async throws {
+        let _: EmptyResponse = try await post("/api/mobile/auth/change-password", body: ["current_password": current, "new_password": new])
+    }
+
+    // MARK: – Team
+
+    func fetchTeam() async throws -> [APITeamMember] {
+        let tenant = try requireTenant()
+        return try await get("/api/mobile/\(tenant)/team")
+    }
+
+    func inviteTeamMember(name: String, email: String, role: String) async throws -> APITeamMember {
+        let tenant = try requireTenant()
+        return try await post("/api/mobile/\(tenant)/team/invite", body: ["name": name, "email": email, "role": role])
+    }
+
+    func updateTeamMemberRole(id: Int, role: String) async throws -> APITeamMember {
+        let tenant = try requireTenant()
+        return try await patch("/api/mobile/\(tenant)/team/\(id)", body: ["role": role])
+    }
+
+    func removeTeamMember(id: Int) async throws {
+        let tenant = try requireTenant()
+        let _: EmptyResponse = try await delete("/api/mobile/\(tenant)/team/\(id)")
+    }
+
+    // MARK: – Notifications
+
+    func fetchNotifications() async throws -> [APINotification] {
+        let tenant = try requireTenant()
+        return try await get("/api/mobile/\(tenant)/notifications")
+    }
+
+    func markAllNotificationsRead() async throws {
+        let tenant = try requireTenant()
+        let _: EmptyResponse = try await post("/api/mobile/\(tenant)/notifications/read-all", body: EmptyBody())
+    }
+
+    func markNotificationRead(id: String) async throws {
+        let tenant = try requireTenant()
+        let _: EmptyResponse = try await patch("/api/mobile/\(tenant)/notifications/\(id)/read", body: EmptyBody())
+    }
+
+    // MARK: – Billing
+
+    func fetchBilling() async throws -> APIBillingResponse {
+        let tenant = try requireTenant()
+        return try await get("/api/mobile/\(tenant)/billing")
+    }
+
+    func changePlan(tier: String, cycle: String) async throws {
+        let tenant = try requireTenant()
+        let _: EmptyResponse = try await post("/api/mobile/\(tenant)/billing/change-plan", body: ["plan_tier": tier, "billing_cycle": cycle])
+    }
+
+    func cancelSubscription() async throws {
+        let tenant = try requireTenant()
+        let _: EmptyResponse = try await post("/api/mobile/\(tenant)/billing/cancel", body: EmptyBody())
+    }
+
+    func fetchBillingPortalURL() async throws -> String {
+        let tenant = try requireTenant()
+        let response: APIPortalResponse = try await get("/api/mobile/\(tenant)/billing/portal")
+        return response.url
+    }
+
+    // MARK: – Resume download (authenticated, returns raw bytes + suggested filename)
+
+    func fetchResumeData(candidateId: String) async throws -> (Data, String) {
+        let tenant = try requireTenant()
+        let req = request(path: "/api/mobile/\(tenant)/candidates/\(candidateId)/resume", method: "GET", body: nil)
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await session.data(for: req)
+        } catch {
+            throw APIError.networkError(error)
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+        guard (200...299).contains(http.statusCode) else {
+            if http.statusCode == 401 { throw APIError.notAuthenticated }
+            throw APIError.httpError(http.statusCode, "Unable to download resume")
+        }
+        let filename = response.suggestedFilename ?? "resume.pdf"
+        return (data, filename)
+    }
+
     // MARK: – Analytics
 
     func fetchAnalyticsOverview() async throws -> APIAnalyticsOverview {

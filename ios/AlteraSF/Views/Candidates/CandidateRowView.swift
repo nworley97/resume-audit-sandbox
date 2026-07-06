@@ -11,7 +11,7 @@ struct CandidateRowView: View {
                     Image(systemName: "diamond.fill")
                         .font(.system(size: 10))
                         .foregroundColor(AppTheme.diamond)
-                        .background(Circle().fill(Color.white).frame(width: 16, height: 16))
+                        .background(Circle().fill(AppTheme.background).frame(width: 16, height: 16))
                         .offset(x: 2, y: 2)
                 }
             }

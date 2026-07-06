@@ -152,6 +152,21 @@ def ensure_schema():
                 conn.execute(text(ddl))
 
 
+    # NEW: team roles, profile fields, notification read-state
+    ucols = {c["name"] for c in insp.get_columns("user")}
+    uadds = []
+    if "role" not in ucols:                  uadds.append("ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'")
+    if "full_name" not in ucols:              uadds.append("ADD COLUMN full_name TEXT")
+    if "company" not in ucols:                uadds.append("ADD COLUMN company TEXT")
+    if "read_notification_ids" not in ucols:  uadds.append("ADD COLUMN read_notification_ids JSON")
+    if uadds:
+        with models_engine.begin() as conn:
+            if DATABASE_URL.startswith("sqlite"):
+                for add in uadds:
+                    conn.execute(text(f"ALTER TABLE user {add};"))
+            else:
+                conn.execute(text("ALTER TABLE user " + ", ".join(uadds) + ";"))
+
     # NEW: candidate anti-cheat counter
     ccols = {c["name"] for c in insp.get_columns("candidate")}
     cadds = []
