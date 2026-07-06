@@ -145,6 +145,11 @@ def ensure_schema():
     cadds = []
     if "left_tab_count" not in ccols:
         cadds.append("ADD COLUMN left_tab_count INTEGER DEFAULT 0")
+    # NEW: recruiter archive workflow (models.py Candidate.archived / archived_at)
+    if "archived" not in ccols:
+        cadds.append("ADD COLUMN archived BOOLEAN NOT NULL DEFAULT FALSE")
+    if "archived_at" not in ccols:
+        cadds.append("ADD COLUMN archived_at TIMESTAMP")
     if cadds:
         ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
         with models_engine.begin() as conn:
