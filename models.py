@@ -143,6 +143,10 @@ class Candidate(Base):
 
     # Recruiter's free-text note about the candidate (e.g. shown on the Analytics finalists list)
     recruiter_note = Column(Text, nullable=True)
+    # Schema parity with prod (added recently there; declared here so Alembic
+    # baseline matches prod exactly instead of trying to drop them).
+    archived = Column(Boolean, default=False, nullable=True)
+    archived_at = Column(DateTime, nullable=True)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")
