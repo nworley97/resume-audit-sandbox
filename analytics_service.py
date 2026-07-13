@@ -7,7 +7,7 @@ from datetime import datetime, datetime as datetime_class
 from statistics import mean, median, pstdev
 
 from flask import Flask, request, jsonify, abort, make_response, Blueprint
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 # Re-use your existing DB + models (no changes to app.py)
 from db import SessionLocal
@@ -297,6 +297,38 @@ def _build_detailed_funnel(cands):
     return funnel
 
 
+TAB_SWITCH_FLAG_THRESHOLD = 5
+
+
+def _cheat_flag_info(cand: Candidate):
+    """
+    Surface anti-cheat signals for a candidate: tab/window switches and
+    pasted-answer detections recorded during the application flow.
+    """
+    tab_switches = getattr(cand, "left_tab_count", 0) or 0
+
+    rj = cand.resume_json or {}
+    paste_flags = rj.get("_paste_flags") or {}
+    flagged_answers = sum(1 for v in paste_flags.values() if v)
+    total_answers = len(cand.questions or [])
+
+    reasons = []
+    if tab_switches >= TAB_SWITCH_FLAG_THRESHOLD:
+        reasons.append(f"{tab_switches} tab switches")
+    if flagged_answers and total_answers and flagged_answers == total_answers:
+        reasons.append("All flagged answers")
+    elif flagged_answers:
+        reasons.append(f"{flagged_answers}/{total_answers} flagged answers")
+
+    return {
+        "tab_switches": tab_switches,
+        "flagged_answers": flagged_answers,
+        "total_answers": total_answers,
+        "flagged": bool(reasons),
+        "flag_reason": " • ".join(reasons) if reasons else None,
+    }
+
+
 def _initials(name: str) -> str:
     parts = (name or "").split()
     if not parts:
@@ -424,6 +456,7 @@ def analytics_job_detail(jd_code):
         claim_values = []  # ET-12: For statistics - store actual average scores, not buckets
         relevancy_values = []  # ET-12: For statistics - store actual scores, not buckets
         diamonds_roster = []
+        finalists_roster = []
 
         cell_members = defaultdict(list)
 
@@ -499,6 +532,8 @@ def analytics_job_detail(jd_code):
             rel_matrix_idx = _get_fit_range_for_matrix(rel_score)
             heatmap[rel_matrix_idx][claim_matrix_idx] += 1
 
+            cheat_info = _cheat_flag_info(c)
+
             # Diamonds logic (Claim >4 and Relevancy == 5)
             if _is_diamond_candidate(claim_avg, rel_score):
                 diamonds += 1
@@ -509,11 +544,31 @@ def analytics_job_detail(jd_code):
                     "claim_validity_score": claim_display,
                     "relevancy_score": relevancy_display,
                     "combined_score": combined_display,
+                    "flagged": cheat_info["flagged"],
+                    "flag_reason": cheat_info["flag_reason"],
+                    "tab_switches": cheat_info["tab_switches"],
                     "_sort": {
                         "combined": combined_numeric,
                         "claim": claim_numeric if claim_numeric is not None else 0.0,
                         "relevancy": relevancy_numeric if relevancy_numeric is not None else 0.0,
                     },
+                })
+
+            # Recruiter-curated finalist shortlist for this job
+            if getattr(c, "status", None) == "finalist":
+                finalists_roster.append({
+                    "id": c.id,
+                    "name": c.name,
+                    "initials": _initials(c.name),
+                    "claim_validity_score": claim_display,
+                    "relevancy_score": relevancy_display,
+                    "flagged_answers": cheat_info["flagged_answers"],
+                    "total_answers": cheat_info["total_answers"],
+                    "tab_switches": cheat_info["tab_switches"],
+                    "flagged": cheat_info["flagged"],
+                    "flag_reason": cheat_info["flag_reason"],
+                    "overall_score": combined_display,
+                    "note": c.recruiter_note or "",
                 })
             # ET-12: Cell members for heatmap using matrix range indices
             cell_members[(rel_matrix_idx, claim_matrix_idx)].append({
@@ -540,6 +595,8 @@ def analytics_job_detail(jd_code):
 
         for entry in diamonds_roster:
             entry.pop("_sort", None)
+
+        finalists_roster.sort(key=lambda x: x["overall_score"], reverse=True)
 
         # Create new detailed funnel (question completion status)
         funnel = _build_detailed_funnel(cands)
@@ -648,6 +705,7 @@ def analytics_job_detail(jd_code):
                 "last_updated": last_application_time,
             },
             "diamonds": diamonds_roster[:5],
+            "finalists": finalists_roster,
             "completion_funnel": funnel,
             "roi": roi_payload,
             "statistics": {
@@ -656,5 +714,77 @@ def analytics_job_detail(jd_code):
             },
         }
         return jsonify(payload)
+    finally:
+        db.close()
+
+
+@bp.get("/analytics/job/<jd_code>/candidates")
+def analytics_job_candidates(jd_code):
+    """
+    Lightweight roster for the 'Add Candidates' picker: everyone applied to
+    this job who isn't already a finalist.
+    """
+    tenant_slug = (request.args.get("tenant") or "").strip()
+    db = SessionLocal()
+    try:
+        t = _tenant_or_404(db, tenant_slug)
+        cands = (db.query(Candidate)
+                   .filter(Candidate.tenant_id == t.id,
+                           Candidate.jd_code == jd_code,
+                           or_(Candidate.status.is_(None), Candidate.status != "finalist"))
+                   .order_by(Candidate.name.asc())
+                   .all())
+        return jsonify([
+            {
+                "id": c.id,
+                "name": c.name,
+                "initials": _initials(c.name),
+                "claim_validity_score": _claim_average(getattr(c, "answer_scores", None)) or 0.0,
+                "relevancy_score": _relevancy_score(c) or 0.0,
+            }
+            for c in cands
+        ])
+    finally:
+        db.close()
+
+
+@bp.post("/analytics/candidate/<cid>/finalist")
+def analytics_set_finalist(cid):
+    """Add or remove a candidate from the recruiter's finalist shortlist."""
+    payload = request.get_json(silent=True) or {}
+    tenant_slug = (payload.get("tenant") or request.args.get("tenant") or "").strip()
+    action = payload.get("action")
+    if action not in ("add", "remove"):
+        abort(400, "action must be 'add' or 'remove'")
+
+    db = SessionLocal()
+    try:
+        t = _tenant_or_404(db, tenant_slug)
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first()
+        if not c:
+            abort(404, "candidate not found")
+        c.status = "finalist" if action == "add" else None
+        db.commit()
+        return jsonify({"id": c.id, "status": c.status})
+    finally:
+        db.close()
+
+
+@bp.post("/analytics/candidate/<cid>/note")
+def analytics_set_note(cid):
+    """Save the recruiter's note about a candidate."""
+    payload = request.get_json(silent=True) or {}
+    tenant_slug = (payload.get("tenant") or request.args.get("tenant") or "").strip()
+    note = (payload.get("note") or "").strip()
+
+    db = SessionLocal()
+    try:
+        t = _tenant_or_404(db, tenant_slug)
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first()
+        if not c:
+            abort(404, "candidate not found")
+        c.recruiter_note = note or None
+        db.commit()
+        return jsonify({"id": c.id, "note": c.recruiter_note or ""})
     finally:
         db.close()

@@ -1,7 +1,9 @@
 import { env } from "@/lib/env";
 import {
+  analyticsCandidateOptionsResponseSchema,
   analyticsJobDetailSchema,
   analyticsSummaryResponseSchema,
+  type AnalyticsCandidateOption,
   type AnalyticsJobDetail,
   type AnalyticsJobSummary,
 } from "@/types/analytics";
@@ -50,4 +52,25 @@ export async function getAnalyticsDetail(jdCode: string, tenant: string) {
   return analyticsJobDetailSchema.parse(data) as AnalyticsJobDetail;
 }
 
-export type { AnalyticsJobSummary, AnalyticsJobDetail };
+export async function getAnalyticsJobCandidates(jdCode: string, tenant: string) {
+  const data = await fetchJson<unknown>(
+    buildUrl(`/analytics/job/${encodeURIComponent(jdCode)}/candidates`, tenant)
+  );
+  return analyticsCandidateOptionsResponseSchema.parse(data) as AnalyticsCandidateOption[];
+}
+
+export async function setCandidateFinalist(cid: string, tenant: string, action: "add" | "remove") {
+  return fetchJson<{ id: string; status: string | null }>(buildUrl(`/analytics/candidate/${encodeURIComponent(cid)}/finalist`, tenant), {
+    method: "POST",
+    body: JSON.stringify({ tenant, action }),
+  });
+}
+
+export async function setCandidateNote(cid: string, tenant: string, note: string) {
+  return fetchJson<{ id: string; note: string }>(buildUrl(`/analytics/candidate/${encodeURIComponent(cid)}/note`, tenant), {
+    method: "POST",
+    body: JSON.stringify({ tenant, note }),
+  });
+}
+
+export type { AnalyticsJobSummary, AnalyticsJobDetail, AnalyticsCandidateOption };

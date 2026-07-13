@@ -9,7 +9,7 @@ enum NotificationType {
 }
 
 struct AppNotification: Identifiable {
-    let id: UUID
+    let id: String
     var type: NotificationType
     var title: String
     var subtitle: String
@@ -35,10 +35,10 @@ struct AppNotification: Identifiable {
     }
 
     static let samples: [AppNotification] = [
-        AppNotification(id: UUID(), type: .diamondFound, title: "Diamond found", subtitle: "Alex Kim passed verification for Senior Engineer", timestamp: Date().addingTimeInterval(-1800), isRead: false),
-        AppNotification(id: UUID(), type: .newApplication, title: "New application", subtitle: "Jordan Lee applied to Product Manager", timestamp: Date().addingTimeInterval(-7200), isRead: false),
-        AppNotification(id: UUID(), type: .assessmentCompleted, title: "Assessment completed", subtitle: "Sam Rivera finished the Frontend Engineer assessment", timestamp: Date().addingTimeInterval(-18000), isRead: false),
-        AppNotification(id: UUID(), type: .jobBoardViews, title: "Job board traffic spike", subtitle: "Senior Engineer post got 120 views today", timestamp: Date().addingTimeInterval(-86400), isRead: true),
-        AppNotification(id: UUID(), type: .draftSaved, title: "Draft saved", subtitle: "Data Analyst role draft was auto-saved", timestamp: Date().addingTimeInterval(-172800), isRead: true),
+        AppNotification(id: UUID().uuidString, type: .diamondFound, title: "Diamond found", subtitle: "Alex Kim passed verification for Senior Engineer", timestamp: Date().addingTimeInterval(-1800), isRead: false),
+        AppNotification(id: UUID().uuidString, type: .newApplication, title: "New application", subtitle: "Jordan Lee applied to Product Manager", timestamp: Date().addingTimeInterval(-7200), isRead: false),
+        AppNotification(id: UUID().uuidString, type: .assessmentCompleted, title: "Assessment completed", subtitle: "Sam Rivera finished the Frontend Engineer assessment", timestamp: Date().addingTimeInterval(-18000), isRead: false),
+        AppNotification(id: UUID().uuidString, type: .jobBoardViews, title: "Job board traffic spike", subtitle: "Senior Engineer post got 120 views today", timestamp: Date().addingTimeInterval(-86400), isRead: true),
+        AppNotification(id: UUID().uuidString, type: .draftSaved, title: "Draft saved", subtitle: "Data Analyst role draft was auto-saved", timestamp: Date().addingTimeInterval(-172800), isRead: true),
     ]
 }

@@ -18,13 +18,9 @@ struct MainTabView: View {
                 .tabItem { Label("Analytics", systemImage: "chart.bar") }
                 .tag(2)
 
-            JobBoardView()
-                .tabItem { Label("Job Board", systemImage: "storefront") }
-                .tag(3)
-
             MoreView()
                 .tabItem { Label("More", systemImage: "ellipsis") }
-                .tag(4)
+                .tag(3)
         }
         .tint(AppTheme.primary)
     }
@@ -32,108 +28,56 @@ struct MainTabView: View {
 
 struct MoreView: View {
     @EnvironmentObject var authVM: AuthViewModel
+    @State private var showCopiedToast = false
 
     var body: some View {
         NavigationStack {
-            List {
-                // Account header
-                Section {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Circle().fill(AppTheme.primary).frame(width: 50, height: 50)
-                            Text(authVM.currentUserInitials)
-                                .font(.system(size: 17, weight: .bold)).foregroundColor(.white)
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(authVM.currentUserName)
-                                .font(.system(size: 15, weight: .semibold))
+            VStack(spacing: 0) {
+                AppTopBar()
+                PageHeader(title: "More", subtitle: "Account, billing, and preferences.")
+
+                List {
+                    Section {
+                        Button {
+                            if let slug = APIService.shared.tenantSlug {
+                                UIPasteboard.general.string = AppConfig.baseURL.appendingPathComponent("\(slug)/jobs").absoluteString
+                            }
+                            showCopiedToast = true
+                            Task {
+                                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                                showCopiedToast = false
+                            }
+                        } label: {
+                            Label("Copy job board link", systemImage: "link")
                                 .foregroundColor(AppTheme.textPrimary)
-                            Text(authVM.currentUserEmail)
-                                .font(.system(size: 13))
-                                .foregroundColor(AppTheme.textSecondary)
                         }
-                        Spacer()
+                        NavigationLink { BillingView() } label: {
+                            Label("Billing", systemImage: "creditcard")
+                        }
                         NavigationLink { SettingsView() } label: {
-                            Image(systemName: "gear")
-                                .font(.system(size: 18))
-                                .foregroundColor(AppTheme.textSecondary)
+                            Label("Settings", systemImage: "gearshape")
                         }
                     }
-                    .padding(.vertical, 4)
-                }
 
-                // Manage
-                Section("Manage") {
-                    NavigationLink { NotificationsView() } label: {
-                        Label("Notifications", systemImage: "bell")
-                    }
-                    NavigationLink { TeamView() } label: {
-                        Label("Team Members", systemImage: "person.2")
-                    }
-                    NavigationLink { DepartmentsView() } label: {
-                        Label("Departments", systemImage: "building.2")
-                    }
-                    NavigationLink { JobBoardView() } label: {
-                        Label("Job Board", systemImage: "storefront")
-                    }
-                }
-
-                // Subscription
-                Section("Subscription") {
-                    NavigationLink { BillingView() } label: {
-                        HStack {
-                            Label("Billing & Plans", systemImage: "creditcard")
-                            Spacer()
-                            Text("Pro")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(AppTheme.primary)
-                                .padding(.horizontal, 8).padding(.vertical, 3)
-                                .background(AppTheme.primaryLight)
-                                .cornerRadius(6)
+                    Section {
+                        Button(role: .destructive) {
+                            authVM.signOut()
+                        } label: {
+                            Label("Log out", systemImage: "rectangle.portrait.and.arrow.right")
                         }
                     }
                 }
-
-                // App
-                Section("App") {
-                    NavigationLink { SettingsView() } label: {
-                        Label("Settings", systemImage: "gear")
-                    }
-                    NavigationLink { PlaceholderView(title: "Help & Support", icon: "questionmark.circle") } label: {
-                        Label("Help & Support", systemImage: "questionmark.circle")
-                    }
-                    HStack {
-                        Label("Version", systemImage: "info.circle")
-                        Spacer()
-                        Text("1.0.0").foregroundColor(AppTheme.textSecondary).font(.system(size: 13))
-                    }
-                }
-
-                // Sign out
-                Section {
-                    Button(role: .destructive) {
-                        authVM.signOut()
-                    } label: {
-                        Label("Log out", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
+                .listStyle(.insetGrouped)
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .overlay(alignment: .bottom) {
+                if showCopiedToast {
+                    ToastView(message: "Job board link copied")
+                        .padding(.bottom, 16)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .navigationTitle("More")
-            .navigationBarTitleDisplayMode(.large)
+            .animation(.easeInOut(duration: 0.2), value: showCopiedToast)
         }
-    }
-}
-
-struct PlaceholderView: View {
-    let title: String; let icon: String
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: icon).font(.system(size: 48)).foregroundColor(AppTheme.textTertiary)
-            Text(title).font(.title2.weight(.semibold)).foregroundColor(AppTheme.textSecondary)
-            Text("Coming soon").font(.subheadline).foregroundColor(AppTheme.textTertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppTheme.groupedBackground.ignoresSafeArea())
-        .navigationTitle(title)
     }
 }

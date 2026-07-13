@@ -1,37 +1,127 @@
 import SwiftUI
 
-struct BillingView: View {
-    @State private var showUpgradeSheet = false
+@MainActor
+final class BillingViewModel: ObservableObject {
+    @Published var billing: APIBillingResponse? = nil
+    @Published var isLoading = true
+    @Published var error: String? = nil
+    @Published var actionError: String? = nil
 
-    // Hardcoded plan data — replace with API when billing endpoint exists
-    let plan = BillingPlan.pro
-    let usageJobs = 12
-    let usageJobLimit = 25
-    let usageCandidates = 348
-    let nextBillingDate = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
+    private let api = APIService.shared
+
+    func load() async {
+        isLoading = true
+        error = nil
+        do {
+            billing = try await api.fetchBilling()
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    func changePlan(tier: String, cycle: String) async -> Bool {
+        actionError = nil
+        do {
+            try await api.changePlan(tier: tier, cycle: cycle)
+            await load()
+            return true
+        } catch {
+            actionError = error.localizedDescription
+            return false
+        }
+    }
+
+    func cancel() async {
+        actionError = nil
+        do {
+            try await api.cancelSubscription()
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    func portalURL() async -> URL? {
+        actionError = nil
+        do {
+            let urlString = try await api.fetchBillingPortalURL()
+            return URL(string: urlString)
+        } catch {
+            actionError = "No payment method on file yet. Contact sales@alterasf.com to set one up."
+            return nil
+        }
+    }
+}
+
+struct BillingView: View {
+    @StateObject private var vm = BillingViewModel()
+    @State private var showUpgradeSheet = false
+    @State private var showCancelConfirm = false
+    @State private var portalURL: URL? = nil
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                planCard
-                usageCard
-                paymentCard
-                invoicesCard
+        Group {
+            if vm.isLoading && vm.billing == nil {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let err = vm.error, vm.billing == nil {
+                ErrorBanner(message: err) { Task { await vm.load() } }
+                    .padding(16)
+            } else if let billing = vm.billing {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        if let actionError = vm.actionError {
+                            Text(actionError)
+                                .font(.caption)
+                                .foregroundColor(AppTheme.danger)
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(AppTheme.danger.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        planCard(billing)
+                        usageCard(billing)
+                        paymentCard(billing)
+                        invoicesCard(billing)
+                        if !billing.summary.isGrandfathered && billing.summary.status != "canceled" {
+                            cancelButton
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
+                    .padding(.bottom, 32)
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
-            .padding(.bottom, 32)
         }
         .background(AppTheme.groupedBackground.ignoresSafeArea())
-        .navigationTitle("Billing & Plans")
+        .navigationTitle("Billing")
         .navigationBarTitleDisplayMode(.large)
-        .sheet(isPresented: $showUpgradeSheet) { UpgradeSheet() }
+        .task { await vm.load() }
+        .refreshable { await vm.load() }
+        .sheet(isPresented: $showUpgradeSheet) {
+            if let billing = vm.billing {
+                UpgradeSheet(billing: billing) { tier, cycle in
+                    await vm.changePlan(tier: tier, cycle: cycle)
+                }
+            }
+        }
+        .confirmationDialog("Cancel your subscription?", isPresented: $showCancelConfirm, titleVisibility: .visible) {
+            Button("Cancel Subscription", role: .destructive) { Task { await vm.cancel() } }
+            Button("Keep Subscription", role: .cancel) {}
+        } message: {
+            Text("You'll keep access until the end of your current billing period.")
+        }
     }
 
     // MARK: – Plan card
 
-    private var planCard: some View {
-        VStack(spacing: 0) {
+    private func planCard(_ billing: APIBillingResponse) -> some View {
+        let summary = billing.summary
+        let plan = billing.plans.first { $0.tier == summary.planTier }
+        let price = summary.billingCycle == "yearly" ? (plan?.yearlyPrice ?? 0) : (plan?.monthlyPrice ?? 0)
+
+        return VStack(spacing: 0) {
             LinearGradient(
                 colors: [AppTheme.primary, AppTheme.primaryDark],
                 startPoint: .topLeading, endPoint: .bottomTrailing
@@ -46,7 +136,7 @@ struct BillingView: View {
                             Image(systemName: "bolt.fill")
                                 .font(.system(size: 12))
                                 .foregroundColor(AppTheme.primary)
-                            Text(plan.badge)
+                            Text(summary.isGrandfathered ? "Grandfathered" : (summary.status == "canceled" ? "Canceled" : "Current Plan"))
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(AppTheme.primary)
                                 .textCase(.uppercase)
@@ -54,36 +144,43 @@ struct BillingView: View {
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(AppTheme.primaryLight).cornerRadius(6)
 
-                        Text(plan.name)
+                        Text(summary.planDisplay)
                             .font(.system(size: 24, weight: .bold))
                             .foregroundColor(AppTheme.textPrimary)
                     }
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(plan.price)
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(AppTheme.textPrimary)
-                        Text("/ month").font(.caption).foregroundColor(AppTheme.textSecondary)
+                    if !summary.isGrandfathered {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(price > 0 ? "$\(Int(price))" : "Free")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(AppTheme.textPrimary)
+                            Text(summary.billingCycle == "yearly" ? "/ year" : "/ month")
+                                .font(.caption).foregroundColor(AppTheme.textSecondary)
+                        }
                     }
                 }
 
                 Divider()
 
                 HStack(spacing: 20) {
-                    BillingMetric(label: "Next billing", value: nextBillingDate.formatted(.dateTime.month(.abbreviated).day().year()))
-                    BillingMetric(label: "Status", value: "Active", valueColor: AppTheme.success)
-                    BillingMetric(label: "Seats", value: "\(plan.seats)")
+                    if let periodEnd = summary.periodEnd, let date = ISO8601DateFormatter().date(from: periodEnd) {
+                        BillingMetric(label: "Next billing", value: date.formatted(.dateTime.month(.abbreviated).day().year()))
+                    }
+                    BillingMetric(label: "Status", value: summary.status.capitalized, valueColor: summary.status == "active" || summary.isGrandfathered ? AppTheme.success : AppTheme.warning)
+                    BillingMetric(label: "Seats", value: "\(summary.seatsUsed)/\(summary.seatsLimit >= 999 ? "∞" : "\(summary.seatsLimit)")")
                 }
 
-                Button {
-                    showUpgradeSheet = true
-                } label: {
-                    Text("Upgrade to Enterprise")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(AppTheme.primary)
-                        .frame(maxWidth: .infinity).frame(height: 40)
-                        .background(AppTheme.primaryLight)
-                        .cornerRadius(AppTheme.buttonCornerRadius)
+                if !summary.isGrandfathered {
+                    Button {
+                        showUpgradeSheet = true
+                    } label: {
+                        Text("Change Plan")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(AppTheme.primary)
+                            .frame(maxWidth: .infinity).frame(height: 40)
+                            .background(AppTheme.primaryLight)
+                            .cornerRadius(AppTheme.buttonCornerRadius)
+                    }
                 }
             }
             .padding(16)
@@ -95,17 +192,18 @@ struct BillingView: View {
 
     // MARK: – Usage card
 
-    private var usageCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Usage this month").font(.system(size: 16, weight: .semibold))
+    private func usageCard(_ billing: APIBillingResponse) -> some View {
+        let summary = billing.summary
+        return VStack(alignment: .leading, spacing: 16) {
+            Text("Usage this period").font(.system(size: 16, weight: .semibold))
 
-            UsageBar(label: "Active job postings", used: usageJobs, limit: usageJobLimit, color: AppTheme.primary)
-            UsageBar(label: "Candidates screened", used: usageCandidates, limit: plan.candidateLimit, color: AppTheme.success)
+            UsageBar(label: "Active job postings", used: summary.jobsUsed, limit: summary.jobsLimit >= 999 ? 0 : summary.jobsLimit, color: AppTheme.primary)
+            UsageBar(label: "Resumes screened this month", used: summary.resumesUsed, limit: summary.resumesLimit >= 999 ? 0 : summary.resumesLimit, color: AppTheme.success)
 
             HStack(spacing: 12) {
-                UsageMetricBox(icon: "clock.fill", value: "\(usageCandidates / 60 + 1)h", label: "Time saved", color: AppTheme.warning)
-                UsageMetricBox(icon: "diamond.fill", value: "\(Int(Double(usageCandidates) * 0.08))", label: "Diamonds found", color: AppTheme.diamond)
-                UsageMetricBox(icon: "percent", value: "94", label: "Screen accuracy", color: AppTheme.success)
+                FeatureAccessBox(label: "Claim Validity", enabled: summary.hasClaimValidity)
+                FeatureAccessBox(label: "Red Flag Detection", enabled: summary.hasRedFlag)
+                FeatureAccessBox(label: "Full Analytics", enabled: summary.hasAnalytics)
             }
         }
         .padding(16)
@@ -114,37 +212,49 @@ struct BillingView: View {
 
     // MARK: – Payment card
 
-    private var paymentCard: some View {
+    private func paymentCard(_ billing: APIBillingResponse) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Payment method").font(.system(size: 16, weight: .semibold))
                 Spacer()
-                Button("Update") {}
-                    .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+                Button(billing.hasStripeCustomer ? "Manage" : "Add") {
+                    Task {
+                        if let url = await vm.portalURL() { openURL(url) }
+                    }
+                }
+                .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
             }
 
-            HStack(spacing: 14) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(red: 0.1, green: 0.15, blue: 0.35))
-                    .frame(width: 50, height: 32)
-                    .overlay(
-                        Text("VISA").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
-                    )
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Visa ending in 4242")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
-                    Text("Expires 12 / 2027")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+            if let brand = billing.paymentMethod.brand, let last4 = billing.paymentMethod.last4 {
+                HStack(spacing: 14) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(red: 0.1, green: 0.15, blue: 0.35))
+                        .frame(width: 50, height: 32)
+                        .overlay(
+                            Text(brand.uppercased()).font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                        )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(brand.capitalized) ending in \(last4)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(AppTheme.textPrimary)
+                        if let m = billing.paymentMethod.expMonth, let y = billing.paymentMethod.expYear {
+                            Text("Expires \(m) / \(y)")
+                                .font(.caption)
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(AppTheme.success)
                 }
-                Spacer()
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(AppTheme.success)
+                .padding(12)
+                .background(AppTheme.secondaryBackground)
+                .cornerRadius(10)
+            } else {
+                Text("No payment method on file.")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.textSecondary)
             }
-            .padding(12)
-            .background(AppTheme.secondaryBackground)
-            .cornerRadius(10)
         }
         .padding(16)
         .cardStyle()
@@ -152,68 +262,69 @@ struct BillingView: View {
 
     // MARK: – Invoices
 
-    private var invoicesCard: some View {
+    private func invoicesCard(_ billing: APIBillingResponse) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Invoices").font(.system(size: 16, weight: .semibold))
                 Spacer()
-                Button("Download all") {}
-                    .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+                if !billing.invoices.isEmpty {
+                    ShareLink(item: receiptText(billing.invoices)) {
+                        Text("Share all")
+                            .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+                    }
+                }
             }
 
-            ForEach(BillingInvoice.samples) { invoice in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(invoice.description).font(.system(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary)
-                        Text(invoice.date).font(.caption).foregroundColor(AppTheme.textSecondary)
+            if billing.invoices.isEmpty {
+                Text("No invoices yet.")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.textSecondary)
+            } else {
+                ForEach(billing.invoices) { invoice in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(invoice.description).font(.system(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+                            Text(formattedDate(invoice.createdAt)).font(.caption).foregroundColor(AppTheme.textSecondary)
+                        }
+                        Spacer()
+                        Text(String(format: "$%.2f", invoice.amount)).font(.system(size: 14, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                        ShareLink(item: receiptText([invoice])) {
+                            Image(systemName: "square.and.arrow.up").font(.system(size: 16)).foregroundColor(AppTheme.primary).padding(.leading, 8)
+                        }
                     }
-                    Spacer()
-                    Text(invoice.amount).font(.system(size: 14, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
-                    Image(systemName: "arrow.down.circle").font(.system(size: 16)).foregroundColor(AppTheme.primary).padding(.leading, 8)
+                    .padding(.vertical, 4)
+                    if invoice.id != billing.invoices.last?.id { Divider() }
                 }
-                .padding(.vertical, 4)
-                if invoice.id != BillingInvoice.samples.last?.id { Divider() }
             }
         }
         .padding(16)
         .cardStyle()
     }
-}
 
-// MARK: – Supporting types
+    private var cancelButton: some View {
+        Button(role: .destructive) {
+            showCancelConfirm = true
+        } label: {
+            Text("Cancel Subscription")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(AppTheme.danger)
+                .frame(maxWidth: .infinity).frame(height: 44)
+                .background(AppTheme.danger.opacity(0.1))
+                .cornerRadius(AppTheme.buttonCornerRadius)
+        }
+    }
 
-enum BillingPlan {
-    case starter, pro, enterprise
+    private func formattedDate(_ iso: String?) -> String {
+        guard let iso, let date = ISO8601DateFormatter().date(from: iso) ?? {
+            let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime]; return f.date(from: iso)
+        }() else { return "" }
+        return date.formatted(.dateTime.month(.abbreviated).day().year())
+    }
 
-    var name: String {
-        switch self { case .starter: return "Starter"; case .pro: return "Pro"; case .enterprise: return "Enterprise" }
+    private func receiptText(_ invoices: [APIInvoice]) -> String {
+        invoices.map { "\($0.description) — $\(String(format: "%.2f", $0.amount)) — \(formattedDate($0.createdAt)) — \($0.status)" }
+            .joined(separator: "\n")
     }
-    var badge: String {
-        switch self { case .starter: return "Current Plan"; case .pro: return "Current Plan"; case .enterprise: return "Current Plan" }
-    }
-    var price: String {
-        switch self { case .starter: return "$49"; case .pro: return "$149"; case .enterprise: return "Custom" }
-    }
-    var seats: Int {
-        switch self { case .starter: return 3; case .pro: return 10; case .enterprise: return 0 }
-    }
-    var candidateLimit: Int {
-        switch self { case .starter: return 200; case .pro: return 1000; case .enterprise: return 0 }
-    }
-}
-
-struct BillingInvoice: Identifiable {
-    let id = UUID()
-    let description: String
-    let date: String
-    let amount: String
-
-    static let samples = [
-        BillingInvoice(description: "Pro Plan – June 2025", date: "Jun 1, 2025", amount: "$149.00"),
-        BillingInvoice(description: "Pro Plan – May 2025", date: "May 1, 2025", amount: "$149.00"),
-        BillingInvoice(description: "Pro Plan – Apr 2025", date: "Apr 1, 2025", amount: "$149.00"),
-        BillingInvoice(description: "Pro Plan – Mar 2025", date: "Mar 1, 2025", amount: "$149.00"),
-    ]
 }
 
 // MARK: – Sub-components
@@ -251,12 +362,12 @@ struct UsageBar: View {
     }
 }
 
-struct UsageMetricBox: View {
-    let icon: String; let value: String; let label: String; let color: Color
+struct FeatureAccessBox: View {
+    let label: String; let enabled: Bool
     var body: some View {
         VStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 18)).foregroundColor(color)
-            Text(value).font(.system(size: 16, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Image(systemName: enabled ? "checkmark.circle.fill" : "lock.fill")
+                .font(.system(size: 18)).foregroundColor(enabled ? AppTheme.success : AppTheme.textTertiary)
             Text(label).font(.system(size: 10)).foregroundColor(AppTheme.textSecondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -266,45 +377,65 @@ struct UsageMetricBox: View {
 
 struct UpgradeSheet: View {
     @Environment(\.dismiss) var dismiss
+    let billing: APIBillingResponse
+    let onChoose: (String, String) async -> Bool
+    @State private var isSaving = false
+
+    private var upgradeOptions: [APIPlan] {
+        let tiers = ["free", "starter", "pro", "ultra"]
+        let currentIdx = tiers.firstIndex(of: billing.summary.planTier) ?? 0
+        return billing.plans.filter { (tiers.firstIndex(of: $0.tier) ?? 0) > currentIdx }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    VStack(spacing: 8) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 40)).foregroundColor(AppTheme.primary)
-                        Text("Upgrade to Enterprise")
-                            .font(.title2.weight(.bold))
-                        Text("Unlock unlimited jobs, candidates, and team seats with dedicated support.")
-                            .font(.subheadline).foregroundColor(AppTheme.textSecondary)
-                            .multilineTextAlignment(.center).padding(.horizontal, 24)
-                    }
-                    .padding(.top, 24)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(["Unlimited job postings", "Unlimited candidate screenings", "Unlimited team seats", "Custom AI question sets", "Dedicated account manager", "Priority support & SLA"], id: \.self) { feature in
-                            HStack(spacing: 10) {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(AppTheme.success)
-                                Text(feature).font(.system(size: 14))
+                VStack(spacing: 16) {
+                    ForEach(upgradeOptions) { plan in
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text(plan.displayName).font(.title3.weight(.bold))
+                                Spacer()
+                                Text("$\(Int(plan.monthlyPrice))/mo").font(.system(size: 16, weight: .semibold)).foregroundColor(AppTheme.primary)
                             }
+                            ForEach(plan.features) { feature in
+                                HStack(spacing: 10) {
+                                    Image(systemName: "checkmark.circle.fill").foregroundColor(AppTheme.success)
+                                    Text(feature.name).font(.system(size: 14))
+                                }
+                            }
+                            Button {
+                                Task {
+                                    isSaving = true
+                                    let ok = await onChoose(plan.tier, billing.summary.billingCycle)
+                                    isSaving = false
+                                    if ok { dismiss() }
+                                }
+                            } label: {
+                                Text("Switch to \(plan.displayName)")
+                                    .font(.system(size: 14, weight: .semibold)).foregroundColor(.white)
+                                    .frame(maxWidth: .infinity).frame(height: 44)
+                                    .background(AppTheme.primary).cornerRadius(AppTheme.buttonCornerRadius)
+                            }
+                            .disabled(isSaving)
                         }
+                        .padding(16).background(AppTheme.secondaryBackground).cornerRadius(12)
                     }
-                    .padding(16).background(AppTheme.secondaryBackground).cornerRadius(12)
-                    .padding(.horizontal, 16)
 
-                    Button {
-                        // contact sales
-                    } label: {
-                        Text("Contact Sales")
-                            .font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
-                            .frame(maxWidth: .infinity).frame(height: 50)
-                            .background(AppTheme.primary).cornerRadius(AppTheme.buttonCornerRadius)
+                    if upgradeOptions.isEmpty {
+                        VStack(spacing: 8) {
+                            Text("You're on our highest plan.")
+                                .font(.subheadline).foregroundColor(AppTheme.textSecondary)
+                            Link("Contact sales for Enterprise", destination: URL(string: "mailto:sales@alterasf.com")!)
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .padding(.top, 40)
                     }
-                    .padding(.horizontal, 16)
                 }
+                .padding(16)
                 .padding(.bottom, 32)
             }
-            .navigationTitle("Plans").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Change Plan").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
         }
     }

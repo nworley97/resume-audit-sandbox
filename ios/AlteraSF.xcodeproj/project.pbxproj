@@ -20,6 +20,7 @@
 		A00000000000000000000061 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000060 /* AvatarView.swift */; };
 		A00000000000000000000063 /* ScoreBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000062 /* ScoreBadge.swift */; };
 		A00000000000000000000065 /* StatCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000064 /* StatCard.swift */; };
+		A00000000000000000000102 /* AppTopBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000101 /* AppTopBar.swift */; };
 		A00000000000000000000067 /* TagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000066 /* TagView.swift */; };
 		A00000000000000000000071 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000070 /* AuthViewModel.swift */; };
 		A00000000000000000000073 /* JobsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000072 /* JobsViewModel.swift */; };
@@ -34,18 +35,22 @@
 		A00000000000000000000097 /* CloseRoleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000096 /* CloseRoleSheet.swift */; };
 		A000000000000000000000A1 /* CandidatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A0 /* CandidatesView.swift */; };
 		A000000000000000000000A3 /* CandidateRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A2 /* CandidateRowView.swift */; };
+		A00000000000000000000104 /* CandidateQuickPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000103 /* CandidateQuickPreviewSheet.swift */; };
 		A000000000000000000000A5 /* CandidateProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A4 /* CandidateProfileView.swift */; };
 		A000000000000000000000B1 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000B0 /* AnalyticsView.swift */; };
 		A000000000000000000000B3 /* JobAnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000B2 /* JobAnalyticsView.swift */; };
-		A000000000000000000000C1 /* JobBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C0 /* JobBoardView.swift */; };
 		A000000000000000000000D1 /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000D0 /* NotificationsView.swift */; };
 		A000000000000000000000E1 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E0 /* AppConfig.swift */; };
+		A00000000000000000000106 /* GoogleAuthConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000105 /* GoogleAuthConfig.swift */; };
 		A000000000000000000000E3 /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E2 /* APIModels.swift */; };
 		A000000000000000000000E5 /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E4 /* APIService.swift */; };
 		A000000000000000000000F1 /* BillingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F0 /* BillingView.swift */; };
 		A000000000000000000000F3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F2 /* SettingsView.swift */; };
 		A000000000000000000000F5 /* TeamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F4 /* TeamView.swift */; };
 		A000000000000000000000F7 /* DepartmentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F6 /* DepartmentsView.swift */; };
+		A000000000000000000000F9 /* HelpSupportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F8 /* HelpSupportView.swift */; };
+		A000000000000000000000FB /* PrivacyPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000FA /* PrivacyPolicyView.swift */; };
+		A000000000000000000000FD /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000FC /* ShareSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -64,6 +69,7 @@
 		A00000000000000000000060 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
 		A00000000000000000000062 /* ScoreBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreBadge.swift; sourceTree = "<group>"; };
 		A00000000000000000000064 /* StatCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCard.swift; sourceTree = "<group>"; };
+		A00000000000000000000101 /* AppTopBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTopBar.swift; sourceTree = "<group>"; };
 		A00000000000000000000066 /* TagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagView.swift; sourceTree = "<group>"; };
 		A00000000000000000000070 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		A00000000000000000000072 /* JobsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobsViewModel.swift; sourceTree = "<group>"; };
@@ -78,18 +84,22 @@
 		A00000000000000000000096 /* CloseRoleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloseRoleSheet.swift; sourceTree = "<group>"; };
 		A000000000000000000000A0 /* CandidatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidatesView.swift; sourceTree = "<group>"; };
 		A000000000000000000000A2 /* CandidateRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRowView.swift; sourceTree = "<group>"; };
+		A00000000000000000000103 /* CandidateQuickPreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateQuickPreviewSheet.swift; sourceTree = "<group>"; };
 		A000000000000000000000A4 /* CandidateProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateProfileView.swift; sourceTree = "<group>"; };
 		A000000000000000000000B0 /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
 		A000000000000000000000B2 /* JobAnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobAnalyticsView.swift; sourceTree = "<group>"; };
-		A000000000000000000000C0 /* JobBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobBoardView.swift; sourceTree = "<group>"; };
 		A000000000000000000000D0 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		A000000000000000000000E0 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		A00000000000000000000105 /* GoogleAuthConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAuthConfig.swift; sourceTree = "<group>"; };
 		A000000000000000000000E2 /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
 		A000000000000000000000E4 /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
 		A000000000000000000000F0 /* BillingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillingView.swift; sourceTree = "<group>"; };
 		A000000000000000000000F2 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A000000000000000000000F4 /* TeamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamView.swift; sourceTree = "<group>"; };
 		A000000000000000000000F6 /* DepartmentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepartmentsView.swift; sourceTree = "<group>"; };
+		A000000000000000000000F8 /* HelpSupportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpSupportView.swift; sourceTree = "<group>"; };
+		A000000000000000000000FA /* PrivacyPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyPolicyView.swift; sourceTree = "<group>"; };
+		A000000000000000000000FC /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +151,7 @@
 			isa = PBXGroup;
 			children = (
 				A000000000000000000000E0 /* AppConfig.swift */,
+				A00000000000000000000105 /* GoogleAuthConfig.swift */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -181,6 +192,8 @@
 				A00000000000000000000062 /* ScoreBadge.swift */,
 				A00000000000000000000064 /* StatCard.swift */,
 				A00000000000000000000066 /* TagView.swift */,
+				A000000000000000000000FC /* ShareSheet.swift */,
+				A00000000000000000000101 /* AppTopBar.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -203,7 +216,6 @@
 				A00000000000000000000018 /* Jobs */,
 				A00000000000000000000019 /* Candidates */,
 				A0000000000000000000001A /* Analytics */,
-				A0000000000000000000001B /* JobBoard */,
 				A0000000000000000000001C /* Main */,
 				A0000000000000000000001D /* Notifications */,
 				A0000000000000000000001E /* Settings */,
@@ -238,6 +250,7 @@
 				A000000000000000000000A0 /* CandidatesView.swift */,
 				A000000000000000000000A2 /* CandidateRowView.swift */,
 				A000000000000000000000A4 /* CandidateProfileView.swift */,
+				A00000000000000000000103 /* CandidateQuickPreviewSheet.swift */,
 			);
 			path = Candidates;
 			sourceTree = "<group>";
@@ -249,14 +262,6 @@
 				A000000000000000000000B2 /* JobAnalyticsView.swift */,
 			);
 			path = Analytics;
-			sourceTree = "<group>";
-		};
-		A0000000000000000000001B /* JobBoard */ = {
-			isa = PBXGroup;
-			children = (
-				A000000000000000000000C0 /* JobBoardView.swift */,
-			);
-			path = JobBoard;
 			sourceTree = "<group>";
 		};
 		A0000000000000000000001C /* Main */ = {
@@ -282,6 +287,8 @@
 				A000000000000000000000F2 /* SettingsView.swift */,
 				A000000000000000000000F4 /* TeamView.swift */,
 				A000000000000000000000F6 /* DepartmentsView.swift */,
+				A000000000000000000000F8 /* HelpSupportView.swift */,
+				A000000000000000000000FA /* PrivacyPolicyView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -367,6 +374,7 @@
 				A00000000000000000000061 /* AvatarView.swift in Sources */,
 				A00000000000000000000063 /* ScoreBadge.swift in Sources */,
 				A00000000000000000000065 /* StatCard.swift in Sources */,
+				A00000000000000000000102 /* AppTopBar.swift in Sources */,
 				A00000000000000000000067 /* TagView.swift in Sources */,
 				A00000000000000000000071 /* AuthViewModel.swift in Sources */,
 				A00000000000000000000073 /* JobsViewModel.swift in Sources */,
@@ -381,18 +389,22 @@
 				A00000000000000000000097 /* CloseRoleSheet.swift in Sources */,
 				A000000000000000000000A1 /* CandidatesView.swift in Sources */,
 				A000000000000000000000A3 /* CandidateRowView.swift in Sources */,
+				A00000000000000000000104 /* CandidateQuickPreviewSheet.swift in Sources */,
 				A000000000000000000000A5 /* CandidateProfileView.swift in Sources */,
 				A000000000000000000000B1 /* AnalyticsView.swift in Sources */,
 				A000000000000000000000B3 /* JobAnalyticsView.swift in Sources */,
-				A000000000000000000000C1 /* JobBoardView.swift in Sources */,
 				A000000000000000000000D1 /* NotificationsView.swift in Sources */,
 				A000000000000000000000E1 /* AppConfig.swift in Sources */,
+				A00000000000000000000106 /* GoogleAuthConfig.swift in Sources */,
 				A000000000000000000000E3 /* APIModels.swift in Sources */,
 				A000000000000000000000E5 /* APIService.swift in Sources */,
 				A000000000000000000000F1 /* BillingView.swift in Sources */,
 				A000000000000000000000F3 /* SettingsView.swift in Sources */,
 				A000000000000000000000F5 /* TeamView.swift in Sources */,
 				A000000000000000000000F7 /* DepartmentsView.swift in Sources */,
+				A000000000000000000000F9 /* HelpSupportView.swift in Sources */,
+				A000000000000000000000FB /* PrivacyPolicyView.swift in Sources */,
+				A000000000000000000000FD /* ShareSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

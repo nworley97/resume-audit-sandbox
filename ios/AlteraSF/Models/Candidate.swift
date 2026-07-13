@@ -40,6 +40,7 @@ struct Candidate: Identifiable, Hashable {
     var appliedDate: Date
     var status: CandidateStatus
     var resumeText: String
+    var resumeUrl: String = ""
     var education: String
     var experience: String
     var skills: [String]

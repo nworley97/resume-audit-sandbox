@@ -27,6 +27,17 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Replace with the REVERSED client ID from your Google iOS OAuth client,
+				     e.g. com.googleusercontent.apps.123456789-abc123 -->
+				<string>REPLACE_WITH_YOUR_REVERSED_GOOGLE_CLIENT_ID</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -6,9 +6,12 @@ struct CheckEmailView: View {
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "envelope.badge.fill")
-                .font(.system(size: 64))
-                .foregroundColor(AppTheme.primary)
+            ZStack {
+                Circle().fill(AppTheme.primaryLight).frame(width: 96, height: 96)
+                Image(systemName: "envelope.badge.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(AppTheme.primary)
+            }
 
             VStack(spacing: 8) {
                 Text("Check your email")

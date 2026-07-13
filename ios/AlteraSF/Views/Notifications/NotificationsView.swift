@@ -2,11 +2,33 @@ import SwiftUI
 
 @MainActor
 final class NotificationsViewModel: ObservableObject {
-    @Published var notifications: [AppNotification] = AppNotification.samples
+    @Published var notifications: [AppNotification] = []
+    @Published var isLoading = false
+    @Published var error: String? = nil
     var unreadCount: Int { notifications.filter { !$0.isRead }.count }
 
-    func markAllRead() {
+    private let api = APIService.shared
+
+    func load() async {
+        isLoading = true
+        error = nil
+        do {
+            notifications = try await api.fetchNotifications().map { $0.toDomain() }
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    func markAllRead() async {
         for i in notifications.indices { notifications[i].isRead = true }
+        try? await api.markAllNotificationsRead()
+    }
+
+    func markRead(_ notification: AppNotification) async {
+        guard let idx = notifications.firstIndex(where: { $0.id == notification.id }), !notifications[idx].isRead else { return }
+        notifications[idx].isRead = true
+        try? await api.markNotificationRead(id: notification.id)
     }
 }
 
@@ -14,26 +36,44 @@ struct NotificationsView: View {
     @StateObject private var vm = NotificationsViewModel()
 
     var body: some View {
-        List {
-            ForEach(vm.notifications) { notif in
-                NotificationRow(notification: notif)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
+        Group {
+            if vm.isLoading && vm.notifications.isEmpty {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let err = vm.error, vm.notifications.isEmpty {
+                ErrorBanner(message: err) { Task { await vm.load() } }
+                    .padding(16)
+            } else if vm.notifications.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "bell.slash").font(.system(size: 40)).foregroundColor(AppTheme.textTertiary)
+                    Text("No notifications yet").foregroundColor(AppTheme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(vm.notifications) { notif in
+                        NotificationRow(notification: notif)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .onTapGesture { Task { await vm.markRead(notif) } }
+                    }
+                }
+                .listStyle(.plain)
             }
         }
-        .listStyle(.plain)
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Mark all read") {
-                    withAnimation { vm.markAllRead() }
+                    Task { await vm.markAllRead() }
                 }
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(AppTheme.primary)
                 .disabled(vm.unreadCount == 0)
             }
         }
+        .task { await vm.load() }
+        .refreshable { await vm.load() }
     }
 }
 

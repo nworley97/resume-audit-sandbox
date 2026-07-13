@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ResponsiveBar } from "@nivo/bar";
 import type { LucideIcon } from "lucide-react";
-import { Activity, CheckCircle2, Clock3, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Clock3, Sparkles } from "lucide-react";
 import { getAnalyticsDetail } from "@/lib/api";
 import { useAnalyticsStore } from "@/stores/analytics-store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import { formatNumber } from "@/lib/utils";
 // ET-12: Import Tremor components
 import { CompletionFunnelChart } from "@/components/analytics/tremor-funnel";
 import { RetentionHeatmap } from "@/components/analytics/retention-heatmap";
+import { AddedFinalists } from "@/components/analytics/added-finalists";
 
 // use shared utils.formatNumber
 
@@ -136,7 +137,11 @@ function DiamondsCarousel({ detail, tenant }: { detail: AnalyticsJobDetail; tena
               transition={{ delay: idx * 0.05 }}
               href={`/${tenant}/recruiter/candidate/${diamond.id}`}
               target="_top"
-              className="group min-w-[280px] cursor-pointer overflow-hidden rounded-2xl border border-border/40 bg-card/95 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-brand/20 hover:shadow-lg hover:shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className={`group min-w-[280px] cursor-pointer overflow-hidden rounded-2xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                diamond.flagged
+                  ? "border-destructive/40 bg-destructive/5 hover:border-destructive/60 hover:shadow-destructive/10"
+                  : "border-border/40 bg-card/95 hover:border-brand/20 hover:shadow-brand/10"
+              }`}
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -151,10 +156,20 @@ function DiamondsCarousel({ detail, tenant }: { detail: AnalyticsJobDetail; tena
                     #{idx + 1}
                   </Badge>
                 </div>
-                <div className="h-8 w-8" />
+                {diamond.flagged ? (
+                  <Badge variant="destructive" className="gap-1 text-[10px]" title={diamond.flag_reason ?? undefined}>
+                    <AlertTriangle className="size-3" />
+                    Flagged
+                  </Badge>
+                ) : (
+                  <div className="h-8 w-8" />
+                )}
               </div>
 
-              <p className="mb-4 text-base font-semibold text-slate-900">{diamond.name}</p>
+              <p className="mb-1 text-base font-semibold text-slate-900">{diamond.name}</p>
+              {diamond.flagged && diamond.flag_reason ? (
+                <p className="mb-3 text-xs text-destructive/80">{diamond.flag_reason}</p>
+              ) : null}
               <div className="mb-4 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Claim Validity</span>
@@ -435,6 +450,11 @@ export function AnalyticsDetail({
             <KPIGrid detail={data} />
           </div>
           
+          {/* Recruiter-curated finalist shortlist */}
+          <div className="border-b border-gray-200 py-6">
+            <AddedFinalists detail={data} tenant={tenant} jobCode={jobCode} />
+          </div>
+
           {/* 2. Diamonds: 1 full row (responsive: max 2 items then Show More button) */}
           <div className="border-b border-gray-200 py-6">
             <DiamondsCarousel detail={data} tenant={tenant} />

@@ -3,6 +3,7 @@ import SwiftUI
 final class JobsViewModel: ObservableObject {
     @Published var selectedTab: JobTab = .open
     @Published var departments: [Department] = []
+    @Published var allDepartments: [APIDepartment] = []
     @Published var isLoading = false
     @Published var error: String? = nil
     @Published var toast: String? = nil
@@ -41,12 +42,44 @@ final class JobsViewModel: ObservableObject {
             let apiJobs = try await api.fetchJobs()
             let jobs = apiJobs.map { $0.toDomain() }
             rebuildDepartments(from: jobs)
+            if let fetchedDepartments = try? await api.fetchDepartments() {
+                allDepartments = fetchedDepartments
+            }
         } catch APIError.notAuthenticated {
             error = "Session expired. Please sign in again."
         } catch {
             self.error = error.localizedDescription
         }
         isLoading = false
+    }
+
+    @MainActor
+    func addDepartment(name: String) async throws {
+        let dept = try await api.createDepartment(name: name)
+        allDepartments.append(dept)
+        allDepartments.sort { $0.name < $1.name }
+    }
+
+    @MainActor
+    func renameDepartment(_ name: String, to newName: String) async {
+        guard let dept = allDepartments.first(where: { $0.name == name }) else { return }
+        do {
+            _ = try await api.updateDepartment(id: dept.id, name: newName)
+            await load()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    func deleteDepartment(_ name: String) async {
+        guard let dept = allDepartments.first(where: { $0.name == name }) else { return }
+        do {
+            try await api.deleteDepartment(id: dept.id)
+            await load()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
     private func rebuildDepartments(from jobs: [Job]) {
@@ -130,6 +163,13 @@ final class JobsViewModel: ObservableObject {
                 self.error = error.localizedDescription
             }
         }
+    }
+
+    func copyJobBoardLink() {
+        if let slug = api.tenantSlug {
+            UIPasteboard.general.string = AppConfig.baseURL.appendingPathComponent("\(slug)/jobs").absoluteString
+        }
+        showToast("Job board link copied")
     }
 
     private func showToast(_ msg: String) {

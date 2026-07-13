@@ -29,7 +29,7 @@ struct StackedAvatars: View {
         HStack(spacing: -(size * 0.3)) {
             ForEach(Array(initials.prefix(3).enumerated()), id: \.offset) { idx, init_ in
                 AvatarView(initials: init_, size: size, color: colors[idx % colors.count])
-                    .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                    .overlay(Circle().stroke(AppTheme.background, lineWidth: 1.5))
                     .zIndex(Double(initials.count - idx))
             }
         }

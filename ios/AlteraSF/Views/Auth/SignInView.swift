@@ -13,9 +13,15 @@ struct SignInView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("AlteraSF")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(AppTheme.primary)
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.42, blue: 0.85), AppTheme.primary],
+                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 22, height: 22)
+                            Text("AlteraSF")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(AppTheme.primary)
+                        }
                         Text("Welcome back")
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(AppTheme.textPrimary)
@@ -107,7 +113,7 @@ struct SignInView: View {
                         }
 
                         Button {
-                            authVM.signIn(email: "demo@alterasf.com", password: "demo")
+                            authVM.signInWithGoogle()
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "globe")
@@ -128,7 +134,7 @@ struct SignInView: View {
                         Text("Don't have an account?")
                             .font(.subheadline)
                             .foregroundColor(AppTheme.textSecondary)
-                        Button("Sign up") {}
+                        Link("Sign up", destination: AppConfig.baseURL.appendingPathComponent("billing/signup"))
                             .font(.subheadline.weight(.medium))
                             .foregroundColor(AppTheme.primary)
                     }

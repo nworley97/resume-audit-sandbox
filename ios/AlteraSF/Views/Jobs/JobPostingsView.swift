@@ -10,16 +10,17 @@ struct JobPostingsView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
-                    // Summary stats strip
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            SummaryChip(icon: "folder", value: "\(vm.openCount)", label: "Open roles", color: AppTheme.primary)
-                            SummaryChip(icon: "pencil.line", value: "\(vm.draftCount)", label: "Drafts", color: AppTheme.warning)
-                            SummaryChip(icon: "checkmark.circle", value: "\(vm.closedCount)", label: "Closed", color: AppTheme.textSecondary)
-                            SummaryChip(icon: "person.2", value: "\(vm.applicantCount)", label: "Applicants", color: Color(red: 0.4, green: 0.3, blue: 0.9))
-                        }
-                        .padding(.horizontal, 16).padding(.vertical, 10)
+                    AppTopBar()
+                    PageHeader(title: "Job Posting", subtitle: "Manage open roles, drafts, and filled positions across your teams.")
+
+                    // Summary stats grid
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        StatCard(icon: "folder", value: "\(vm.openCount)", label: "Open roles", iconColor: AppTheme.primary)
+                        StatCard(icon: "pencil.line", value: "\(vm.draftCount)", label: "Drafts", iconColor: AppTheme.warning)
+                        StatCard(icon: "checkmark.circle", value: "\(vm.closedCount)", label: "Closed", iconColor: AppTheme.success)
+                        StatCard(icon: "person.2", value: "\(vm.applicantCount)", label: "Applicants", iconColor: Color(red: 0.4, green: 0.3, blue: 0.9))
                     }
+                    .padding(.horizontal, 16).padding(.bottom, 10)
                     .background(AppTheme.background)
 
                     Divider()
@@ -94,32 +95,17 @@ struct JobPostingsView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: vm.toast)
-            .navigationTitle("Job Posting")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    NavigationLink { NotificationsView() } label: {
-                        Image(systemName: "bell").foregroundColor(AppTheme.textPrimary)
-                    }
-                    AvatarView(initials: authVM.currentUserInitials, size: 30)
-                }
-            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showCreateJob) {
                 EditJobView(job: nil, onSave: { _, _ in Task { await vm.load() } })
             }
             .sheet(isPresented: $showAddDept) {
-                AddDepartmentSheet(isPresented: $showAddDept, onAdd: { name in
-                    Task {
-                        do { _ = try await APIService.shared.createDepartment(name: name) }
-                        catch {}
-                        await vm.load()
-                    }
-                })
+                AddDepartmentSheet(isPresented: $showAddDept, vm: vm)
             }
             .sheet(item: $vm.showCloseRole) { job in
                 CloseRoleSheet(
                     job: job,
-                    candidates: [],
                     isPresented: Binding(get: { vm.showCloseRole != nil }, set: { if !$0 { vm.showCloseRole = nil } }),
                     onClose: { hired in vm.closeRole(job, hiredCandidate: hired) }
                 )
@@ -137,38 +123,104 @@ struct JobPostingsView: View {
 
 struct OpenRolesContent: View {
     @EnvironmentObject var vm: JobsViewModel
+    @State private var editingDept: String? = nil
 
     var body: some View {
-        if vm.openDepartments().isEmpty {
-            VStack(spacing: 12) {
-                Image(systemName: "briefcase").font(.system(size: 40)).foregroundColor(AppTheme.textTertiary).padding(.top, 60)
-                Text("No open roles").font(.headline).foregroundColor(AppTheme.textSecondary)
-                Text("Tap Create Job to post your first role.").font(.subheadline).foregroundColor(AppTheme.textTertiary)
-            }
-            .frame(maxWidth: .infinity)
-        } else {
-            ForEach(vm.openDepartments()) { dept in
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text(dept.name).font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
-                        Text("· \(dept.openCount) open").font(.system(size: 12)).foregroundColor(AppTheme.textTertiary)
-                        Spacer()
-                        Button {
-                            // edit dept
-                        } label: {
-                            Label("Edit", systemImage: "pencil").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+        Group {
+            if vm.openDepartments().isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "briefcase").font(.system(size: 40)).foregroundColor(AppTheme.textTertiary).padding(.top, 60)
+                    Text("No open roles").font(.headline).foregroundColor(AppTheme.textSecondary)
+                    Text("Tap Create Job to post your first role.").font(.subheadline).foregroundColor(AppTheme.textTertiary)
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                ForEach(vm.openDepartments()) { dept in
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Text(dept.name).font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
+                            Text("· \(dept.openCount) open").font(.system(size: 12)).foregroundColor(AppTheme.textTertiary)
+                            Spacer()
+                            Button {
+                                editingDept = dept.name
+                            } label: {
+                                Label("Edit", systemImage: "pencil").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                            }
+                        }
+                        .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 6)
+
+                        ForEach(dept.jobs) { job in
+                            JobRowView(job: job, onEdit: { vm.showEditJob = job }, onClose: { vm.showCloseRole = job }, onDelete: { vm.deleteRole(job) })
                         }
                     }
-                    .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 6)
-
-                    ForEach(dept.jobs) { job in
-                        JobRowView(job: job, onEdit: { vm.showEditJob = job }, onClose: { vm.showCloseRole = job }, onDelete: { vm.deleteRole(job) })
-                    }
+                    .background(AppTheme.background)
+                    .padding(.top, 8)
                 }
-                .background(AppTheme.background)
-                .padding(.top, 8)
             }
         }
+        .sheet(isPresented: Binding(get: { editingDept != nil }, set: { if !$0 { editingDept = nil } })) {
+            if let name = editingDept {
+                EditDepartmentSheet(originalName: name, vm: vm)
+            }
+        }
+    }
+}
+
+struct EditDepartmentSheet: View {
+    let originalName: String
+    @ObservedObject var vm: JobsViewModel
+    @State private var name: String
+    @State private var isSaving = false
+    @Environment(\.dismiss) var dismiss
+
+    init(originalName: String, vm: JobsViewModel) {
+        self.originalName = originalName
+        self.vm = vm
+        _name = State(initialValue: originalName)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Edit department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Department name").font(.subheadline.weight(.medium))
+                TextField("Department name", text: $name).textFieldStyle(AlteraTextFieldStyle())
+            }
+
+            Button {
+                Task {
+                    await vm.deleteDepartment(originalName)
+                    dismiss()
+                }
+            } label: {
+                Label("Delete department", systemImage: "trash")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.danger)
+            }
+
+            HStack(spacing: 12) {
+                Button("Cancel") { dismiss() }
+                    .frame(maxWidth: .infinity).frame(height: 46)
+                    .background(AppTheme.secondaryBackground).cornerRadius(AppTheme.buttonCornerRadius)
+                    .foregroundColor(AppTheme.textPrimary).font(.system(size: 15, weight: .medium))
+                Button {
+                    Task {
+                        isSaving = true
+                        await vm.renameDepartment(originalName, to: name.trimmingCharacters(in: .whitespaces))
+                        isSaving = false
+                        dismiss()
+                    }
+                } label: {
+                    if isSaving { ProgressView().tint(.white) } else { Text("Save changes") }
+                }
+                .frame(maxWidth: .infinity).frame(height: 46)
+                .background(AppTheme.primary).cornerRadius(AppTheme.buttonCornerRadius)
+                .foregroundColor(.white).font(.system(size: 15, weight: .semibold))
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+            }
+        }
+        .padding(24)
+        .presentationDetents([.medium])
     }
 }
 
@@ -249,21 +301,6 @@ struct ErrorBanner: View {
     }
 }
 
-struct SummaryChip: View {
-    let icon: String; let value: String; let label: String; let color: Color
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 14)).foregroundColor(color)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(value).font(.system(size: 17, weight: .bold)).foregroundColor(AppTheme.textPrimary)
-                Text(label).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
-            }
-        }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(AppTheme.secondaryBackground).cornerRadius(10)
-    }
-}
-
 struct DraftRowView: View {
     let job: Job
     var body: some View {
@@ -306,30 +343,62 @@ struct ClosedJobRowView: View {
 
 struct AddDepartmentSheet: View {
     @Binding var isPresented: Bool
-    var onAdd: (String) -> Void = { _ in }
+    @ObservedObject var vm: JobsViewModel
     @State private var name = ""
+    @State private var isSaving = false
+    @State private var error: String? = nil
+
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Group your open roles by team.").font(.subheadline).foregroundColor(AppTheme.textSecondary)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Department name").font(.subheadline.weight(.medium))
-                    TextField("e.g. Customer Success", text: $name).textFieldStyle(AlteraTextFieldStyle())
-                }
-                Spacer()
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Add department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Text("Group your open roles by team.").font(.subheadline).foregroundColor(AppTheme.textSecondary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Department name").font(.subheadline.weight(.medium))
+                TextField("e.g. Customer Success", text: $name).textFieldStyle(AlteraTextFieldStyle())
             }
-            .padding(24)
-            .navigationTitle("Add department").navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { isPresented = false } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add department") { onAdd(name); isPresented = false }
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .fontWeight(.semibold).foregroundColor(AppTheme.primary)
+
+            HStack(spacing: 12) {
+                Button("Cancel") { isPresented = false }
+                    .frame(maxWidth: .infinity).frame(height: 46)
+                    .background(AppTheme.secondaryBackground).cornerRadius(AppTheme.buttonCornerRadius)
+                    .foregroundColor(AppTheme.textPrimary).font(.system(size: 15, weight: .medium))
+                Button {
+                    Task { await add() }
+                } label: {
+                    if isSaving { ProgressView().tint(.white) } else { Text("Add department") }
                 }
+                .frame(maxWidth: .infinity).frame(height: 46)
+                .background(AppTheme.primary).cornerRadius(AppTheme.buttonCornerRadius)
+                .foregroundColor(.white).font(.system(size: 15, weight: .semibold))
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
             }
         }
+        .padding(24)
         .presentationDetents([.medium])
+        .alert("Couldn't add department", isPresented: Binding(
+            get: { error != nil },
+            set: { if !$0 { error = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(error ?? "")
+        }
+    }
+
+    private func add() async {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        isSaving = true
+        error = nil
+        do {
+            try await vm.addDepartment(name: trimmed)
+            name = ""
+            isSaving = false
+            isPresented = false
+        } catch {
+            isSaving = false
+            self.error = error.localizedDescription
+        }
     }
 }
 

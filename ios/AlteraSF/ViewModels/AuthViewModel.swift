@@ -1,5 +1,7 @@
 import SwiftUI
 import LocalAuthentication
+import GoogleSignIn
+import UIKit
 
 final class AuthViewModel: ObservableObject {
     @Published var isAuthenticated = false
@@ -8,7 +10,11 @@ final class AuthViewModel: ObservableObject {
 
     var currentUserEmail: String { apiService.currentUser?.username ?? "" }
     var currentUserInitials: String { apiService.currentUser?.initials ?? "ED" }
-    var currentUserName: String { apiService.currentUser?.username ?? "User" }
+    var currentUserName: String {
+        guard let user = apiService.currentUser else { return "User" }
+        return user.fullName.isEmpty ? user.username : user.fullName
+    }
+    var currentUserCompany: String { apiService.currentUser?.company ?? "" }
 
     private let apiService: APIService
 
@@ -38,6 +44,43 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    func signInWithGoogle() {
+        guard let rootVC = UIApplication.shared.connectedScenes
+            .compactMap({ ($0 as? UIWindowScene)?.keyWindow?.rootViewController })
+            .first else {
+            errorMessage = "Couldn't present Google sign-in."
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { [weak self] result, error in
+            guard let self else { return }
+            if let error {
+                Task { @MainActor in
+                    self.isLoading = false
+                    self.errorMessage = error.localizedDescription
+                }
+                return
+            }
+            guard let idToken = result?.user.idToken?.tokenString else {
+                Task { @MainActor in
+                    self.isLoading = false
+                    self.errorMessage = "Couldn't get Google credentials."
+                }
+                return
+            }
+            Task { @MainActor in
+                defer { self.isLoading = false }
+                do {
+                    _ = try await self.apiService.googleSignIn(idToken: idToken)
+                    self.isAuthenticated = true
+                } catch {
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
     func signOut() {
         Task { @MainActor in
             try? await apiService.logout()
@@ -54,6 +97,20 @@ final class AuthViewModel: ObservableObject {
                 isAuthenticated = false
             }
         }
+    }
+
+    @MainActor
+    func updateProfile(fullName: String, email: String, company: String) async throws {
+        let profile = try await apiService.updateProfile(fullName: fullName, email: email, company: company)
+        apiService.currentUser = APIUser(
+            username: profile.username,
+            fullName: profile.fullName,
+            company: profile.company,
+            initials: profile.initials,
+            isSuper: apiService.currentUser?.isSuper ?? false,
+            tenantSlug: apiService.currentUser?.tenantSlug,
+            tenantDisplayName: apiService.currentUser?.tenantDisplayName
+        )
     }
 
     func authenticateWithBiometrics() {
