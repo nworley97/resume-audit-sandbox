@@ -84,7 +84,8 @@ final class CandidatesViewModel: ObservableObject {
     // For the all-candidates view grouped by job
     func grouped(allJobs: [Job]) -> [(job: Job, candidates: [Candidate])] {
         let visible = displayedCandidates
-        return allJobs.compactMap { job in
+        let jobs = selectedDepartment == nil ? allJobs : allJobs.filter { $0.department == selectedDepartment }
+        return jobs.compactMap { job in
             let c = visible.filter { $0.jobId == job.jobId }
             return c.isEmpty ? nil : (job: job, candidates: c)
         }

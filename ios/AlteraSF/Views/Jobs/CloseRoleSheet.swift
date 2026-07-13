@@ -2,10 +2,11 @@ import SwiftUI
 
 struct CloseRoleSheet: View {
     let job: Job
-    let candidates: [Candidate]    // pass in from caller (already loaded in JobsVM)
     @Binding var isPresented: Bool
     let onClose: (String?) -> Void
 
+    @State private var candidates: [Candidate] = []
+    @State private var isLoading = true
     @State private var selectedCandidate: String? = nil
     @State private var showConfirmation = false
 
@@ -23,6 +24,11 @@ struct CloseRoleSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .task {
+            let response = try? await APIService.shared.fetchCandidates(jobCode: job.jobId)
+            candidates = response?.candidates.map { $0.toDomain() } ?? []
+            isLoading = false
+        }
     }
 
     private var selectionView: some View {
@@ -30,42 +36,31 @@ struct CloseRoleSheet: View {
             Text("Who did you hire? This moves the role to Closed.")
                 .font(.subheadline).foregroundColor(AppTheme.textSecondary).padding(16)
             Divider()
+            if isLoading {
+                HStack { Spacer(); ProgressView(); Spacer() }.padding(.vertical, 24)
+            }
             ScrollView {
-                VStack(spacing: 0) {
+                VStack(spacing: 10) {
                     ForEach(candidates) { candidate in
-                        Button {
-                            selectedCandidate = candidate.fullName
-                        } label: {
-                            HStack {
-                                AvatarView(initials: candidate.initials)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(candidate.fullName).font(.system(size: 15, weight: .medium)).foregroundColor(AppTheme.textPrimary)
-                                    Text(job.title).font(.caption).foregroundColor(AppTheme.textSecondary)
-                                }
-                                Spacer()
-                                if selectedCandidate == candidate.fullName {
-                                    Image(systemName: "checkmark.circle.fill").foregroundColor(AppTheme.primary)
-                                }
-                            }
-                            .padding(16)
-                        }
-                        Divider().padding(.leading, 64)
-                    }
-                    Button {
-                        selectedCandidate = nil
-                    } label: {
-                        HStack {
-                            Text("Nobody").font(.system(size: 15)).foregroundColor(AppTheme.textPrimary)
-                            Spacer()
-                            if selectedCandidate == nil {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(AppTheme.primary)
+                        radioRow(
+                            isSelected: selectedCandidate == candidate.fullName,
+                            action: { selectedCandidate = candidate.fullName }
+                        ) {
+                            AvatarView(initials: candidate.initials)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(candidate.fullName).font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                                Text(job.title).font(.caption).foregroundColor(AppTheme.textSecondary)
                             }
                         }
-                        .padding(16)
                     }
-                    Divider()
-                    Text("Close without hiring").font(.caption).foregroundColor(AppTheme.textSecondary).padding(.vertical, 8)
+                    radioRow(isSelected: selectedCandidate == nil, action: { selectedCandidate = nil }) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Nobody").font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                            Text("Close without hiring").font(.caption).foregroundColor(AppTheme.textSecondary)
+                        }
+                    }
                 }
+                .padding(16)
             }
             Divider()
             HStack(spacing: 12) {
@@ -87,6 +82,28 @@ struct CloseRoleSheet: View {
             }
             .padding(16)
         }
+    }
+
+    private func radioRow<Content: View>(isSelected: Bool, action: @escaping () -> Void, @ViewBuilder content: () -> Content) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20))
+                    .foregroundColor(isSelected ? AppTheme.primary : AppTheme.textTertiary)
+                content()
+                Spacer()
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? AppTheme.primaryLight : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? AppTheme.primary : AppTheme.divider, lineWidth: isSelected ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var confirmationView: some View {

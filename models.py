@@ -59,6 +59,19 @@ class User(Base, UserMixin):
         return check_password_hash(self.pw_hash, pw)
 
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_token"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String, nullable=False, unique=True, index=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, default=False)
+
+    user = relationship("User")
+
+
 class JobDescription(Base):
     __tablename__ = "job_description"
 
@@ -127,6 +140,9 @@ class Candidate(Base):
 
     # Recruiter stage: null = active, 'finalist', 'archived'
     status = Column(String(20), nullable=True)
+
+    # Recruiter's free-text note about the candidate (e.g. shown on the Analytics finalists list)
+    recruiter_note = Column(Text, nullable=True)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")

@@ -1,5 +1,5 @@
 # app.py
-import os, json, uuid, logging, tempfile, mimetypes, re, io, csv, html
+import os, json, uuid, logging, tempfile, mimetypes, re, io, csv, html, secrets
 try:
     from dotenv import load_dotenv; load_dotenv()
 except ImportError:
@@ -36,7 +36,7 @@ import resend
 
 from db import SessionLocal, Base, DATABASE_URL
 from models import (
-    Tenant, User, JobDescription, Candidate, Department,
+    Tenant, User, JobDescription, Candidate, Department, PasswordResetToken,
     engine as models_engine
 )
 from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
@@ -174,10 +174,16 @@ def ensure_schema():
         cadds.append("ADD COLUMN left_tab_count INTEGER DEFAULT 0")
     if "status" not in ccols:
         cadds.append("ADD COLUMN status TEXT")
+    if "recruiter_note" not in ccols:
+        cadds.append("ADD COLUMN recruiter_note TEXT")
     if cadds:
-        ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
         with models_engine.begin() as conn:
-            conn.execute(text(ddl2))
+            if DATABASE_URL.startswith("sqlite"):
+                for add in cadds:
+                    conn.execute(text(f"ALTER TABLE candidate {add};"))
+            else:
+                ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
+                conn.execute(text(ddl2))
     
     # Create subscription-related tables (tenant_subscription, pending_signup, etc.)
     from subscription_models import ensure_subscription_schema
@@ -348,11 +354,10 @@ def inject_public_links():
         return url_for("terms") if _has("terms") else "#"
 
     def link_support():
-        # Use the same page as “Forgot your password?”
-        if tenant_slug and _has("forgot_tenant"):
-            return url_for("forgot_tenant", tenant=tenant_slug)
-        if _has("forgot"):
-            return url_for("forgot")
+        if tenant_slug and _has("support_tenant"):
+            return url_for("support_tenant", tenant=tenant_slug)
+        if _has("support"):
+            return url_for("support")
         # Fallback
         return url_for("login") if _has("login") else "#"
 
@@ -3078,15 +3083,116 @@ def question_paged(tenant, code, cid, idx):
 
 
 
-# Support page (global)
-@app.route("/forgot-password")
-def forgot():
-    return render_template("forgot.html", title="Forgot Password")
+# Contact support page (global)
+@app.route("/support")
+def support():
+    return render_template("contact_support.html", title="Contact Support")
 
-# Optional: tenant-scoped support page
-@app.route("/<tenant>/forgot")
+# Tenant-scoped contact support page
+@app.route("/<tenant>/support")
+def support_tenant(tenant):
+    return render_template("contact_support.html", title="Support", tenant=load_tenant_by_slug(tenant))
+
+
+def _send_password_reset_email(user, reset_url):
+    resend.api_key = os.environ.get("RESEND_API_KEY", "")
+    if not resend.api_key:
+        app.logger.error("Failed to send password reset email: missing RESEND_API_KEY")
+        return False
+
+    html_body = f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+      <p>Hi{" " + html.escape(user.full_name) if user.full_name else ""},</p>
+      <p>We received a request to reset your AlteraSF password. Click the link below to choose a new one. This link expires in 1 hour.</p>
+      <p><a href="{reset_url}" style="color:#085CFF;">Reset your password</a></p>
+      <p style="color:#6b7280;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+    """
+    try:
+        resend.Emails.send({
+            "from": "AlteraSF <noreply@alterasf.com>",
+            "to": [user.username],
+            "subject": "Reset your AlteraSF password",
+            "html": html_body,
+        })
+        return True
+    except Exception as e:
+        app.logger.error(f"Failed to send password reset email: {e}")
+        return False
+
+
+def _handle_forgot_password(t):
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        if email:
+            db = SessionLocal()
+            try:
+                user_q = db.query(User).filter(User.username == email)
+                if t:
+                    user_q = user_q.filter(User.tenant_id == t.id)
+                usr = user_q.first()
+                if usr:
+                    db.query(PasswordResetToken).filter(
+                        PasswordResetToken.user_id == usr.id,
+                        PasswordResetToken.used == False,
+                    ).update({"used": True})
+                    token = secrets.token_urlsafe(32)
+                    db.add(PasswordResetToken(
+                        user_id=usr.id,
+                        token=token,
+                        expires_at=datetime.utcnow() + timedelta(hours=1),
+                    ))
+                    db.commit()
+                    reset_url = url_for("reset_password", token=token, _external=True)
+                    _send_password_reset_email(usr, reset_url)
+            finally:
+                db.close()
+        # Same response whether or not the email exists, so we don't leak account existence.
+        flash("If an account exists with that email, we've sent a password reset link.", "recruiter")
+        return redirect(url_for(request.endpoint, tenant=t.slug if t else None))
+    return render_template("forgot.html", title="Forgot Password", tenant=t)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot():
+    return _handle_forgot_password(None)
+
+# Tenant-scoped forgot-password page
+@app.route("/<tenant>/forgot", methods=["GET", "POST"])
 def forgot_tenant(tenant):
-    return render_template("forgot.html", title="Support")
+    return _handle_forgot_password(load_tenant_by_slug(tenant))
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    db = SessionLocal()
+    try:
+        prt = db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()
+        if not prt or prt.used or prt.expires_at < datetime.utcnow():
+            flash("This password reset link is invalid or has expired.", "error")
+            return redirect(url_for("forgot"))
+
+        if request.method == "POST":
+            pw = request.form.get("password") or ""
+            pw2 = request.form.get("confirm_password") or ""
+            if len(pw) < 8:
+                flash("Password must be at least 8 characters.", "error")
+                return render_template("reset_password.html", title="Reset Password", token=token)
+            if pw != pw2:
+                flash("Passwords do not match.", "error")
+                return render_template("reset_password.html", title="Reset Password", token=token)
+
+            usr = db.get(User, prt.user_id)
+            usr.set_pw(pw)
+            prt.used = True
+            db.commit()
+            tenant_slug = usr.tenant.slug if usr.tenant_id and usr.tenant else None
+            flash("Your password has been reset. Please sign in.", "recruiter")
+            return redirect(url_for("login", tenant=tenant_slug))
+
+        return render_template("reset_password.html", title="Reset Password", token=token)
+    finally:
+        db.close()
 
 # ─── Self-ID page (one page) ─────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/self-id", methods=["GET", "POST"])

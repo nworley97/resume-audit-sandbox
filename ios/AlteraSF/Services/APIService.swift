@@ -9,7 +9,7 @@ enum APIError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notAuthenticated: return "Please sign in again."
-        case .httpError(let code, let msg): return "Error \(code): \(msg)"
+        case .httpError(_, let msg): return msg
         case .decodingError: return "Invalid response from server."
         case .networkError(let e): return e.localizedDescription
         }
@@ -46,6 +46,16 @@ final class APIService: ObservableObject {
         return response.user
     }
 
+    func googleSignIn(idToken: String) async throws -> APIUser {
+        let body: [String: String] = ["id_token": idToken]
+        let response: APILoginResponse = try await post("/api/mobile/auth/google", body: body)
+        await MainActor.run {
+            self.tenantSlug = response.user.tenantSlug
+            self.currentUser = response.user
+        }
+        return response.user
+    }
+
     func logout() async throws {
         let _: EmptyResponse = try await post("/api/mobile/auth/logout", body: EmptyBody())
         await MainActor.run {
@@ -61,6 +71,10 @@ final class APIService: ObservableObject {
             self.currentUser = user
         }
         return user
+    }
+
+    func forgotPassword(email: String) async throws {
+        let _: EmptyResponse = try await post("/api/mobile/auth/forgot-password", body: ["email": email])
     }
 
     // MARK: – Jobs
@@ -117,6 +131,11 @@ final class APIService: ObservableObject {
     func deleteDepartment(id: Int) async throws {
         let tenant = try requireTenant()
         let _: EmptyResponse = try await delete("/api/mobile/\(tenant)/departments/\(id)")
+    }
+
+    func updateDepartment(id: Int, name: String) async throws -> APIDepartment {
+        let tenant = try requireTenant()
+        return try await patchAny("/api/mobile/\(tenant)/departments/\(id)", body: ["name": name])
     }
 
     // MARK: – Candidates
@@ -279,9 +298,10 @@ final class APIService: ObservableObject {
             throw APIError.networkError(URLError(.badServerResponse))
         }
         guard (200...299).contains(http.statusCode) else {
-            let msg = (try? JSONDecoder().decode(APIErrorResponse.self, from: data))?.text
+            let rawMsg = (try? JSONDecoder().decode(APIErrorResponse.self, from: data))?.text
                 ?? String(data: data, encoding: .utf8)
                 ?? "Server error"
+            let msg = Self.cleanErrorMessage(rawMsg, statusCode: http.statusCode)
             if http.statusCode == 401 { throw APIError.notAuthenticated }
             throw APIError.httpError(http.statusCode, msg)
         }
@@ -295,6 +315,17 @@ final class APIService: ObservableObject {
         } catch {
             throw APIError.decodingError(error)
         }
+    }
+
+    /// Guards against ever surfacing a raw HTML error page (e.g. an un-caught
+    /// Flask/werkzeug error page) in the UI — falls back to a short, clean message.
+    private static func cleanErrorMessage(_ raw: String, statusCode: Int) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let looksLikeHTML = trimmed.hasPrefix("<!DOCTYPE") || trimmed.hasPrefix("<html") || trimmed.contains("</html>")
+        if looksLikeHTML || trimmed.isEmpty {
+            return "Something went wrong. Please try again."
+        }
+        return trimmed
     }
 
     func get<T: Decodable>(_ path: String) async throws -> T {

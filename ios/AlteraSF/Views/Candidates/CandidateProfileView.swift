@@ -22,21 +22,45 @@ struct CandidateProfileView: View {
     }
 
     var body: some View {
-        ScrollView {
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                if let c = candidate {
+                    profileContent(c)
+                        .padding(.bottom, 84)
+                } else {
+                    ProgressView("Loading…").padding(.top, 80)
+                }
+            }
             if let c = candidate {
-                profileContent(c)
-            } else {
-                ProgressView("Loading…").padding(.top, 80)
+                bottomActionBar(c)
             }
         }
         .background(AppTheme.groupedBackground.ignoresSafeArea())
         .navigationTitle(candidate?.fullName ?? "Candidate")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    if let c = candidate {
+                        Button {
+                            UIPasteboard.general.string = c.email
+                        } label: { Label("Copy email", systemImage: "doc.on.doc") }
+                        if !c.resumeUrl.isEmpty {
+                            Button {
+                                Task { await downloadResume(candidateId: c.id) }
+                            } label: { Label("Download résumé", systemImage: "arrow.down.doc") }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle").foregroundColor(AppTheme.textPrimary)
+                }
+            }
+        }
         .task { await loadDetail() }
         .overlay(alignment: .bottom) {
             if showFinalistToast {
                 ToastView(message: "\(candidate?.firstName ?? "Candidate") added to Finalists")
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 96)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .onAppear {
                         Task {
@@ -61,6 +85,42 @@ struct CandidateProfileView: View {
         } message: {
             Text(resumeDownloadError ?? "")
         }
+        .alert("Archive candidate?", isPresented: $showArchiveAlert) {
+            Button("Archive", role: .destructive) {
+                api.setCandidateStatus(id: candidate?.id ?? candidateId, status: "archived")
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove \(candidate?.firstName ?? "this candidate") from your active pipeline.")
+        }
+    }
+
+    @ViewBuilder
+    private func bottomActionBar(_ c: Candidate) -> some View {
+        HStack(spacing: 12) {
+            Button { showArchiveAlert = true } label: {
+                Label("Archive", systemImage: "archivebox")
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(maxWidth: .infinity).frame(height: 48)
+            }
+            .background(AppTheme.secondaryBackground)
+            .foregroundColor(AppTheme.textPrimary)
+            .cornerRadius(AppTheme.buttonCornerRadius)
+
+            Button {
+                showFinalistToast = true
+                api.setCandidateStatus(id: c.id, status: "finalist")
+            } label: {
+                Label("Add to Finalists", systemImage: "star.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(maxWidth: .infinity).frame(height: 48)
+            }
+            .background(AppTheme.primary)
+            .foregroundColor(.white)
+            .cornerRadius(AppTheme.buttonCornerRadius)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .background(.regularMaterial)
     }
 
     private func downloadResume(candidateId: String) async {
@@ -102,13 +162,16 @@ struct CandidateProfileView: View {
                                 .font(.system(size: 14)).foregroundColor(AppTheme.diamond).offset(x: 4, y: -4)
                         }
                     }
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(c.fullName).font(.system(size: 20, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                         if c.isDiamond {
                             HStack(spacing: 4) {
-                                Image(systemName: "diamond.fill").font(.system(size: 10)).foregroundColor(AppTheme.diamond)
-                                Text("Diamond in the Rough").font(.system(size: 12, weight: .medium)).foregroundColor(AppTheme.diamond)
+                                Image(systemName: "diamond.fill").font(.system(size: 9)).foregroundColor(AppTheme.diamond)
+                                Text("Diamond in the Rough").font(.system(size: 11, weight: .semibold)).foregroundColor(AppTheme.diamond)
                             }
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(AppTheme.primaryLight)
+                            .cornerRadius(20)
                         }
                         if !c.phone.isEmpty {
                             Label(c.phone, systemImage: "phone").font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
@@ -123,85 +186,53 @@ struct CandidateProfileView: View {
                     }
                 }
                 .padding(16)
-
-                Divider()
-
-                HStack(spacing: 0) {
-                    ScoreCol(label: "Relevancy", value: c.relevancyScore)
-                    Divider().frame(height: 50)
-                    ScoreCol(label: "Claim Validity", value: c.claimValidityScore)
-                    Divider().frame(height: 50)
-                    VStack(spacing: 4) {
-                        Text("\(c.tabSwitches)")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(c.tabSwitches > 10 ? AppTheme.danger : AppTheme.textPrimary)
-                        Text("Tab Switches").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .padding(.vertical, 12)
-
-                Divider()
-
-                HStack(spacing: 0) {
-                    Button { showArchiveAlert = true } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: "archivebox")
-                            Text("Archive").font(.system(size: 12))
-                        }
-                        .foregroundColor(AppTheme.textSecondary)
-                        .frame(maxWidth: .infinity).padding(.vertical, 12)
-                    }
-                    Divider().frame(height: 44)
-                    Button {
-                        showFinalistToast = true
-                        api.setCandidateStatus(id: c.id, status: "finalist")
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: "star")
-                            Text("Add to Finalists").font(.system(size: 12))
-                        }
-                        .foregroundColor(AppTheme.primary)
-                        .frame(maxWidth: .infinity).padding(.vertical, 12)
-                    }
-                }
             }
             .background(AppTheme.background).cornerRadius(AppTheme.cardCornerRadius)
             .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2).padding(16)
 
+            // Stat cards
+            HStack(spacing: 10) {
+                ProfileScoreCard(label: "Relevancy", value: c.relevancyScore)
+                ProfileScoreCard(label: "Claim Validity", value: c.claimValidityScore)
+                ProfileTabSwitchCard(value: c.tabSwitches)
+            }
+            .padding(.horizontal, 16).padding(.bottom, 16)
+
             // Resume
             if !c.education.isEmpty || !c.experience.isEmpty || !c.skills.isEmpty || !c.resumeUrl.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Resume").font(.system(size: 16, weight: .semibold))
-                        Spacer()
-                        if !c.resumeUrl.isEmpty {
-                            Button {
-                                Task { await downloadResume(candidateId: c.id) }
-                            } label: {
-                                if isDownloadingResume {
-                                    ProgressView().scaleEffect(0.7)
-                                } else {
-                                    Label("Download PDF", systemImage: "arrow.down.doc")
-                                        .font(.system(size: 12, weight: .medium)).foregroundColor(AppTheme.primary)
-                                }
-                            }
-                            .disabled(isDownloadingResume)
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Résumé").font(.system(size: 16, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                            Text("AI cross-checked against answers").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
                         }
+                        Spacer()
                     }
                     .padding(.horizontal, 16).padding(.top, 16)
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        if !c.education.isEmpty { ResumeSection(title: "Education", content: c.education) }
-                        if !c.experience.isEmpty { ResumeSection(title: "Experience", content: c.experience) }
-                        if !c.skills.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Skills").font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
-                                FlowLayout(skills: c.skills)
+                    if !c.resumeUrl.isEmpty {
+                        Button {
+                            Task { await downloadResume(candidateId: c.id) }
+                        } label: {
+                            HStack {
+                                if isDownloadingResume {
+                                    ProgressView().scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "arrow.down.doc")
+                                    Text("Download Résumé PDF").font(.system(size: 14, weight: .medium))
+                                }
                             }
+                            .frame(maxWidth: .infinity).frame(height: 44)
                         }
+                        .disabled(isDownloadingResume)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .background(AppTheme.secondaryBackground)
+                        .cornerRadius(AppTheme.buttonCornerRadius)
+                        .padding(.horizontal, 16)
                     }
-                    .padding(.horizontal, 16).padding(.bottom, 16)
+
+                    ResumeDocumentCard(candidate: c)
+                        .padding(.horizontal, 16).padding(.bottom, 16)
                 }
                 .background(AppTheme.background).cornerRadius(AppTheme.cardCornerRadius)
                 .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2).padding(.horizontal, 16)
@@ -235,39 +266,105 @@ struct CandidateProfileView: View {
 
             Spacer(minLength: 32)
         }
-        .alert("Archive candidate?", isPresented: $showArchiveAlert) {
-            Button("Archive", role: .destructive) {
-                api.setCandidateStatus(id: c.id, status: "archived")
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will remove \(c.firstName) from your active pipeline.")
-        }
     }
 }
 
-// MARK: – Sub-components (unchanged)
+// MARK: – Sub-components
 
-struct ScoreCol: View {
+struct ProfileScoreCard: View {
     let label: String
     let value: Double
+    private var tint: Color {
+        value >= 4 ? AppTheme.success : (value >= 3 ? AppTheme.warning : AppTheme.danger)
+    }
     var body: some View {
-        VStack(spacing: 4) {
-            Text(String(format: "%.1f", value)).font(.system(size: 22, weight: .bold)).foregroundColor(AppTheme.primary)
-            Text("/5").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+        VStack(alignment: .leading, spacing: 8) {
             Text(label).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+            Text(String(format: "%.1f/5", value))
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(tint)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(tint.opacity(0.15))
+                .cornerRadius(6)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AppTheme.background)
+        .cornerRadius(AppTheme.cornerRadius)
+        .shadow(color: AppTheme.cardShadow, radius: 6, x: 0, y: 2)
     }
 }
 
-struct ResumeSection: View {
+struct ProfileTabSwitchCard: View {
+    let value: Int
+    private var tint: Color { value > 10 ? AppTheme.danger : AppTheme.warning }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Tab Switches").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+            Text("\(value)")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(tint)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(tint.opacity(0.15))
+                .cornerRadius(6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AppTheme.background)
+        .cornerRadius(AppTheme.cornerRadius)
+        .shadow(color: AppTheme.cardShadow, radius: 6, x: 0, y: 2)
+    }
+}
+
+struct ResumeDocumentCard: View {
+    let candidate: Candidate
+
+    var body: some View {
+        VStack(spacing: 14) {
+            VStack(spacing: 3) {
+                Text(candidate.fullName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(AppTheme.textPrimary)
+                Text([candidate.phone, candidate.email, candidate.location].filter { !$0.isEmpty }.joined(separator: "  ·  "))
+                    .font(.system(size: 11))
+                    .foregroundColor(AppTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+
+            if !candidate.education.isEmpty {
+                ResumeDocSection(title: "Education", content: candidate.education)
+            }
+            if !candidate.experience.isEmpty {
+                ResumeDocSection(title: "Experience", content: candidate.experience)
+            }
+            if !candidate.skills.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("SKILLS").font(.system(size: 11, weight: .bold)).foregroundColor(AppTheme.textSecondary)
+                    Divider()
+                    FlowLayout(skills: candidate.skills)
+                }
+            }
+        }
+        .padding(16)
+        .background(AppTheme.groupedBackground)
+        .cornerRadius(AppTheme.cornerRadius)
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
+                .stroke(AppTheme.divider, lineWidth: 1)
+        )
+    }
+}
+
+struct ResumeDocSection: View {
     let title: String; let content: String
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
-            Text(content).font(.system(size: 14)).foregroundColor(AppTheme.textPrimary)
+            Text(title.uppercased()).font(.system(size: 11, weight: .bold)).foregroundColor(AppTheme.textSecondary)
+            Divider()
+            Text(content).font(.system(size: 13)).foregroundColor(AppTheme.textPrimary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

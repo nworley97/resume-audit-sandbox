@@ -1,5 +1,7 @@
 import SwiftUI
 import LocalAuthentication
+import GoogleSignIn
+import UIKit
 
 final class AuthViewModel: ObservableObject {
     @Published var isAuthenticated = false
@@ -38,6 +40,43 @@ final class AuthViewModel: ObservableObject {
                 errorMessage = code == 401 ? "Invalid email or password." : msg
             } catch {
                 errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func signInWithGoogle() {
+        guard let rootVC = UIApplication.shared.connectedScenes
+            .compactMap({ ($0 as? UIWindowScene)?.keyWindow?.rootViewController })
+            .first else {
+            errorMessage = "Couldn't present Google sign-in."
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { [weak self] result, error in
+            guard let self else { return }
+            if let error {
+                Task { @MainActor in
+                    self.isLoading = false
+                    self.errorMessage = error.localizedDescription
+                }
+                return
+            }
+            guard let idToken = result?.user.idToken?.tokenString else {
+                Task { @MainActor in
+                    self.isLoading = false
+                    self.errorMessage = "Couldn't get Google credentials."
+                }
+                return
+            }
+            Task { @MainActor in
+                defer { self.isLoading = false }
+                do {
+                    _ = try await self.apiService.googleSignIn(idToken: idToken)
+                    self.isAuthenticated = true
+                } catch {
+                    self.errorMessage = error.localizedDescription
+                }
             }
         }
     }

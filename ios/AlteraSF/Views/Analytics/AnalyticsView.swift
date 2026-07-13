@@ -8,6 +8,9 @@ struct AnalyticsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    AppTopBar()
+                    PageHeader(title: "Analytics", subtitle: "Performance across your job postings.")
+
                     if vm.isLoading && vm.overview == nil {
                         ProgressView("Loading analytics…").padding(.top, 48)
                     } else if let err = vm.error {
@@ -49,8 +52,8 @@ struct AnalyticsView: View {
                 .padding(.vertical, 16).padding(.bottom, 32)
             }
             .background(AppTheme.groupedBackground.ignoresSafeArea())
-            .navigationTitle("Analytics")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .refreshable { await vm.load() }
         }
         .task { await vm.load() }

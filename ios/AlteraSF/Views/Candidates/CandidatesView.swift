@@ -7,6 +7,10 @@ struct CandidatesView: View {
     @StateObject private var vm: CandidatesViewModel
     // Needed for the "grouped" all-candidates view
     @StateObject private var jobsVM = JobsViewModel()
+    @State private var previewCandidate: Candidate?
+    @State private var fullProfileCandidate: Candidate?
+    @State private var showDepartmentFilterSheet = false
+    @State private var showSortSheet = false
 
     init(filterJobId: String? = nil) {
         self.filterJobId = filterJobId
@@ -22,8 +26,9 @@ struct CandidatesView: View {
     @ViewBuilder
     private var content: some View {
         mainContent
-            .navigationTitle(filterJobId == nil ? "Candidates" : "Candidates")
+            .navigationTitle("Candidates")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar(filterJobId == nil ? .hidden : .automatic, for: .navigationBar)
             .task {
                 if filterJobId == nil { await jobsVM.load() }
                 await vm.load(jobCode: filterJobId)
@@ -31,37 +36,52 @@ struct CandidatesView: View {
             .onChange(of: vm.searchText) { _ in vm.triggerSearch(jobCode: filterJobId) }
             .onChange(of: vm.sortOption) { _ in Task { await vm.load(jobCode: filterJobId) } }
             .onChange(of: vm.selectedTab) { _ in /* filter locally */ }
-            .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button { vm.showFilterSheet = true } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                    }
-                    Button { vm.showSortSheet = true } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                    }
+            .sheet(item: $previewCandidate) { candidate in
+                CandidateQuickPreviewSheet(candidate: candidate, onViewFullProfile: {
+                    previewCandidate = nil
+                    fullProfileCandidate = candidate
+                })
+            }
+            .sheet(item: $fullProfileCandidate) { candidate in
+                NavigationStack {
+                    CandidateProfileView(candidateId: candidate.id, preloaded: candidate)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Close") { fullProfileCandidate = nil }
+                            }
+                        }
                 }
             }
-            .sheet(isPresented: $vm.showFilterSheet) { FilterSheet(vm: vm) }
-            .sheet(isPresented: $vm.showSortSheet) { SortSheet(vm: vm) }
+            .sheet(isPresented: $showDepartmentFilterSheet) {
+                DepartmentFilterSheet(selection: $vm.selectedDepartment, departments: jobsVM.allDepartments)
+            }
+            .sheet(isPresented: $showSortSheet) {
+                SelectionListSheet(title: "Sort candidates", options: CandidatesViewModel.SortOption.allCases, selection: $vm.sortOption) { $0.rawValue }
+            }
     }
 
     @ViewBuilder
     private var mainContent: some View {
         VStack(spacing: 0) {
-            // Tab bar
-            tabBar
-
-            Divider()
+            if filterJobId == nil {
+                AppTopBar()
+                header
+                statTiles
+            }
 
             // Search
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundColor(AppTheme.textSecondary)
-                TextField("Search candidates…", text: $vm.searchText).font(.system(size: 15))
+                TextField("Search roles or candidates…", text: $vm.searchText).font(.system(size: 15))
             }
             .padding(.horizontal, 12).padding(.vertical, 10)
             .background(AppTheme.secondaryBackground).cornerRadius(10)
-            .padding(.horizontal, 16).padding(.vertical, 8)
+            .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
             .background(AppTheme.background)
+
+            if filterJobId == nil {
+                filterPills
+            }
 
             Divider()
 
@@ -77,33 +97,44 @@ struct CandidatesView: View {
         }
     }
 
-    private var tabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 0) {
-                ForEach(CandidatesViewModel.CandidateTab.allCases, id: \.self) { tab in
-                    Button { vm.selectedTab = tab } label: {
-                        VStack(spacing: 4) {
-                            HStack(spacing: 4) {
-                                if tab == .diamonds { Image(systemName: "diamond.fill").font(.system(size: 11)).foregroundColor(AppTheme.diamond) }
-                                else if tab == .flagged { Image(systemName: "flag.fill").font(.system(size: 11)).foregroundColor(AppTheme.flagged) }
-                                Text(tab.rawValue).font(.system(size: 14, weight: .medium))
-                                Text(countFor(tab))
-                                    .font(.system(size: 12, weight: .bold))
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(vm.selectedTab == tab ? AppTheme.primary : AppTheme.secondaryBackground)
-                                    .foregroundColor(vm.selectedTab == tab ? .white : AppTheme.textSecondary)
-                                    .cornerRadius(10)
-                            }
-                            Rectangle().frame(height: 2)
-                                .foregroundColor(vm.selectedTab == tab ? AppTheme.primary : .clear)
-                        }
-                        .foregroundColor(vm.selectedTab == tab ? AppTheme.primary : AppTheme.textSecondary)
-                        .padding(.horizontal, 16).padding(.vertical, 12)
-                    }
-                }
-            }
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Candidates")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(AppTheme.textPrimary)
+            Text("Review and compare applicants across your open roles.")
+                .font(.system(size: 13))
+                .foregroundColor(AppTheme.textSecondary)
         }
-        .background(AppTheme.background)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
+    }
+
+    private var statTiles: some View {
+        HStack(spacing: 10) {
+            StatTile(icon: "person.2.fill", value: vm.totalCount, label: "Candidates",
+                     color: AppTheme.textPrimary, isSelected: vm.selectedTab == .all) { vm.selectedTab = .all }
+            StatTile(icon: "diamond.fill", value: vm.diamondCount, label: "Diamonds",
+                     color: AppTheme.diamond, isSelected: vm.selectedTab == .diamonds) { vm.selectedTab = .diamonds }
+            StatTile(icon: "flag.fill", value: vm.flaggedCount, label: "Flagged",
+                     color: AppTheme.flagged, isSelected: vm.selectedTab == .flagged) { vm.selectedTab = .flagged }
+        }
+        .padding(.horizontal, 16).padding(.bottom, 12)
+    }
+
+    private var filterPills: some View {
+        HStack(spacing: 10) {
+            Button { showDepartmentFilterSheet = true } label: {
+                FilterPill(text: vm.selectedDepartment ?? "All departments")
+            }
+
+            Button { showSortSheet = true } label: {
+                FilterPill(text: "Sort: \(vm.sortOption.rawValue)")
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16).padding(.bottom, 10)
     }
 
     @ViewBuilder
@@ -113,9 +144,10 @@ struct CandidatesView: View {
                 if filterJobId != nil {
                     // Flat list for single-role view
                     ForEach(vm.displayedCandidates) { candidate in
-                        NavigationLink { candidateProfile(candidate) } label: {
+                        Button { previewCandidate = candidate } label: {
                             CandidateRowView(candidate: candidate)
                         }
+                        .buttonStyle(.plain)
                     }
                 } else {
                     // Grouped by job
@@ -123,19 +155,12 @@ struct CandidatesView: View {
                     ForEach(groups, id: \.job.id) { group in
                         GroupHeaderRow(job: group.job, count: group.candidates.count)
                         ForEach(group.candidates.prefix(3)) { candidate in
-                            NavigationLink { candidateProfile(candidate) } label: {
+                            Button { previewCandidate = candidate } label: {
                                 CandidateRowView(candidate: candidate)
                             }
+                            .buttonStyle(.plain)
                         }
-                        if group.candidates.count > 3 {
-                            NavigationLink { CandidatesView(filterJobId: group.job.jobId) } label: {
-                                Text("View all \(group.candidates.count)")
-                                    .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
-                                    .frame(maxWidth: .infinity).padding(.vertical, 10)
-                                    .background(AppTheme.background)
-                            }
-                        }
-                        Divider().padding(.vertical, 4)
+                        Spacer(minLength: 8)
                     }
                 }
 
@@ -154,21 +179,7 @@ struct CandidatesView: View {
         .refreshable { await vm.load(jobCode: filterJobId) }
     }
 
-    @ViewBuilder
-    private func candidateProfile(_ candidate: Candidate) -> some View {
-        CandidateProfileView(
-            candidateId: candidate.id,
-            preloaded: candidate
-        )
-    }
 
-    private func countFor(_ tab: CandidatesViewModel.CandidateTab) -> String {
-        switch tab {
-        case .all: return "\(vm.totalCount)"
-        case .diamonds: return "\(vm.diamondCount)"
-        case .flagged: return "\(vm.flaggedCount)"
-        }
-    }
 }
 
 struct GroupHeaderRow: View {
@@ -176,59 +187,106 @@ struct GroupHeaderRow: View {
     let count: Int
     var body: some View {
         HStack {
-            Text(job.title).font(.system(size: 14, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
-            Spacer()
+            Text(job.title).font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
             Text("\(count)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(AppTheme.primary).cornerRadius(10)
-            Image(systemName: "chevron.right").font(.caption).foregroundColor(AppTheme.textTertiary)
+                .padding(.horizontal, 7).padding(.vertical, 2)
+                .background(AppTheme.primary).cornerRadius(9)
+            Spacer()
+            NavigationLink {
+                CandidatesView(filterJobId: job.jobId)
+            } label: {
+                HStack(spacing: 2) {
+                    Text("View").font(.system(size: 13, weight: .medium))
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundColor(AppTheme.primary)
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
-        .background(AppTheme.background)
     }
 }
 
-struct FilterSheet: View {
-    @ObservedObject var vm: CandidatesViewModel
-    @Environment(\.dismiss) var dismiss
+private struct StatTile: View {
+    let icon: String
+    let value: Int
+    let label: String
+    let color: Color
+    let isSelected: Bool
+    let action: () -> Void
+
     var body: some View {
-        NavigationStack {
-            List {
-                Section("Department") {
-                    Button { vm.selectedDepartment = nil } label: {
-                        HStack { Text("All departments"); Spacer()
-                            if vm.selectedDepartment == nil { Image(systemName: "checkmark").foregroundColor(AppTheme.primary) }
-                        }
-                    }.foregroundColor(AppTheme.textPrimary)
-                }
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                Image(systemName: icon).font(.system(size: 14)).foregroundColor(color)
+                Text("\(value)").font(.system(size: 20, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                Text(label).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
             }
-            .navigationTitle("Filter").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.foregroundColor(AppTheme.primary) } }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(AppTheme.background)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isSelected ? AppTheme.primary : Color.clear, lineWidth: 1.5)
+            )
+            .shadow(color: AppTheme.cardShadow, radius: 6, x: 0, y: 2)
         }
-        .presentationDetents([.medium])
+        .buttonStyle(.plain)
     }
 }
 
-struct SortSheet: View {
-    @ObservedObject var vm: CandidatesViewModel
+struct DepartmentFilterSheet: View {
+    @Binding var selection: String?
+    let departments: [APIDepartment]
     @Environment(\.dismiss) var dismiss
+
     var body: some View {
-        NavigationStack {
-            List {
-                Section("Sort candidates") {
-                    ForEach(CandidatesViewModel.SortOption.allCases, id: \.self) { option in
-                        Button { vm.sortOption = option } label: {
-                            HStack { Text(option.rawValue); Spacer()
-                                if vm.sortOption == option { Image(systemName: "checkmark").foregroundColor(AppTheme.primary) }
-                            }
-                        }.foregroundColor(AppTheme.textPrimary)
-                    }
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Filter by department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
+            row(label: "All departments", isSelected: selection == nil) {
+                selection = nil
+                dismiss()
+            }
+            ForEach(departments, id: \.id) { dept in
+                row(label: dept.name, isSelected: selection == dept.name) {
+                    selection = dept.name
+                    dismiss()
                 }
             }
-            .navigationTitle("Sort").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.foregroundColor(AppTheme.primary) } }
+            Spacer(minLength: 8)
         }
+        .padding(.bottom, 16)
         .presentationDetents([.medium])
+    }
+
+    private func row(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(label).font(.system(size: 16)).foregroundColor(isSelected ? AppTheme.primary : AppTheme.textPrimary)
+                Spacer()
+                if isSelected { Image(systemName: "checkmark").foregroundColor(AppTheme.primary) }
+            }
+            .padding(.horizontal, 20).padding(.vertical, 14)
+            .background(isSelected ? AppTheme.primaryLight : Color.clear)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct FilterPill: View {
+    let text: String
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(text).font(.system(size: 13, weight: .medium)).lineLimit(1)
+            Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundColor(AppTheme.textPrimary)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(AppTheme.secondaryBackground)
+        .cornerRadius(20)
     }
 }
 

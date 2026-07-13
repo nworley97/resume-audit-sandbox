@@ -95,7 +95,7 @@ struct BillingView: View {
             }
         }
         .background(AppTheme.groupedBackground.ignoresSafeArea())
-        .navigationTitle("Billing & Plans")
+        .navigationTitle("Billing")
         .navigationBarTitleDisplayMode(.large)
         .task { await vm.load() }
         .refreshable { await vm.load() }

@@ -7,17 +7,25 @@ Auth: same Flask-Login session cookies that the web app uses.
 from __future__ import annotations
 import math
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
-from flask import Blueprint, jsonify, request, abort, session
+from flask import Blueprint, jsonify, request, abort, session, url_for
 from flask_login import login_user, logout_user, current_user, login_required
 from sqlalchemy import func, or_
+from werkzeug.exceptions import HTTPException
 
 from db import SessionLocal
-from models import Tenant, User, JobDescription, Candidate, Department
+from models import Tenant, User, JobDescription, Candidate, Department, PasswordResetToken
 
 mobile_api = Blueprint("mobile_api", __name__, url_prefix="/api/mobile")
+
+
+@mobile_api.errorhandler(HTTPException)
+def _handle_http_exception(e):
+    # Return JSON instead of Flask's default HTML error page so the iOS app
+    # can surface a real message instead of a wall of HTML.
+    return jsonify({"description": e.description}), e.code
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -266,6 +274,35 @@ def _analytics_for_job(jd: JobDescription, db, t: Tenant) -> dict:
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
+def _login_session_response(user: User, db) -> dict:
+    """Log `user` into the Flask session and build the JSON body the app expects."""
+    login_user(user)
+
+    tenant_slug = None
+    tenant_display = None
+    if user.tenant_id:
+        tenant = db.get(Tenant, user.tenant_id)
+        if tenant:
+            tenant_slug = tenant.slug
+            tenant_display = tenant.display_name or tenant.slug
+            session["tenant_slug"] = tenant_slug
+
+    display_name = user.full_name or user.username
+    initials = "".join(w[0] for w in display_name.split()[:2]).upper() or "U"
+    return {
+        "ok": True,
+        "user": {
+            "username": user.username,
+            "full_name": user.full_name or "",
+            "company": user.company or "",
+            "initials": initials,
+            "is_super": bool(user.is_super),
+            "tenant_slug": tenant_slug,
+            "tenant_display_name": tenant_display,
+        }
+    }
+
+
 @mobile_api.route("/auth/login", methods=["POST"])
 def auth_login():
     data = request.get_json(silent=True) or {}
@@ -279,32 +316,42 @@ def auth_login():
         user = db.query(User).filter_by(username=username).first()
         if not user or not user.check_pw(password):
             abort(401, "invalid credentials")
+        return jsonify(_login_session_response(user, db))
+    finally:
+        db.close()
 
-        login_user(user)
 
-        tenant_slug = None
-        tenant_display = None
-        if user.tenant_id:
-            tenant = db.get(Tenant, user.tenant_id)
-            if tenant:
-                tenant_slug = tenant.slug
-                tenant_display = tenant.display_name or tenant.slug
-                session["tenant_slug"] = tenant_slug
+@mobile_api.route("/auth/google", methods=["POST"])
+def auth_google():
+    import os
+    data = request.get_json(silent=True) or {}
+    id_token_str = data.get("id_token") or ""
+    if not id_token_str:
+        abort(400, "id_token required")
 
-        display_name = user.full_name or username
-        initials = "".join(w[0] for w in display_name.split()[:2]).upper() or "U"
-        return jsonify({
-            "ok": True,
-            "user": {
-                "username": username,
-                "full_name": user.full_name or "",
-                "company": user.company or "",
-                "initials": initials,
-                "is_super": bool(user.is_super),
-                "tenant_slug": tenant_slug,
-                "tenant_display_name": tenant_display,
-            }
-        })
+    client_id = os.environ.get("GOOGLE_IOS_CLIENT_ID", "")
+    if not client_id:
+        abort(500, "Google sign-in is not configured on the server")
+
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+        payload = google_id_token.verify_oauth2_token(
+            id_token_str, google_requests.Request(), client_id
+        )
+    except Exception:
+        abort(401, "invalid Google credential")
+
+    email = (payload.get("email") or "").strip().lower()
+    if not email or not payload.get("email_verified"):
+        abort(401, "Google account has no verified email")
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(username=email).first()
+        if not user:
+            abort(404, "No AlteraSF account found for this Google email. Please sign up first.")
+        return jsonify(_login_session_response(user, db))
     finally:
         db.close()
 
@@ -793,6 +840,60 @@ def update_profile():
         })
     finally:
         db.close()
+
+
+def _send_password_reset_email_mobile(user, reset_url):
+    import os
+    import resend
+    resend.api_key = os.environ.get("RESEND_API_KEY", "")
+    if not resend.api_key:
+        return False
+    html_body = f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+      <p>Hi{" " + user.full_name if user.full_name else ""},</p>
+      <p>We received a request to reset your AlteraSF password. Tap the link below to choose a new one. This link expires in 1 hour.</p>
+      <p><a href="{reset_url}" style="color:#085CFF;">Reset your password</a></p>
+      <p style="color:#6b7280;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+    """
+    try:
+        resend.Emails.send({
+            "from": "AlteraSF <noreply@alterasf.com>",
+            "to": [user.username],
+            "subject": "Reset your AlteraSF password",
+            "html": html_body,
+        })
+        return True
+    except Exception:
+        return False
+
+
+@mobile_api.route("/auth/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    if email:
+        db = SessionLocal()
+        try:
+            usr = db.query(User).filter(User.username == email).first()
+            if usr:
+                db.query(PasswordResetToken).filter(
+                    PasswordResetToken.user_id == usr.id,
+                    PasswordResetToken.used == False,
+                ).update({"used": True})
+                token = secrets.token_urlsafe(32)
+                db.add(PasswordResetToken(
+                    user_id=usr.id,
+                    token=token,
+                    expires_at=datetime.utcnow() + timedelta(hours=1),
+                ))
+                db.commit()
+                reset_url = url_for("reset_password", token=token, _external=True)
+                _send_password_reset_email_mobile(usr, reset_url)
+        finally:
+            db.close()
+    # Always the same response, so we don't leak whether an account exists.
+    return jsonify({"ok": True})
 
 
 @mobile_api.route("/auth/change-password", methods=["POST"])

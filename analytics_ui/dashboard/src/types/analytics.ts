@@ -34,6 +34,24 @@ const diamondSchema = z.object({
   claim_validity_score: z.number(),
   relevancy_score: z.number(),
   combined_score: z.number(),
+  flagged: z.boolean().optional(),
+  flag_reason: z.string().nullable().optional(),
+  tab_switches: z.number().optional(),
+});
+
+const finalistSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  claim_validity_score: z.number(),
+  relevancy_score: z.number(),
+  flagged_answers: z.number(),
+  total_answers: z.number(),
+  tab_switches: z.number(),
+  flagged: z.boolean(),
+  flag_reason: z.string().nullable(),
+  overall_score: z.number(),
+  note: z.string(),
 });
 
 const relevancyAxisSchema = z.object({
@@ -98,6 +116,7 @@ export const analyticsJobDetailSchema = z.object({
     last_updated: z.string(),
   }),
   diamonds: z.array(diamondSchema),
+  finalists: z.array(finalistSchema),
   completion_funnel: completionFunnelSchema,
   roi: z.object({
     variables: z.object({
@@ -121,5 +140,17 @@ export const analyticsJobDetailSchema = z.object({
 });
 
 export type AnalyticsJobDetail = z.infer<typeof analyticsJobDetailSchema>;
+export type AnalyticsFinalist = z.infer<typeof finalistSchema>;
 
 export const analyticsSummaryResponseSchema = z.array(analyticsJobSummarySchema);
+
+export const analyticsCandidateOptionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  initials: z.string(),
+  claim_validity_score: z.number(),
+  relevancy_score: z.number(),
+});
+
+export type AnalyticsCandidateOption = z.infer<typeof analyticsCandidateOptionSchema>;
+export const analyticsCandidateOptionsResponseSchema = z.array(analyticsCandidateOptionSchema);

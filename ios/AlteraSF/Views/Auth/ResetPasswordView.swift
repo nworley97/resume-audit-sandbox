@@ -4,6 +4,8 @@ struct ResetPasswordView: View {
     @Environment(\.dismiss) var dismiss
     @State private var email = ""
     @State private var sent = false
+    @State private var isSending = false
+    @State private var error: String? = nil
 
     var body: some View {
         ScrollView {
@@ -32,17 +34,27 @@ struct ResetPasswordView: View {
                         .textFieldStyle(AlteraTextFieldStyle())
                 }
 
+                if let error {
+                    Text(error).font(.caption).foregroundColor(AppTheme.danger).padding(.top, 8)
+                }
+
                 Button {
-                    sent = true
+                    Task { await send() }
                 } label: {
-                    Text("Send reset link")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                    Group {
+                        if isSending {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Send reset link").font(.system(size: 16, weight: .semibold))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
                 }
                 .background(AppTheme.primary)
                 .foregroundColor(.white)
                 .cornerRadius(AppTheme.buttonCornerRadius)
+                .disabled(isSending || email.isEmpty)
                 .padding(.top, 24)
                 .navigationDestination(isPresented: $sent) {
                     CheckEmailView()
@@ -60,5 +72,17 @@ struct ResetPasswordView: View {
         }
         .background(AppTheme.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(false)
+    }
+
+    private func send() async {
+        isSending = true
+        error = nil
+        do {
+            try await APIService.shared.forgotPassword(email: email)
+            sent = true
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isSending = false
     }
 }
