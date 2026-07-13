@@ -21,6 +21,71 @@ from models import Tenant, User, JobDescription, Candidate, Department, Password
 mobile_api = Blueprint("mobile_api", __name__, url_prefix="/api/mobile")
 
 
+_LABEL_ACRONYMS = {"gpa", "ap", "sat", "psat", "act", "gre", "gmat", "id", "url", "llm", "ai"}
+
+
+def _humanize_label(key: str) -> str:
+    words = key.replace("_", " ").split()
+    return " ".join(w.upper() if w.lower() in _LABEL_ACRONYMS else w.capitalize() for w in words)
+
+
+def _humanize_value(value):
+    if isinstance(value, list):
+        return ", ".join(_humanize_value(v) for v in value)
+    if isinstance(value, dict):
+        return "; ".join(f"{_humanize_label(k)}: {_humanize_value(v)}" for k, v in value.items() if v)
+    return str(value)
+
+
+def _format_resume_entry(entry, title_keys, subtitle_keys=None):
+    """Render one education/experience dict as readable multi-line text
+    (mirrors the structured rendering in templates/candidate_detail.html,
+    since the iOS app only has a single formatted string field to work with)."""
+    if not isinstance(entry, dict):
+        return str(entry)
+
+    used_keys = set()
+    lines = []
+
+    title = None
+    for key in title_keys:
+        if entry.get(key):
+            title = entry[key]
+            used_keys.add(key)
+            break
+    if title:
+        lines.append(str(title))
+
+    for key in (subtitle_keys or []):
+        if entry.get(key) and key not in used_keys:
+            lines.append(str(entry[key]))
+            used_keys.add(key)
+            break
+
+    for key, value in entry.items():
+        if key in used_keys or value in (None, "", [], {}):
+            continue
+        lines.append(f"{_humanize_label(key)}: {_humanize_value(value)}")
+
+    return "\n".join(lines)
+
+
+def _format_education_entry(entry):
+    return _format_resume_entry(
+        entry,
+        title_keys=("institution", "school", "university", "name"),
+        subtitle_keys=("degree", "program", "title"),
+    )
+
+
+def _format_experience_entry(entry):
+    return _format_resume_entry(
+        entry,
+        title_keys=("title", "position", "role"),
+        subtitle_keys=("company", "employer", "organization"),
+    )
+
+
 @mobile_api.errorhandler(HTTPException)
 def _handle_http_exception(e):
     # Return JSON instead of Flask's default HTML error page so the iOS app
@@ -189,11 +254,15 @@ def _candidate_detail_dict(c: Candidate, jd: JobDescription | None, t: Tenant) -
     # Resume JSON fields
     rj = c.resume_json or {}
     education = rj.get("education", "")
+    if isinstance(education, dict):
+        education = [education]
     if isinstance(education, list):
-        education = "\n".join(str(e) for e in education)
-    experience = rj.get("experience", "")
+        education = "\n\n".join(_format_education_entry(e) for e in education)
+    experience = rj.get("experience") or rj.get("work_experience") or rj.get("employment") or ""
+    if isinstance(experience, dict):
+        experience = [experience]
     if isinstance(experience, list):
-        experience = "\n".join(str(e) for e in experience)
+        experience = "\n\n".join(_format_experience_entry(e) for e in experience)
     skills = rj.get("skills", [])
     if isinstance(skills, str):
         skills = [s.strip() for s in skills.split(",") if s.strip()]
