@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		719B15D94D859403CAFBDFAA /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 70515275D174273AEA09A30E /* GoogleSignIn */; };
 		A00000000000000000000021 /* AlteraSFApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* AlteraSFApp.swift */; };
 		A00000000000000000000023 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ContentView.swift */; };
 		A00000000000000000000025 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000024 /* MainTabView.swift */; };
@@ -20,7 +21,6 @@
 		A00000000000000000000061 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000060 /* AvatarView.swift */; };
 		A00000000000000000000063 /* ScoreBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000062 /* ScoreBadge.swift */; };
 		A00000000000000000000065 /* StatCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000064 /* StatCard.swift */; };
-		A00000000000000000000102 /* AppTopBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000101 /* AppTopBar.swift */; };
 		A00000000000000000000067 /* TagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000066 /* TagView.swift */; };
 		A00000000000000000000071 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000070 /* AuthViewModel.swift */; };
 		A00000000000000000000073 /* JobsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000072 /* JobsViewModel.swift */; };
@@ -35,13 +35,11 @@
 		A00000000000000000000097 /* CloseRoleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000096 /* CloseRoleSheet.swift */; };
 		A000000000000000000000A1 /* CandidatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A0 /* CandidatesView.swift */; };
 		A000000000000000000000A3 /* CandidateRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A2 /* CandidateRowView.swift */; };
-		A00000000000000000000104 /* CandidateQuickPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000103 /* CandidateQuickPreviewSheet.swift */; };
 		A000000000000000000000A5 /* CandidateProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A4 /* CandidateProfileView.swift */; };
 		A000000000000000000000B1 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000B0 /* AnalyticsView.swift */; };
 		A000000000000000000000B3 /* JobAnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000B2 /* JobAnalyticsView.swift */; };
 		A000000000000000000000D1 /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000D0 /* NotificationsView.swift */; };
 		A000000000000000000000E1 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E0 /* AppConfig.swift */; };
-		A00000000000000000000106 /* GoogleAuthConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000105 /* GoogleAuthConfig.swift */; };
 		A000000000000000000000E3 /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E2 /* APIModels.swift */; };
 		A000000000000000000000E5 /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E4 /* APIService.swift */; };
 		A000000000000000000000F1 /* BillingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F0 /* BillingView.swift */; };
@@ -51,6 +49,9 @@
 		A000000000000000000000F9 /* HelpSupportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F8 /* HelpSupportView.swift */; };
 		A000000000000000000000FB /* PrivacyPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000FA /* PrivacyPolicyView.swift */; };
 		A000000000000000000000FD /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000FC /* ShareSheet.swift */; };
+		A00000000000000000000102 /* AppTopBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000101 /* AppTopBar.swift */; };
+		A00000000000000000000104 /* CandidateQuickPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000103 /* CandidateQuickPreviewSheet.swift */; };
+		A00000000000000000000106 /* GoogleAuthConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000105 /* GoogleAuthConfig.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,7 +70,6 @@
 		A00000000000000000000060 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
 		A00000000000000000000062 /* ScoreBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreBadge.swift; sourceTree = "<group>"; };
 		A00000000000000000000064 /* StatCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCard.swift; sourceTree = "<group>"; };
-		A00000000000000000000101 /* AppTopBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTopBar.swift; sourceTree = "<group>"; };
 		A00000000000000000000066 /* TagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagView.swift; sourceTree = "<group>"; };
 		A00000000000000000000070 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		A00000000000000000000072 /* JobsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobsViewModel.swift; sourceTree = "<group>"; };
@@ -84,13 +84,11 @@
 		A00000000000000000000096 /* CloseRoleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloseRoleSheet.swift; sourceTree = "<group>"; };
 		A000000000000000000000A0 /* CandidatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidatesView.swift; sourceTree = "<group>"; };
 		A000000000000000000000A2 /* CandidateRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRowView.swift; sourceTree = "<group>"; };
-		A00000000000000000000103 /* CandidateQuickPreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateQuickPreviewSheet.swift; sourceTree = "<group>"; };
 		A000000000000000000000A4 /* CandidateProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateProfileView.swift; sourceTree = "<group>"; };
 		A000000000000000000000B0 /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
 		A000000000000000000000B2 /* JobAnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobAnalyticsView.swift; sourceTree = "<group>"; };
 		A000000000000000000000D0 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		A000000000000000000000E0 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
-		A00000000000000000000105 /* GoogleAuthConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAuthConfig.swift; sourceTree = "<group>"; };
 		A000000000000000000000E2 /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
 		A000000000000000000000E4 /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
 		A000000000000000000000F0 /* BillingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillingView.swift; sourceTree = "<group>"; };
@@ -100,6 +98,9 @@
 		A000000000000000000000F8 /* HelpSupportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpSupportView.swift; sourceTree = "<group>"; };
 		A000000000000000000000FA /* PrivacyPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyPolicyView.swift; sourceTree = "<group>"; };
 		A000000000000000000000FC /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		A00000000000000000000101 /* AppTopBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTopBar.swift; sourceTree = "<group>"; };
+		A00000000000000000000103 /* CandidateQuickPreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateQuickPreviewSheet.swift; sourceTree = "<group>"; };
+		A00000000000000000000105 /* GoogleAuthConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAuthConfig.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,13 +108,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				719B15D94D859403CAFBDFAA /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A00000000000000000000002 /* = */ = {
+		A00000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000010 /* AlteraSF */,
@@ -145,15 +147,6 @@
 				A00000000000000000000016 /* Views */,
 			);
 			path = AlteraSF;
-			sourceTree = "<group>";
-		};
-		A000000000000000000000E6 /* Config */ = {
-			isa = PBXGroup;
-			children = (
-				A000000000000000000000E0 /* AppConfig.swift */,
-				A00000000000000000000105 /* GoogleAuthConfig.swift */,
-			);
-			path = Config;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000011 /* Models */ = {
@@ -293,6 +286,15 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		A000000000000000000000E6 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000E0 /* AppConfig.swift */,
+				A00000000000000000000105 /* GoogleAuthConfig.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -309,6 +311,9 @@
 			dependencies = (
 			);
 			name = AlteraSF;
+			packageProductDependencies = (
+				70515275D174273AEA09A30E /* GoogleSignIn */,
+			);
 			productName = AlteraSF;
 			productReference = A00000000000000000000004 /* AlteraSF.app */;
 			productType = "com.apple.product-type.application";
@@ -337,6 +342,9 @@
 				Base,
 			);
 			mainGroup = A00000000000000000000002;
+			packageReferences = (
+				03CD12114F5A45196F70E368 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			productRefGroup = A00000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -603,6 +611,24 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		03CD12114F5A45196F70E368 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		70515275D174273AEA09A30E /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 03CD12114F5A45196F70E368 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A00000000000000000000001 /* Project object */;
 }
