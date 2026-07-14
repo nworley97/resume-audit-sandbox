@@ -60,6 +60,7 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('left_tab_count', sa.Integer(), nullable=True),
     sa.Column('status', sa.String(length=20), nullable=True),
+    sa.Column('recruiter_note', sa.Text(), nullable=True),
     sa.Column('archived', sa.Boolean(), nullable=True),
     sa.Column('archived_at', sa.DateTime(), nullable=True),
     sa.Column('tenant_id', sa.Integer(), nullable=True),
@@ -162,11 +163,26 @@ def upgrade() -> None:
     sa.Column('username', sa.String(), nullable=False),
     sa.Column('pw_hash', sa.String(), nullable=False),
     sa.Column('is_super', sa.Boolean(), nullable=True),
+    sa.Column('role', sa.String(length=20), nullable=False),
+    sa.Column('full_name', sa.String(length=200), nullable=True),
+    sa.Column('company', sa.String(length=200), nullable=True),
+    sa.Column('read_notification_ids', sa.JSON(), nullable=False),
     sa.Column('tenant_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['tenant_id'], ['tenant.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('username')
     )
+    op.create_table('password_reset_token',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('token', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('used', sa.Boolean(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_password_reset_token_token'), 'password_reset_token', ['token'], unique=True)
     # ### end Alembic commands ###
 
 
