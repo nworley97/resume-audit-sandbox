@@ -2306,12 +2306,8 @@ def candidate_detail(id, tenant=None):
             download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
             if is_pdf:
                 resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1, _external=False)
-            print(f"🔍 DEBUG: c.resume_url = {c.resume_url}")
-            print(f"🔍 DEBUG: resume_url = {resume_url}")
-            print(f"🔍 DEBUG: is_pdf = {is_pdf}")
         else:
             resume_url = None
-            print(f"🔍 DEBUG: c.resume_url is None or empty")
 
         # Relevancy normalized to 0–5
         raw_r = getattr(c, "relevancy", None)
@@ -3265,12 +3261,7 @@ def download_resume(cid, tenant=None):
                     )
                     return Response(html, status=404, mimetype="text/html")
                 return abort(404)
-    print(f"🔍 DEBUG: download_resume called")
-    print(f"🔍 DEBUG: c.resume_url = {c.resume_url}")
-    print(f"🔍 DEBUG: inline = {inline}")
     exists = os.path.exists(c.resume_url) if c.resume_url else False
-    print(f"🔍 DEBUG: file exists = {exists}")
-    print(f"🔍 DEBUG: mime = {mime}")
 
     # Gracefully handle missing file: if inline preview requested, return
     # a tiny same-origin HTML with a recognizable marker so the iframe
