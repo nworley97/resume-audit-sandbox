@@ -97,114 +97,8 @@ except:
     client = None
 MODEL  = "gpt-4o"
 
-# ─── One-time schema upgrade (idempotent) ─────────────────────────
-def ensure_schema():
-    from models import Base
-    
-    # Create all tables if they don't exist
-    Base.metadata.create_all(bind=models_engine)
-    
-    insp = inspect(models_engine)
-    tables = insp.get_table_names()
-    if "job_description" not in tables:
-        Base.metadata.create_all(models_engine)
-        tables = insp.get_table_names()
-
-    # Existing JD upgrade block
-    cols = {c["name"] for c in insp.get_columns("job_description")}
-    adds = []
-    if "status" not in cols:          adds.append("ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'")
-    if "department" not in cols:      adds.append("ADD COLUMN department TEXT")
-    if "team" not in cols:            adds.append("ADD COLUMN team TEXT")
-    if "location" not in cols:        adds.append("ADD COLUMN location TEXT")
-    if "employment_type" not in cols: adds.append("ADD COLUMN employment_type TEXT")
-    if "salary_range" not in cols:    adds.append("ADD COLUMN salary_range TEXT")
-    if "updated_at" not in cols:      adds.append("ADD COLUMN updated_at TIMESTAMPTZ")
-    if "start_date" not in cols:      adds.append("ADD COLUMN start_date TIMESTAMPTZ")
-    if "end_date" not in cols:        adds.append("ADD COLUMN end_date TIMESTAMPTZ")
-    # NEW: feature/ET-12-FE(Jen)
-    if "start_time" not in cols:      adds.append("ADD COLUMN start_time TIME")
-    if "end_time" not in cols:        adds.append("ADD COLUMN end_time TIME")
-    if "work_arrangement" not in cols: adds.append("ADD COLUMN work_arrangement TEXT")
-    if "markdown" not in cols:   adds.append("ADD COLUMN markdown TEXT")
-    # NEW: per-JD toggles
-    if "id_surveys_enabled" not in cols:   adds.append("ADD COLUMN id_surveys_enabled BOOLEAN DEFAULT TRUE")
-    if "question_count" not in cols:       adds.append("ADD COLUMN question_count INTEGER DEFAULT 4")
-    if "question_difficulty" not in cols:  adds.append("ADD COLUMN question_difficulty TEXT DEFAULT 'medium'")
-    if adds:
-    # Original PostgreSQL-optimized code
-    # ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
-    # with models_engine.begin() as conn:
-    #     conn.execute(text(ddl))
-
-    # NEW: Cross-database compatibility added with ET-12-FE (Jen)
-    # Problem: SQLite syntax doesn't support multiple ADD COLUMN in single statement
-    # Solution: Environment-specific execution strategy
-        with models_engine.begin() as conn:
-            if DATABASE_URL.startswith("sqlite"):
-                # SQLite: Individual execution (compatibility)
-                for add in adds:
-                    ddl = f"ALTER TABLE job_description {add};"
-                    conn.execute(text(ddl))
-            else:
-                # PostgreSQL: Batch execution (performance optimization)
-                ddl = "ALTER TABLE job_description " + ", ".join(adds) + ";"
-                conn.execute(text(ddl))
-
-
-    # NEW: team roles, profile fields, notification read-state
-    ucols = {c["name"] for c in insp.get_columns("user")}
-    uadds = []
-    if "role" not in ucols:                  uadds.append("ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'")
-    if "full_name" not in ucols:              uadds.append("ADD COLUMN full_name TEXT")
-    if "company" not in ucols:                uadds.append("ADD COLUMN company TEXT")
-    if "read_notification_ids" not in ucols:  uadds.append("ADD COLUMN read_notification_ids JSON")
-    if uadds:
-        with models_engine.begin() as conn:
-            if DATABASE_URL.startswith("sqlite"):
-                for add in uadds:
-                    conn.execute(text(f"ALTER TABLE user {add};"))
-            else:
-                conn.execute(text("ALTER TABLE user " + ", ".join(uadds) + ";"))
-
-    # NEW: candidate anti-cheat counter
-    ccols = {c["name"] for c in insp.get_columns("candidate")}
-    cadds = []
-    if "left_tab_count" not in ccols:
-        cadds.append("ADD COLUMN left_tab_count INTEGER DEFAULT 0")
-    if "status" not in ccols:
-        cadds.append("ADD COLUMN status TEXT")
-    if "recruiter_note" not in ccols:
-        cadds.append("ADD COLUMN recruiter_note TEXT")
-    if cadds:
-        with models_engine.begin() as conn:
-            if DATABASE_URL.startswith("sqlite"):
-                for add in cadds:
-                    conn.execute(text(f"ALTER TABLE candidate {add};"))
-            else:
-                ddl2 = "ALTER TABLE candidate " + ", ".join(cadds) + ";"
-                conn.execute(text(ddl2))
-    
-    # Create subscription-related tables (tenant_subscription, pending_signup, etc.)
-    from subscription_models import ensure_subscription_schema
-    ensure_subscription_schema()
-
-    # Create department table
-    if "department" not in tables:
-        with models_engine.begin() as conn:
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS department (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    tenant_id INTEGER REFERENCES tenant(id) ON DELETE CASCADE,
-                    name TEXT NOT NULL,
-                    team_lead TEXT,
-                    color TEXT DEFAULT '#6366f1',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(tenant_id, name)
-                )
-            """))
-
-ensure_schema()
+# ─── Schema is managed by Alembic (see migrations/) ───────────────
+# `alembic upgrade head` runs on boot (Procfile) before the app starts.
 
 # ─── Tenant helpers ───────────────────────────────────────────────
 def load_tenant_by_slug(slug: str):
@@ -2412,12 +2306,8 @@ def candidate_detail(id, tenant=None):
             download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
             if is_pdf:
                 resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1, _external=False)
-            print(f"🔍 DEBUG: c.resume_url = {c.resume_url}")
-            print(f"🔍 DEBUG: resume_url = {resume_url}")
-            print(f"🔍 DEBUG: is_pdf = {is_pdf}")
         else:
             resume_url = None
-            print(f"🔍 DEBUG: c.resume_url is None or empty")
 
         # Relevancy normalized to 0–5
         raw_r = getattr(c, "relevancy", None)
@@ -3371,12 +3261,7 @@ def download_resume(cid, tenant=None):
                     )
                     return Response(html, status=404, mimetype="text/html")
                 return abort(404)
-    print(f"🔍 DEBUG: download_resume called")
-    print(f"🔍 DEBUG: c.resume_url = {c.resume_url}")
-    print(f"🔍 DEBUG: inline = {inline}")
     exists = os.path.exists(c.resume_url) if c.resume_url else False
-    print(f"🔍 DEBUG: file exists = {exists}")
-    print(f"🔍 DEBUG: mime = {mime}")
 
     # Gracefully handle missing file: if inline preview requested, return
     # a tiny same-origin HTML with a recognizable marker so the iframe

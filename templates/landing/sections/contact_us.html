@@ -17,14 +17,15 @@
           </p>
         </div>
         <!-- CTA Button -->
-        <a href="mailto:info@alterasf.com" class="inline-flex self-start items-center justify-center bg-landing-blue h-[56px] p-[16px] rounded-[12px] reveal reveal-delay-3 cursor-pointer" aria-label="Contact us at info@alterasf.com (opens email)">
+        <a href="mailto:info@alterasf.com" class="inline-flex self-start items-center justify-center bg-landing-blue h-[56px] p-[16px] rounded-[12px] reveal reveal-delay-3 cursor-pointer">
           <span class="px-[16px] font-medium text-[20px] text-white leading-none tracking-[0.5px]" style="font-family: 'Roboto', sans-serif;">Contact Us</span>
         </a>
       </div>
 
-      <!-- Right: Image -->
-      <div class="w-full md:w-[50%] lg:w-[498px] h-[200px] md:h-[264px] overflow-hidden reveal reveal-delay-2 relative">
+      <!-- Right: Image with gradient overlay -->
+      <div class="w-full md:w-[50%] lg:w-[498px] h-[200px] md:h-[264px] rounded-[12px] shadow-landing-card overflow-hidden reveal reveal-delay-2 relative">
         <img src="{{ url_for('static', filename='img/landing/contact-map.png') }}" alt="" class="absolute w-full h-full object-cover">
+        <div class="absolute inset-0 rounded-[12px]" style="background: linear-gradient(to bottom, rgba(30,62,84,0.5), rgba(48,134,192,0.5));"></div>
       </div>
     </div>
   </div>

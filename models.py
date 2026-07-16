@@ -78,6 +78,11 @@ class JobDescription(Base):
     id = Column(Integer, primary_key=True)
     code = Column(String(20), nullable=False)  # unique per tenant, not globally
 
+    # Schema parity with prod: exists there (nullable, globally-unique varchar)
+    # but was undeclared here. Added so the Alembic baseline includes it
+    # instead of a future autogenerate trying to drop it.
+    slug = Column(String, nullable=True, unique=True)
+
     title = Column(String(200), nullable=False)
     # ET-23: Raw Markdown (source of truth) and sanitized HTML (rendered)
     markdown = Column(Text, nullable=True)
@@ -143,6 +148,10 @@ class Candidate(Base):
 
     # Recruiter's free-text note about the candidate (e.g. shown on the Analytics finalists list)
     recruiter_note = Column(Text, nullable=True)
+    # Schema parity with prod (added recently there; declared here so Alembic
+    # baseline matches prod exactly instead of trying to drop them).
+    archived = Column(Boolean, default=False, nullable=True)
+    archived_at = Column(DateTime, nullable=True)
 
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="SET NULL"), nullable=True)
     tenant = relationship("Tenant")
