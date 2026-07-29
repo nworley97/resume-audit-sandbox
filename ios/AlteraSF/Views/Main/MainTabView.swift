@@ -18,25 +18,51 @@ struct MainTabView: View {
                 .tabItem { Label("Analytics", systemImage: "chart.bar") }
                 .tag(2)
 
-            MoreView()
-                .tabItem { Label("More", systemImage: "ellipsis") }
+            AccountTabView()
+                .tabItem { AccountTabIcon(initials: authVM.currentUserInitials) }
                 .tag(3)
         }
         .tint(AppTheme.primary)
     }
 }
 
-struct MoreView: View {
+struct AccountTabIcon: View {
+    let initials: String
+
+    var body: some View {
+        Text(initials)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(width: 20, height: 20)
+            .background(Circle().fill(AppTheme.primary))
+    }
+}
+
+struct AccountTabView: View {
     @EnvironmentObject var authVM: AuthViewModel
+    @AppStorage("appearance_mode") private var appearanceModeRaw = AppearanceMode.system.rawValue
     @State private var showCopiedToast = false
+    @State private var showSettings = false
+    @State private var showHelp = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 AppTopBar()
-                PageHeader(title: "More", subtitle: "Account, billing, and preferences.")
+                PageHeader(title: "Account", subtitle: "Account, billing, and preferences.")
 
                 List {
+                    Section {
+                        HStack(spacing: 14) {
+                            AvatarView(initials: authVM.currentUserInitials, size: 44)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(authVM.currentUserName).font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                                Text(authVM.currentUserEmail).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+
                     Section {
                         Button {
                             if let slug = APIService.shared.tenantSlug {
@@ -54,8 +80,23 @@ struct MoreView: View {
                         NavigationLink { BillingView() } label: {
                             Label("Billing", systemImage: "creditcard")
                         }
-                        NavigationLink { SettingsView() } label: {
-                            Label("Settings", systemImage: "gearshape")
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Account settings", systemImage: "gearshape")
+                                .foregroundColor(AppTheme.textPrimary)
+                        }
+                        Button {
+                            appearanceModeRaw = isDark ? AppearanceMode.light.rawValue : AppearanceMode.dark.rawValue
+                        } label: {
+                            Label(isDark ? "Switch to light mode" : "Switch to dark mode", systemImage: "moon")
+                                .foregroundColor(AppTheme.textPrimary)
+                        }
+                        Button {
+                            showHelp = true
+                        } label: {
+                            Label("Help & support", systemImage: "questionmark.circle")
+                                .foregroundColor(AppTheme.textPrimary)
                         }
                     }
 
@@ -78,6 +119,10 @@ struct MoreView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: showCopiedToast)
+            .sheet(isPresented: $showSettings) { NavigationStack { SettingsView() } }
+            .sheet(isPresented: $showHelp) { NavigationStack { HelpSupportView() } }
         }
     }
+
+    private var isDark: Bool { AppearanceMode(rawValue: appearanceModeRaw) == .dark }
 }

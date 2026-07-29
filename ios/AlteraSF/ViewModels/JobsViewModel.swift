@@ -165,6 +165,18 @@ final class JobsViewModel: ObservableObject {
         }
     }
 
+    func notifySaved(isNew: Bool, status: String) {
+        let msg: String
+        if status == "open" {
+            msg = "Job published"
+        } else if isNew {
+            msg = "Saved as draft"
+        } else {
+            msg = "Job updated"
+        }
+        showToast(msg)
+    }
+
     func copyJobBoardLink() {
         if let slug = api.tenantSlug {
             UIPasteboard.general.string = AppConfig.baseURL.appendingPathComponent("\(slug)/jobs").absoluteString

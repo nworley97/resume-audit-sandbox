@@ -9,7 +9,7 @@ final class CandidatesViewModel: ObservableObject {
     @Published var selectedTab: CandidateTab = .all
     @Published var searchText = ""
     @Published var selectedDepartment: String? = nil
-    @Published var sortOption: SortOption = .topScore
+    @Published var sortOption: SortOption = .fitDesc
     @Published var showFilterSheet = false
     @Published var showSortSheet = false
 
@@ -20,13 +20,23 @@ final class CandidatesViewModel: ObservableObject {
     }
 
     enum SortOption: String, CaseIterable {
-        case topScore = "Top score"
+        case fitDesc = "Fit score: High to low"
+        case fitAsc = "Fit score: Low to high"
+        case claimDesc = "Claim validity: High to low"
+        case claimAsc = "Claim validity: Low to high"
+        case combinedDesc = "Combined score: High to low"
+        case combinedAsc = "Combined score: Low to high"
         case newest = "Newest"
         case flaggedFirst = "Flagged first"
 
         var apiValue: String {
             switch self {
-            case .topScore: return "score"
+            case .fitDesc: return "score"
+            case .fitAsc: return "fit_asc"
+            case .claimDesc: return "claim_desc"
+            case .claimAsc: return "claim_asc"
+            case .combinedDesc: return "combined_desc"
+            case .combinedAsc: return "combined_asc"
             case .newest: return "newest"
             case .flaggedFirst: return "flagged"
             }
@@ -69,9 +79,6 @@ final class CandidatesViewModel: ObservableObject {
             await load(jobCode: jobCode)
         }
     }
-
-    var diamondCount: Int { candidates.filter(\.isDiamond).count }
-    var flaggedCount: Int { candidates.filter(\.isFlagged).count }
 
     var displayedCandidates: [Candidate] {
         switch selectedTab {

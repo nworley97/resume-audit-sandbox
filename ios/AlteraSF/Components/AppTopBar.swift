@@ -4,7 +4,6 @@ struct AppTopBar: View {
     @EnvironmentObject var authVM: AuthViewModel
     @StateObject private var notificationsVM = NotificationsViewModel()
     @State private var showNotifications = false
-    @State private var showActivity = false
     @State private var showAccount = false
 
     var body: some View {
@@ -30,10 +29,6 @@ struct AppTopBar: View {
                 }
             }
 
-            Button { showActivity = true } label: {
-                Image(systemName: "clock.arrow.circlepath").font(.system(size: 17)).foregroundColor(AppTheme.textPrimary)
-            }
-
             Button { showAccount = true } label: {
                 AvatarView(initials: authVM.currentUserInitials, size: 30)
             }
@@ -43,9 +38,6 @@ struct AppTopBar: View {
         .task { await notificationsVM.load() }
         .sheet(isPresented: $showNotifications) {
             NotificationsPreviewSheet(vm: notificationsVM)
-        }
-        .sheet(isPresented: $showActivity) {
-            RecentActivitySheet(vm: notificationsVM)
         }
         .sheet(isPresented: $showAccount) {
             AccountSheet()
@@ -104,32 +96,6 @@ struct NotificationsPreviewSheet: View {
                         .disabled(vm.unreadCount == 0)
                 }
             }
-        }
-        .presentationDetents([.medium, .large])
-    }
-}
-
-struct RecentActivitySheet: View {
-    @ObservedObject var vm: NotificationsViewModel
-    @Environment(\.dismiss) var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                if vm.notifications.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "clock").font(.system(size: 32)).foregroundColor(AppTheme.textTertiary)
-                        Text("No recent activity").foregroundColor(AppTheme.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity).padding(.vertical, 48)
-                } else {
-                    ForEach(vm.notifications.prefix(5)) { notif in
-                        NotificationRow(notification: notif)
-                    }
-                }
-            }
-            .navigationTitle("Recent activity")
-            .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.medium, .large])
     }

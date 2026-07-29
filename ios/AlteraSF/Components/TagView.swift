@@ -4,6 +4,7 @@ struct TagView: View {
     let text: String
     var color: Color = AppTheme.primary
     var filled: Bool = false
+    var pill: Bool = false
 
     var body: some View {
         Text(text)
@@ -12,7 +13,7 @@ struct TagView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(filled ? color : color.opacity(0.12))
-            .cornerRadius(6)
+            .cornerRadius(pill ? 20 : 6)
     }
 }
 
