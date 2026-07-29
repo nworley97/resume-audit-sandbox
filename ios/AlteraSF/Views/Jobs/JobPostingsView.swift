@@ -98,7 +98,10 @@ struct JobPostingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showCreateJob) {
-                EditJobView(job: nil, onSave: { _, _ in Task { await vm.load() } })
+                EditJobView(job: nil, onSave: { job, status in
+                    Task { await vm.load() }
+                    vm.notifySaved(isNew: job == nil, status: status)
+                })
             }
             .sheet(isPresented: $showAddDept) {
                 AddDepartmentSheet(isPresented: $showAddDept, vm: vm)
@@ -111,12 +114,34 @@ struct JobPostingsView: View {
                 )
             }
             .sheet(item: $vm.showEditJob) { job in
-                EditJobView(job: job, onSave: { _, _ in Task { await vm.load() } })
+                EditJobView(job: job, onSave: { editedJob, status in
+                    Task { await vm.load() }
+                    vm.notifySaved(isNew: editedJob == nil, status: status)
+                })
             }
         }
         .task { await vm.load() }
         .environmentObject(vm)
     }
+
+    static let exampleClosedJob = Job(
+        id: "example-closed",
+        title: "Product Designer",
+        jobId: "EPD-PD-01",
+        department: "Engineering & Product Development",
+        location: "Remote",
+        employmentType: .fullTime,
+        workArrangement: .remote,
+        salaryMin: 0,
+        salaryMax: 0,
+        description: "",
+        numberOfQuestions: 3,
+        status: .closed,
+        postedDate: Date(),
+        applicantCount: 0,
+        diamondCount: 0,
+        hiredCandidate: "Jordan Lee"
+    )
 }
 
 // MARK: – Open Roles
@@ -240,12 +265,10 @@ struct DraftsContent: View {
                 .padding(.horizontal, 16).padding(.vertical, 10)
 
             ForEach(visible) { job in
-                NavigationLink { EditJobView(job: job, onSave: { _, _ in Task { await vm.load() } }) } label: {
+                Button { vm.showEditJob = job } label: {
                     DraftRowView(job: job)
                 }
-                .swipeActions {
-                    Button(role: .destructive) { vm.deleteRole(job) } label: { Label("Delete", systemImage: "trash") }
-                }
+                .buttonStyle(.plain)
             }
 
             if drafts.count > 4 {
@@ -277,8 +300,23 @@ struct ClosedContent: View {
                 .font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
                 .padding(.horizontal, 16).padding(.vertical, 10)
 
-            ForEach(vm.closedJobs()) { job in
-                ClosedJobRowView(job: job, onReopen: { vm.reopenRole(job) })
+            if vm.closedJobs().isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("EXAMPLE")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(AppTheme.textTertiary)
+                        .padding(.horizontal, 16).padding(.top, 4)
+                    ClosedJobRowView(job: JobPostingsView.exampleClosedJob, onReopen: {})
+                        .disabled(true)
+                        .opacity(0.55)
+                    Text("Roles you close will show up here, along with who was hired.")
+                        .font(.system(size: 12)).foregroundColor(AppTheme.textTertiary)
+                        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
+                }
+            } else {
+                ForEach(vm.closedJobs()) { job in
+                    ClosedJobRowView(job: job, onReopen: { vm.reopenRole(job) })
+                }
             }
         }
         .background(AppTheme.background).padding(.top, 8)

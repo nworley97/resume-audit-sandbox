@@ -17,6 +17,13 @@ from werkzeug.exceptions import HTTPException
 
 from db import SessionLocal
 from models import Tenant, User, JobDescription, Candidate, Department, PasswordResetToken
+from analytics_service import (
+    RELEVANCY_AXIS,
+    CLAIM_VALIDITY_AXIS,
+    _get_fit_range_for_matrix,
+    _get_claim_range_for_matrix,
+    _cheat_flag_info,
+)
 
 mobile_api = Blueprint("mobile_api", __name__, url_prefix="/api/mobile")
 
@@ -184,6 +191,7 @@ def _job_dict(jd: JobDescription, db, t: Tenant) -> dict:
         "posted_date": posted.isoformat() if posted else None,
         "applicant_count": applicant_count,
         "diamond_count": diamond_count,
+        "id_surveys_enabled": jd.id_surveys_enabled if jd.id_surveys_enabled is not None else True,
         "description": "",   # markdown omitted for list view (bandwidth)
     }
 
@@ -289,13 +297,64 @@ def _analytics_for_job(jd: JobDescription, db, t: Tenant) -> dict:
     )
     verified = sum(1 for c in cands if getattr(c, "realism", False))
     diamonds = []
+    finalists = []
     passed = 0
+
+    # Cross Validation Matrix: Fit Score (7 rows) x Claim Validity (6 cols).
+    heatmap_matrix = [[0] * len(CLAIM_VALIDITY_AXIS) for _ in range(len(RELEVANCY_AXIS))]
+    heatmap_cell_members: dict[tuple[int, int], list[dict]] = {}
+
     for c in cands:
         rel = _normalize_score(getattr(c, "fit_score", None))
         claim = _avg_answer_scores(getattr(c, "answer_scores", None) or [])
         if _is_diamond(rel, claim):
             diamonds.append(_candidate_list_dict(c, jd))
             passed += 1
+
+        if getattr(c, "status", None) == "finalist":
+            cheat_info = _cheat_flag_info(c)
+            combined = round((claim or 0.0) * 0.55 + rel * 0.45, 2)
+            name = c.name or ""
+            initials = "".join(w[0] for w in name.split()[:2]).upper() or "U"
+            finalists.append({
+                "id": c.id,
+                "name": name,
+                "initials": initials,
+                "claim_validity_score": claim or 0.0,
+                "relevancy_score": rel,
+                "flagged_answers": cheat_info["flagged_answers"],
+                "total_answers": cheat_info["total_answers"],
+                "tab_switches": cheat_info["tab_switches"],
+                "flagged": cheat_info["flagged"],
+                "flag_reason": cheat_info["flag_reason"],
+                "overall_score": combined,
+                "note": c.recruiter_note or "",
+            })
+
+        rel_idx = _get_fit_range_for_matrix(rel)
+        claim_idx = _get_claim_range_for_matrix(claim)
+        heatmap_matrix[rel_idx][claim_idx] += 1
+        name = c.name or ""
+        initials = "".join(w[0] for w in name.split()[:2]).upper() or "U"
+        heatmap_cell_members.setdefault((rel_idx, claim_idx), []).append({
+            "id": c.id,
+            "name": name,
+            "initials": initials,
+            "relevancy_score": rel,
+            "claim_validity_score": claim,
+        })
+
+    heatmap_cells = [
+        {
+            "relevancy": rel_idx,
+            "claim": claim_idx,
+            "candidates": heatmap_cell_members.get((rel_idx, claim_idx), []),
+        }
+        for rel_idx in range(len(RELEVANCY_AXIS))
+        for claim_idx in range(len(CLAIM_VALIDITY_AXIS))
+    ]
+
+    finalists.sort(key=lambda x: x["overall_score"], reverse=True)
 
     completion_rate = round((completed / total * 100), 1) if total else 0.0
     time_saved = round(completed * 22 / 60, 1)   # ~22 min saved per completed screen
@@ -322,6 +381,7 @@ def _analytics_for_job(jd: JobDescription, db, t: Tenant) -> dict:
         "job_title": jd.title or "",
         "department": jd.department or "",
         "status": (jd.status or "draft").lower(),
+        "posted_date": jd.created_at.isoformat() if jd.created_at else None,
         "total_applicants": total,
         "diamonds_found": len(diamonds),
         "completion_rate": completion_rate,
@@ -338,6 +398,15 @@ def _analytics_for_job(jd: JobDescription, db, t: Tenant) -> dict:
         "claim_score_distribution": score_dist([s for s in claim_scores if s is not None]),
         "fit_score_distribution": score_dist(fit_scores),
         "diamonds": diamonds[:10],
+        "finalists": finalists,
+        "heatmap": {
+            "matrix": heatmap_matrix,
+            "axes": {
+                "relevancy": RELEVANCY_AXIS,
+                "claim_validity": CLAIM_VALIDITY_AXIS,
+            },
+            "cells": heatmap_cells,
+        },
     }
 
 
@@ -521,6 +590,7 @@ def create_job(t: Tenant):
             html="",
             status=data.get("status") or "draft",
             question_count=int(data.get("question_count") or 4),
+            id_surveys_enabled=bool(data.get("id_surveys_enabled", True)),
             tenant_id=t.id,
         )
         db.add(jd)
@@ -553,6 +623,8 @@ def update_job(t: Tenant, code: str):
 
         if "question_count" in data:
             jd.question_count = max(1, min(5, int(data["question_count"])))
+        if "id_surveys_enabled" in data:
+            jd.id_surveys_enabled = bool(data["id_surveys_enabled"])
         jd.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(jd)
@@ -701,7 +773,8 @@ def list_candidates(t: Tenant):
     job_code = request.args.get("job_code", "").strip()
     status_filter = request.args.get("status", "").strip()   # finalist / archived / ''
     search = request.args.get("q", "").strip()
-    sort = request.args.get("sort", "score")         # score | newest | flagged
+    # score/fit_desc, fit_asc, claim_desc, claim_asc, combined_desc, combined_asc, newest, flagged
+    sort = request.args.get("sort", "score")
     page = max(int(request.args.get("page", 1)), 1)
     per_page = min(int(request.args.get("per_page", 50)), 200)
 
@@ -725,15 +798,34 @@ def list_candidates(t: Tenant):
                 Candidate.jd_code.ilike(like),
             ))
 
-        if sort == "newest":
-            qry = qry.order_by(Candidate.created_at.desc())
-        elif sort == "flagged":
-            qry = qry.order_by(Candidate.left_tab_count.desc())
-        else:
-            qry = qry.order_by(Candidate.fit_score.desc())
+        # claim_validity_score isn't a DB column (it's computed from answer_scores
+        # JSON), so sorting by it or the combined score has to happen in Python.
+        PY_SORT_KEYS = {"claim_asc", "claim_desc", "combined_asc", "combined_desc"}
+        if sort in PY_SORT_KEYS:
+            all_cands = qry.all()
 
-        total = qry.count()
-        cands = qry.offset((page - 1) * per_page).limit(per_page).all()
+            def _sort_key(c: Candidate):
+                rel = _normalize_score(getattr(c, "fit_score", None))
+                claim = _avg_answer_scores(getattr(c, "answer_scores", None) or []) or 0.0
+                if sort.startswith("claim"):
+                    return claim
+                return (rel + claim) / 2
+
+            all_cands.sort(key=_sort_key, reverse=sort.endswith("desc"))
+            total = len(all_cands)
+            cands = all_cands[(page - 1) * per_page: (page - 1) * per_page + per_page]
+        else:
+            if sort == "newest":
+                qry = qry.order_by(Candidate.created_at.desc())
+            elif sort == "flagged":
+                qry = qry.order_by(Candidate.left_tab_count.desc())
+            elif sort == "fit_asc":
+                qry = qry.order_by(Candidate.fit_score.asc())
+            else:
+                qry = qry.order_by(Candidate.fit_score.desc())
+
+            total = qry.count()
+            cands = qry.offset((page - 1) * per_page).limit(per_page).all()
 
         # Build jd lookup
         codes = {c.jd_code for c in cands if c.jd_code}
@@ -852,6 +944,7 @@ def analytics_overview(t: Tenant):
                 "job_title": a["job_title"],
                 "department": a["department"],
                 "status": a["status"],
+                "posted_date": a["posted_date"],
                 "total_applicants": a["total_applicants"],
                 "diamonds_found": a["diamonds_found"],
                 "completion_rate": a["completion_rate"],
@@ -877,6 +970,56 @@ def analytics_job(t: Tenant, code: str):
         if not jd:
             abort(404)
         return jsonify(_analytics_for_job(jd, db, t))
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/analytics/<code>/candidates", methods=["GET"])
+@login_required
+@tenant_required
+def analytics_job_candidates(t: Tenant, code: str):
+    """Lightweight roster for the 'Add Candidates' picker: everyone applied
+    to this job who isn't already a finalist."""
+    db = SessionLocal()
+    try:
+        cands = (
+            db.query(Candidate)
+            .filter(
+                Candidate.tenant_id == t.id,
+                Candidate.jd_code == code,
+                or_(Candidate.status.is_(None), Candidate.status != "finalist"),
+            )
+            .order_by(Candidate.name.asc())
+            .all()
+        )
+        return jsonify([
+            {
+                "id": c.id,
+                "name": c.name or "",
+                "initials": "".join(w[0] for w in (c.name or "").split()[:2]).upper() or "U",
+                "claim_validity_score": _avg_answer_scores(getattr(c, "answer_scores", None) or []) or 0.0,
+                "relevancy_score": _normalize_score(getattr(c, "fit_score", None)),
+            }
+            for c in cands
+        ])
+    finally:
+        db.close()
+
+
+@mobile_api.route("/<tenant>/candidates/<cid>/note", methods=["PATCH"])
+@login_required
+@tenant_required
+def set_candidate_note(t: Tenant, cid: str):
+    data = request.get_json(silent=True) or {}
+    note = (data.get("note") or "").strip()
+    db = SessionLocal()
+    try:
+        c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first()
+        if not c:
+            abort(404)
+        c.recruiter_note = note or None
+        db.commit()
+        return jsonify({"ok": True, "id": c.id, "note": c.recruiter_note or ""})
     finally:
         db.close()
 

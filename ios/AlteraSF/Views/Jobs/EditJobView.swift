@@ -14,6 +14,8 @@ struct EditJobView: View {
     @State private var salaryRange: String
     @State private var description: String
     @State private var numberOfQuestions: Int
+    @State private var idSurveysEnabled: Bool
+    @State private var copiedLink = false
     @State private var startDate = Date()
     @State private var endDate = Date().addingTimeInterval(86400 * 30)
     @State private var isSaving = false
@@ -47,9 +49,15 @@ struct EditJobView: View {
         _salaryRange = State(initialValue: job.map { "\($0.salaryMin > 0 ? "$\($0.salaryMin)" : "")–$\($0.salaryMax > 0 ? "\($0.salaryMax)" : "")" } ?? "")
         _description = State(initialValue: job?.description ?? "")
         _numberOfQuestions = State(initialValue: job?.numberOfQuestions ?? 3)
+        _idSurveysEnabled = State(initialValue: job?.idSurveysEnabled ?? true)
     }
 
     var isNew: Bool { job == nil }
+
+    private var applicationLink: String {
+        guard let slug = api.tenantSlug else { return "" }
+        return AppConfig.baseURL.appendingPathComponent("\(slug)/apply/\(code)").absoluteString
+    }
 
     var body: some View {
         NavigationStack {
@@ -123,6 +131,44 @@ struct EditJobView: View {
                             Text("Assessment").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                             fieldLabel("Number of questions")
                             tappableField("\(numberOfQuestions) question\(numberOfQuestions == 1 ? "" : "s")") { showQuestionCountSheet = true }
+                        }
+
+                        card {
+                            Text("Self-Identification Survey").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                            Toggle("Enable self-identification survey", isOn: $idSurveysEnabled)
+                                .font(.system(size: 14))
+                                .tint(AppTheme.primary)
+                        }
+
+                        if !isNew {
+                            card {
+                                Text("Application Link").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                                Text("Your job is live! Share this application link on your website, social media, or job boards.")
+                                    .font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                                HStack(spacing: 8) {
+                                    Text(applicationLink)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                    Spacer()
+                                    Button {
+                                        UIPasteboard.general.string = applicationLink
+                                        copiedLink = true
+                                        Task {
+                                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                                            copiedLink = false
+                                        }
+                                    } label: {
+                                        Label(copiedLink ? "Copied" : "Copy", systemImage: copiedLink ? "checkmark" : "doc.on.doc")
+                                            .font(.system(size: 12, weight: .semibold))
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(AppTheme.primary)
+                                }
+                                .padding(10)
+                                .background(AppTheme.groupedBackground).cornerRadius(8)
+                            }
                         }
 
                         if let err = saveError {
@@ -285,6 +331,7 @@ struct EditJobView: View {
             "salary_range": salaryRange,
             "description": description,
             "question_count": numberOfQuestions,
+            "id_surveys_enabled": idSurveysEnabled,
             "status": status,
         ]
         Task { @MainActor in

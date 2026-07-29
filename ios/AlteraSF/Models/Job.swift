@@ -37,6 +37,7 @@ struct Job: Identifiable, Hashable {
     var applicantCount: Int
     var diamondCount: Int
     var hiredCandidate: String?
+    var idSurveysEnabled: Bool = true
 
     var avatarInitials: [String] {
         ["AB", "MK", "JS"]

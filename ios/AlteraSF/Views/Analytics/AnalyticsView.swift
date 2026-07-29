@@ -25,18 +25,9 @@ struct AnalyticsView: View {
                         }
                         .padding(.horizontal, 16)
 
-                        HStack {
-                            Text("Job Postings").font(.system(size: 16, weight: .semibold))
-                            Spacer()
-                            Button { vm.sortNewest.toggle() } label: {
-                                HStack(spacing: 4) {
-                                    Text(vm.sortNewest ? "Newest" : "Most applicants").font(.system(size: 13))
-                                    Image(systemName: "chevron.down").font(.system(size: 11))
-                                }
-                                .foregroundColor(AppTheme.primary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
+                        Text("Job Postings").font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
 
                         ForEach(vm.sortedPostings, id: \.jobCode) { summary in
                             NavigationLink {
@@ -74,6 +65,9 @@ struct AnalyticsJobCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(summary.jobTitle).font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary).multilineTextAlignment(.leading)
+                    if let posted = summary.postedDateFormatted {
+                        Text("Posted \(posted)").font(.system(size: 11)).foregroundColor(AppTheme.textTertiary)
+                    }
                     Text(summary.department).font(.caption).foregroundColor(AppTheme.textSecondary)
                 }
                 Spacer()

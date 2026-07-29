@@ -12,7 +12,8 @@ final class AuthViewModel: ObservableObject {
     var currentUserInitials: String { apiService.currentUser?.initials ?? "ED" }
     var currentUserName: String {
         guard let user = apiService.currentUser else { return "User" }
-        return user.fullName.isEmpty ? user.username : user.fullName
+        let name = user.fullName ?? ""
+        return name.isEmpty ? user.username : name
     }
     var currentUserCompany: String { apiService.currentUser?.company ?? "" }
 
