@@ -408,17 +408,24 @@ def handle_payment_method_attached(event) -> Dict[str, Any]:
 
 
 def handle_customer_created(event) -> Dict[str, Any]:
-    """Handle customer.created event."""
+    """
+    Handle customer.created event.
+
+    NOTE: A Stripe Customer object is created as soon as a subscription-mode
+    Checkout Session starts (i.e. as soon as the buyer loads the payment
+    page) — well before any card is charged, and a customer can even be
+    created via the API with no payment at all. It is NOT proof of payment,
+    so account creation must never be triggered from this event. That's
+    handled by handle_checkout_session_completed instead, which only fires
+    once the checkout has actually succeeded. This handler is informational
+    only.
+    """
     customer = event.data.object
     customer_id = _safe_get(customer, 'id')
     customer_email = _safe_get(customer, 'email')
-    
+
     logger.info(f"Customer created: {customer_id} ({customer_email})")
-    
-    # Check if this customer email matches a pending signup
-    if customer_email:
-        _maybe_create_account_from_pending_signup(customer_email, customer_id)
-    
+
     return {"customer_id": customer_id, "email": customer_email}
 
 
@@ -439,24 +446,47 @@ def handle_checkout_session_completed(event) -> Dict[str, Any]:
 
     logger.info(f"Checkout session completed: {session_id} for customer {customer_id}, email: {customer_email}")
 
+    # Defense in depth: only grant anything if the session actually collected
+    # payment (or genuinely required none, e.g. a $0 line item). We don't
+    # offer trials, so a real paid checkout should always land here as 'paid'.
+    payment_status = _safe_get(checkout_session, 'payment_status')
+    if payment_status not in ('paid', 'no_payment_required'):
+        logger.warning(
+            f"Checkout session {session_id} completed with payment_status="
+            f"{payment_status!r}; not granting any plan/seat access."
+        )
+        return {"session_id": session_id, "customer_id": customer_id, "skipped_unpaid": True}
+
     # Check if this is an extra_seat purchase
     seat_added = _maybe_add_extra_seat(session_id, customer_id)
     if seat_added:
         return {"session_id": session_id, "customer_id": customer_id, "seat_added": True}
 
-    # Otherwise, try to create account from pending signup (new plan purchase)
+    # Try to create account from pending signup (brand-new signup)
     account_created = False
     if customer_email:
         account_created = _maybe_create_account_from_pending_signup(customer_email, customer_id)
 
-    if not account_created:
+    # Otherwise, this may be an existing account upgrading/switching plans
+    # (billing.change_plan redirects here for accounts with no live Stripe
+    # subscription yet) - apply the tier they actually paid for.
+    plan_upgraded = False
+    if not account_created and customer_email:
+        plan_upgraded = _maybe_upgrade_existing_tenant(session_id, customer_id, customer_email)
+
+    if not account_created and not plan_upgraded:
         # Log for debugging - this might indicate an email mismatch
         logger.warning(
-            f"Checkout completed but no account created for email: {customer_email}, "
+            f"Checkout completed but no account created/upgraded for email: {customer_email}, "
             f"customer_id: {customer_id}. Check if pending signup exists with matching email."
         )
 
-    return {"session_id": session_id, "customer_id": customer_id, "account_created": account_created}
+    return {
+        "session_id": session_id,
+        "customer_id": customer_id,
+        "account_created": account_created,
+        "plan_upgraded": plan_upgraded,
+    }
 
 
 def handle_unknown_event(event) -> Dict[str, Any]:
@@ -593,6 +623,109 @@ def _update_payment_method_in_db(
             
     except Exception as e:
         logger.error(f"Error updating payment method in database: {e}", exc_info=True)
+        return False
+
+
+def _maybe_upgrade_existing_tenant(session_id: str, stripe_customer_id: str, customer_email: str) -> bool:
+    """
+    Check if a checkout session is an existing account paying to switch to a
+    paid plan tier (billing.change_plan sends users with no live Stripe
+    subscription through a real payment link rather than granting the tier
+    for free). If the email matches an existing user, apply the plan they
+    actually paid for based on the purchased product's line items.
+    """
+    if not stripe_customer_id or not customer_email:
+        return False
+
+    try:
+        import stripe
+        from stripe_config import STRIPE_SECRET_KEY, STRIPE_PRODUCTS
+        from db import SessionLocal
+        from models import User
+        from subscription_models import TenantSubscription, PaymentHistory
+
+        if not STRIPE_SECRET_KEY:
+            return False
+        stripe.api_key = STRIPE_SECRET_KEY
+
+        # Reverse-map product id -> plan tier (only real paid tiers matter here)
+        product_to_tier = {
+            pid: tier for tier, pid in STRIPE_PRODUCTS.items()
+            if tier in ("starter", "pro", "ultra")
+        }
+
+        cs = stripe.checkout.Session.retrieve(session_id, expand=["line_items", "line_items.data.price"])
+        line_items = cs.line_items.data if cs.line_items else []
+
+        purchased_tier = None
+        billing_cycle = "monthly"
+        for item in line_items:
+            price = item.price
+            if not price:
+                continue
+            product_id = price.product
+            if isinstance(product_id, dict):
+                product_id = product_id.get('id')
+            if product_id in product_to_tier:
+                purchased_tier = product_to_tier[product_id]
+                lookup_key = getattr(price, 'lookup_key', None) or ''
+                billing_cycle = "yearly" if "annual" in lookup_key else "monthly"
+                break
+
+        if not purchased_tier:
+            return False
+
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == customer_email.lower()).first()
+            if not user or not user.tenant_id:
+                logger.debug(f"No existing user found for plan-change checkout email: {customer_email}")
+                return False
+
+            subscription = db.query(TenantSubscription).filter_by(tenant_id=user.tenant_id).first()
+            if not subscription:
+                logger.warning(f"No subscription record for tenant {user.tenant_id} during plan-change checkout")
+                return False
+
+            stripe_subscription_id = None
+            try:
+                subs = stripe.Subscription.list(customer=stripe_customer_id, limit=1)
+                if subs.data:
+                    stripe_subscription_id = subs.data[0].id
+            except Exception as e:
+                logger.warning(f"Could not fetch subscription from Stripe: {e}")
+
+            subscription.plan_tier = purchased_tier
+            subscription.billing_cycle = billing_cycle
+            subscription.status = "active"
+            subscription.stripe_customer_id = stripe_customer_id
+            if stripe_subscription_id:
+                subscription.stripe_subscription_id = stripe_subscription_id
+
+            amount = cs.amount_total / 100.0 if cs.amount_total else 0
+            db.add(PaymentHistory(
+                tenant_id=user.tenant_id,
+                amount=amount,
+                currency=(cs.currency or 'usd').upper(),
+                status='succeeded',
+                description=f"Plan change to {purchased_tier.title()} ({billing_cycle})",
+                plan_tier=purchased_tier,
+                billing_cycle=billing_cycle,
+                stripe_payment_intent_id=cs.payment_intent if isinstance(cs.payment_intent, str) else None,
+            ))
+
+            db.commit()
+            logger.info(f"Upgraded tenant {user.tenant_id} to {purchased_tier} via checkout session {session_id}")
+            return True
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error upgrading existing tenant: {e}", exc_info=True)
+            return False
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Error checking for plan-change purchase: {e}", exc_info=True)
         return False
 
 

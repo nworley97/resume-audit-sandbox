@@ -1400,6 +1400,7 @@ def get_billing(t: Tenant):
 def billing_change_plan(t: Tenant):
     from subscription_models import TenantSubscription, PaymentHistory, get_tenant_subscription
     from plans_config import PLAN_TIERS, PLAN_PRICING, get_plan_price
+    from stripe_service import PaymentService
 
     data = request.get_json(silent=True) or {}
     new_tier = (data.get("plan_tier") or "").strip().lower()
@@ -1419,24 +1420,61 @@ def billing_change_plan(t: Tenant):
             db.flush()
 
         new_cycle = (data.get("billing_cycle") or sub.billing_cycle or "monthly").strip().lower()
-        old_amount = get_plan_price(sub.plan_tier, sub.billing_cycle)
-        new_amount = get_plan_price(new_tier, new_cycle)
 
-        sub.plan_tier = new_tier
-        sub.billing_cycle = new_cycle
-        db.add(PaymentHistory(
-            tenant_id=t.id,
-            amount=max(new_amount - old_amount, 0),
-            currency="USD",
-            description=f"Plan change to {PLAN_PRICING[new_tier]['display_name']} ({new_cycle})",
-            status="succeeded",
-            plan_tier=new_tier,
-            billing_cycle=new_cycle,
-            payment_method_last4=sub.payment_method_last4,
-            payment_method_brand=sub.payment_method_brand,
-        ))
-        db.commit()
-        return jsonify({"ok": True, "plan_tier": new_tier, "billing_cycle": new_cycle})
+        # Downgrading to free: cancel any live Stripe subscription, no charge involved.
+        if new_tier == "free":
+            if sub.stripe_subscription_id:
+                success, error = PaymentService.cancel_subscription(sub.stripe_subscription_id, cancel_at_period_end=False)
+                if not success:
+                    abort(502, error or "failed to cancel stripe subscription")
+                sub.stripe_subscription_id = None
+            sub.plan_tier = "free"
+            sub.billing_cycle = "monthly"
+            db.commit()
+            return jsonify({"ok": True, "plan_tier": "free", "billing_cycle": "monthly"})
+
+        # Upgrading/switching a live Stripe subscription: let Stripe actually
+        # charge/prorate the change before we grant it.
+        if sub.stripe_subscription_id:
+            old_amount = get_plan_price(sub.plan_tier, sub.billing_cycle)
+            new_amount = get_plan_price(new_tier, new_cycle)
+
+            success, error, sub_info = PaymentService.update_subscription(sub.stripe_subscription_id, new_tier, new_cycle)
+            if not success:
+                abort(502, error or "failed to update stripe subscription")
+
+            sub.plan_tier = new_tier
+            sub.billing_cycle = new_cycle
+            db.add(PaymentHistory(
+                tenant_id=t.id,
+                amount=max(new_amount - old_amount, 0),
+                currency="USD",
+                description=f"Plan change to {PLAN_PRICING[new_tier]['display_name']} ({new_cycle})",
+                status="succeeded",
+                plan_tier=new_tier,
+                billing_cycle=new_cycle,
+                payment_method_last4=sub.payment_method_last4,
+                payment_method_brand=sub.payment_method_brand,
+            ))
+            db.commit()
+            return jsonify({"ok": True, "plan_tier": new_tier, "billing_cycle": new_cycle})
+
+        # No live Stripe subscription backing this account (e.g. currently on
+        # Free) - there's nothing to prorate, so this tier must be paid for via
+        # a real Stripe checkout before it's granted. Hand the client a
+        # payment URL instead of activating the plan locally.
+        from stripe_config import get_payment_link
+        from urllib.parse import quote
+
+        payment_link = get_payment_link(new_tier, new_cycle)
+        if not payment_link:
+            abort(400, "payment link not configured for this plan")
+
+        email = current_user.username or ""
+        if email:
+            payment_link = f"{payment_link}?prefilled_email={quote(email)}"
+
+        return jsonify({"ok": False, "requires_payment": True, "payment_url": payment_link}), 402
     finally:
         db.close()
 
@@ -1470,14 +1508,24 @@ def billing_cancel(t: Tenant):
 @tenant_required
 def billing_portal(t: Tenant):
     from subscription_models import TenantSubscription
+    from stripe_service import PaymentService, create_billing_portal_session
 
     db = SessionLocal()
     try:
         sub = db.query(TenantSubscription).filter_by(tenant_id=t.id).first()
-        if not sub or not sub.stripe_customer_id:
-            abort(400, "no payment method on file to manage")
+        if not sub:
+            abort(400, "no subscription found")
 
-        from stripe_service import create_billing_portal_session
+        if not sub.stripe_customer_id:
+            # No Stripe customer yet (e.g. free-tier account) - create one on
+            # demand so the portal can be used to add a payment method.
+            sub.stripe_customer_id = PaymentService.create_customer(
+                email=current_user.username,
+                name=getattr(current_user, "full_name", None),
+                company=t.display_name,
+            )
+            db.commit()
+
         success, error, portal_url = create_billing_portal_session(
             sub.stripe_customer_id,
             request.args.get("return_url", "https://alterasf.com"),

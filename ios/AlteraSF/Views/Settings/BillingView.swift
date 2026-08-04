@@ -20,15 +20,22 @@ final class BillingViewModel: ObservableObject {
         isLoading = false
     }
 
-    func changePlan(tier: String, cycle: String) async -> Bool {
+    /// Returns nil on failure (actionError is set). On success, either the
+    /// plan was applied directly, or the account has no live Stripe
+    /// subscription to prorate and must complete a real payment first — in
+    /// that case the caller should open `paymentRequired`'s URL so the user
+    /// can actually pay before the upgrade takes effect.
+    func changePlan(tier: String, cycle: String) async -> ChangePlanOutcome? {
         actionError = nil
         do {
-            try await api.changePlan(tier: tier, cycle: cycle)
-            await load()
-            return true
+            let outcome = try await api.changePlan(tier: tier, cycle: cycle)
+            if case .applied = outcome {
+                await load()
+            }
+            return outcome
         } catch {
             actionError = error.localizedDescription
-            return false
+            return nil
         }
     }
 
@@ -102,7 +109,16 @@ struct BillingView: View {
         .sheet(isPresented: $showUpgradeSheet) {
             if let billing = vm.billing {
                 UpgradeSheet(billing: billing) { tier, cycle in
-                    await vm.changePlan(tier: tier, cycle: cycle)
+                    guard let outcome = await vm.changePlan(tier: tier, cycle: cycle) else { return false }
+                    switch outcome {
+                    case .applied:
+                        return true
+                    case .paymentRequired(let url):
+                        // No live Stripe subscription to upgrade in place —
+                        // hand off to a real Stripe checkout to collect payment.
+                        openURL(url)
+                        return true
+                    }
                 }
             }
         }

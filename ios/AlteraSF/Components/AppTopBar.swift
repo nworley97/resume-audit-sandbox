@@ -1,10 +1,8 @@
 import SwiftUI
 
 struct AppTopBar: View {
-    @EnvironmentObject var authVM: AuthViewModel
     @StateObject private var notificationsVM = NotificationsViewModel()
     @State private var showNotifications = false
-    @State private var showAccount = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -28,19 +26,12 @@ struct AppTopBar: View {
                     }
                 }
             }
-
-            Button { showAccount = true } label: {
-                AvatarView(initials: authVM.currentUserInitials, size: 30)
-            }
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(AppTheme.background)
         .task { await notificationsVM.load() }
         .sheet(isPresented: $showNotifications) {
             NotificationsPreviewSheet(vm: notificationsVM)
-        }
-        .sheet(isPresented: $showAccount) {
-            AccountSheet()
         }
     }
 }
@@ -101,63 +92,3 @@ struct NotificationsPreviewSheet: View {
     }
 }
 
-struct AccountSheet: View {
-    @EnvironmentObject var authVM: AuthViewModel
-    @Environment(\.dismiss) var dismiss
-    @AppStorage("appearance_mode") private var appearanceModeRaw = AppearanceMode.system.rawValue
-    @State private var showSettings = false
-    @State private var showHelp = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 14) {
-                AvatarView(initials: authVM.currentUserInitials, size: 44)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(authVM.currentUserName).font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
-                    Text(authVM.currentUserEmail).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 14)
-
-            Divider()
-
-            row(icon: "gearshape", label: "Account settings") { showSettings = true }
-            row(icon: "moon", label: isDark ? "Switch to light mode" : "Switch to dark mode") {
-                appearanceModeRaw = isDark ? AppearanceMode.light.rawValue : AppearanceMode.dark.rawValue
-            }
-            row(icon: "questionmark.circle", label: "Help & support") { showHelp = true }
-
-            Divider().padding(.top, 4)
-
-            Button {
-                dismiss()
-                authVM.signOut()
-            } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16)).foregroundColor(AppTheme.danger).frame(width: 20)
-                    Text("Log out").font(.system(size: 16)).foregroundColor(AppTheme.danger)
-                    Spacer()
-                }
-                .padding(.horizontal, 20).padding(.vertical, 13)
-            }
-        }
-        .padding(.bottom, 16)
-        .presentationDetents([.height(320)])
-        .sheet(isPresented: $showSettings) { NavigationStack { SettingsView() } }
-        .sheet(isPresented: $showHelp) { NavigationStack { HelpSupportView() } }
-    }
-
-    private var isDark: Bool { AppearanceMode(rawValue: appearanceModeRaw) == .dark }
-
-    private func row(icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 16)).foregroundColor(AppTheme.textPrimary).frame(width: 20)
-                Text(label).font(.system(size: 16)).foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
-            .padding(.horizontal, 20).padding(.vertical, 13)
-        }
-    }
-}
