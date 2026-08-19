@@ -66,7 +66,6 @@ struct CandidatesView: View {
             if filterJobId == nil {
                 AppTopBar()
                 header
-                statTiles
             }
 
             // Search
@@ -108,18 +107,6 @@ struct CandidatesView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
-    }
-
-    private var statTiles: some View {
-        HStack(spacing: 10) {
-            StatTile(icon: "person.2.fill", value: vm.totalCount, label: "Candidates",
-                     color: AppTheme.textPrimary, isSelected: vm.selectedTab == .all) { vm.selectedTab = .all }
-            StatTile(icon: "diamond.fill", value: vm.diamondCount, label: "Diamonds",
-                     color: AppTheme.diamond, isSelected: vm.selectedTab == .diamonds) { vm.selectedTab = .diamonds }
-            StatTile(icon: "flag.fill", value: vm.flaggedCount, label: "Flagged",
-                     color: AppTheme.flagged, isSelected: vm.selectedTab == .flagged) { vm.selectedTab = .flagged }
-        }
-        .padding(.horizontal, 16).padding(.bottom, 12)
     }
 
     private var filterPills: some View {
@@ -173,7 +160,7 @@ struct CandidatesView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, 100)
         }
         .background(AppTheme.groupedBackground)
         .refreshable { await vm.load(jobCode: filterJobId) }
@@ -203,37 +190,6 @@ struct GroupHeaderRow: View {
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
-    }
-}
-
-private struct StatTile: View {
-    let icon: String
-    let value: Int
-    let label: String
-    let color: Color
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: icon).font(.system(size: 14)).foregroundColor(color)
-                Text("\(value)").font(.system(size: 20, weight: .bold)).foregroundColor(AppTheme.textPrimary)
-                Text(label).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(AppTheme.background)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? AppTheme.primary : Color.clear, lineWidth: 1.5)
-            )
-            .shadow(color: AppTheme.cardShadow, radius: 6, x: 0, y: 2)
-        }
-        .buttonStyle(.plain)
     }
 }
 

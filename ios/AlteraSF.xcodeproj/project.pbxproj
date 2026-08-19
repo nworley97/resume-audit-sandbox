@@ -31,6 +31,7 @@
 		A00000000000000000000085 /* CheckEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000084 /* CheckEmailView.swift */; };
 		A00000000000000000000091 /* JobPostingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000090 /* JobPostingsView.swift */; };
 		A00000000000000000000093 /* JobRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000092 /* JobRowView.swift */; };
+		A00000000000000000000201 /* JobDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000200 /* JobDetailView.swift */; };
 		A00000000000000000000095 /* EditJobView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000094 /* EditJobView.swift */; };
 		A00000000000000000000097 /* CloseRoleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000096 /* CloseRoleSheet.swift */; };
 		A000000000000000000000A1 /* CandidatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000A0 /* CandidatesView.swift */; };
@@ -80,6 +81,7 @@
 		A00000000000000000000084 /* CheckEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckEmailView.swift; sourceTree = "<group>"; };
 		A00000000000000000000090 /* JobPostingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobPostingsView.swift; sourceTree = "<group>"; };
 		A00000000000000000000092 /* JobRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRowView.swift; sourceTree = "<group>"; };
+		A00000000000000000000200 /* JobDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobDetailView.swift; sourceTree = "<group>"; };
 		A00000000000000000000094 /* EditJobView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditJobView.swift; sourceTree = "<group>"; };
 		A00000000000000000000096 /* CloseRoleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloseRoleSheet.swift; sourceTree = "<group>"; };
 		A000000000000000000000A0 /* CandidatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidatesView.swift; sourceTree = "<group>"; };
@@ -233,6 +235,7 @@
 				A00000000000000000000092 /* JobRowView.swift */,
 				A00000000000000000000094 /* EditJobView.swift */,
 				A00000000000000000000096 /* CloseRoleSheet.swift */,
+				A00000000000000000000200 /* JobDetailView.swift */,
 			);
 			path = Jobs;
 			sourceTree = "<group>";
@@ -393,6 +396,7 @@
 				A00000000000000000000085 /* CheckEmailView.swift in Sources */,
 				A00000000000000000000091 /* JobPostingsView.swift in Sources */,
 				A00000000000000000000093 /* JobRowView.swift in Sources */,
+				A00000000000000000000201 /* JobDetailView.swift in Sources */,
 				A00000000000000000000095 /* EditJobView.swift in Sources */,
 				A00000000000000000000097 /* CloseRoleSheet.swift in Sources */,
 				A000000000000000000000A1 /* CandidatesView.swift in Sources */,

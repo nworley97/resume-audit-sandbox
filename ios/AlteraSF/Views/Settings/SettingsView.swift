@@ -9,9 +9,12 @@ struct SettingsView: View {
     @State private var showChangePassword = false
     @State private var showDangerZone = false
 
-    @AppStorage("notif_email") private var notifEmail = true
-    @AppStorage("notif_push") private var notifPush = true
-    @AppStorage("notif_weekly_digest") private var notifWeeklyDigest = false
+    @AppStorage("notif_new_applicant") private var notifNewApplicant = true
+    @AppStorage("notif_daily_summary") private var notifDailySummary = false
+    @AppStorage("notif_weekly_report") private var notifWeeklyReport = true
+    @AppStorage("notif_job_expiring") private var notifJobExpiring = true
+    @AppStorage("notif_candidate_flagged") private var notifCandidateFlagged = true
+    @AppStorage("notif_product_news") private var notifProductNews = false
 
     var body: some View {
         List {
@@ -40,10 +43,47 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Notifications") {
-                Toggle("Email notifications", isOn: $notifEmail)
-                Toggle("Push notifications", isOn: $notifPush)
-                Toggle("Weekly digest", isOn: $notifWeeklyDigest)
+            Section {
+                Toggle(isOn: $notifNewApplicant) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("New applicant applies")
+                        Text("Get an email when someone applies").font(.caption).foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+                Toggle(isOn: $notifDailySummary) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Daily applicant summary")
+                        Text("A digest of the day's applicants").font(.caption).foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+                Toggle(isOn: $notifWeeklyReport) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Weekly hiring report")
+                        Text("Performance summary every Monday").font(.caption).foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+                Toggle(isOn: $notifJobExpiring) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Job post expiring soon")
+                        Text("Remind me 3 days before a post closes").font(.caption).foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+                Toggle(isOn: $notifCandidateFlagged) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Candidate flagged for review")
+                        Text("Integrity alerts from AI screening").font(.caption).foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+                Toggle(isOn: $notifProductNews) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Product news & tips")
+                        Text("Occasional updates from AlteraSF").font(.caption).foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+            } header: {
+                Text("Email Notifications")
+            } footer: {
+                Text("Choose which emails AlteraSF sends you.")
             }
             .tint(AppTheme.primary)
 

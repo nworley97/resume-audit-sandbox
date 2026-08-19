@@ -5,8 +5,8 @@ import Foundation
 
 struct APIUser: Decodable {
     let username: String
-    let fullName: String
-    let company: String
+    let fullName: String?
+    let company: String?
     let initials: String
     let isSuper: Bool
     let tenantSlug: String?
@@ -43,6 +43,7 @@ struct APIJob: Decodable {
     let applicantCount: Int
     let diamondCount: Int
     let description: String
+    let idSurveysEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, code, title, department, location, description, status
@@ -55,6 +56,7 @@ struct APIJob: Decodable {
         case postedDate = "posted_date"
         case applicantCount = "applicant_count"
         case diamondCount = "diamond_count"
+        case idSurveysEnabled = "id_surveys_enabled"
     }
 
     var domainStatus: JobStatus {
@@ -106,7 +108,8 @@ struct APIJob: Decodable {
             status: domainStatus,
             postedDate: parse(postedDate),
             applicantCount: applicantCount,
-            diamondCount: diamondCount
+            diamondCount: diamondCount,
+            idSurveysEnabled: idSurveysEnabled
         )
     }
 }
@@ -244,6 +247,7 @@ struct APIJobAnalyticsSummary: Decodable {
     let jobTitle: String
     let department: String
     let status: String
+    let postedDate: String?
     let totalApplicants: Int
     let diamondsFound: Int
     let completionRate: Double
@@ -253,10 +257,20 @@ struct APIJobAnalyticsSummary: Decodable {
         case jobId = "job_id"
         case jobCode = "job_code"
         case jobTitle = "job_title"
+        case postedDate = "posted_date"
         case totalApplicants = "total_applicants"
         case diamondsFound = "diamonds_found"
         case completionRate = "completion_rate"
         case timeSavedHours = "time_saved_hours"
+    }
+
+    var postedDateFormatted: String? {
+        guard let postedDate else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallback = ISO8601DateFormatter()
+        guard let date = formatter.date(from: postedDate) ?? fallback.date(from: postedDate) else { return nil }
+        return date.formatted(.dateTime.month(.abbreviated).day().year())
     }
 }
 
@@ -276,8 +290,10 @@ struct APIJobAnalyticsDetail: Decodable {
     let claimScoreDistribution: [APIScoreBucket]
     let fitScoreDistribution: [APIScoreBucket]
     let diamonds: [APICandidate]
+    let finalists: [APIFinalist]
+    let heatmap: APIAnalyticsHeatmap
     enum CodingKeys: String, CodingKey {
-        case department, status, funnel, diamonds
+        case department, status, funnel, diamonds, finalists, heatmap
         case jobId = "job_id"
         case jobCode = "job_code"
         case jobTitle = "job_title"
@@ -318,10 +334,105 @@ struct APIFunnel: Decodable {
     let applied, started, completed, verified, passed: Int
 }
 
+struct APIFinalist: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let initials: String
+    let claimValidityScore: Double
+    let relevancyScore: Double
+    let flaggedAnswers: Int
+    let totalAnswers: Int
+    let tabSwitches: Int
+    let flagged: Bool
+    let flagReason: String?
+    let overallScore: Double
+    var note: String
+    enum CodingKeys: String, CodingKey {
+        case id, name, initials, flagged, note
+        case claimValidityScore = "claim_validity_score"
+        case relevancyScore = "relevancy_score"
+        case flaggedAnswers = "flagged_answers"
+        case totalAnswers = "total_answers"
+        case tabSwitches = "tab_switches"
+        case flagReason = "flag_reason"
+        case overallScore = "overall_score"
+    }
+}
+
+struct APIFinalistCandidateOption: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let initials: String
+    let claimValidityScore: Double
+    let relevancyScore: Double
+    enum CodingKeys: String, CodingKey {
+        case id, name, initials
+        case claimValidityScore = "claim_validity_score"
+        case relevancyScore = "relevancy_score"
+    }
+}
+
 struct APIScoreBucket: Decodable {
     let label: String
     let count: Int
     let score: Double
+}
+
+struct APIAnalyticsHeatmap: Decodable {
+    let matrix: [[Int]]
+    let axes: APIHeatmapAxes
+    let cells: [APIHeatmapCell]
+}
+
+struct APIHeatmapAxes: Decodable {
+    let relevancy: [APIHeatmapRelevancyAxisEntry]
+    let claimValidity: [APIHeatmapClaimAxisEntry]
+    enum CodingKeys: String, CodingKey {
+        case relevancy
+        case claimValidity = "claim_validity"
+    }
+}
+
+struct APIHeatmapRelevancyAxisEntry: Decodable {
+    let index: Int
+    let label: String
+    let value: Int?
+    let isNoScore: Bool
+    enum CodingKeys: String, CodingKey {
+        case index, label, value
+        case isNoScore = "is_no_score"
+    }
+}
+
+struct APIHeatmapClaimAxisEntry: Decodable {
+    let index: Int
+    let label: String
+    let bucket: Int
+    let isNoScore: Bool
+    enum CodingKeys: String, CodingKey {
+        case index, label, bucket
+        case isNoScore = "is_no_score"
+    }
+}
+
+struct APIHeatmapCell: Decodable, Identifiable {
+    let relevancy: Int
+    let claim: Int
+    let candidates: [APIHeatmapCandidate]
+    var id: Int { relevancy * 100 + claim }
+}
+
+struct APIHeatmapCandidate: Decodable {
+    let id: String
+    let name: String
+    let initials: String
+    let relevancyScore: Double
+    let claimValidityScore: Double?
+    enum CodingKeys: String, CodingKey {
+        case id, name, initials
+        case relevancyScore = "relevancy_score"
+        case claimValidityScore = "claim_validity_score"
+    }
 }
 
 struct APIErrorResponse: Decodable {

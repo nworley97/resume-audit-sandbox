@@ -271,6 +271,19 @@ final class APIService: ObservableObject {
         return try await get("/api/mobile/\(tenant)/analytics/\(code)")
     }
 
+    func fetchFinalistCandidateOptions(jobCode: String) async throws -> [APIFinalistCandidateOption] {
+        let tenant = try requireTenant()
+        return try await get("/api/mobile/\(tenant)/analytics/\(jobCode)/candidates")
+    }
+
+    func setCandidateNote(id: String, note: String) async throws {
+        let tenant = try requireTenant()
+        let _: EmptyResponse = try await patch(
+            "/api/mobile/\(tenant)/candidates/\(id)/note",
+            body: ["note": note]
+        )
+    }
+
     // MARK: – Private networking
 
     private func requireTenant() throws -> String {

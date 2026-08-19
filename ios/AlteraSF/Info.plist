@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<string>com.alterasf.dashboard</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -32,9 +32,7 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- Replace with the REVERSED client ID from your Google iOS OAuth client,
-				     e.g. com.googleusercontent.apps.123456789-abc123 -->
-				<string>REPLACE_WITH_YOUR_REVERSED_GOOGLE_CLIENT_ID</string>
+				<string>com.googleusercontent.apps.744094882985-q06bjrdgbpsctveb6e7hd88bt46qgnha</string>
 			</array>
 		</dict>
 	</array>

@@ -320,29 +320,42 @@ struct ResumeDocumentCard: View {
     let candidate: Candidate
 
     var body: some View {
-        VStack(spacing: 14) {
-            VStack(spacing: 3) {
+        VStack(alignment: .leading, spacing: 18) {
+            // Name + contact header
+            VStack(alignment: .leading, spacing: 4) {
                 Text(candidate.fullName)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 19, weight: .bold))
                     .foregroundColor(AppTheme.textPrimary)
-                Text([candidate.phone, candidate.email, candidate.location].filter { !$0.isEmpty }.joined(separator: "  ·  "))
-                    .font(.system(size: 11))
+                Text([candidate.phone, candidate.email, candidate.location].filter { !$0.isEmpty }.joined(separator: "   ·   "))
+                    .font(.system(size: 12))
                     .foregroundColor(AppTheme.textSecondary)
-                    .multilineTextAlignment(.center)
             }
-            .frame(maxWidth: .infinity)
+            .padding(.bottom, 12)
+            .overlay(Rectangle().frame(height: 1).foregroundColor(AppTheme.divider), alignment: .bottom)
 
             if !candidate.education.isEmpty {
-                ResumeDocSection(title: "Education", content: candidate.education)
+                ResumeSection(title: "Education") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(parseResumeEntries(candidate.education)) { entry in
+                            ResumeEntryView(entry: entry)
+                        }
+                    }
+                }
             }
-            if !candidate.experience.isEmpty {
-                ResumeDocSection(title: "Experience", content: candidate.experience)
-            }
+
             if !candidate.skills.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("SKILLS").font(.system(size: 11, weight: .bold)).foregroundColor(AppTheme.textSecondary)
-                    Divider()
+                ResumeSection(title: "Skills") {
                     FlowLayout(skills: candidate.skills)
+                }
+            }
+
+            if !candidate.experience.isEmpty {
+                ResumeSection(title: "Experience") {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(parseResumeEntries(candidate.experience)) { entry in
+                            ResumeEntryView(entry: entry)
+                        }
+                    }
                 }
             }
         }
@@ -356,15 +369,90 @@ struct ResumeDocumentCard: View {
     }
 }
 
-struct ResumeDocSection: View {
-    let title: String; let content: String
+struct ResumeSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title.uppercased()).font(.system(size: 11, weight: .bold)).foregroundColor(AppTheme.textSecondary)
-            Divider()
-            Text(content).font(.system(size: 13)).foregroundColor(AppTheme.textPrimary)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.2)
+                .foregroundColor(AppTheme.primary)
+                .padding(.bottom, 5)
+                .overlay(Rectangle().frame(height: 1).foregroundColor(AppTheme.divider), alignment: .bottom)
+            content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A single résumé entry (one education or experience item), parsed from either the
+/// backend's multi-line "title\nsubtitle\nLabel: value" format or the single-line
+/// "Institution — Degree, detail" / "Title, Company (Dates)" mock format.
+struct ResumeEntry: Identifiable {
+    let id = UUID()
+    let header: String
+    let trailing: String
+    let subheader: String
+    let details: [String]
+}
+
+struct ResumeEntryView: View {
+    let entry: ResumeEntry
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(entry.header).font(.system(size: 14, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                Spacer()
+                if !entry.trailing.isEmpty {
+                    Text(entry.trailing).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                }
+            }
+            if !entry.subheader.isEmpty {
+                Text(entry.subheader).font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.primary)
+            }
+            ForEach(entry.details, id: \.self) { line in
+                if line.contains(": ") {
+                    Text(line).font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                } else {
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•").font(.system(size: 13)).foregroundColor(AppTheme.primary)
+                        Text(line).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private func parseResumeEntries(_ text: String) -> [ResumeEntry] {
+    text.components(separatedBy: "\n\n").compactMap { block in
+        var lines = block.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard !lines.isEmpty else { return nil }
+
+        var header = lines.removeFirst()
+        var trailing = ""
+        if let openParen = header.lastIndex(of: "("), let closeParen = header.lastIndex(of: ")"), openParen < closeParen {
+            trailing = String(header[header.index(after: openParen)..<closeParen]).trimmingCharacters(in: .whitespaces)
+            header = String(header[..<openParen]).trimmingCharacters(in: .whitespaces)
+        }
+
+        var subheader = ""
+        if let dashRange = header.range(of: "—") {
+            subheader = String(header[dashRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+            header = String(header[..<dashRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+        } else if !trailing.isEmpty, let commaIdx = header.firstIndex(of: ",") {
+            subheader = String(header[header.index(after: commaIdx)...]).trimmingCharacters(in: .whitespaces)
+            header = String(header[..<commaIdx]).trimmingCharacters(in: .whitespaces)
+        } else if let first = lines.first, !first.contains(": ") {
+            subheader = first
+            lines.removeFirst()
+        }
+
+        return ResumeEntry(header: header, trailing: trailing, subheader: subheader, details: lines)
     }
 }
 
@@ -372,7 +460,7 @@ struct FlowLayout: View {
     let skills: [String]
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 6)], spacing: 6) {
-            ForEach(skills, id: \.self) { skill in TagView(text: skill, color: AppTheme.primary) }
+            ForEach(skills, id: \.self) { skill in TagView(text: skill, color: AppTheme.primary, pill: true) }
         }
     }
 }

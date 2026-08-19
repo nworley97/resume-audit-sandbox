@@ -9,6 +9,7 @@ struct JobRowView: View {
     @State private var showActions = false
     @State private var confirmDelete = false
     @State private var navigateToCandidates = false
+    @State private var navigateToDetail = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -60,7 +61,10 @@ struct JobRowView: View {
         }
         .background(AppTheme.background)
         .contentShape(Rectangle())
-        .onTapGesture { navigateToCandidates = true }
+        .onTapGesture { navigateToDetail = true }
+        .navigationDestination(isPresented: $navigateToDetail) {
+            JobDetailView(job: job, onEdit: onEdit, onClose: onClose, onDelete: onDelete)
+        }
         .navigationDestination(isPresented: $navigateToCandidates) {
             CandidatesView(filterJobId: job.jobId)
         }
