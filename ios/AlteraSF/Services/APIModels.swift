@@ -617,3 +617,18 @@ struct APIBillingResponse: Decodable {
 struct APIPortalResponse: Decodable {
     let url: String
 }
+
+struct APIChangePlanResponse: Decodable {
+    let ok: Bool
+    let requiresPayment: Bool?
+    let paymentUrl: String?
+    let planTier: String?
+    let billingCycle: String?
+    enum CodingKeys: String, CodingKey {
+        case ok
+        case requiresPayment = "requires_payment"
+        case paymentUrl = "payment_url"
+        case planTier = "plan_tier"
+        case billingCycle = "billing_cycle"
+    }
+}

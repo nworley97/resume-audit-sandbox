@@ -16,6 +16,11 @@ enum APIError: Error, LocalizedError {
     }
 }
 
+enum ChangePlanOutcome {
+    case applied(tier: String, cycle: String)
+    case paymentRequired(URL)
+}
+
 final class APIService: ObservableObject {
     static let shared = APIService()
 
@@ -221,9 +226,36 @@ final class APIService: ObservableObject {
         return try await get("/api/mobile/\(tenant)/billing")
     }
 
-    func changePlan(tier: String, cycle: String) async throws {
+    func changePlan(tier: String, cycle: String) async throws -> ChangePlanOutcome {
         let tenant = try requireTenant()
-        let _: EmptyResponse = try await post("/api/mobile/\(tenant)/billing/change-plan", body: ["plan_tier": tier, "billing_cycle": cycle])
+        let data = try JSONEncoder().encode(["plan_tier": tier, "billing_cycle": cycle])
+        let req = request(path: "/api/mobile/\(tenant)/billing/change-plan", method: "POST", body: data)
+        let (responseData, response): (Data, URLResponse)
+        do {
+            (responseData, response) = try await session.data(for: req)
+        } catch {
+            throw APIError.networkError(error)
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+        if http.statusCode == 402 {
+            guard let parsed = try? JSONDecoder().decode(APIChangePlanResponse.self, from: responseData),
+                  let urlString = parsed.paymentUrl,
+                  let url = URL(string: urlString) else {
+                throw APIError.httpError(402, "Payment required to change plan.")
+            }
+            return .paymentRequired(url)
+        }
+        guard (200...299).contains(http.statusCode) else {
+            let raw = (try? JSONDecoder().decode(APIErrorResponse.self, from: responseData))?.text
+                ?? String(data: responseData, encoding: .utf8)
+                ?? "Server error"
+            if http.statusCode == 401 { throw APIError.notAuthenticated }
+            throw APIError.httpError(http.statusCode, Self.cleanErrorMessage(raw, statusCode: http.statusCode))
+        }
+        let parsed = try? JSONDecoder().decode(APIChangePlanResponse.self, from: responseData)
+        return .applied(tier: parsed?.planTier ?? tier, cycle: parsed?.billingCycle ?? cycle)
     }
 
     func cancelSubscription() async throws {

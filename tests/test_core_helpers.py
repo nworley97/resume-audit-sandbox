@@ -18,6 +18,7 @@ from app import (  # noqa: E402
 from db import Base, SessionLocal, engine  # noqa: E402
 from ios_api import _candidate_detail_dict  # noqa: E402
 from models import Candidate, Tenant, User  # noqa: E402
+from subscription_models import PaymentHistory, TenantSubscription  # noqa: E402
 
 
 class ScoreParsingTests(unittest.TestCase):
@@ -30,6 +31,81 @@ class ScoreParsingTests(unittest.TestCase):
 
     def test_average_ignores_invalid_values(self):
         self.assertEqual(_average_scores([5, None, "4", 99]), 4.5)
+
+
+class BillingProtectionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        cls.tenant = Tenant(slug="billing-test", display_name="Billing Test")
+        db.add(cls.tenant)
+        db.flush()
+        cls.user = User(
+            username="billing@example.com",
+            pw_hash="unused",
+            tenant_id=cls.tenant.id,
+            role="admin",
+        )
+        db.add(cls.user)
+        db.flush()
+        db.add(TenantSubscription(
+            tenant_id=cls.tenant.id,
+            plan_tier="free",
+            billing_cycle="monthly",
+            status="active",
+        ))
+        db.commit()
+        cls.user_id = cls.user.id
+        cls.tenant_id = cls.tenant.id
+        db.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        SessionLocal.remove()
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+    def authenticated_client(self):
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session["_user_id"] = str(self.user_id)
+            session["_fresh"] = True
+            session["tenant_slug"] = "billing-test"
+        return client
+
+    def assert_free_plan_unchanged(self):
+        db = SessionLocal()
+        try:
+            subscription = db.query(TenantSubscription).filter_by(tenant_id=self.tenant_id).one()
+            self.assertEqual(subscription.plan_tier, "free")
+            self.assertEqual(db.query(PaymentHistory).filter_by(tenant_id=self.tenant_id).count(), 0)
+        finally:
+            db.close()
+
+    def test_inactive_paid_plan_uses_free_entitlements(self):
+        subscription = TenantSubscription(plan_tier="pro", status="past_due")
+        self.assertEqual(subscription.effective_plan_tier(), "free")
+
+    def test_web_paid_upgrade_requires_checkout(self):
+        response = self.authenticated_client().post(
+            "/billing/change-plan",
+            data={"plan_tier": "pro", "billing_cycle": "monthly"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("buy.stripe.com", response.headers["Location"])
+        self.assert_free_plan_unchanged()
+
+    def test_mobile_paid_upgrade_returns_payment_required(self):
+        response = self.authenticated_client().post(
+            "/api/mobile/billing-test/billing/change-plan",
+            json={"plan_tier": "pro", "billing_cycle": "monthly"},
+        )
+        self.assertEqual(response.status_code, 402)
+        payload = response.get_json()
+        self.assertTrue(payload["requires_payment"])
+        self.assertIn("buy.stripe.com", payload["payment_url"])
+        self.assert_free_plan_unchanged()
 
 
 class ResumeCompatibilityTests(unittest.TestCase):

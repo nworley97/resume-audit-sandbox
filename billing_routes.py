@@ -682,44 +682,67 @@ def change_plan():
                 flash('Invalid plan selected.')
                 return redirect(url_for('billing.change_plan'))
             
-            # Calculate new price
-            new_amount = get_plan_price(new_tier, new_cycle)
-            old_amount = get_plan_price(subscription.plan_tier, subscription.billing_cycle)
-            
-            # Update Stripe subscription if we have one
+            if new_tier == 'free':
+                if subscription.stripe_subscription_id:
+                    success, error = PaymentService.cancel_subscription(
+                        subscription.stripe_subscription_id,
+                        cancel_at_period_end=False,
+                    )
+                    if not success:
+                        flash(error or 'Failed to cancel subscription. Please try again.', 'error')
+                        return redirect(url_for('billing.change_plan'))
+                    subscription.stripe_subscription_id = None
+                subscription.plan_tier = 'free'
+                subscription.billing_cycle = 'monthly'
+                subscription.status = 'active'
+                db.commit()
+                flash('Plan updated to Free.')
+                return redirect(url_for('billing.account'))
+
+            # Existing paid subscriptions can be changed and prorated directly.
             if subscription.stripe_subscription_id:
+                new_amount = get_plan_price(new_tier, new_cycle)
+                old_amount = get_plan_price(subscription.plan_tier, subscription.billing_cycle)
                 success, error, sub_info = PaymentService.update_subscription(
                     subscription.stripe_subscription_id,
                     new_tier,
                     new_cycle
                 )
-                
                 if not success:
                     flash(error or 'Failed to update subscription. Please try again.', 'error')
                     return redirect(url_for('billing.change_plan'))
-            
-            # Update local subscription record
-            subscription.plan_tier = new_tier
-            subscription.billing_cycle = new_cycle
-            
-            # Record the change
-            payment = PaymentHistory(
-                tenant_id=current_user.tenant_id,
-                amount=new_amount - old_amount if new_amount > old_amount else 0,
-                currency='USD',
-                description=f"Plan change to {PLAN_PRICING[new_tier]['display_name']} ({new_cycle})",
-                status='succeeded',
-                plan_tier=new_tier,
-                billing_cycle=new_cycle,
-                payment_method_last4=subscription.payment_method_last4,
-                payment_method_brand=subscription.payment_method_brand,
-            )
-            db.add(payment)
-            
-            db.commit()
-            
-            flash(f'Plan updated to {PLAN_PRICING[new_tier]["display_name"]}!')
-            return redirect(url_for('billing.account'))
+
+                subscription.plan_tier = new_tier
+                subscription.billing_cycle = new_cycle
+                subscription.status = 'active'
+                db.add(PaymentHistory(
+                    tenant_id=current_user.tenant_id,
+                    amount=max(new_amount - old_amount, 0),
+                    currency='USD',
+                    description=f"Plan change to {PLAN_PRICING[new_tier]['display_name']} ({new_cycle})",
+                    status='succeeded',
+                    plan_tier=new_tier,
+                    billing_cycle=new_cycle,
+                    payment_method_last4=subscription.payment_method_last4,
+                    payment_method_brand=subscription.payment_method_brand,
+                ))
+                db.commit()
+                flash(f'Plan updated to {PLAN_PRICING[new_tier]["display_name"]}!')
+                return redirect(url_for('billing.account'))
+
+            # A paid tier must never be granted locally without a successful
+            # Stripe checkout backing it.
+            from stripe_config import get_payment_link
+            from urllib.parse import quote
+
+            payment_link = get_payment_link(new_tier, new_cycle)
+            if not payment_link:
+                flash('Payment link not configured for this plan. Please contact support.', 'error')
+                return redirect(url_for('billing.change_plan'))
+            if current_user.username:
+                payment_link = f"{payment_link}?prefilled_email={quote(current_user.username)}"
+            flash('Complete payment to activate your new plan.', 'info')
+            return redirect(payment_link)
         
         return render_template(
             'billing/change_plan.html',
@@ -986,7 +1009,7 @@ def api_check_feature(feature_key):
         if subscription.status == 'grandfathered':
             return jsonify({'has_access': True})
         
-        has_access = has_feature_access(subscription.plan_tier, feature_key)
+        has_access = has_feature_access(subscription.effective_plan_tier(), feature_key)
         
         return jsonify({
             'has_access': has_access,
@@ -1087,7 +1110,7 @@ def require_feature(feature_key: str):
                 if not subscription or subscription.status == 'grandfathered':
                     return f(*args, **kwargs)
                 
-                if not has_feature_access(subscription.plan_tier, feature_key):
+                if not has_feature_access(subscription.effective_plan_tier(), feature_key):
                     notification = get_feature_notification(feature_key, subscription.plan_tier)
                     session['limit_notification'] = notification
                     referer = request.referrer
