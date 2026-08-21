@@ -5,6 +5,7 @@ All routes live under /api/mobile/…
 Auth: same Flask-Login session cookies that the web app uses.
 """
 from __future__ import annotations
+import json
 import math
 import secrets
 from datetime import datetime, timedelta
@@ -17,6 +18,7 @@ from werkzeug.exceptions import HTTPException
 
 from db import SessionLocal
 from models import Tenant, User, JobDescription, Candidate, Department, PasswordResetToken
+from s3util import S3_ENABLED, presign
 from analytics_service import (
     RELEVANCY_AXIS,
     CLAIM_VALIDITY_AXIS,
@@ -233,12 +235,21 @@ def _candidate_detail_dict(c: Candidate, jd: JobDescription | None, t: Tenant) -
     ans = list(getattr(c, "answers", None) or [])
     scs = list(getattr(c, "answer_scores", None) or [])
     question_meta = list((c.resume_json or {}).get("_question_meta", []))
+    question_times = dict((c.resume_json or {}).get("_q_times", {}))
+    paste_flags = dict((c.resume_json or {}).get("_paste_flags", {}))
 
     # Normalize questions: may be strings or dicts
     def _norm_q(q):
         if isinstance(q, dict):
             return q.get("question") or q.get("text") or str(q)
-        return str(q)
+        text_value = str(q)
+        try:
+            parsed = json.loads(text_value)
+            if isinstance(parsed, dict):
+                return parsed.get("question") or parsed.get("text") or text_value
+        except (TypeError, ValueError):
+            pass
+        return text_value
 
     qa = []
     n = max(len(qs), len(ans), len(scs))
@@ -247,36 +258,51 @@ def _candidate_detail_dict(c: Candidate, jd: JobDescription | None, t: Tenant) -
         raw_ans = ans[i] if i < len(ans) else ""
         if isinstance(raw_ans, dict):
             answer_text = raw_ans.get("text") or raw_ans.get("answer") or str(raw_ans)
-            has_pasted = bool(raw_ans.get("pasted"))
+            has_pasted = bool(raw_ans.get("pasted") or paste_flags.get(str(i), False))
         else:
             answer_text = str(raw_ans)
-            has_pasted = False
+            has_pasted = bool(paste_flags.get(str(i), False))
         qa.append({
             "question": _norm_q(qs[i]) if i < len(qs) else "",
             "answer": answer_text,
             "score": float(scs[i]) if i < len(scs) and scs[i] is not None else None,
             "has_pasted_content": has_pasted,
-            "duration_seconds": meta.get("duration_seconds", 0),
+            "duration_seconds": round(float(question_times.get(str(i), 0) or 0) / 1000, 2),
         })
 
     # Resume JSON fields
     rj = c.resume_json or {}
-    education = rj.get("education", "")
+    normalized_fields = {
+        str(key).strip().lower().replace(" ", "_").replace("-", "_"): value
+        for key, value in rj.items()
+    }
+
+    def resume_field(*names, default=None):
+        for name in names:
+            value = normalized_fields.get(name)
+            if value not in (None, "", [], {}):
+                return value
+        return default
+
+    education = resume_field("education", "academic_background", "academic_history", default="")
     if isinstance(education, dict):
         education = [education]
     if isinstance(education, list):
         education = "\n\n".join(_format_education_entry(e) for e in education)
-    experience = rj.get("experience") or rj.get("work_experience") or rj.get("employment") or ""
+    experience = resume_field(
+        "experience", "work_experience", "professional_experience", "employment",
+        "employment_history", "work_history", default="",
+    )
     if isinstance(experience, dict):
         experience = [experience]
     if isinstance(experience, list):
         experience = "\n\n".join(_format_experience_entry(e) for e in experience)
-    skills = rj.get("skills", [])
+    skills = resume_field("skills", "technical_skills", "core_skills", "competencies", default=[])
     if isinstance(skills, str):
         skills = [s.strip() for s in skills.split(",") if s.strip()]
 
     base.update({
-        "resume_url": f"api/mobile/{t.slug}/candidates/{c.id}/resume" if c.resume_url else "",
+        "resume_url": f"/api/mobile/{t.slug}/candidates/{c.id}/resume" if c.resume_url else "",
         "education": education or "",
         "experience": experience or "",
         "skills": skills if isinstance(skills, list) else [],
@@ -898,8 +924,6 @@ def download_candidate_resume(t: Tenant, cid: str):
         storage_path = c.resume_url
     finally:
         db.close()
-
-    from app import S3_ENABLED, presign
 
     fn = os.path.basename(storage_path)
     if S3_ENABLED and storage_path.startswith("s3://"):

@@ -1,5 +1,18 @@
 # resume-audit-sandbox
 
+## Branch and deployment workflow
+
+This repository has two long-lived branches:
+
+- `main` is production. Merging or pushing it can deploy the production web/API service.
+- `Dev` is the sandbox branch watched by Render. Its capital `D` is retained because the existing Render service is configured with that exact branch name.
+
+Create short-lived feature branches from `Dev`, merge them back into `Dev` for sandbox verification, then open a `Dev` → `main` pull request for production. Delete the feature branch after the merge.
+
+The sandbox and production services currently share one database. Sandbox testing can therefore change production data. Keep schema changes additive, use an Alembic migration, and never use destructive test data in the sandbox.
+
+The iOS app is versioned in this repository but deployed separately through Xcode and TestFlight. See [`ios/README.md`](ios/README.md).
+
 ## 🚀 Quick Startt
 
 ### Prerequisites

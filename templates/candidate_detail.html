@@ -41,7 +41,7 @@
         </span>
         {% endif %}
         {% endif %}
-        {% set is_diamond = (relevancy is not none and relevancy >= 5) and (claim_validity is not none and claim_validity > 4) %}
+        {% set is_diamond = (relevancy is not none and relevancy >= 4) and (claim_validity is not none and claim_validity >= 4) %}
         {% if is_diamond %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700 ring-1 ring-amber-200">
           <svg class="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
@@ -167,7 +167,7 @@
 
       <!-- ── AI Format View (default) ── -->
       <div id="resumeAiView">
-        {% set rj = c.resume_json or {} %}
+        {% set rj = ai_resume or {} %}
         {% if rj %}
         <div class="space-y-5 text-sm px-2 py-1">
 
@@ -770,6 +770,7 @@ function setResumeView(view) {
   const RESUME_URL = {{ resume_url | tojson }};
   const IS_PDF     = {{ is_pdf | tojson }};
   if (!IS_PDF || !RESUME_URL) return;
+  let pdfjsLib;
 
   const state  = window._hl;
   const QA_META = state.QA_META;
@@ -861,19 +862,18 @@ function setResumeView(view) {
     });
   }
 
-  const s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-  s.onload = function () {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  import({{ url_for('static', filename='vendor/pdfjs/pdf.mjs') | tojson }}).then(function (module) {
+    pdfjsLib = module;
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      {{ url_for('static', filename='vendor/pdfjs/pdf.worker.mjs') | tojson }};
     renderPDF().then(initClickHandlers);
-  };
-  s.onerror = function () {
+  }).catch(function (error) {
+    console.error('Unable to load PDF.js:', error);
     const loading = document.getElementById('pdfLoading');
     const errEl   = document.getElementById('pdfError');
     if (loading) loading.style.display = 'none';
     if (errEl)   errEl.classList.remove('hidden');
-  };
-  document.head.appendChild(s);
+  });
 })();
 </script>
 

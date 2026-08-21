@@ -151,9 +151,6 @@ references/
 # =============================================================================
 # PLAYWRIGHT E2E TESTING
 # =============================================================================
-# Test files (exclude from git - contains test scenarios)
-/tests/
-
 # Test results and reports
 /test-results/
 /playwright-report/

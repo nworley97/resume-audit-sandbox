@@ -294,7 +294,20 @@ def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
     # Modified for Playwright tests - return mock data when client is None
     if client is None:
         if structured:
-            return '{"fit_score": 85, "realism": true}'
+            prompt = f"{system}\n{user}".lower()
+            if "interview questions" in prompt:
+                return json.dumps({"questions": _FALLBACK_QUESTIONS[:4]})
+            if "score" in prompt:
+                return '{"score": 4}'
+            if "résumé" in prompt or "resume" in prompt:
+                return json.dumps({
+                    "name": "Test Candidate",
+                    "summary": "Experienced candidate",
+                    "experience": [],
+                    "education": [],
+                    "skills": [],
+                })
+            return '{}'
         else:
             # Return mock score for score_answers function (1-5 range)
             return "4"
@@ -323,22 +336,26 @@ def file_to_text(path, mime):
 
 # ─── AI helpers ──────────────────────────────────────────────────
 def resume_json(text: str) -> dict:
-    raw = chat("Extract résumé to JSON.", text, structured=True)
+    schema = (
+        "Extract the résumé as JSON using these top-level keys: name, contact, summary, "
+        "education, skills, experience, projects, certifications. Preserve useful detail "
+        "inside arrays of objects. Use an empty array or empty string when a section is absent."
+    )
+    raw = chat(schema, text, structured=True)
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        raw2 = chat("Return ONLY valid JSON résumé.", text, structured=True)
+        raw2 = chat(f"{schema} Return only valid JSON.", text, structured=True)
         return json.loads(raw2)
 
 def fit_score(rjs: dict, jd_text: str) -> int:
     prompt = (
         f"Résumé JSON:\n{json.dumps(rjs,indent=2)}\n\n"
         f"Job description:\n{jd_text}\n\n"
-        "Score 1-5 (5 best). Return ONLY the integer."
+        "Score 1-5 (5 best). Return JSON with one key named score."
     )
-    reply = chat("Score résumé vs JD.", prompt).strip()
-    m = re.search(r"[1-5]", reply)
-    return int(m.group()) if m else 1
+    reply = chat("Score résumé vs JD. Return only valid JSON.", prompt, structured=True).strip()
+    return _score_from_model_reply(reply, default=1)
 
 def realism_check(rjs: dict) -> bool:
     reply = chat("You are a résumé authenticity checker.", json.dumps(rjs) + "\n\nIs this résumé realistic? yes or no.")
@@ -407,14 +424,110 @@ def generate_questions(rjs: dict, jd_text: str, *, count: int = 4, difficulty: s
 
 
 def _normalize_questions(qs) -> list[str]:
-    """Return plain question strings from a list that may contain dicts or strings."""
+    """Return question text from current and legacy database representations."""
     result = []
     for q in (qs or []):
         if isinstance(q, dict):
-            result.append(q.get("question") or "")
-        else:
-            result.append(str(q) if q is not None else "")
+            result.append(str(q.get("question") or q.get("text") or "").strip())
+            continue
+        value = str(q) if q is not None else ""
+        stripped = value.strip()
+        if stripped.startswith("{"):
+            try:
+                parsed = json.loads(stripped)
+                if isinstance(parsed, dict):
+                    result.append(str(parsed.get("question") or parsed.get("text") or "").strip())
+                    continue
+            except (TypeError, ValueError):
+                pass
+        result.append(stripped)
     return result
+
+
+def _score_from_model_reply(raw, *, default=1) -> int:
+    """Parse an explicit 1-5 score without grabbing an unrelated digit."""
+    value = None
+    if isinstance(raw, dict):
+        value = raw.get("score")
+    else:
+        text_value = str(raw or "").strip()
+        try:
+            parsed = json.loads(_normalize_quotes(text_value))
+            if isinstance(parsed, dict):
+                value = parsed.get("score")
+            elif isinstance(parsed, (int, float)):
+                value = parsed
+        except (TypeError, ValueError):
+            pass
+        if value is None:
+            match = re.search(r"(?i)\bscore\s*(?:is|:|=)?\s*([1-5](?:\.\d+)?)\b", text_value)
+            if not match:
+                match = re.fullmatch(r"\s*([1-5](?:\.\d+)?)\s*(?:/\s*5)?\s*", text_value)
+            if match:
+                value = match.group(1)
+    try:
+        return max(1, min(5, int(round(float(value)))))
+    except (TypeError, ValueError):
+        return default
+
+
+def _average_scores(scores):
+    valid = []
+    for score in scores or []:
+        try:
+            numeric = float(score)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= numeric <= 5:
+            valid.append(numeric)
+    return (sum(valid) / len(valid)) if valid else None
+
+
+def _resume_filename(storage_path: str) -> str:
+    """Return a safe filename for local, S3, and URL-like storage paths."""
+    clean_path = str(storage_path or "").split("?", 1)[0].split("#", 1)[0]
+    return clean_path.replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def _is_pdf_resume(storage_path: str) -> bool:
+    return _resume_filename(storage_path).lower().endswith(".pdf")
+
+
+def _normalize_resume_for_view(raw) -> dict:
+    """Map common AI extraction shapes onto the fields used by the resume view."""
+    if not isinstance(raw, dict):
+        return {}
+
+    def normalized_key(value):
+        return re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower()).strip("_")
+
+    fields = {normalized_key(key): value for key, value in raw.items() if not str(key).startswith("_")}
+
+    def first(*names):
+        for name in names:
+            value = fields.get(normalized_key(name))
+            if value not in (None, "", [], {}):
+                return value
+        return None
+
+    personal = first("personal_info", "personal_information", "contact_info")
+    personal = personal if isinstance(personal, dict) else {}
+    name = first("name", "full_name", "candidate_name") or personal.get("name") or personal.get("full_name")
+    contact = first("links", "contact", "contact_details") or personal
+
+    return {
+        "name": name,
+        "summary": first("summary", "professional_summary", "career_summary", "objective", "profile"),
+        "contact": contact,
+        "education": first("education", "academic_background", "academic_history"),
+        "skills": first("skills", "technical_skills", "core_skills", "competencies"),
+        "experience": first(
+            "experience", "work_experience", "professional_experience", "employment",
+            "employment_history", "work_history",
+        ),
+        "projects": first("projects", "project_experience", "personal_projects"),
+        "certifications": first("certifications", "certificates", "licenses", "credentials"),
+    }
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
@@ -422,10 +535,12 @@ def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
         wc = len(re.findall(r"\w+", a))
         if wc<5:
             scores.append(1); continue
-        prompt = f"Question: {q}\nAnswer: {a}\nRésumé JSON:\n{json.dumps(rjs)[:1500]}\n\nScore 1-5."
-        raw = chat("Grade answer.", prompt)
-        m   = re.search(r"[1-5]", raw)
-        s   = int(m.group()) if m else 1
+        prompt = (
+            f"Question: {q}\nAnswer: {a}\nRésumé JSON:\n{json.dumps(rjs)[:1500]}\n\n"
+            "Score the answer from 1-5. Return JSON with one key named score."
+        )
+        raw = chat("Grade the answer. Return only valid JSON.", prompt, structured=True)
+        s = _score_from_model_reply(raw, default=1)
         if wc<10: s = min(s,2)
         scores.append(s)
     # pad to length of qs
@@ -2270,7 +2385,7 @@ def candidate_detail(id, tenant=None):
 
         # Compute claim validity (average of answer_scores if present)
         scores = list(getattr(c, "answer_scores", None) or [])
-        claim_validity = (sum(scores) / len(scores)) if scores else None
+        claim_validity = _average_scores(scores)
 
         # Build zipped Q&A: list of {q, a, s, source_section, source_detail, reason}
         qs   = _normalize_questions(getattr(c, "questions", None) or [])
@@ -2301,8 +2416,7 @@ def candidate_detail(id, tenant=None):
         is_pdf = False
         resume_url = None
         if c.resume_url:
-            path_lower = (c.resume_url or "").lower()
-            is_pdf = path_lower.endswith(".pdf")
+            is_pdf = _is_pdf_resume(c.resume_url)
             download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
             if is_pdf:
                 resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1, _external=False)
@@ -2351,6 +2465,7 @@ def candidate_detail(id, tenant=None):
             tenant_slug=t.slug,
             jd=jd,
             c=c,
+            ai_resume=_normalize_resume_for_view(c.resume_json),
             relevancy=relevancy,
             resume_url=resume_url,
             is_pdf=is_pdf,
@@ -3218,7 +3333,7 @@ def download_resume(cid, tenant=None):
     if not c.resume_url:
         abort(404)
 
-    fn = os.path.basename(c.resume_url)
+    fn = _resume_filename(c.resume_url) or f"resume-{c.id}"
     ext = fn.rsplit(".", 1)[-1].lower() if "." in fn else ""
     mime = (
         "application/pdf" if ext == "pdf"
@@ -3343,8 +3458,7 @@ def detail(cid, tenant=None):
         is_pdf = False
         resume_url = None
         if c and c.resume_url:
-            path_lower = (c.resume_url or "").lower()
-            is_pdf = path_lower.endswith(".pdf")
+            is_pdf = _is_pdf_resume(c.resume_url)
             download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
             # Only provide inline preview URL for PDFs
             if is_pdf:
@@ -3356,6 +3470,7 @@ def detail(cid, tenant=None):
             "candidate_detail.html",
             title=f"Candidate – {c.name}",
             c=c,
+            ai_resume=_normalize_resume_for_view(c.resume_json),
             jd=jd,
             qa=qa,
             tenant_slug=t.slug,
