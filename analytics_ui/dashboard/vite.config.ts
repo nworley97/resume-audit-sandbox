@@ -17,8 +17,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // React must be first and separate
-          'react-vendor': ['react', 'react-dom'],
           // UI libraries that depend on React
           'ui-vendor': ['@radix-ui/react-accordion', '@radix-ui/react-avatar', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-hover-card', '@radix-ui/react-popover', '@radix-ui/react-scroll-area', '@radix-ui/react-separator', '@radix-ui/react-slot', '@radix-ui/react-tooltip'],
           // Chart libraries
@@ -39,14 +37,12 @@ export default defineConfig({
           'utils-vendor': ['clsx', 'tailwind-merge', 'class-variance-authority'],
         },
         // 청크 크기 제한 설정
-        chunkFileNames: (chunkInfo) => {
-          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk'
-          return `js/[name]-[hash].js`
-        },
+        chunkFileNames: () => `js/[name]-[hash].js`,
         assetFileNames: (assetInfo) => {
-          const info = assetInfo.name.split('.')
+          const assetName = assetInfo.names?.[0] ?? assetInfo.name ?? 'asset'
+          const info = assetName.split('.')
           const ext = info[info.length - 1]
-          if (/\.(css)$/.test(assetInfo.name)) {
+          if (/\.(css)$/.test(assetName)) {
             return `css/[name]-[hash].${ext}`
           }
           return `assets/[name]-[hash].${ext}`
@@ -57,9 +53,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     // 압축 최적화 (esbuild 사용 - 더 빠르고 안정적)
     minify: 'esbuild',
-    esbuild: {
-      drop: ['console', 'debugger'],
-    },
+  },
+  esbuild: {
+    drop: ['console', 'debugger'],
   },
   server: {
     port: 3000,

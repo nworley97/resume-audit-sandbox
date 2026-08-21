@@ -1,6 +1,4 @@
 import { formatNumber } from "@/lib/utils";
-"use client";
-
 import { ResponsiveFunnel } from "@nivo/funnel";
 
 // ET-12: Nivo FunnelChart implementation for completion funnel
@@ -51,7 +49,10 @@ export function CompletionFunnelChart({ data, completionRate, onOverallConversio
   // Calculate conversion rate summary
   const totalApplicants = data[0]?.count || 0;
   const finalCompleters = data[data.length - 1]?.count || 0;
-  const overallConversionRate = totalApplicants > 0 ? ((finalCompleters / totalApplicants) * 100) : 0;  // ET-12: Keep decimals
+  const calculatedConversionRate = totalApplicants > 0 ? ((finalCompleters / totalApplicants) * 100) : 0;
+  const overallConversionRate = Number.isFinite(completionRate)
+    ? completionRate
+    : calculatedConversionRate;
 
   if (typeof onOverallConversion === "function") {
     onOverallConversion(overallConversionRate);
