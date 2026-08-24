@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct JobDetailView: View {
+    @EnvironmentObject var authVM: AuthViewModel
     let job: Job
     var onEdit: () -> Void = {}
     var onClose: () -> Void = {}
@@ -53,9 +54,11 @@ struct JobDetailView: View {
             CandidatesView(filterJobId: job.jobId)
         }
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button { showActions = true } label: {
-                    Image(systemName: "ellipsis").foregroundColor(AppTheme.textPrimary)
+            if authVM.canManageHiring {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showActions = true } label: {
+                        Image(systemName: "ellipsis").foregroundColor(AppTheme.textPrimary)
+                    }
                 }
             }
         }

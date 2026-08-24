@@ -11,13 +11,13 @@ npm install
 npm run dev
 ```
 
-Vite starts on `http://localhost:3000` and proxies `/analytics` requests to the main application on `http://localhost:8000`.
+Vite starts on `http://localhost:3000` and proxies `/analytics` requests to the main application on `http://localhost:5050`.
 
 Optional settings can be placed in `.env.local`:
 
 ```bash
 VITE_ANALYTICS_TENANT=acme
-VITE_ANALYTICS_API_BASE=http://localhost:8000
+VITE_ANALYTICS_API_BASE=http://localhost:5050
 ```
 
 Open `http://localhost:3000/{tenant}/recruiter/analytics`, replacing `{tenant}` with a real tenant slug.
@@ -61,6 +61,6 @@ The API client validates analytics responses with Zod before rendering them. Loa
 
 ## Troubleshooting
 
-- If analytics cannot load, confirm the main Flask application is running on port 8000 and that the tenant exists.
+- If analytics cannot load, confirm the main Flask application is running on port 5050, that you are signed in, and that the tenant exists.
 - If styles or scripts look stale, run `npm run build` and confirm the updated files under `dist/` are included in the commit.
 - If a dependency changes, run `npm audit` and all verification commands above before rebuilding `dist/`.

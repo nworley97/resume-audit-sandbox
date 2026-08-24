@@ -26,6 +26,7 @@ struct JobPostingsView: View {
                     Divider()
 
                     // Action buttons row — matching Figma
+                    if authVM.canManageHiring {
                     HStack(spacing: 10) {
                         Button {
                             showCreateJob = true
@@ -51,6 +52,7 @@ struct JobPostingsView: View {
                     }
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(AppTheme.background)
+                    }
 
                     Divider()
 
@@ -148,6 +150,7 @@ struct JobPostingsView: View {
 
 struct OpenRolesContent: View {
     @EnvironmentObject var vm: JobsViewModel
+    @EnvironmentObject var authVM: AuthViewModel
     @State private var editingDept: String? = nil
 
     var body: some View {
@@ -166,10 +169,12 @@ struct OpenRolesContent: View {
                             Text(dept.name).font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
                             Text("· \(dept.openCount) open").font(.system(size: 12)).foregroundColor(AppTheme.textTertiary)
                             Spacer()
-                            Button {
-                                editingDept = dept.name
-                            } label: {
-                                Label("Edit", systemImage: "pencil").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                            if authVM.canManageHiring {
+                                Button {
+                                    editingDept = dept.name
+                                } label: {
+                                    Label("Edit", systemImage: "pencil").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                                }
                             }
                         }
                         .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 6)
@@ -253,6 +258,7 @@ struct EditDepartmentSheet: View {
 
 struct DraftsContent: View {
     @EnvironmentObject var vm: JobsViewModel
+    @EnvironmentObject var authVM: AuthViewModel
     @State private var showAll = false
 
     var drafts: [Job] { vm.draftJobs() }
@@ -265,10 +271,11 @@ struct DraftsContent: View {
                 .padding(.horizontal, 16).padding(.vertical, 10)
 
             ForEach(visible) { job in
-                Button { vm.showEditJob = job } label: {
+                Button { if authVM.canManageHiring { vm.showEditJob = job } } label: {
                     DraftRowView(job: job)
                 }
                 .buttonStyle(.plain)
+                .disabled(!authVM.canManageHiring)
             }
 
             if drafts.count > 4 {
@@ -293,6 +300,7 @@ struct DraftsContent: View {
 
 struct ClosedContent: View {
     @EnvironmentObject var vm: JobsViewModel
+    @EnvironmentObject var authVM: AuthViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -315,7 +323,9 @@ struct ClosedContent: View {
                 }
             } else {
                 ForEach(vm.closedJobs()) { job in
-                    ClosedJobRowView(job: job, onReopen: { vm.reopenRole(job) })
+                    ClosedJobRowView(job: job, onReopen: {
+                        if authVM.canManageHiring { vm.reopenRole(job) }
+                    })
                 }
             }
         }
@@ -360,6 +370,7 @@ struct DraftRowView: View {
 }
 
 struct ClosedJobRowView: View {
+    @EnvironmentObject var authVM: AuthViewModel
     let job: Job; let onReopen: () -> Void
     var body: some View {
         HStack(spacing: 12) {
@@ -371,8 +382,10 @@ struct ClosedJobRowView: View {
                 }
             }
             Spacer()
-            Button("Reopen", action: onReopen)
-                .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+            if authVM.canManageHiring {
+                Button("Reopen", action: onReopen)
+                    .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 14).background(AppTheme.background)
         Divider().padding(.leading, 16)

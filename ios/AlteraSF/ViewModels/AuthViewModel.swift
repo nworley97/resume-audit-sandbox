@@ -16,6 +16,9 @@ final class AuthViewModel: ObservableObject {
         return name.isEmpty ? user.username : name
     }
     var currentUserCompany: String { apiService.currentUser?.company ?? "" }
+    var currentUserRole: String { (apiService.currentUser?.role ?? "viewer").lowercased() }
+    var canManageHiring: Bool { currentUserRole == "admin" || currentUserRole == "manager" }
+    var isAdmin: Bool { currentUserRole == "admin" || apiService.currentUser?.isSuper == true }
 
     private let apiService: APIService
 
@@ -109,6 +112,7 @@ final class AuthViewModel: ObservableObject {
             company: profile.company,
             initials: profile.initials,
             isSuper: apiService.currentUser?.isSuper ?? false,
+            role: apiService.currentUser?.role ?? "viewer",
             tenantSlug: apiService.currentUser?.tenantSlug,
             tenantDisplayName: apiService.currentUser?.tenantDisplayName
         )

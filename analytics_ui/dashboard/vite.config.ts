@@ -1,13 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { fileURLToPath } from 'url'
+
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(currentDirectory, './src'),
     },
   },
   build: {
@@ -61,7 +64,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/analytics': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:5050',
         changeOrigin: true,
       },
     },

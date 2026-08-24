@@ -24,6 +24,8 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to sign in to your AlteraSF account.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connect to the AlteraSF development server on your local network.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

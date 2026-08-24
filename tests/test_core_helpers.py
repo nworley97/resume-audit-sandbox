@@ -3,8 +3,10 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault("OPENAI_API_KEY", "")
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["OPENAI_API_KEY"] = ""
+os.environ["TEST_MODE"] = "true"
+os.environ["SESSION_COOKIE_SECURE"] = "false"
 
 from app import (  # noqa: E402
     app,
@@ -12,6 +14,7 @@ from app import (  # noqa: E402
     _is_pdf_resume,
     _normalize_questions,
     _normalize_resume_for_view,
+    _relevancy_5,
     _resume_filename,
     _score_from_model_reply,
 )
@@ -22,6 +25,10 @@ from subscription_models import PaymentHistory, TenantSubscription  # noqa: E402
 
 
 class ScoreParsingTests(unittest.TestCase):
+    def test_legacy_relevancy_normalizes_to_five_point_scale(self):
+        self.assertEqual(_relevancy_5(90), 4.5)
+        self.assertEqual(_relevancy_5(4.5), 4.5)
+
     def test_parses_structured_score(self):
         self.assertEqual(_score_from_model_reply('{"score": 4}'), 4)
 

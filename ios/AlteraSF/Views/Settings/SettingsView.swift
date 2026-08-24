@@ -7,7 +7,6 @@ struct SettingsView: View {
     @State private var isSavingProfile = false
     @State private var profileError: String? = nil
     @State private var showChangePassword = false
-    @State private var showDangerZone = false
 
     @AppStorage("notif_new_applicant") private var notifNewApplicant = true
     @AppStorage("notif_daily_summary") private var notifDailySummary = false
@@ -106,16 +105,6 @@ struct SettingsView: View {
                 }
             }
 
-            // Danger zone
-            Section {
-                Button(role: .destructive) {
-                    showDangerZone = true
-                } label: {
-                    Label("Delete account", systemImage: "trash")
-                }
-            } footer: {
-                Text("Deleting your account is permanent and cannot be undone.")
-            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -124,12 +113,6 @@ struct SettingsView: View {
             email = authVM.currentUserEmail
         }
         .sheet(isPresented: $showChangePassword) { ChangePasswordView() }
-        .confirmationDialog("Delete your account?", isPresented: $showDangerZone, titleVisibility: .visible) {
-            Button("Delete Account", role: .destructive) { authVM.signOut() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("All your data, jobs, and candidates will be permanently removed.")
-        }
     }
 
     private func saveProfile() async {

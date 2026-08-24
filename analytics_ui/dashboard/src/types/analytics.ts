@@ -83,6 +83,9 @@ const heatmapCellSchema = z.object({
 });
 
 export const analyticsJobDetailSchema = z.object({
+  permissions: z.object({
+    can_manage: z.boolean(),
+  }),
   jd: z.object({
     code: z.string(),
     title: z.string().nullable().optional(),

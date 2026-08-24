@@ -50,7 +50,7 @@
              {{ a.name }}
           </a>
         </td>
-        <td>{{ a.fit_score if a.fit_score is not none else '—' }}</td>
+        <td>{{ a.relevancy|round(2) if a.relevancy is not none else '—' }}</td>
         <td>
           {% if avgv is not none %}
             {{ avgv }}
@@ -62,11 +62,12 @@
         <td class="text-nowrap">
           <a class="btn btn-sm btn-outline-secondary me-1"
              href="{{ url_for('detail', tenant=tenant_slug, cid=a.id) }}">View</a>
-          <a class="btn btn-sm btn-outline-danger"
-             href="{{ url_for('delete_candidate', tenant=tenant_slug, cid=a.id) }}"
-             onclick="return confirm('Delete {{ a.name }} ({{ a.id }})? This cannot be undone.');">
-            Delete
-          </a>
+          {% if current_user.is_super or current_user.role in ('admin', 'manager') %}
+          <form method="post" action="{{ url_for('delete_candidate', tenant=tenant_slug, cid=a.id) }}" class="d-inline"
+                onsubmit="return confirm('Delete {{ a.name }} ({{ a.id }})? This cannot be undone.');">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+          </form>
+          {% endif %}
         </td>
       </tr>
     {% else %}

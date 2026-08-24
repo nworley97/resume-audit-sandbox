@@ -9,6 +9,7 @@ from pathlib import Path
 from functools import wraps
 import math
 import glob
+from urllib.parse import urlsplit
 from io import StringIO
 from flask import current_app, send_from_directory, abort 
 from flask import (
@@ -24,13 +25,14 @@ from flask_login import (
     LoginManager, login_user, login_required,
     logout_user, current_user
 )
+from werkzeug.middleware.proxy_fix import ProxyFix
 
-import PyPDF2, docx, bleach
+import pypdf, docx, bleach
 import markdown as md
 from bleach.css_sanitizer import CSSSanitizer
 from openai import OpenAI
 from sqlalchemy import or_, text, inspect, func, literal_column
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from dateutil import parser as dtparse
 import resend
 
@@ -40,6 +42,7 @@ from models import (
     engine as models_engine
 )
 from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
+from authz import require_tenant_access, role_required, rate_limit
 # app.py
 
 
@@ -47,6 +50,10 @@ from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
 # ─── Config ───────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
+if os.getenv("TRUST_PROXY_HEADERS", "").lower() in {"1", "true", "yes"}:
+    # Enable only behind a trusted single-hop reverse proxy (for example Render).
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "").rstrip("/")
 # Jinja filter: thousand separators for integers
 @app.template_filter("intcomma")
 def intcomma(value):
@@ -55,7 +62,21 @@ def intcomma(value):
     except (TypeError, ValueError):
         return value
     return f"{iv:,}"
-app.secret_key = os.getenv("RESUME_APP_SECRET_KEY", "change-me")
+_configured_secret = os.getenv("RESUME_APP_SECRET_KEY")
+if not _configured_secret:
+    if os.getenv("TEST_MODE", "").lower() in {"1", "true", "yes"}:
+        _configured_secret = "test-only-secret-key"
+    else:
+        raise RuntimeError("RESUME_APP_SECRET_KEY must be configured")
+app.secret_key = _configured_secret
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "true").lower() not in {"0", "false", "no"},
+)
+_trusted_hosts = [item.strip() for item in os.getenv("TRUSTED_HOSTS", "").split(",") if item.strip()]
+if _trusted_hosts:
+    app.config["TRUSTED_HOSTS"] = _trusted_hosts
 
 from analytics_service import bp as analytics_bp
 app.register_blueprint(analytics_bp)
@@ -80,9 +101,15 @@ app.register_blueprint(stripe_webhooks_bp)
 logger = logging.getLogger(__name__)
 _markdown_fallback_warned = False
 
-# Superadmin credentials (simple form)
-SUPERADMIN_USER = os.getenv("SUPERADMIN_USER", "Altera")
-SUPERADMIN_PASSWORD = os.getenv("SUPERADMIN_PASSWORD", "175050")
+# Superadmin credentials are optional, but never have hard-coded fallbacks.
+SUPERADMIN_USER = os.getenv("SUPERADMIN_USER")
+SUPERADMIN_PASSWORD = os.getenv("SUPERADMIN_PASSWORD")
+
+
+def public_url_for(endpoint, **values):
+    """Build user-facing links from the configured public origin when available."""
+    path = url_for(endpoint, **values)
+    return f"{PUBLIC_APP_URL}{path}" if PUBLIC_APP_URL else url_for(endpoint, _external=True, **values)
 
 # PDF text: bump to 20MB (was 2MB)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
@@ -115,12 +142,39 @@ def current_tenant():
     return load_tenant_by_slug(slug) if slug else None
 
 
+def authorized_tenant_by_slug(slug: str):
+    tenant = load_tenant_by_slug(slug)
+    return require_tenant_access(tenant) if tenant is not None else None
+
+
 def _latest_match(base_dir, patterns):
     for pat in patterns:
         matches = sorted(glob.glob(os.path.join(base_dir, pat)))
         if matches:
             return os.path.basename(matches[-1])
     return None
+
+
+def _csv_safe(value):
+    """Prevent exported user-controlled cells from becoming spreadsheet formulas."""
+    if value is None:
+        return ""
+    text_value = str(value)
+    if text_value.startswith(("=", "+", "-", "@", "\t", "\r")):
+        return "'" + text_value
+    return text_value
+
+
+def _relevancy_5(value):
+    if value is None:
+        return None
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+    if score > 5:
+        score /= 20.0
+    return max(0.0, min(5.0, score))
 
 @app.before_request
 def _capture_route_tenant():
@@ -129,6 +183,34 @@ def _capture_route_tenant():
         g.route_tenant_slug = va.get("tenant")
     elif "tenant" in request.args:
         g.route_tenant_slug = request.args.get("tenant")
+
+
+@app.before_request
+def _reject_cross_site_state_changes():
+    """Block authenticated cross-site form submissions without breaking native clients."""
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"} or not current_user.is_authenticated:
+        return None
+    source = request.headers.get("Origin") or request.headers.get("Referer")
+    if not source:
+        return None
+    parsed = urlsplit(source)
+    if parsed.netloc and parsed.netloc.lower() != request.host.lower():
+        abort(403, "cross-site request rejected")
+
+
+@app.after_request
+def _security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "base-uri 'self'; object-src 'none'; frame-ancestors 'self'",
+    )
+    if request.is_secure:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 @app.context_processor
 def inject_brand():
@@ -285,7 +367,12 @@ def super_required(f):
 def load_user(uid: str):
     db = SessionLocal()
     try:
-        return db.get(User, int(uid))
+        user = db.get(User, int(uid))
+        if user is not None and user.tenant_id:
+            # Load the relationship while the SQLAlchemy session is active so
+            # request handlers never trigger a detached lazy-load.
+            _ = user.tenant
+        return user
     finally:
         db.close()
 
@@ -322,7 +409,7 @@ def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
 
 # ─── File-to-text helpers ────────────────────────────────────────
 def pdf_to_text(path):
-    return "\n".join(p.extract_text() or "" for p in PyPDF2.PdfReader(path).pages)
+    return "\n".join(p.extract_text() or "" for p in pypdf.PdfReader(path).pages)
 
 def docx_to_text(path):
     return "\n".join(p.text for p in docx.Document(path).paragraphs)
@@ -615,6 +702,7 @@ def product_page():
 
 
 @app.route("/contact", methods=["GET", "POST"])
+@rate_limit(10, 3600, key_prefix="contact")
 def contact_page():
     if request.method == "GET":
         return render_template("contact.html")
@@ -628,9 +716,26 @@ def contact_page():
         "first_name", "last_name", "email", "company_name",
         "country", "role", "company_size", "hiring", "subject", "message",
     ]
-    missing = [f for f in required if not data.get(f, "").strip()]
+    limits = {
+        "first_name": 100, "last_name": 100, "email": 320, "phone": 50,
+        "company_name": 200, "country": 100, "role": 100,
+        "company_size": 100, "hiring": 100, "subject": 200, "message": 5000,
+    }
+    normalized = {}
+    for field, max_length in limits.items():
+        value = data.get(field, "")
+        if not isinstance(value, str):
+            return jsonify({"success": False, "error": f"Invalid {field}"}), 400
+        value = value.strip()
+        if len(value) > max_length:
+            return jsonify({"success": False, "error": f"{field} is too long"}), 400
+        normalized[field] = value
+    data = normalized
+    missing = [field for field in required if not data[field]]
     if missing:
         return jsonify({"success": False, "error": f"Missing required fields: {', '.join(missing)}"}), 400
+    if "@" not in data["email"]:
+        return jsonify({"success": False, "error": "Invalid email"}), 400
 
     resend.api_key = os.environ.get("RESEND_API_KEY", "")
     if not resend.api_key:
@@ -662,13 +767,14 @@ def contact_page():
           <td style="padding:8px;white-space:pre-wrap;">{html.escape(data['message'])}</td></tr>
     </table>
     """
+    contact_subject = re.sub(r"[\r\n]+", " ", data["subject"])
 
     try:
         resend.Emails.send({
             "from": "AlteraSF <noreply@alterasf.com>",
             "to": ["info@alterasf.com"],
             "reply_to": data["email"],
-            "subject": f"[Contact Form] {data['subject']}",
+            "subject": f"[Contact Form] {contact_subject}",
             "html": email_html,
         })
     except Exception as e:
@@ -688,7 +794,7 @@ def pricing_page():
 @app.route("/<tenant>/candidates/export.csv")
 @login_required
 def candidates_export_csv(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug: return redirect(url_for("candidates_export_csv", tenant=slug))
@@ -730,7 +836,7 @@ def candidates_export_csv(tenant=None):
         writer.writerow(["ID", "Name", "JD Code", "JD Title", "Fit", "Claim Avg", "Created At"])
 
         for c, jd_code_val, jd_title_val in rows:
-            fit = getattr(c, "fit_score", None)
+            fit = _relevancy_5(getattr(c, "fit_score", None))
             claim_avg = None
             if getattr(c, "answer_scores", None):
                 try:
@@ -738,7 +844,7 @@ def candidates_export_csv(tenant=None):
                 except Exception:
                     claim_avg = None
 
-            writer.writerow([
+            writer.writerow([_csv_safe(value) for value in [
                 c.id,
                 getattr(c, "name", ""),
                 jd_code_val or c.jd_code or "",
@@ -746,7 +852,7 @@ def candidates_export_csv(tenant=None):
                 fit if fit is not None else "",
                 claim_avg if claim_avg is not None else "",
                 c.created_at.isoformat() if getattr(c, "created_at", None) else "",
-            ])
+            ]])
 
         output.seek(0)
         return send_file(
@@ -761,6 +867,7 @@ def candidates_export_csv(tenant=None):
 # ─── Auth (Recruiter) ────────────────────────────────────────────
 @app.route("/login", methods=["GET","POST"])
 @app.route("/<tenant>/login", methods=["GET","POST"])
+@rate_limit(10, 300, key_prefix="web-login")
 def login(tenant=None):
     t = load_tenant_by_slug(tenant) if tenant else None
 
@@ -796,7 +903,10 @@ def logout():
 
 # ─── Superadmin (web UI) ─────────────────────────────────────────
 @app.route("/super/login", methods=["GET", "POST"])
+@rate_limit(5, 900, key_prefix="super-login")
 def super_login():
+    if not SUPERADMIN_USER or not SUPERADMIN_PASSWORD:
+        abort(503, "superadmin login is not configured")
     if request.method == "POST":
         u = (request.form.get("username") or "").strip()
         p = (request.form.get("password") or "").strip()
@@ -1106,8 +1216,9 @@ def jd_plaintext_filter(value: str) -> str:
 @app.route("/edit-jd", methods=["GET","POST"])
 @app.route("/<tenant>/edit-jd", methods=["GET","POST"])
 @login_required
+@role_required("admin", "manager")
 def edit_jd(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug: return redirect(url_for("edit_jd", tenant=slug, **request.args))
@@ -1271,7 +1382,7 @@ def edit_jd(tenant=None):
             for ep in ("public_apply", "apply_job", "apply", "job_apply"):
                 if ep in current_app.view_functions:
                     try:
-                        apply_url = url_for(ep, tenant=t.slug, code=jd.code, _external=True)
+                        apply_url = public_url_for(ep, tenant=t.slug, code=jd.code)
                         break
                     except Exception:
                         pass
@@ -1321,11 +1432,12 @@ def edit_jd(tenant=None):
     finally:
         db.close()
 
-@app.route("/delete-jd/<code>")
-@app.route("/<tenant>/delete-jd/<code>")
+@app.route("/delete-jd/<code>", methods=["POST"])
+@app.route("/<tenant>/delete-jd/<code>", methods=["POST"])
 @login_required
+@role_required("admin", "manager")
 def delete_jd(code, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug: return redirect(url_for("delete_jd", tenant=slug, code=code))
@@ -1352,7 +1464,7 @@ def delete_jd(code, tenant=None):
 @login_required
 def recruiter(tenant=None):
     # Resolve tenant or bounce to login
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
@@ -1608,7 +1720,7 @@ def recruiter(tenant=None):
 @app.route("/<tenant>/recruiter/candidates", strict_slashes=False)
 @login_required
 def candidates_overview(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
@@ -1933,26 +2045,26 @@ def candidates_overview(tenant=None):
 @login_required
 @require_feature("analytics_dashboard")
 def analytics_dashboard(tenant=None):
-    """Redirect to Next.js analytics dashboard"""
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    """Redirect to the Vite analytics dashboard."""
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
             return redirect(url_for("analytics_dashboard", tenant=slug))
         return redirect(url_for("login"))
     
-    # Redirect to Next.js analytics route
+    # Redirect to the embedded analytics route.
     return redirect(f"/{t.slug}/recruiter/analytics")
 
 
-# ---- Next.js Analytics Dashboard Routes ----
+# ---- Vite Analytics Dashboard Routes (endpoint names retained for compatibility) ----
 @app.route("/<tenant>/recruiter/analytics", strict_slashes=False)
 @app.route("/<tenant>/recruiter/analytics/", strict_slashes=False)
 @login_required
 @require_feature("analytics_dashboard")
 def analytics_overview_nextjs(tenant=None):
     """Serve analytics SPA within Flask layout (preserves sidebar)"""
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
@@ -1972,7 +2084,7 @@ def analytics_overview_nextjs(tenant=None):
 @require_feature("analytics_dashboard")
 def analytics_detail_nextjs(tenant=None, jobCode=None):
     """Serve analytics SPA detail page within Flask layout"""
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
@@ -1990,6 +2102,8 @@ def analytics_detail_nextjs(tenant=None, jobCode=None):
 @login_required
 def analytics_spa_raw(tenant=None):
     """Serve raw Vite SPA HTML (used inside iframe)"""
+    if not authorized_tenant_by_slug(tenant):
+        abort(404)
     return send_from_directory('analytics_ui/dashboard/dist', 'index.html')
 
 @app.route("/assets/<path:path>")
@@ -2015,7 +2129,7 @@ def vite_css(path):
 @app.route("/vercel.svg")
 @app.route("/window.svg")
 def nextjs_public_assets():
-    """Serve Next.js public assets"""
+    """Serve Vite public assets (legacy endpoint name retained)."""
     filename = request.path.lstrip('/')
     return send_from_directory('analytics_ui/dashboard/dist', filename)
 
@@ -2023,7 +2137,7 @@ def nextjs_public_assets():
 @app.route("/api/tenants/<tenant>/metadata", methods=["GET"], strict_slashes=False)
 @login_required
 def tenant_metadata(tenant):
-    t = load_tenant_by_slug(tenant)
+    t = authorized_tenant_by_slug(tenant)
     if not t:
         abort(404, "tenant not found")
 
@@ -2047,21 +2161,20 @@ def session_identity():
     tenant_slug = None
     tenant_display = None
     if getattr(user, "tenant_id", None):
-        tenant = getattr(user, "tenant", None)
-        if tenant is None:
-            db = SessionLocal()
-            try:
-                tenant = db.get(Tenant, user.tenant_id)
-            finally:
-                db.close()
-        if tenant:
-            tenant_slug = getattr(tenant, "slug", None)
-            tenant_display = getattr(tenant, "display_name", None) or tenant_slug
+        db = SessionLocal()
+        try:
+            tenant = db.get(Tenant, user.tenant_id)
+            if tenant:
+                tenant_slug = tenant.slug
+                tenant_display = tenant.display_name or tenant_slug
+        finally:
+            db.close()
 
     return jsonify({
         "username": username,
         "initials": initials,
         "is_super": bool(getattr(user, "is_super", False)),
+        "role": (getattr(user, "role", None) or "viewer").lower(),
         "tenant_slug": tenant_slug,
         "tenant_display_name": tenant_display,
     })
@@ -2072,7 +2185,7 @@ def session_identity():
 @app.route("/<tenant>/recruiter/candidates/export", strict_slashes=False)
 @login_required
 def export_candidates_csv(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
@@ -2107,18 +2220,18 @@ def export_candidates_csv(tenant=None):
         w.writerow(["ID", "Name", "Email", "Phone", "Job Title", "Department", "JD Code", "Relevancy Score", "Applied At"])
         for r in rows:
             # score calc mirrors view
-            score = r.fit_score
+            score = _relevancy_5(r.fit_score)
             if score is None and r.answer_scores:
                 try:
                     vals = [float(x) for x in r.answer_scores]
                     score = (sum(vals) / len(vals)) if vals else None
                 except Exception:
                     score = None
-            w.writerow([
+            w.writerow([_csv_safe(value) for value in [
                 r.id, r.name or "", r.email or "", r.phone or "", r.job_title or "", r.department or "",
                 r.jd_code or "", f"{score:.2f}" if score is not None else "",
                 r.created_at.isoformat() if r.created_at else "",
-            ])
+            ]])
 
         mem = io.BytesIO(out.getvalue().encode("utf-8"))
         filename = f"candidates_{t.slug}.csv"
@@ -2131,7 +2244,7 @@ def export_candidates_csv(tenant=None):
 @app.route("/<tenant>/export/jobs.csv")
 @login_required
 def export_jobs(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         return redirect(url_for("export_jobs", tenant=slug)) if slug else redirect(url_for("login"))
@@ -2173,7 +2286,7 @@ def export_jobs(tenant=None):
         w   = csv.writer(out)
         w.writerow(["Job ID","Title","Department","Start Date","End Date","Status","Updated At"])
         for jd in rows:
-            w.writerow([
+            w.writerow([_csv_safe(value) for value in [
                 jd.code or "",
                 jd.title or "",
                 jd.department or "",
@@ -2181,7 +2294,7 @@ def export_jobs(tenant=None):
                 jd.end_date.isoformat() if jd.end_date else "",
                 (jd.status or "").capitalize(),
                 jd.updated_at.isoformat() if getattr(jd, "updated_at", None) else "",
-            ])
+            ]])
         out.seek(0)
         return send_file(
             io.BytesIO(out.getvalue().encode("utf-8")),
@@ -2201,7 +2314,7 @@ def export_jobs(tenant=None):
 @app.route("/<tenant>/recruiter/jd/<code>", strict_slashes=False)
 @login_required
 def view_candidates(code, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
@@ -2358,7 +2471,7 @@ def view_candidates(code, tenant=None):
 @app.route("/<tenant>/recruiter/candidate/<id>", strict_slashes=False)
 @login_required
 def candidate_detail(id, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
@@ -2489,8 +2602,9 @@ def candidate_detail(id, tenant=None):
 @app.route("/recruiter/candidate/<cid>/send-email", methods=["POST"])
 @app.route("/<tenant>/recruiter/candidate/<cid>/send-email", methods=["POST"])
 @login_required
+@role_required("admin", "manager")
 def send_candidate_email(cid, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         return redirect(url_for("login"))
 
@@ -2500,11 +2614,14 @@ def send_candidate_email(cid, tenant=None):
         if not c:
             abort(404)
 
-        subject = (request.form.get("subject") or "").strip()
+        subject = re.sub(r"[\r\n]+", " ", (request.form.get("subject") or "").strip())[:200]
         body    = (request.form.get("body") or "").strip()
 
         if not subject or not body:
             flash("Subject and message are required.", "error")
+            return redirect(url_for("candidate_detail", tenant=t.slug, id=cid))
+        if len(body) > 10_000:
+            flash("Message must be 10,000 characters or fewer.", "error")
             return redirect(url_for("candidate_detail", tenant=t.slug, id=cid))
 
         if not c.email:
@@ -2548,11 +2665,14 @@ def send_candidate_email(cid, tenant=None):
 @app.route("/recruiter/candidate/<string:cid>/set-status", methods=["POST"])
 @app.route("/<tenant>/recruiter/candidate/<string:cid>/set-status", methods=["POST"])
 @login_required
+@role_required("admin", "manager")
 def set_candidate_status(cid, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         return redirect(url_for("login"))
-    new_status = request.form.get("status")  # 'finalist', 'archived', or '' to clear
+    new_status = (request.form.get("status") or "").strip()
+    if new_status not in {"", "finalist", "archived"}:
+        abort(400, "invalid candidate status")
     db = SessionLocal()
     try:
         c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first()
@@ -2570,7 +2690,7 @@ def set_candidate_status(cid, tenant=None):
 @app.route("/<tenant>/candidates")
 @login_required
 def candidates_overview_legacy(tenant):
-    tenant_obj = load_tenant_by_slug(tenant)
+    tenant_obj = authorized_tenant_by_slug(tenant)
     q = request.args.get("q", "").strip()
     sort = request.args.get("sort", "applied_at")
     dir_ = request.args.get("dir", "desc")
@@ -2703,13 +2823,14 @@ def export_candidates(tenant=None):
     return redirect(url_for("candidates_export_csv", tenant=tenant, **request.args))
 
 # ─── Public Apply (legacy redirect) ──────────────────────────────
-@app.route("/apply/<code>", methods=["GET","POST"])
+@app.route("/apply/<code>", methods=["GET"])
 def apply_legacy(code):
     db = SessionLocal()
     try:
-        jd = db.query(JobDescription).filter_by(code=code).first()
-        if not jd:
+        matches = db.query(JobDescription).filter_by(code=code).limit(2).all()
+        if len(matches) != 1:
             return abort(404)
+        jd = matches[0]
         t = db.get(Tenant, jd.tenant_id)
         slug = t.slug if t else "blackbox"
         return redirect(url_for("apply", tenant=slug, code=code))
@@ -2743,7 +2864,20 @@ def job_listings(tenant):
         db.close()
 
 # ─── Public Apply (paged Q&A) ────────────────────────────────────
+def _remember_application(cid: str) -> None:
+    owned = [value for value in session.get("application_ids", []) if isinstance(value, str)]
+    if cid not in owned:
+        owned.append(cid)
+    session["application_ids"] = owned[-10:]
+
+
+def _require_application_access(cid: str) -> None:
+    if cid not in session.get("application_ids", []):
+        abort(403, "application session is not authorized")
+
+
 @app.route("/<tenant>/apply/<code>", methods=["GET","POST"])
+@rate_limit(20, 3600, key_prefix="public-application")
 def apply(tenant, code):
     t = load_tenant_by_slug(tenant)
     if not t: abort(404)
@@ -2756,13 +2890,26 @@ def apply(tenant, code):
     if not jd:
         return abort(404)
 
+    is_open = (getattr(jd, "status", None) or "").strip().lower() in {"open", "published"}
+    preview_allowed = (
+        request.method == "GET"
+        and request.args.get("from_preview") == "1"
+        and current_user.is_authenticated
+        and (
+            getattr(current_user, "is_super", False)
+            or getattr(current_user, "tenant_id", None) == t.id
+        )
+    )
+    if not is_open and not preview_allowed:
+        abort(404)
+
     if request.method == "POST":
         # Accept either a single "name" or split "first_name"/"last_name"
         first = (request.form.get("first_name") or request.form.get("firstname") or "").strip()
         last  = (request.form.get("last_name")  or request.form.get("lastname")  or "").strip()
         name  = (request.form.get("name") or f"{first} {last}".strip()).strip()
 
-        email = (request.form.get("email") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
         phone = (request.form.get("phone") or "").strip()
 
         # Accept either "resume_file" or "resume"
@@ -2772,64 +2919,96 @@ def apply(tenant, code):
             flash("Name & file required", "applicant")
             return redirect(request.url)
 
+        ext = os.path.splitext(f.filename)[1].lower()
+        if ext not in {".pdf", ".docx"}:
+            flash("PDF or DOCX only", "applicant")
+            return redirect(request.url)
 
-        ext = os.path.splitext(f.filename)[1] or ".pdf"
+        if email:
+            duplicate_db = SessionLocal()
+            try:
+                existing_app = duplicate_db.query(Candidate.id).filter_by(
+                    jd_code=jd.code, email=email, tenant_id=t.id
+                ).first()
+            finally:
+                duplicate_db.close()
+            if existing_app:
+                flash("An application with this email already exists for this position.", "applicant")
+                return redirect(url_for("apply", tenant=t.slug, code=code))
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             f.save(tmp.name)
             path = tmp.name
 
+        storage = None
+        application_saved = False
         try:
-            mime_guess = mimetypes.guess_type(f.filename)[0] or f.mimetype
-            text = file_to_text(path, mime_guess)
-        except ValueError:
-            flash("PDF or DOCX only", "applicant")
-            return redirect(request.url)
-
-        rjs = resume_json(text)
-        if email:
-            try: rjs["applicant_email"] = email
-            except Exception: pass
-
-        fit  = fit_score(rjs, jd.html)
-        real = realism_check(rjs)
-        count      = getattr(jd, "question_count", 4) or 4
-        difficulty = getattr(jd, "question_difficulty", "medium") or "medium"
-        qs_raw     = generate_questions(rjs, jd.html, count=count, difficulty=difficulty)
-        rjs["_question_meta"] = qs_raw          # full dicts with sourcing metadata
-        qs = [q["question"] for q in qs_raw]    # plain strings for Candidate.questions
-
-        cid     = str(uuid.uuid4())[:8]
-        storage = upload_pdf(path)
-
-        db = SessionLocal()
-        try:
-            # Prevent duplicate applications from same email for same job
-            if email:
-                existing_app = db.query(Candidate).filter_by(
-                    jd_code=jd.code, email=email, tenant_id=t.id
-                ).first()
-                if existing_app:
-                    flash("An application with this email already exists for this position.", "applicant")
-                    return redirect(url_for("public_apply", tenant=t.slug, code=code))
-
-            c  = Candidate(
-                id            = cid,
-                name          = name,
-                email         = email if email else None,
-                phone         = phone if phone else None,
-                resume_url    = storage,
-                resume_json   = rjs,
-                fit_score     = fit,
-                realism       = real,
-                questions     = qs,
-                answers       = [""]*len(qs),
-                answer_scores = [],
-                jd_code       = jd.code,
-                tenant_id     = t.id,
+            mime_guess = (
+                "application/pdf"
+                if ext == ".pdf"
+                else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
-            db.add(c); db.commit()
+            text = file_to_text(path, mime_guess)
+            rjs = resume_json(text)
+            if email:
+                rjs["applicant_email"] = email
+
+            fit = fit_score(rjs, jd.html)
+            real = realism_check(rjs)
+            count = getattr(jd, "question_count", 4) or 4
+            difficulty = getattr(jd, "question_difficulty", "medium") or "medium"
+            qs_raw = generate_questions(rjs, jd.html, count=count, difficulty=difficulty)
+            rjs["_question_meta"] = qs_raw
+            qs = [q["question"] for q in qs_raw]
+
+            cid = uuid.uuid4().hex
+            storage = upload_pdf(path)
+
+            db = SessionLocal()
+            try:
+                c = Candidate(
+                    id=cid,
+                    name=name,
+                    email=email or None,
+                    phone=phone or None,
+                    resume_url=storage,
+                    resume_json=rjs,
+                    fit_score=fit,
+                    realism=real,
+                    questions=qs,
+                    answers=[""] * len(qs),
+                    answer_scores=[],
+                    jd_code=jd.code,
+                    tenant_id=t.id,
+                )
+                db.add(c)
+                db.commit()
+                application_saved = True
+                _remember_application(cid)
+            except IntegrityError:
+                db.rollback()
+                flash("An application with this email already exists for this position.", "applicant")
+                return redirect(url_for("apply", tenant=t.slug, code=code))
+            finally:
+                db.close()
+        except (ValueError, pypdf.errors.PdfReadError, docx.opc.exceptions.PackageNotFoundError):
+            flash("The uploaded file is not a valid PDF or DOCX.", "applicant")
+            return redirect(request.url)
         finally:
-            db.close()
+            # In S3/persistent-disk mode upload_pdf copies the file, so remove
+            # the processing copy. In local fallback mode the path is the
+            # actual stored résumé and must remain after a successful save.
+            if not application_saved and storage:
+                try:
+                    if storage.startswith("s3://"):
+                        delete_s3(storage)
+                    elif storage != path and os.path.exists(storage):
+                        os.unlink(storage)
+                except Exception:
+                    app.logger.exception("Failed to clean up uncommitted résumé upload")
+            keep_as_local_storage = application_saved and storage == path
+            if not keep_as_local_storage and os.path.exists(path):
+                os.unlink(path)
 
         return redirect(url_for("camera_gate", tenant=t.slug, code=code, cid=cid))
 
@@ -2883,6 +3062,7 @@ def apply(tenant, code):
 # ── Camera / Interview setup ───────────────────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/camera", methods=["GET"])
 def camera_gate(tenant, code, cid):
+    _require_application_access(cid)
     t = load_tenant_by_slug(tenant)
     if not t:
         abort(404)
@@ -2948,6 +3128,7 @@ def camera_gate(tenant, code, cid):
 
 @app.route("/<tenant>/apply/<code>/<cid>/q/<int:idx>", methods=["GET", "POST"])
 def question_paged(tenant, code, cid, idx):
+    _require_application_access(cid)
     t = load_tenant_by_slug(tenant)
     if not t:
         abort(404)
@@ -3148,7 +3329,7 @@ def _handle_forgot_password(t):
                         expires_at=datetime.utcnow() + timedelta(hours=1),
                     ))
                     db.commit()
-                    reset_url = url_for("reset_password", token=token, _external=True)
+                    reset_url = public_url_for("reset_password", token=token)
                     _send_password_reset_email(usr, reset_url)
             finally:
                 db.close()
@@ -3159,16 +3340,19 @@ def _handle_forgot_password(t):
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
+@rate_limit(5, 900, key_prefix="forgot-password")
 def forgot():
     return _handle_forgot_password(None)
 
 # Tenant-scoped forgot-password page
 @app.route("/<tenant>/forgot", methods=["GET", "POST"])
+@rate_limit(5, 900, key_prefix="tenant-forgot-password")
 def forgot_tenant(tenant):
     return _handle_forgot_password(load_tenant_by_slug(tenant))
 
 
 @app.route("/reset-password/<token>", methods=["GET", "POST"])
+@rate_limit(10, 3600, key_prefix="reset-password")
 def reset_password(token):
     db = SessionLocal()
     try:
@@ -3202,6 +3386,7 @@ def reset_password(token):
 # ─── Self-ID page (one page) ─────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/self-id", methods=["GET", "POST"])
 def self_id(tenant, code, cid):
+    _require_application_access(cid)
     t = load_tenant_by_slug(tenant)
     if not t: abort(404)
     db = SessionLocal()
@@ -3233,35 +3418,15 @@ def self_id(tenant, code, cid):
 # ─── Finish (thank you) ──────────────────────────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/finish", methods=["GET"])
 def finish_application(tenant, code, cid):
+    _require_application_access(cid)
     t = load_tenant_by_slug(tenant)
     if not t: abort(404)
 
-    # ET-12: Ensure answers are scored before showing the thank-you page
     db = SessionLocal()
     try:
         c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id, jd_code=code).first()
         if not c:
-            db.close()
             abort(404)
-
-        qs  = _normalize_questions(getattr(c, "questions", None))
-        ans = list(getattr(c, "answers", None) or [])
-        cur = list(getattr(c, "answer_scores", None) or [])
-
-        has_any_answer = any(((a or "").strip() != "") for a in ans)
-        needs_scoring  = (len(cur) != len(qs)) or any(x is None for x in cur) or (len(cur) == 0)
-
-        if qs and has_any_answer and needs_scoring:
-            try:
-                rjs = dict(getattr(c, "resume_json", None) or {})
-                # Use existing scoring with heuristic + LLM guard-rails
-                new_scores = score_answers(rjs, qs, ans)
-                c.answer_scores = new_scores
-                db.merge(c)
-                db.commit()
-            except Exception as e:
-                # Fail-safe: keep empty scores; analytics will treat as No Score (0)
-                app.logger.warning(f"[ET-12] Scoring failed for candidate {c.id}: {e}")
     finally:
         db.close()
 
@@ -3290,11 +3455,13 @@ def finish_application(tenant, code, cid):
 # Legacy bulk submit kept (redirects to finish)
 @app.route("/<tenant>/apply/<code>/<cid>/answers", methods=["POST"])
 def submit_answers(tenant, code, cid):
+    _require_application_access(cid)
     return redirect(url_for("finish_application", tenant=tenant, code=code, cid=cid))
 
 # ─── Anti-cheat flag (tab/window switches) ───────────────────────
 @app.route("/<tenant>/apply/<code>/<cid>/flag", methods=["POST"])
 def flag_tab_switch(tenant, code, cid):
+    _require_application_access(cid)
     t = load_tenant_by_slug(tenant)
     if not t:
         return ("", 404)
@@ -3315,7 +3482,7 @@ def flag_tab_switch(tenant, code, cid):
 @app.route("/<tenant>/resume/<cid>")
 @login_required
 def download_resume(cid, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug:
@@ -3405,11 +3572,12 @@ def download_resume(cid, tenant=None):
     )
 
 
-@app.route("/delete/<cid>")
-@app.route("/<tenant>/delete/<cid>")
+@app.route("/delete/<cid>", methods=["POST"])
+@app.route("/<tenant>/delete/<cid>", methods=["POST"])
 @login_required
+@role_required("admin", "manager")
 def delete_candidate(cid, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug: return redirect(url_for("delete_candidate", tenant=slug, cid=cid))
@@ -3438,7 +3606,7 @@ def delete_candidate(cid, tenant=None):
 @app.route("/<tenant>/recruiter/<cid>", strict_slashes=False)
 @login_required
 def detail(cid, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         slug = session.get("tenant_slug")
         if slug: return redirect(url_for("detail", tenant=slug, cid=cid))
@@ -3503,8 +3671,9 @@ def privacy(tenant=None):
 @app.route("/departments/create", methods=["POST"])
 @app.route("/<tenant>/departments/create", methods=["POST"])
 @login_required
+@role_required("admin", "manager")
 def create_department(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         abort(404)
     name = request.form.get("name", "").strip()
@@ -3529,8 +3698,9 @@ def create_department(tenant=None):
 @app.route("/departments/<int:dept_id>/edit", methods=["POST"])
 @app.route("/<tenant>/departments/<int:dept_id>/edit", methods=["POST"])
 @login_required
+@role_required("admin", "manager")
 def edit_department(dept_id, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         abort(404)
     db = SessionLocal()
@@ -3554,8 +3724,9 @@ def edit_department(dept_id, tenant=None):
 @app.route("/departments/<int:dept_id>/delete", methods=["POST"])
 @app.route("/<tenant>/departments/<int:dept_id>/delete", methods=["POST"])
 @login_required
+@role_required("admin", "manager")
 def delete_department(dept_id, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if not t:
         abort(404)
     db = SessionLocal()
@@ -3572,8 +3743,9 @@ def delete_department(dept_id, tenant=None):
 @app.route("/recruiter/job/<string:code>/close", methods=["POST"])
 @app.route("/<tenant>/recruiter/job/<string:code>/close", methods=["POST"])
 @login_required
+@role_required("admin", "manager")
 def close_role(code, tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if t is None:
         abort(404)
     db = SessionLocal()
@@ -3595,7 +3767,7 @@ def close_role(code, tenant=None):
 @app.route("/<tenant>/settings", strict_slashes=False)
 @login_required
 def app_settings(tenant=None):
-    t = load_tenant_by_slug(tenant) if tenant else current_tenant()
+    t = authorized_tenant_by_slug(tenant) if tenant else current_tenant()
     if t is None:
         slug = session.get("tenant_slug")
         if slug:
@@ -3639,4 +3811,5 @@ def terms(tenant=None):
     )
 # ─── Entrypoint ──────────────────────────────────────────────────
 if __name__=="__main__":
-    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT",5050)))
+    debug_enabled = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
+    app.run(debug=debug_enabled, host="0.0.0.0", port=int(os.getenv("PORT", 5050)))

@@ -39,8 +39,8 @@
           <p class="text-xs text-slate-400 mt-0.5">{{ desc }}</p>
         </div>
         <button type="button" role="switch" aria-checked="{{ 'true' if checked else 'false' }}"
-                onclick="toggleSwitch(this)"
-                style="position:relative;display:inline-flex;align-items:center;width:2.5rem;height:1.5rem;border-radius:9999px;border:none;cursor:pointer;transition:background 0.2s;flex-shrink:0;background:{{ '#0d9488' if checked else '#d1d5db' }}">
+                aria-disabled="true" disabled title="Preference saving is coming soon"
+                style="position:relative;display:inline-flex;align-items:center;width:2.5rem;height:1.5rem;border-radius:9999px;border:none;cursor:not-allowed;opacity:.65;flex-shrink:0;background:{{ '#0d9488' if checked else '#d1d5db' }}">
           <span style="position:absolute;top:3px;left:{{ '17px' if checked else '3px' }};width:1.125rem;height:1.125rem;background:white;border-radius:50%;transition:left 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></span>
         </button>
       </div>
@@ -68,8 +68,8 @@
           <p class="text-xs text-slate-400 mt-0.5">{{ desc }}</p>
         </div>
         <button type="button" role="switch" aria-checked="{{ 'true' if checked else 'false' }}"
-                onclick="toggleSwitch(this)"
-                style="position:relative;display:inline-flex;align-items:center;width:2.5rem;height:1.5rem;border-radius:9999px;border:none;cursor:pointer;transition:background 0.2s;flex-shrink:0;background:{{ '#0d9488' if checked else '#d1d5db' }}">
+                aria-disabled="true" disabled title="Preference saving is coming soon"
+                style="position:relative;display:inline-flex;align-items:center;width:2.5rem;height:1.5rem;border-radius:9999px;border:none;cursor:not-allowed;opacity:.65;flex-shrink:0;background:{{ '#0d9488' if checked else '#d1d5db' }}">
           <span style="position:absolute;top:3px;left:{{ '17px' if checked else '3px' }};width:1.125rem;height:1.125rem;background:white;border-radius:50%;transition:left 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></span>
         </button>
       </div>
@@ -90,13 +90,13 @@
           <input type="radio" name="theme" value="light" class="accent-primary" checked>
           <span class="text-sm text-title">Light</span>
         </label>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="radio" name="theme" value="dark" class="accent-primary">
+        <label class="flex items-center gap-2 cursor-not-allowed opacity-60">
+          <input type="radio" name="theme" value="dark" class="accent-primary" disabled>
           <span class="text-sm text-title">Dark</span>
           <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Coming soon</span>
         </label>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="radio" name="theme" value="system" class="accent-primary">
+        <label class="flex items-center gap-2 cursor-not-allowed opacity-60">
+          <input type="radio" name="theme" value="system" class="accent-primary" disabled>
           <span class="text-sm text-title">System</span>
           <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Coming soon</span>
         </label>
@@ -104,6 +104,7 @@
     </div>
   </div>
 
+  {% if current_user.is_super or current_user.role == 'admin' %}
   <!-- Billing Info -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-100">
@@ -123,7 +124,7 @@
       </div>
       <div class="flex items-center justify-between px-6 py-3.5">
         <span class="text-sm text-slate-500">Billing email</span>
-        <span class="text-sm text-title">{{ current_user.email if current_user and current_user.email else '—' }}</span>
+        <span class="text-sm text-title">{{ current_user.username if current_user else '—' }}</span>
       </div>
       <div class="flex items-center justify-between px-6 py-3.5">
         <span></span>
@@ -134,6 +135,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <!-- Profile & Security -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" id="profile">
@@ -149,16 +151,16 @@
           <p class="text-sm font-medium text-title">Display Name</p>
           <p class="text-xs text-slate-400 mt-0.5">{{ current_user.username if current_user else '—' }}</p>
         </div>
-        <button type="button" class="flex-shrink-0 text-xs text-primary hover:underline">Edit</button>
+        <span class="flex-shrink-0 text-xs text-slate-400">Coming soon</span>
       </div>
 
       <!-- Email -->
       <div class="px-6 py-4 flex items-center justify-between gap-4">
         <div class="min-w-0">
           <p class="text-sm font-medium text-title">Email</p>
-          <p class="text-xs text-slate-400 mt-0.5">{{ current_user.email if current_user and current_user.email else '—' }}</p>
+          <p class="text-xs text-slate-400 mt-0.5">{{ current_user.username if current_user else '—' }}</p>
         </div>
-        <button type="button" class="flex-shrink-0 text-xs text-primary hover:underline">Edit</button>
+        <span class="flex-shrink-0 text-xs text-slate-400">Coming soon</span>
       </div>
 
       <!-- Password -->
@@ -167,7 +169,7 @@
           <p class="text-sm font-medium text-title">Password &amp; Security</p>
           <p class="text-xs text-slate-400 mt-0.5">••••••••••••</p>
         </div>
-        <button type="button" class="flex-shrink-0 text-xs text-primary hover:underline">Change</button>
+        <span class="flex-shrink-0 text-xs text-slate-400">Coming soon</span>
       </div>
 
       <!-- Work address -->
@@ -176,12 +178,13 @@
           <p class="text-sm font-medium text-title">Work Address</p>
           <p class="text-xs text-slate-400 mt-0.5">Not set</p>
         </div>
-        <button type="button" class="flex-shrink-0 text-xs text-primary hover:underline">Add</button>
+        <span class="flex-shrink-0 text-xs text-slate-400">Coming soon</span>
       </div>
 
     </div>
   </div>
 
+  {% if current_user.is_super or current_user.role == 'admin' %}
   <!-- Plans -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-100">
@@ -258,13 +261,10 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <div class="flex justify-end">
-    <button type="button"
-            onclick="window.showSaveToast && window.showSaveToast()"
-            class="inline-flex items-center rounded-lg bg-primary text-white px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity">
-      Save Changes
-    </button>
+    <span class="text-xs text-slate-400">Preference saving is coming soon.</span>
   </div>
 
 </div>
@@ -272,26 +272,4 @@
 
 {% block body_extra %}
 {{ super() }}
-<script>
-function toggleSwitch(btn) {
-  var on = btn.getAttribute('aria-checked') === 'true';
-  on = !on;
-  btn.setAttribute('aria-checked', on ? 'true' : 'false');
-  btn.style.background = on ? '#0d9488' : '#d1d5db';
-  var knob = btn.querySelector('span');
-  if (knob) knob.style.left = on ? '17px' : '3px';
-}
-
-window.showSaveToast = function() {
-  var el = document.createElement('div');
-  el.style.cssText = 'position:fixed;bottom:1rem;right:1rem;z-index:9999;display:flex;align-items:center;gap:0.5rem;background:#059669;color:white;font-size:0.875rem;font-weight:500;padding:0.75rem 1rem;border-radius:0.5rem;box-shadow:0 4px 16px rgba(0,0,0,0.15)';
-  el.innerHTML = '<svg style="width:1rem;height:1rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round"/></svg> Settings saved';
-  document.body.appendChild(el);
-  setTimeout(function() {
-    el.style.transition = 'opacity 0.4s';
-    el.style.opacity = '0';
-    setTimeout(function() { el.remove(); }, 400);
-  }, 2500);
-};
-</script>
 {% endblock %}

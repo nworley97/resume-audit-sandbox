@@ -4,7 +4,7 @@ The iOS client and Flask API live in the same repository, but they deploy separa
 
 - `app.py` and `ios_api.py` deploy as the web/API service.
 - `ios/AlteraSF.xcodeproj` builds in Xcode and ships through App Store Connect/TestFlight.
-- The `Dev` branch is for sandbox testing. Promote tested changes to `main` for production.
+- The lowercase `dev` branch is for sandbox testing. Promote tested changes to `main` for production.
 
 ## First-time Xcode setup
 
@@ -35,7 +35,7 @@ An unauthenticated response from `/auth/me` is expected; a 404 means the server 
 
 ## TestFlight deployment
 
-1. Merge the tested API and iOS changes from `Dev` into `main`.
+1. Merge the tested API and iOS changes from `dev` into `main`.
 2. In Xcode, increment **Version** for a release and **Build** for every upload.
 3. Select **Any iOS Device (arm64)**, then **Product → Archive**.
 4. In Organizer, run validation and choose **Distribute App → App Store Connect → Upload**.
@@ -43,6 +43,8 @@ An unauthenticated response from `/auth/me` is expected; a 404 means the server 
 6. Smoke-test login, job lists, candidate details, resume download, status changes, and analytics against production before expanding the tester group.
 
 Never put an OpenAI, AWS, database, Stripe, or Apple private key in the iOS project. The app should only call authenticated Flask endpoints; secrets remain on the server.
+
+Run the app's unit and UI test targets on at least one current iPhone simulator before archiving. The Flask Playwright suite covers the responsive web experience but does not replace native iOS tests.
 
 ## Common failures
 

@@ -1,83 +1,56 @@
-# resume-audit-sandbox
+# AlteraSF resume audit
 
-## Branch and deployment workflow
+The Flask application serves the recruiter experience, public application flow, mobile API, and the built analytics dashboard. The iOS client lives in `ios/` and is released separately through Xcode and TestFlight.
 
-This repository has two long-lived branches:
+## Branch workflow
 
-- `main` is production. Merging or pushing it can deploy the production web/API service.
-- `Dev` is the sandbox branch watched by Render. Its capital `D` is retained because the existing Render service is configured with that exact branch name.
+Keep exactly two long-lived branches:
 
-Create short-lived feature branches from `Dev`, merge them back into `Dev` for sandbox verification, then open a `Dev` → `main` pull request for production. Delete the feature branch after the merge.
+- `dev` is the sandbox/test branch.
+- `main` is the production branch.
 
-The sandbox and production services currently share one database. Sandbox testing can therefore change production data. Keep schema changes additive, use an Alembic migration, and never use destructive test data in the sandbox.
+Create short-lived feature branches from `dev`, merge them back after review, and delete them after the merge. Promote a tested `dev` commit to `main` through a pull request. Before removing the legacy remote `Dev` branch, change the Render sandbox service to watch lowercase `dev` and confirm a successful sandbox deployment.
 
-The iOS app is versioned in this repository but deployed separately through Xcode and TestFlight. See [`ios/README.md`](ios/README.md).
+Sandbox and production must use separate databases, Stripe modes/webhooks, storage prefixes or buckets, and session secrets. Test data must never share the production database.
 
-## 🚀 Quick Startt
+## Local setup
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- npm
+Prerequisites: Python 3.11+, Node.js 18+, npm, and a local SQLite database or PostgreSQL URL.
 
-### Setup Steps
-
-1. **Clone and install dependencies**
 ```bash
-git clone <repository-url>
-cd resume-audit-sandbox
-
-# Install Python dependencies
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-
-# Install Node.js dependencies
-npm install
+npm ci
+npm run build
+python -m alembic upgrade head
 ```
 
-2. **Build CSS (IMPORTANT!)**
+Set at minimum:
+
+```text
+RESUME_APP_SECRET_KEY=<random development secret>
+SESSION_COOKIE_SECURE=false
+DATABASE_URL=sqlite:///dev.db
+PUBLIC_APP_URL=http://localhost:5050
+```
+
+Then run `python app.py`. The app is available at `http://localhost:5050`. The analytics dashboard is built into and served by Flask; a second analytics server is not required.
+
+## Verification
+
 ```bash
-npm run build:css
+python -m unittest discover -s tests -p "test_*.py"
+npm --prefix analytics_ui/dashboard run typecheck
+npm --prefix analytics_ui/dashboard run lint
+npm --prefix analytics_ui/dashboard test
+npm run build
+npx playwright test
 ```
 
-3. **Run the application**
-```bash
-# Terminal 1: Main Flask app
-python app.py
+The end-to-end suite uses its own `.playwright.sqlite` database. Never point it at a shared or production database.
 
-# Terminal 2: Analytics service
-python analytics_service.py
+## Mobile app
 
-# Terminal 3: Next.js dashboard (optional)
-cd analytics_ui/dashboard
-npm install
-npm run dev
-```
-
-### 🔧 CSS Build Issues
-
-If you encounter CSS issues after cloning:
-
-1. **Clean and rebuild**
-```bash
-rm -rf node_modules package-lock.json
-npm install
-npm run build:css
-```
-
-2. **Check Tailwind version**
-```bash
-npx tailwindcss --version
-```
-
-3. **Manual build**
-```bash
-npx tailwindcss -i ./static/css/app.css -o ./static/css/output.css --minify
-```
-
-### 📁 Project Structure
-- `static/css/app.css` - Tailwind source file
-- `static/css/output.css` - Built CSS (generated)
-- `tailwind.config.js` - Tailwind configuration
-- `postcss.config.js` - PostCSS configuration
+Open `ios/AlteraSF.xcodeproj` on a Mac. Debug builds default to the local API; a physical phone needs the Mac's LAN address or the HTTPS sandbox URL. Release builds target production. See [ios/README.md](ios/README.md) for signing, local-network, and TestFlight steps.

@@ -55,18 +55,6 @@
       </div>
     </div>
     
-    <!-- Manual email check form (shown if session lost) -->
-    <div id="manual-check-area" class="hidden mb-6">
-      <p class="text-slate-600 mb-4">Enter your email to check your account status:</p>
-      <form id="manual-check-form" class="flex gap-2">
-        <input type="email" id="manual-email" placeholder="your@email.com" 
-               class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400">
-        <button type="submit" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800">
-          Check
-        </button>
-      </form>
-    </div>
-    
     <p class="text-xs text-slate-400 mt-4" id="help-text">
       This usually takes just a few seconds. You'll be redirected automatically.
     </p>
@@ -80,7 +68,7 @@
   let pollInterval;
   let attempts = 0;
   const maxAttempts = 30; // Poll for ~90 seconds (30 attempts * 3 seconds)
-  const sessionEmail = '{{ signup_data.email if signup_data else "" }}';
+  const sessionEmail = {{ (signup_data.email if signup_data else "")|tojson }};
   
   function updateStatus(message) {
     document.getElementById('status-message').textContent = message;
@@ -90,7 +78,6 @@
     document.getElementById('loading-area').classList.add('hidden');
     document.getElementById('success-area').classList.remove('hidden');
     document.getElementById('error-area').classList.add('hidden');
-    document.getElementById('manual-check-area').classList.add('hidden');
     document.getElementById('help-text').classList.add('hidden');
     document.getElementById('redirect-link').href = redirectUrl;
     document.getElementById('page-subtitle').textContent = 'Your account has been created successfully!';
@@ -106,20 +93,10 @@
     document.getElementById('error-area').classList.remove('hidden');
     document.getElementById('help-text').textContent = 'Please check your email for login instructions, or contact support if you need help.';
     
-    // Show manual check form if no session email
-    if (!sessionEmail) {
-      document.getElementById('manual-check-area').classList.remove('hidden');
-    }
   }
   
-  function checkAccountStatus(email) {
-    const checkEmail = email || sessionEmail;
-    let url = '{{ url_for("billing.check_account_status") }}';
-    if (checkEmail) {
-      url += '?email=' + encodeURIComponent(checkEmail);
-    }
-    
-    fetch(url)
+  function checkAccountStatus() {
+    fetch('{{ url_for("billing.check_account_status") }}')
       .then(function(response) { return response.json(); })
       .then(function(data) {
         if (data.account_created) {
@@ -127,11 +104,9 @@
           clearInterval(pollInterval);
           showSuccess(data.redirect_url || '{{ url_for("login") }}');
         } else if (data.error === 'No email provided') {
-          // No session and no email - show manual form
+          // The signed signup session is missing or expired.
           clearInterval(pollInterval);
-          document.getElementById('loading-area').classList.add('hidden');
-          document.getElementById('manual-check-area').classList.remove('hidden');
-          document.getElementById('help-text').textContent = 'Enter your email address to check your account status.';
+          showError();
         } else {
           // Account not ready yet
           attempts++;
@@ -153,40 +128,27 @@
       });
   }
   
-  window.startPolling = function(email) {
+  window.startPolling = function() {
     // Reset state
     attempts = 0;
     document.getElementById('loading-area').classList.remove('hidden');
     document.getElementById('error-area').classList.add('hidden');
     document.getElementById('success-area').classList.add('hidden');
-    document.getElementById('manual-check-area').classList.add('hidden');
     updateStatus('Checking account status...');
     
     // Start polling
-    checkAccountStatus(email); // Check immediately
-    pollInterval = setInterval(function() { checkAccountStatus(email); }, 3000); // Then every 3 seconds
+    checkAccountStatus(); // Check immediately
+    pollInterval = setInterval(checkAccountStatus, 3000); // Then every 3 seconds
   };
-  
-  // Manual email check form handler
-  const manualForm = document.getElementById('manual-check-form');
-  if (manualForm) {
-    manualForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const email = document.getElementById('manual-email').value.trim();
-      if (email) {
-        startPolling(email);
-      }
-    });
-  }
   
   // Start polling on page load (only if we have an email)
   if (sessionEmail) {
     startPolling();
   } else {
-    // No session - show manual check immediately
+    // Without the signed signup session, direct the user to normal login/support.
     document.getElementById('loading-area').classList.add('hidden');
-    document.getElementById('manual-check-area').classList.remove('hidden');
-    document.getElementById('page-subtitle').textContent = 'Enter your email to check your account status.';
+    document.getElementById('error-area').classList.remove('hidden');
+    document.getElementById('page-subtitle').textContent = 'Your signup session expired. Try logging in or contact support.';
   }
 })();
 </script>

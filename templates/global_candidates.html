@@ -65,8 +65,9 @@
         {% for c in apps %}
           {% set r = c.resume_json or {} %}
           {% set email = r.get('applicant_email') %}
-          {% set fit_class = 'badge-green' if c.fit_score and c.fit_score >= 4
-                             else ('badge-yellow' if c.fit_score and c.fit_score >= 3 else 'badge-red') %}
+          {% set fit = (c.fit_score / 20) if c.fit_score is not none and c.fit_score > 5 else c.fit_score %}
+          {% set fit_class = 'badge-green' if fit and fit >= 4
+                             else ('badge-yellow' if fit and fit >= 3 else 'badge-red') %}
           {% set avgv = (c.answer_scores|sum / (c.answer_scores|length))|round(2)
                         if c.answer_scores and (c.answer_scores|length) > 0 else None %}
           {% set avg_class = 'badge-green' if avgv and avgv >= 4
@@ -84,8 +85,8 @@
 			</td>
 
             <td>
-              {% if c.fit_score is not none %}
-                <span class="badge badge-score {{ fit_class }}">{{ c.fit_score }}</span>
+              {% if fit is not none %}
+                <span class="badge badge-score {{ fit_class }}">{{ fit|round(2) }}</span>
               {% else %}
                 <span class="text-muted">—</span>
               {% endif %}
@@ -106,9 +107,12 @@
             </td>
             <td class="text-end">
               <a class="btn btn-sm btn-outline-primary" href="{{ url_for('detail', cid=c.id) }}">View</a>
-              <a class="btn btn-sm btn-outline-danger"
-                 href="{{ url_for('delete_candidate', cid=c.id) }}"
-                 onclick="return confirm('Delete this application?');">Delete</a>
+              {% if current_user.is_super or current_user.role in ('admin', 'manager') %}
+              <form method="post" action="{{ url_for('delete_candidate', cid=c.id) }}" class="d-inline"
+                    onsubmit="return confirm('Delete this application?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+              {% endif %}
             </td>
           </tr>
         {% endfor %}

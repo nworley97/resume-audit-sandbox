@@ -5,20 +5,24 @@ All routes live under /api/mobile/…
 Auth: same Flask-Login session cookies that the web app uses.
 """
 from __future__ import annotations
+import os
 import json
 import math
 import secrets
+import html
 from datetime import datetime, timedelta
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, abort, session, url_for
 from flask_login import login_user, logout_user, current_user, login_required
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import HTTPException
 
 from db import SessionLocal
 from models import Tenant, User, JobDescription, Candidate, Department, PasswordResetToken
 from s3util import S3_ENABLED, presign
+from authz import role_required, rate_limit
 from analytics_service import (
     RELEVANCY_AXIS,
     CLAIM_VALIDITY_AXIS,
@@ -111,6 +115,48 @@ def _load_tenant(slug: str):
     finally:
         db.close()
     return t
+
+
+def _bounded_int_query_arg(name: str, default: int, minimum: int, maximum: int) -> int:
+    raw = request.args.get(name, str(default))
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        abort(400, f"{name} must be an integer")
+    if value < minimum or value > maximum:
+        abort(400, f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
+def _bounded_json_int(data: dict, name: str, default: int, minimum: int, maximum: int) -> int:
+    raw = data.get(name, default)
+    if isinstance(raw, bool):
+        abort(400, f"{name} must be an integer")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        abort(400, f"{name} must be an integer")
+    if value < minimum or value > maximum:
+        abort(400, f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
+def _json_text(data: dict, name: str, *, max_length: int, required: bool = False):
+    if name not in data:
+        if required:
+            abort(400, f"{name} required")
+        return None
+    value = data.get(name)
+    if value is None and not required:
+        return None
+    if not isinstance(value, str):
+        abort(400, f"{name} must be text")
+    value = value.strip()
+    if required and not value:
+        abort(400, f"{name} required")
+    if len(value) > max_length:
+        abort(400, f"{name} is too long")
+    return value
 
 
 def tenant_required(f):
@@ -461,6 +507,7 @@ def _login_session_response(user: User, db) -> dict:
             "company": user.company or "",
             "initials": initials,
             "is_super": bool(user.is_super),
+            "role": (user.role or "viewer").lower(),
             "tenant_slug": tenant_slug,
             "tenant_display_name": tenant_display,
         }
@@ -468,10 +515,14 @@ def _login_session_response(user: User, db) -> dict:
 
 
 @mobile_api.route("/auth/login", methods=["POST"])
+@rate_limit(10, 300, key_prefix="mobile-login")
 def auth_login():
     data = request.get_json(silent=True) or {}
-    username = (data.get("username") or data.get("email") or "").strip().lower()
+    raw_username = data.get("username") or data.get("email") or ""
     password = data.get("password") or ""
+    if not isinstance(raw_username, str) or not isinstance(password, str):
+        abort(400, "username and password must be text")
+    username = raw_username.strip().lower()
     if not username or not password:
         abort(400, "username and password required")
 
@@ -486,11 +537,12 @@ def auth_login():
 
 
 @mobile_api.route("/auth/google", methods=["POST"])
+@rate_limit(10, 300, key_prefix="mobile-google-login")
 def auth_google():
     import os
     data = request.get_json(silent=True) or {}
     id_token_str = data.get("id_token") or ""
-    if not id_token_str:
+    if not isinstance(id_token_str, str) or not id_token_str:
         abort(400, "id_token required")
 
     client_id = os.environ.get("GOOGLE_IOS_CLIENT_ID", "")
@@ -552,6 +604,7 @@ def auth_me():
         "company": getattr(user, "company", "") or "",
         "initials": initials,
         "is_super": bool(getattr(user, "is_super", False)),
+        "role": (getattr(user, "role", None) or "viewer").lower(),
         "tenant_slug": tenant_slug,
         "tenant_display_name": tenant_display,
     })
@@ -592,12 +645,16 @@ def get_job(t: Tenant, code: str):
 @mobile_api.route("/<tenant>/jobs", methods=["POST"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def create_job(t: Tenant):
     data = request.get_json(silent=True) or {}
-    code = (data.get("code") or "").strip()
-    title = (data.get("title") or "").strip()
-    if not code or not title:
-        abort(400, "code and title required")
+    code = _json_text(data, "code", max_length=20, required=True)
+    title = _json_text(data, "title", max_length=200, required=True)
+    status = _json_text(data, "status", max_length=20) or "draft"
+    if status not in {"draft", "open", "published", "closed"}:
+        abort(400, "status must be draft, open, published, or closed")
+    if "id_surveys_enabled" in data and not isinstance(data["id_surveys_enabled"], bool):
+        abort(400, "id_surveys_enabled must be true or false")
 
     db = SessionLocal()
     try:
@@ -607,22 +664,25 @@ def create_job(t: Tenant):
         jd = JobDescription(
             code=code,
             title=title,
-            department=data.get("department") or None,
-            location=data.get("location") or None,
-            employment_type=data.get("employment_type") or None,
-            work_arrangement=data.get("work_arrangement") or None,
-            salary_range=data.get("salary_range") or None,
-            markdown=data.get("description") or "",
+            department=_json_text(data, "department", max_length=200) or None,
+            location=_json_text(data, "location", max_length=200) or None,
+            employment_type=_json_text(data, "employment_type", max_length=100) or None,
+            work_arrangement=_json_text(data, "work_arrangement", max_length=100) or None,
+            salary_range=_json_text(data, "salary_range", max_length=200) or None,
+            markdown=_json_text(data, "description", max_length=100_000) or "",
             html="",
-            status=data.get("status") or "draft",
-            question_count=int(data.get("question_count") or 4),
-            id_surveys_enabled=bool(data.get("id_surveys_enabled", True)),
+            status=status,
+            question_count=_bounded_json_int(data, "question_count", 4, 1, 5),
+            id_surveys_enabled=data.get("id_surveys_enabled", True),
             tenant_id=t.id,
         )
         db.add(jd)
         db.commit()
         db.refresh(jd)
         return jsonify(_job_detail_dict(jd, db, t)), 201
+    except IntegrityError:
+        db.rollback()
+        abort(409, f"job code '{code}' already exists")
     finally:
         db.close()
 
@@ -630,8 +690,15 @@ def create_job(t: Tenant):
 @mobile_api.route("/<tenant>/jobs/<code>", methods=["PUT", "PATCH"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def update_job(t: Tenant, code: str):
     data = request.get_json(silent=True) or {}
+    if "question_count" in data:
+        question_count = _bounded_json_int(data, "question_count", 4, 1, 5)
+    else:
+        question_count = None
+    if "id_surveys_enabled" in data and not isinstance(data["id_surveys_enabled"], bool):
+        abort(400, "id_surveys_enabled must be true or false")
     db = SessionLocal()
     try:
         jd = db.query(JobDescription).filter_by(code=code, tenant_id=t.id).first()
@@ -645,12 +712,16 @@ def update_job(t: Tenant, code: str):
             ("description", "markdown"), ("status", "status"),
         ]:
             if field in data:
-                setattr(jd, col, data[field])
+                max_length = 100_000 if field == "description" else (200 if field in {"title", "department", "location", "salary_range"} else 100)
+                value = _json_text(data, field, max_length=max_length, required=field == "title")
+                if field == "status" and value not in {"draft", "open", "published", "closed"}:
+                    abort(400, "status must be draft, open, published, or closed")
+                setattr(jd, col, value)
 
-        if "question_count" in data:
-            jd.question_count = max(1, min(5, int(data["question_count"])))
+        if question_count is not None:
+            jd.question_count = question_count
         if "id_surveys_enabled" in data:
-            jd.id_surveys_enabled = bool(data["id_surveys_enabled"])
+            jd.id_surveys_enabled = data["id_surveys_enabled"]
         jd.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(jd)
@@ -662,6 +733,7 @@ def update_job(t: Tenant, code: str):
 @mobile_api.route("/<tenant>/jobs/<code>", methods=["DELETE"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def delete_job(t: Tenant, code: str):
     db = SessionLocal()
     try:
@@ -678,6 +750,7 @@ def delete_job(t: Tenant, code: str):
 @mobile_api.route("/<tenant>/jobs/<code>/close", methods=["POST"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def close_job(t: Tenant, code: str):
     db = SessionLocal()
     try:
@@ -695,6 +768,7 @@ def close_job(t: Tenant, code: str):
 @mobile_api.route("/<tenant>/jobs/<code>/reopen", methods=["POST"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def reopen_job(t: Tenant, code: str):
     db = SessionLocal()
     try:
@@ -729,24 +803,25 @@ def list_departments(t: Tenant):
 @mobile_api.route("/<tenant>/departments", methods=["POST"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def create_department(t: Tenant):
     data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "").strip()
-    if not name:
-        abort(400, "name required")
+    name = _json_text(data, "name", max_length=200, required=True)
+    team_lead = _json_text(data, "team_lead", max_length=200)
+    color = _json_text(data, "color", max_length=20) or "#6366f1"
     db = SessionLocal()
     try:
         dept = Department(
             tenant_id=t.id,
             name=name,
-            team_lead=data.get("team_lead") or None,
-            color=data.get("color") or "#6366f1",
+            team_lead=team_lead or None,
+            color=color,
         )
         db.add(dept)
         db.commit()
         db.refresh(dept)
         return jsonify({"id": dept.id, "name": dept.name, "team_lead": dept.team_lead or "", "color": dept.color}), 201
-    except Exception:
+    except IntegrityError:
         db.rollback()
         abort(409, "department name already exists")
     finally:
@@ -756,21 +831,28 @@ def create_department(t: Tenant):
 @mobile_api.route("/<tenant>/departments/<int:dept_id>", methods=["PUT", "PATCH"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def update_department(t: Tenant, dept_id: int):
     data = request.get_json(silent=True) or {}
+    name = _json_text(data, "name", max_length=200, required=True) if "name" in data else None
+    team_lead = _json_text(data, "team_lead", max_length=200) if "team_lead" in data else None
+    color = _json_text(data, "color", max_length=20, required=True) if "color" in data else None
     db = SessionLocal()
     try:
         dept = db.query(Department).filter_by(id=dept_id, tenant_id=t.id).first()
         if not dept:
             abort(404)
         if "name" in data:
-            dept.name = data["name"]
+            dept.name = name
         if "team_lead" in data:
-            dept.team_lead = data["team_lead"] or None
+            dept.team_lead = team_lead or None
         if "color" in data:
-            dept.color = data["color"]
+            dept.color = color
         db.commit()
         return jsonify({"id": dept.id, "name": dept.name, "team_lead": dept.team_lead or "", "color": dept.color})
+    except IntegrityError:
+        db.rollback()
+        abort(409, "department name already exists")
     finally:
         db.close()
 
@@ -778,6 +860,7 @@ def update_department(t: Tenant, dept_id: int):
 @mobile_api.route("/<tenant>/departments/<int:dept_id>", methods=["DELETE"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def delete_department(t: Tenant, dept_id: int):
     db = SessionLocal()
     try:
@@ -801,8 +884,8 @@ def list_candidates(t: Tenant):
     search = request.args.get("q", "").strip()
     # score/fit_desc, fit_asc, claim_desc, claim_asc, combined_desc, combined_asc, newest, flagged
     sort = request.args.get("sort", "score")
-    page = max(int(request.args.get("page", 1)), 1)
-    per_page = min(int(request.args.get("per_page", 50)), 200)
+    page = _bounded_int_query_arg("page", 1, 1, 1_000_000)
+    per_page = _bounded_int_query_arg("per_page", 50, 1, 200)
 
     db = SessionLocal()
     try:
@@ -892,9 +975,10 @@ def get_candidate(t: Tenant, cid: str):
 @mobile_api.route("/<tenant>/candidates/<cid>/status", methods=["PATCH"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def set_candidate_status(t: Tenant, cid: str):
     data = request.get_json(silent=True) or {}
-    new_status = (data.get("status") or "").strip()
+    new_status = _json_text(data, "status", max_length=20) or ""
     if new_status not in ("finalist", "archived", ""):
         abort(400, "status must be 'finalist', 'archived', or '' (to clear)")
     db = SessionLocal()
@@ -1033,9 +1117,10 @@ def analytics_job_candidates(t: Tenant, code: str):
 @mobile_api.route("/<tenant>/candidates/<cid>/note", methods=["PATCH"])
 @login_required
 @tenant_required
+@role_required("admin", "manager")
 def set_candidate_note(t: Tenant, cid: str):
     data = request.get_json(silent=True) or {}
-    note = (data.get("note") or "").strip()
+    note = _json_text(data, "note", max_length=10_000) or ""
     db = SessionLocal()
     try:
         c = db.query(Candidate).filter_by(id=cid, tenant_id=t.id).first()
@@ -1054,15 +1139,21 @@ def set_candidate_note(t: Tenant, cid: str):
 @login_required
 def update_profile():
     data = request.get_json(silent=True) or {}
+    full_name = _json_text(data, "full_name", max_length=200) if "full_name" in data else None
+    company = _json_text(data, "company", max_length=200) if "company" in data else None
+    new_email = _json_text(data, "email", max_length=320) if "email" in data else None
+    if new_email:
+        new_email = new_email.lower()
+        if "@" not in new_email:
+            abort(400, "valid email required")
     db = SessionLocal()
     try:
         user = db.get(User, current_user.id)
         if "full_name" in data:
-            user.full_name = (data.get("full_name") or "").strip() or None
+            user.full_name = full_name or None
         if "company" in data:
-            user.company = (data.get("company") or "").strip() or None
+            user.company = company or None
         if "email" in data:
-            new_email = (data.get("email") or "").strip().lower()
             if new_email and new_email != user.username:
                 if db.query(User).filter(User.username == new_email, User.id != user.id).first():
                     abort(409, "email already in use")
@@ -1086,7 +1177,7 @@ def _send_password_reset_email_mobile(user, reset_url):
         return False
     html_body = f"""
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
-      <p>Hi{" " + user.full_name if user.full_name else ""},</p>
+      <p>Hi{" " + html.escape(user.full_name) if user.full_name else ""},</p>
       <p>We received a request to reset your AlteraSF password. Tap the link below to choose a new one. This link expires in 1 hour.</p>
       <p><a href="{reset_url}" style="color:#085CFF;">Reset your password</a></p>
       <p style="color:#6b7280;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
@@ -1105,9 +1196,13 @@ def _send_password_reset_email_mobile(user, reset_url):
 
 
 @mobile_api.route("/auth/forgot-password", methods=["POST"])
+@rate_limit(5, 900, key_prefix="mobile-forgot-password")
 def forgot_password():
     data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").strip().lower()
+    raw_email = data.get("email") or ""
+    if not isinstance(raw_email, str):
+        abort(400, "email must be text")
+    email = raw_email.strip().lower()
     if email:
         db = SessionLocal()
         try:
@@ -1124,7 +1219,11 @@ def forgot_password():
                     expires_at=datetime.utcnow() + timedelta(hours=1),
                 ))
                 db.commit()
-                reset_url = url_for("reset_password", token=token, _external=True)
+                public_origin = os.environ.get("PUBLIC_APP_URL", "").rstrip("/")
+                reset_path = url_for("reset_password", token=token)
+                reset_url = f"{public_origin}{reset_path}" if public_origin else url_for(
+                    "reset_password", token=token, _external=True
+                )
                 _send_password_reset_email_mobile(usr, reset_url)
         finally:
             db.close()
@@ -1138,6 +1237,8 @@ def change_password():
     data = request.get_json(silent=True) or {}
     current_pw = data.get("current_password") or ""
     new_pw = data.get("new_password") or ""
+    if not isinstance(current_pw, str) or not isinstance(new_pw, str):
+        abort(400, "password fields must be text")
     if len(new_pw) < 8:
         abort(400, "new password must be at least 8 characters")
     db = SessionLocal()
@@ -1168,6 +1269,7 @@ def _team_member_dict(u: User) -> dict:
 @mobile_api.route("/<tenant>/team", methods=["GET"])
 @login_required
 @tenant_required
+@role_required("admin")
 def list_team(t: Tenant):
     db = SessionLocal()
     try:
@@ -1180,13 +1282,14 @@ def list_team(t: Tenant):
 @mobile_api.route("/<tenant>/team/invite", methods=["POST"])
 @login_required
 @tenant_required
+@role_required("admin")
 def invite_team_member(t: Tenant):
     data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    role = (data.get("role") or "manager").strip().lower()
-    if not name or not email:
-        abort(400, "name and email required")
+    name = _json_text(data, "name", max_length=200, required=True)
+    email = _json_text(data, "email", max_length=320, required=True).lower()
+    role = (_json_text(data, "role", max_length=20) or "manager").lower()
+    if "@" not in email:
+        abort(400, "valid email required")
     if role not in ("admin", "manager", "viewer"):
         abort(400, "role must be admin, manager, or viewer")
 
@@ -1209,6 +1312,9 @@ def invite_team_member(t: Tenant):
         result = _team_member_dict(user)
         result["temp_password"] = temp_password
         return jsonify(result), 201
+    except IntegrityError:
+        db.rollback()
+        abort(409, "a user with this email already exists")
     finally:
         db.close()
 
@@ -1216,9 +1322,10 @@ def invite_team_member(t: Tenant):
 @mobile_api.route("/<tenant>/team/<int:user_id>", methods=["PATCH"])
 @login_required
 @tenant_required
+@role_required("admin")
 def update_team_member(t: Tenant, user_id: int):
     data = request.get_json(silent=True) or {}
-    role = (data.get("role") or "").strip().lower()
+    role = (_json_text(data, "role", max_length=20, required=True) or "").lower()
     if role not in ("admin", "manager", "viewer"):
         abort(400, "role must be admin, manager, or viewer")
     db = SessionLocal()
@@ -1236,6 +1343,7 @@ def update_team_member(t: Tenant, user_id: int):
 @mobile_api.route("/<tenant>/team/<int:user_id>", methods=["DELETE"])
 @login_required
 @tenant_required
+@role_required("admin")
 def remove_team_member(t: Tenant, user_id: int):
     db = SessionLocal()
     try:
@@ -1372,6 +1480,7 @@ def mark_notification_read(t: Tenant, notif_id: str):
 @mobile_api.route("/<tenant>/billing", methods=["GET"])
 @login_required
 @tenant_required
+@role_required("admin")
 def get_billing(t: Tenant):
     from subscription_models import get_usage_summary, TenantSubscription, PaymentHistory
     from plans_config import get_all_plans_for_display
@@ -1421,13 +1530,14 @@ def get_billing(t: Tenant):
 @mobile_api.route("/<tenant>/billing/change-plan", methods=["POST"])
 @login_required
 @tenant_required
+@role_required("admin")
 def billing_change_plan(t: Tenant):
     from subscription_models import TenantSubscription, PaymentHistory, get_tenant_subscription
     from plans_config import PLAN_TIERS, PLAN_PRICING, get_plan_price
     from stripe_service import PaymentService
 
     data = request.get_json(silent=True) or {}
-    new_tier = (data.get("plan_tier") or "").strip().lower()
+    new_tier = (_json_text(data, "plan_tier", max_length=20, required=True) or "").lower()
     if new_tier not in PLAN_TIERS:
         abort(400, "invalid plan_tier")
 
@@ -1443,7 +1553,12 @@ def billing_change_plan(t: Tenant):
             db.add(sub)
             db.flush()
 
-        new_cycle = (data.get("billing_cycle") or sub.billing_cycle or "monthly").strip().lower()
+        if "billing_cycle" in data:
+            new_cycle = (_json_text(data, "billing_cycle", max_length=20, required=True) or "").lower()
+        else:
+            new_cycle = (sub.billing_cycle or "monthly").lower()
+        if new_cycle not in {"monthly", "yearly"}:
+            abort(400, "billing_cycle must be monthly or yearly")
         if new_tier == "free":
             if sub.stripe_subscription_id:
                 success, error = PaymentService.cancel_subscription(
@@ -1503,6 +1618,7 @@ def billing_change_plan(t: Tenant):
 @mobile_api.route("/<tenant>/billing/cancel", methods=["POST"])
 @login_required
 @tenant_required
+@role_required("admin")
 def billing_cancel(t: Tenant):
     from subscription_models import TenantSubscription, get_tenant_subscription
 
@@ -1527,6 +1643,7 @@ def billing_cancel(t: Tenant):
 @mobile_api.route("/<tenant>/billing/portal", methods=["GET"])
 @login_required
 @tenant_required
+@role_required("admin")
 def billing_portal(t: Tenant):
     from subscription_models import TenantSubscription
     from stripe_service import PaymentService, create_billing_portal_session
@@ -1543,9 +1660,10 @@ def billing_portal(t: Tenant):
                 company=t.display_name,
             )
             db.commit()
+        public_origin = os.environ.get("PUBLIC_APP_URL", "https://app.alterasf.com").rstrip("/")
         success, error, portal_url = create_billing_portal_session(
             sub.stripe_customer_id,
-            request.args.get("return_url", "https://alterasf.com"),
+            f"{public_origin}/billing/account",
         )
         if not success or not portal_url:
             abort(502, error or "unable to reach billing portal")

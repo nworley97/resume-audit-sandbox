@@ -77,8 +77,18 @@ struct AccountTabView: View {
                             Label("Copy job board link", systemImage: "link")
                                 .foregroundColor(AppTheme.textPrimary)
                         }
-                        NavigationLink { BillingView() } label: {
-                            Label("Billing", systemImage: "creditcard")
+                        if authVM.canManageHiring {
+                            NavigationLink { DepartmentsView() } label: {
+                                Label("Departments", systemImage: "folder")
+                            }
+                        }
+                        if authVM.isAdmin {
+                            NavigationLink { TeamView() } label: {
+                                Label("Team members", systemImage: "person.3")
+                            }
+                            NavigationLink { BillingView() } label: {
+                                Label("Billing", systemImage: "creditcard")
+                            }
                         }
                         Button {
                             showSettings = true

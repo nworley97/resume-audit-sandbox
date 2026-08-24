@@ -308,6 +308,7 @@ struct ROIMetric: View {
 }
 
 struct FinalistsCard: View {
+    @EnvironmentObject var authVM: AuthViewModel
     @ObservedObject var vm: JobAnalyticsViewModel
     let jobCode: String
 
@@ -328,6 +329,7 @@ struct FinalistsCard: View {
                         .font(.caption).foregroundColor(AppTheme.textSecondary)
                 }
                 Spacer()
+                if authVM.canManageHiring {
                 Button { showAddSheet = true } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
@@ -339,6 +341,7 @@ struct FinalistsCard: View {
                     .background(AppTheme.primary).cornerRadius(8)
                 }
                 .buttonStyle(.plain)
+                }
             }
 
             if finalists.isEmpty {
@@ -354,6 +357,7 @@ struct FinalistsCard: View {
                     ForEach(Array(visible.enumerated()), id: \.element.id) { idx, f in
                         FinalistRow(
                             finalist: f,
+                            canManage: authVM.canManageHiring,
                             onRemove: { Task { await vm.removeFinalist(candidateId: f.id, jobCode: jobCode) } },
                             onEditNote: { noteDraftFor = f; noteDraftText = f.note }
                         )
@@ -384,6 +388,7 @@ struct FinalistsCard: View {
 
 struct FinalistRow: View {
     let finalist: APIFinalist
+    let canManage: Bool
     let onRemove: () -> Void
     let onEditNote: () -> Void
 
@@ -413,10 +418,12 @@ struct FinalistRow: View {
                     Text(String(format: "%.1f", finalist.overallScore)).font(.system(size: 14, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                     Text("Overall").font(.system(size: 9)).foregroundColor(AppTheme.textSecondary)
                 }
-                Button(action: onRemove) {
-                    Image(systemName: "xmark.circle.fill").foregroundColor(AppTheme.textTertiary)
+                if canManage {
+                    Button(action: onRemove) {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(AppTheme.textTertiary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             HStack(spacing: 16) {
@@ -425,8 +432,12 @@ struct FinalistRow: View {
                 finalistMetric("AI/QA", finalist.totalAnswers > 0 ? "\(finalist.flaggedAnswers)/\(finalist.totalAnswers)" : "\u{2014}")
                 finalistMetric("Tabs", "\(finalist.tabSwitches)")
                 Spacer()
-                Button(finalist.note.isEmpty ? "+ Note" : "Edit Note", action: onEditNote)
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(AppTheme.primary)
+                if canManage {
+                    Button(finalist.note.isEmpty ? "+ Note" : "Edit Note", action: onEditNote)
+                        .font(.system(size: 11, weight: .medium)).foregroundColor(AppTheme.primary)
+                } else if !finalist.note.isEmpty {
+                    Text(finalist.note).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                }
             }
         }
         .padding(.vertical, 10)

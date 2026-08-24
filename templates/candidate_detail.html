@@ -2,6 +2,7 @@
 {% block title %}Candidate Detail - ALTERA{% endblock %}
 
 {% block content %}
+{% set can_manage = current_user.is_super or current_user.role in ['admin', 'manager'] %}
 <div class="space-y-6 pb-12">
 
   <!-- Breadcrumb -->
@@ -14,27 +15,27 @@
   </div>
 
   <!-- Summary Card -->
-  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6">
-    <div class="flex items-center justify-between mb-6">
+  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 sm:p-6 min-w-0">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 min-w-0">
       <h2 class="text-lg font-semibold text-gray-900">{{ c.name or 'Candidate' }}</h2>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         {% if c.status == 'finalist' %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-200">
           ★ Finalist
         </span>
-        <form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}" class="inline">
+        {% if can_manage %}<form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}" class="inline">
           <input type="hidden" name="status" value="">
           <button type="submit" class="inline-flex items-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors">
             Remove
           </button>
-        </form>
+        </form>{% endif %}
         {% else %}
-        <form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}" class="inline">
+        {% if can_manage %}<form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}" class="inline">
           <input type="hidden" name="status" value="finalist">
           <button type="submit" class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-200 px-3 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors">
             ★ Add Finalist
           </button>
-        </form>
+        </form>{% endif %}
         {% if c.status == 'archived' %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-500 ring-1 ring-gray-300">
           Archived
@@ -57,8 +58,8 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-0 divide-x divide-gray-200">
-      <div class="pr-8 space-y-3">
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-gray-200 min-w-0">
+      <div class="space-y-3 lg:pr-8 min-w-0">
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Role</div>
           <div class="text-sm text-gray-900">{% if jd %}{{ jd.title or '-' }}{% else %}{{ c.job_title or '-' }}{% endif %}</div>
@@ -76,7 +77,7 @@
           <div class="text-sm text-gray-900 break-all">{{ c.email or '-' }}</div>
         </div>
       </div>
-      <div class="pl-8 space-y-3">
+      <div class="space-y-3 lg:pl-8 min-w-0">
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-40 flex-shrink-0">Relevancy Score</div>
           {% set rel = relevancy or 0 %}
@@ -111,10 +112,10 @@
   </div>
 
   <!-- Side-by-side: Resume (left) | Q&A (right) -->
-  <div class="grid gap-6" style="grid-template-columns: 1fr 420px; align-items: start;">
+  <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-6 items-start min-w-0">
 
     <!-- ── Left: Resume Card ── -->
-    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4">
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4 min-w-0 max-w-full">
       <!-- Header -->
       <div class="flex justify-between items-center flex-wrap gap-2">
         <div>
@@ -424,7 +425,7 @@
     </div>
 
     <!-- ── Right: Q&A Panel ── -->
-    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden" style="max-height: 640px; display: flex; flex-direction: column; position: sticky; top: 1rem;">
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden min-w-0 max-w-full xl:sticky xl:top-4" style="max-height: 640px; display: flex; flex-direction: column;">
       {# timing helper #}
       {% macro _mmss(ms) -%}
         {%- set _ms_int = ms|int if ms else 0 -%}
@@ -548,7 +549,7 @@
       ← Back to Analytics
     </a>
 
-    <div class="flex items-center gap-2 flex-wrap">
+    {% if can_manage %}<div class="flex items-center gap-2 flex-wrap">
       <!-- Email Candidate -->
       {% if c.email %}
       <button
@@ -574,7 +575,7 @@
           {{ 'Unarchive' if c.status == 'archived' else 'Archive Candidate' }}
         </button>
       </form>
-    </div>
+    </div>{% endif %}
   </div>
 
 </div><!-- end main space-y-6 -->
@@ -794,7 +795,11 @@ function setResumeView(view) {
     const errEl   = document.getElementById('pdfError');
 
     try {
-      const pdfDoc = await pdfjsLib.getDocument({ url: RESUME_URL, withCredentials: true }).promise;
+      const pdfDoc = await pdfjsLib.getDocument({
+        url: RESUME_URL,
+        withCredentials: true,
+        isEvalSupported: false,
+      }).promise;
       loading.style.display = 'none';
       const SCALE = 1.5;
 

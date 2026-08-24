@@ -9,10 +9,11 @@ struct APIUser: Decodable {
     let company: String?
     let initials: String
     let isSuper: Bool
+    let role: String?
     let tenantSlug: String?
     let tenantDisplayName: String?
     enum CodingKeys: String, CodingKey {
-        case username, initials
+        case username, initials, role
         case fullName = "full_name"
         case company
         case isSuper = "is_super"
