@@ -15,15 +15,31 @@ async function expectNoPageOverflow(page) {
     viewport: window.innerWidth,
     document: document.documentElement.scrollWidth,
     body: document.body.scrollWidth,
+    offenders: Array.from(document.querySelectorAll('body *'))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          element: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}.${Array.from(element.classList).join('.')}`,
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+        };
+      })
+      .filter(({ left, right }) => left < 0 || right > window.innerWidth)
+      .slice(0, 12),
   }));
-  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
-  expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport);
+  const detail = JSON.stringify(dimensions.offenders, null, 2);
+  expect(dimensions.document, detail).toBeLessThanOrEqual(dimensions.viewport);
+  expect(dimensions.body, detail).toBeLessThanOrEqual(dimensions.viewport);
 }
 
 
 test('landing page fits the viewport', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  const demoSource = await page.locator('#demo-video-preview source').getAttribute('src');
+  expect(demoSource).not.toContain('%23');
+  expect(demoSource).not.toContain('#');
   await expectNoPageOverflow(page);
 });
 

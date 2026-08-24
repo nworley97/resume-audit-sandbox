@@ -251,6 +251,13 @@
   var demoModal = document.getElementById('demo-modal');
   var demoModalClose = document.getElementById('demo-modal-close');
   var demoVideo = document.getElementById('demo-video');
+  var demoVideoPreview = document.getElementById('demo-video-preview');
+
+  if (demoVideoPreview) {
+    demoVideoPreview.addEventListener('loadedmetadata', function () {
+      demoVideoPreview.currentTime = Math.min(0.5, demoVideoPreview.duration || 0.5);
+    }, { once: true });
+  }
 
   if (demoPlayBtn && demoModal) {
     demoPlayBtn.addEventListener('click', function () {

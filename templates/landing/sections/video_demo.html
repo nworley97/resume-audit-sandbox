@@ -19,8 +19,8 @@
       <div class="reveal reveal-delay-2 w-full">
         <div id="demo-play-btn" class="bg-black border border-[#c1c7cd] rounded-[12px] overflow-hidden shadow-landing-card w-full h-[250px] md:h-[580px] flex items-center justify-center relative cursor-pointer group">
           <!-- Video preview (first frame) -->
-          <video class="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-70 transition-opacity duration-300" preload="metadata" muted>
-            <source src="{{ url_for('static', filename='video/AlteraSF_Demo.mp4') }}#t=0.5" type="video/mp4">
+          <video id="demo-video-preview" class="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-70 transition-opacity duration-300" preload="metadata" muted>
+            <source src="{{ url_for('static', filename='video/AlteraSF_Demo.mp4') }}" type="video/mp4">
           </video>
           <!-- Play icon overlay -->
           <div class="relative z-10 w-[56px] h-[56px] md:w-[72px] md:h-[72px] bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
