@@ -23,6 +23,7 @@ from db import SessionLocal
 from models import Tenant, User, JobDescription, Candidate, Department, PasswordResetToken
 from s3util import S3_ENABLED, presign
 from authz import role_required, rate_limit
+from resume_utils import normalize_resume_for_view
 from analytics_service import (
     RELEVANCY_AXIS,
     CLAIM_VALIDITY_AXIS,
@@ -317,35 +318,30 @@ def _candidate_detail_dict(c: Candidate, jd: JobDescription | None, t: Tenant) -
         })
 
     # Resume JSON fields
-    rj = c.resume_json or {}
-    normalized_fields = {
-        str(key).strip().lower().replace(" ", "_").replace("-", "_"): value
-        for key, value in rj.items()
-    }
-
-    def resume_field(*names, default=None):
-        for name in names:
-            value = normalized_fields.get(name)
-            if value not in (None, "", [], {}):
-                return value
-        return default
-
-    education = resume_field("education", "academic_background", "academic_history", default="")
+    normalized_resume = normalize_resume_for_view(c.resume_json or {})
+    education = normalized_resume.get("education", "")
     if isinstance(education, dict):
         education = [education]
     if isinstance(education, list):
         education = "\n\n".join(_format_education_entry(e) for e in education)
-    experience = resume_field(
-        "experience", "work_experience", "professional_experience", "employment",
-        "employment_history", "work_history", default="",
-    )
+    experience = normalized_resume.get("experience", "")
     if isinstance(experience, dict):
         experience = [experience]
     if isinstance(experience, list):
         experience = "\n\n".join(_format_experience_entry(e) for e in experience)
-    skills = resume_field("skills", "technical_skills", "core_skills", "competencies", default=[])
+    skills = normalized_resume.get("skills", [])
     if isinstance(skills, str):
         skills = [s.strip() for s in skills.split(",") if s.strip()]
+    elif isinstance(skills, dict):
+        flattened = []
+        for category, values in skills.items():
+            if isinstance(values, str):
+                flattened.extend(s.strip() for s in values.split(",") if s.strip())
+            elif isinstance(values, list):
+                flattened.extend(str(s).strip() for s in values if str(s).strip())
+            elif values not in (None, ""):
+                flattened.append(f"{category}: {values}")
+        skills = flattened
 
     base.update({
         "resume_url": f"/api/mobile/{t.slug}/candidates/{c.id}/resume" if c.resume_url else "",

@@ -9,6 +9,7 @@ struct CandidatesView: View {
     @StateObject private var jobsVM = JobsViewModel()
     @State private var previewCandidate: Candidate?
     @State private var fullProfileCandidate: Candidate?
+    @State private var pendingFullProfileCandidate: Candidate?
     @State private var showDepartmentFilterSheet = false
     @State private var showSortSheet = false
 
@@ -36,10 +37,15 @@ struct CandidatesView: View {
             .onChange(of: vm.searchText) { _ in vm.triggerSearch(jobCode: filterJobId) }
             .onChange(of: vm.sortOption) { _ in Task { await vm.load(jobCode: filterJobId) } }
             .onChange(of: vm.selectedTab) { _ in /* filter locally */ }
-            .sheet(item: $previewCandidate) { candidate in
-                CandidateQuickPreviewSheet(candidate: candidate, onViewFullProfile: {
-                    previewCandidate = nil
+            .sheet(item: $previewCandidate, onDismiss: {
+                if let candidate = pendingFullProfileCandidate {
+                    pendingFullProfileCandidate = nil
                     fullProfileCandidate = candidate
+                }
+            }) { candidate in
+                CandidateQuickPreviewSheet(candidate: candidate, onViewFullProfile: {
+                    pendingFullProfileCandidate = candidate
+                    previewCandidate = nil
                 })
             }
             .sheet(item: $fullProfileCandidate) { candidate in

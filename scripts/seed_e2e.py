@@ -74,7 +74,15 @@ def main() -> None:
             "summary": "Test engineer focused on reliable systems.",
             "skills": ["Python", "Playwright", "Accessibility"],
             "education": [{"institution": "Example University", "degree": "BS Computer Science"}],
-            "experience": [{"title": "Test Engineer", "company": "Example Labs"}],
+            "experience": {
+                "jobs": {
+                    "Example Labs": {
+                        "Job Title": "Test Engineer",
+                        "Date Range": "2022–Present",
+                        "Duties": ["Built reliable browser and API test systems."],
+                    }
+                }
+            },
         }
         candidate.fit_score = 90
         candidate.realism = True

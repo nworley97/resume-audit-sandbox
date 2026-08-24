@@ -1,4 +1,5 @@
 import os
+import json
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -144,6 +145,47 @@ class ResumeCompatibilityTests(unittest.TestCase):
         self.assertEqual(normalized["experience"][0]["role"], "Analyst")
         self.assertEqual(normalized["skills"], ["Mathematics"])
 
+    def test_nested_and_json_string_resume_shapes_are_unwrapped(self):
+        normalized = _normalize_resume_for_view({
+            "result": json.dumps({
+                "candidate": {
+                    "basics": {"name": "Grace Hopper", "summary": "Compiler pioneer"},
+                    "work": [{"position": "Rear Admiral", "company": "US Navy"}],
+                    "skills": {"languages": ["COBOL"]},
+                }
+            })
+        })
+        self.assertEqual(normalized["name"], "Grace Hopper")
+        self.assertEqual(normalized["summary"], "Compiler pioneer")
+        self.assertEqual(normalized["experience"][0]["position"], "Rear Admiral")
+        self.assertEqual(normalized["skills"]["languages"], ["COBOL"])
+
+    def test_nested_and_company_keyed_experience_is_preserved(self):
+        normalized = _normalize_resume_for_view({
+            "experience": {
+                "jobs": {
+                    "Example Labs": {
+                        "Job Title": "Senior Engineer",
+                        "Date Range": "2021–Present",
+                        "Duties": ["Led platform reliability work"],
+                    },
+                    "Earlier Company": {
+                        "Position Title": "Engineer",
+                        "Start": "2018",
+                        "End": "2021",
+                    },
+                }
+            }
+        })
+        self.assertEqual(len(normalized["experience"]), 2)
+        self.assertEqual(normalized["experience"][0]["company"], "Example Labs")
+        self.assertEqual(normalized["experience"][0]["title"], "Senior Engineer")
+        self.assertEqual(normalized["experience"][0]["dates"], "2021–Present")
+        self.assertEqual(
+            normalized["experience"][0]["responsibilities"],
+            ["Led platform reliability work"],
+        )
+
     def test_mobile_detail_uses_ai_aliases_and_recorded_qa_metadata(self):
         candidate = SimpleNamespace(
             id="abc123",
@@ -173,6 +215,24 @@ class ResumeCompatibilityTests(unittest.TestCase):
         self.assertEqual(detail["resume_url"], "/api/mobile/altera/candidates/abc123/resume")
         self.assertEqual(detail["qa_responses"][0]["duration_seconds"], 12.5)
         self.assertTrue(detail["qa_responses"][0]["has_pasted_content"])
+
+    def test_mobile_detail_unwraps_nested_ai_resume(self):
+        candidate = SimpleNamespace(
+            id="nested123", name="Grace", email="grace@example.com", phone="",
+            jd_code="job1", fit_score=5, answer_scores=[], left_tab_count=0,
+            status=None, created_at=None, resume_url="", questions=[], answers=[],
+            resume_json={
+                "result": {
+                    "resume_data": {
+                        "Work Experience": [{"role": "Engineer", "company": "Navy"}],
+                        "Technical Skills": {"languages": ["COBOL", "FLOW-MATIC"]},
+                    }
+                }
+            },
+        )
+        detail = _candidate_detail_dict(candidate, None, SimpleNamespace(slug="altera"))
+        self.assertIn("Engineer", detail["experience"])
+        self.assertEqual(detail["skills"], ["COBOL", "FLOW-MATIC"])
 
 
 class ResumeEndpointTests(unittest.TestCase):

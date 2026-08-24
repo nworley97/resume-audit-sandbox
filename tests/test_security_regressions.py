@@ -1,12 +1,14 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["OPENAI_API_KEY"] = ""
 os.environ["TEST_MODE"] = "true"
 os.environ["SESSION_COOKIE_SECURE"] = "false"
 
+import app as app_module  # noqa: E402
 from app import app  # noqa: E402
 from analytics_service import _relevancy_score  # noqa: E402
 from db import Base, SessionLocal, engine  # noqa: E402
@@ -87,6 +89,7 @@ class SecurityRegressionTests(unittest.TestCase):
         db.commit()
         cls.alpha_admin_id = alpha_admin.id
         cls.alpha_viewer_id = alpha_viewer.id
+        cls.beta_admin_id = beta_admin.id
         db.close()
 
     @classmethod
@@ -125,6 +128,76 @@ class SecurityRegressionTests(unittest.TestCase):
             ).status_code,
             403,
         )
+
+    def test_legacy_candidate_link_redirects_to_canonical_detail(self):
+        client = self.authenticated_client(self.beta_admin_id, "security-beta")
+        response = client.get("/security-beta/recruiter/security-beta-candidate")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            response.headers["Location"].endswith(
+                "/security-beta/recruiter/candidate/security-beta-candidate"
+            )
+        )
+
+    def test_candidate_detail_handles_nested_ai_data_and_a_lost_upload(self):
+        db = SessionLocal()
+        candidate = db.get(Candidate, "security-beta-candidate")
+        original_url = candidate.resume_url
+        original_json = candidate.resume_json
+        candidate.resume_url = f"{original_url}.missing"
+        candidate.resume_json = {
+            "result": {
+                "resume_data": {
+                    "Professional Summary": "Nested AI content is visible.",
+                    "Technical Skills": ["Python"],
+                }
+            }
+        }
+        db.commit()
+        db.close()
+        try:
+            client = self.authenticated_client(self.beta_admin_id, "security-beta")
+            response = client.get(
+                "/security-beta/recruiter/candidate/security-beta-candidate"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b"Nested AI content is visible.", response.data)
+            self.assertIn(b"Uploaded file unavailable", response.data)
+            self.assertIn(b"Uploaded resume is unavailable", response.data)
+        finally:
+            db = SessionLocal()
+            candidate = db.get(Candidate, "security-beta-candidate")
+            candidate.resume_url = original_url
+            candidate.resume_json = original_json
+            db.commit()
+            db.close()
+
+    def test_inline_s3_pdf_is_streamed_from_the_application_origin(self):
+        db = SessionLocal()
+        candidate = db.get(Candidate, "security-beta-candidate")
+        original_url = candidate.resume_url
+        candidate.resume_url = "s3://resume-bucket/resumes/candidate.pdf"
+        db.commit()
+        db.close()
+        try:
+            client = self.authenticated_client(self.beta_admin_id, "security-beta")
+            with (
+                patch.object(app_module, "S3_ENABLED", True),
+                patch.object(app_module, "read_s3", return_value=b"%PDF-1.4\n%%EOF\n"),
+            ):
+                response = client.get(
+                    "/security-beta/resume/security-beta-candidate?inline=1"
+                )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.mimetype, "application/pdf")
+            self.assertEqual(response.data, b"%PDF-1.4\n%%EOF\n")
+            self.assertNotIn("Location", response.headers)
+        finally:
+            db = SessionLocal()
+            candidate = db.get(Candidate, "security-beta-candidate")
+            candidate.resume_url = original_url
+            db.commit()
+            db.close()
 
     def test_public_job_board_remains_public_when_signed_in_elsewhere(self):
         client = self.authenticated_client(self.alpha_admin_id)

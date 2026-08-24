@@ -152,8 +152,8 @@
           {% endif %}
 
           <!-- Download button -->
-          {% if c and c.id %}
-          <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
+          {% if download_url %}
+          <a href="{{ download_url }}"
              download data-noload
              class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -162,6 +162,8 @@
             </svg>
             Download
           </a>
+          {% elif resume_missing %}
+          <span class="text-xs font-medium text-amber-700">Uploaded file unavailable</span>
           {% endif %}
         </div>
       </div>
@@ -169,7 +171,7 @@
       <!-- ── AI Format View (default) ── -->
       <div id="resumeAiView">
         {% set rj = ai_resume or {} %}
-        {% if rj %}
+        {% if has_ai_resume %}
         <div class="space-y-5 text-sm px-2 py-1">
 
           {# Name + Contact header #}
@@ -294,6 +296,9 @@
                   <div class="flex justify-between items-start gap-2">
                     <span class="font-bold text-gray-900">{{ _etitle }}</span>
                     {% set dt = e.get('duration') or e.get('dates') or e.get('date') %}
+                    {% if not dt and (e.get('start_date') or e.get('end_date')) %}
+                      {% set dt = (e.get('start_date') or '') ~ (' – ' if e.get('start_date') and e.get('end_date') else '') ~ (e.get('end_date') or '') %}
+                    {% endif %}
                     {% if dt %}<span class="text-xs text-gray-400 flex-shrink-0">{{ dt }}</span>{% endif %}
                   </div>
                   {% if _eco %}<div class="text-sm font-semibold text-teal-600">{{ _eco }}</div>{% endif %}
@@ -416,8 +421,13 @@
             <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
+            {% if resume_missing %}
+            <h3 class="mt-2 text-sm font-semibold text-gray-900">Uploaded resume is unavailable</h3>
+            <p class="mt-1 text-sm text-gray-500">The stored file did not survive deployment. Ask the candidate to upload it again.</p>
+            {% else %}
             <h3 class="mt-2 text-sm font-semibold text-gray-900">No resume uploaded</h3>
             <p class="mt-1 text-sm text-gray-500">This candidate has not provided a resume.</p>
+            {% endif %}
           </div>
         </div>
         {% endif %}

@@ -52,6 +52,10 @@ test('recruiter, AI resume, PDF, and analytics paths work', async ({ page }) => 
   await page.goto('/playwright/recruiter/candidate/playwright-candidate');
   await expect(page.getByRole('heading', { name: 'Candidate Details' })).toBeVisible();
   await expect(page.getByText('Test engineer focused on reliable systems.')).toBeVisible();
+  await expect(page.getByText('Test Engineer', { exact: true })).toBeVisible();
+  await expect(page.getByText('Example Labs', { exact: true })).toBeVisible();
+  await expect(page.getByText('2022–Present', { exact: true })).toBeVisible();
+  await expect(page.getByText('Built reliable browser and API test systems.')).toBeVisible();
   await expect(page.getByText('4.5/5').first()).toBeVisible();
   await expectNoPageOverflow(page);
 

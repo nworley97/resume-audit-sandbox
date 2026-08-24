@@ -41,8 +41,9 @@ from models import (
     Tenant, User, JobDescription, Candidate, Department, PasswordResetToken,
     engine as models_engine
 )
-from s3util import upload_pdf, presign, S3_ENABLED, delete_s3
+from s3util import upload_pdf, presign, read_s3, S3_ENABLED, delete_s3
 from authz import require_tenant_access, role_required, rate_limit
+from resume_utils import has_structured_resume_content, normalize_resume_for_view
 # app.py
 
 
@@ -409,7 +410,16 @@ def chat(system: str, user: str, *, structured=False, timeout=60) -> str:
 
 # ─── File-to-text helpers ────────────────────────────────────────
 def pdf_to_text(path):
-    return "\n".join(p.extract_text() or "" for p in pypdf.PdfReader(path).pages)
+    pages = []
+    for page in pypdf.PdfReader(path).pages:
+        try:
+            # Layout mode preserves columns and job/date alignment much better
+            # than the plain extractor for modern résumé designs.
+            text = page.extract_text(extraction_mode="layout") or ""
+        except (TypeError, ValueError):
+            text = page.extract_text() or ""
+        pages.append(text)
+    return "\n\n".join(pages)
 
 def docx_to_text(path):
     return "\n".join(p.text for p in docx.Document(path).paragraphs)
@@ -424,16 +434,23 @@ def file_to_text(path, mime):
 # ─── AI helpers ──────────────────────────────────────────────────
 def resume_json(text: str) -> dict:
     schema = (
-        "Extract the résumé as JSON using these top-level keys: name, contact, summary, "
-        "education, skills, experience, projects, certifications. Preserve useful detail "
-        "inside arrays of objects. Use an empty array or empty string when a section is absent."
+        "Extract the entire résumé as JSON using exactly these top-level keys: name, contact, "
+        "summary, education, skills, experience, projects, certifications. Experience must be "
+        "an array with one object per role, including title, company, location, start_date, "
+        "end_date, and description or bullets whenever present. Include internships, contract "
+        "roles, consulting work, and earlier positions; do not merge multiple roles or omit a "
+        "role because its dates or title are unclear. Education, projects, and certifications "
+        "must also be arrays. Preserve the résumé's wording and never invent missing facts. "
+        "Use an empty array or empty string only when a section is genuinely absent."
     )
     raw = chat(schema, text, structured=True)
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
     except json.JSONDecodeError:
         raw2 = chat(f"{schema} Return only valid JSON.", text, structured=True)
-        return json.loads(raw2)
+        parsed = json.loads(raw2)
+    normalized = normalize_resume_for_view(parsed)
+    return normalized or (parsed if isinstance(parsed, dict) else {})
 
 def fit_score(rjs: dict, jd_text: str) -> int:
     prompt = (
@@ -581,40 +598,8 @@ def _is_pdf_resume(storage_path: str) -> bool:
 
 
 def _normalize_resume_for_view(raw) -> dict:
-    """Map common AI extraction shapes onto the fields used by the resume view."""
-    if not isinstance(raw, dict):
-        return {}
-
-    def normalized_key(value):
-        return re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower()).strip("_")
-
-    fields = {normalized_key(key): value for key, value in raw.items() if not str(key).startswith("_")}
-
-    def first(*names):
-        for name in names:
-            value = fields.get(normalized_key(name))
-            if value not in (None, "", [], {}):
-                return value
-        return None
-
-    personal = first("personal_info", "personal_information", "contact_info")
-    personal = personal if isinstance(personal, dict) else {}
-    name = first("name", "full_name", "candidate_name") or personal.get("name") or personal.get("full_name")
-    contact = first("links", "contact", "contact_details") or personal
-
-    return {
-        "name": name,
-        "summary": first("summary", "professional_summary", "career_summary", "objective", "profile"),
-        "contact": contact,
-        "education": first("education", "academic_background", "academic_history"),
-        "skills": first("skills", "technical_skills", "core_skills", "competencies"),
-        "experience": first(
-            "experience", "work_experience", "professional_experience", "employment",
-            "employment_history", "work_history",
-        ),
-        "projects": first("projects", "project_experience", "personal_projects"),
-        "certifications": first("certifications", "certificates", "licenses", "credentials"),
-    }
+    """Backward-compatible import target for existing callers and tests."""
+    return normalize_resume_for_view(raw)
 
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
@@ -2528,13 +2513,18 @@ def candidate_detail(id, tenant=None):
         download_url = None
         is_pdf = False
         resume_url = None
+        resume_missing = False
         if c.resume_url:
             is_pdf = _is_pdf_resume(c.resume_url)
-            download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
-            if is_pdf:
-                resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1, _external=False)
-        else:
-            resume_url = None
+            resume_available = (
+                (S3_ENABLED and c.resume_url.startswith("s3://"))
+                or os.path.exists(c.resume_url)
+            )
+            resume_missing = not resume_available
+            if resume_available:
+                download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
+                if is_pdf:
+                    resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1, _external=False)
 
         # Relevancy normalized to 0–5
         raw_r = getattr(c, "relevancy", None)
@@ -2572,17 +2562,20 @@ def candidate_detail(id, tenant=None):
         if not has_claim_validity:
             claim_validity_notification = get_feature_notification('claim_validity_score', plan_tier)
 
+        ai_resume = _normalize_resume_for_view(c.resume_json)
         return render_template(
             "candidate_detail.html",
             tenant=t,
             tenant_slug=t.slug,
             jd=jd,
             c=c,
-            ai_resume=_normalize_resume_for_view(c.resume_json),
+            ai_resume=ai_resume,
+            has_ai_resume=has_structured_resume_content(ai_resume),
             relevancy=relevancy,
             resume_url=resume_url,
             is_pdf=is_pdf,
             download_url=download_url,
+            resume_missing=resume_missing,
             claim_validity=claim_validity,
             qa=qa,
             focus_changes=focus_changes,
@@ -2949,6 +2942,12 @@ def apply(tenant, code):
                 else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
             text = file_to_text(path, mime_guess)
+            if len(re.sub(r"\s+", "", text or "")) < 20:
+                flash(
+                    "We couldn't read enough text from this resume. Please upload a text-based PDF or DOCX.",
+                    "applicant",
+                )
+                return redirect(request.url)
             rjs = resume_json(text)
             if email:
                 rjs["applicant_email"] = email
@@ -3515,33 +3514,36 @@ def download_resume(cid, tenant=None):
     if S3_ENABLED and c.resume_url.startswith("s3://"):
         try:
             if inline and ext == "pdf":
-                # Prefer inline for PDFs so the iframe can render
-                url = presign(
-                    c.resume_url,
-                    content_disposition="inline",
-                    content_type="application/pdf",
+                # Keep PDF.js on the application origin. Following a redirect
+                # to S3 makes previews depend on bucket CORS configuration.
+                return Response(
+                    read_s3(c.resume_url),
+                    status=200,
+                    mimetype="application/pdf",
+                    headers={
+                        "Content-Disposition": f'inline; filename="{fn}"',
+                        "Cache-Control": "private, no-store",
+                    },
                 )
-                return redirect(url)
             # Fallback to attachment for non-PDF or explicit download
             cd = f"attachment; filename=\"{fn}\""
             return redirect(presign(c.resume_url, content_disposition=cd))
-        except Exception as e:
-            logging.exception("S3 presign failed for %s", c.resume_url)
+        except Exception:
+            logging.exception("S3 resume delivery failed for %s", c.resume_url)
+            if inline:
+                html = (
+                    "<!doctype html><html><head>"
+                    "<meta charset='utf-8'>"
+                    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+                    "<meta name='resume-missing' content='1'>"
+                    "<title>Resume Unavailable</title>"
+                    "</head><body data-resume-missing='1' style='margin:0'></body></html>"
+                )
+                return Response(html, status=404, mimetype="text/html")
             # Last-resort: try plain presign without response headers
             try:
                 return redirect(presign(c.resume_url))
             except Exception:
-                # If still failing, surface a safe 404/inline placeholder for iframe
-                if inline:
-                    html = (
-                        "<!doctype html><html><head>"
-                        "<meta charset='utf-8'>"
-                        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                        "<meta name='resume-missing' content='1'>"
-                        "<title>Resume Unavailable</title>"
-                        "</head><body data-resume-missing='1' style='margin:0'></body></html>"
-                    )
-                    return Response(html, status=404, mimetype="text/html")
                 return abort(404)
     exists = os.path.exists(c.resume_url) if c.resume_url else False
 
@@ -3612,42 +3614,8 @@ def detail(cid, tenant=None):
         if slug: return redirect(url_for("detail", tenant=slug, cid=cid))
         return redirect(url_for("login"))
 
-    db = SessionLocal()
-    try:
-        c  = db.get(Candidate, cid)
-        jd = db.query(JobDescription).filter_by(code=c.jd_code, tenant_id=t.id).first() if c else None
-        if not c or c.tenant_id != t.id:
-            flash("Not found", "recruiter"); return redirect(url_for("recruiter", tenant=t.slug))
-
-        qa = list(zip(c.questions, c.answers, c.answer_scores))
-
-        # NEW: provide a browser-loadable resume_url for the template preview
-        download_url = None
-        is_pdf = False
-        resume_url = None
-        if c and c.resume_url:
-            is_pdf = _is_pdf_resume(c.resume_url)
-            download_url = url_for("download_resume", tenant=t.slug, cid=c.id)
-            # Only provide inline preview URL for PDFs
-            if is_pdf:
-                resume_url = url_for("download_resume", tenant=t.slug, cid=c.id, inline=1)
-        else:
-            resume_url = None
-
-        return render_template(
-            "candidate_detail.html",
-            title=f"Candidate – {c.name}",
-            c=c,
-            ai_resume=_normalize_resume_for_view(c.resume_json),
-            jd=jd,
-            qa=qa,
-            tenant_slug=t.slug,
-            resume_url=resume_url,   # <-- additive only
-            is_pdf=is_pdf,
-            download_url=download_url,
-        )
-    finally:
-        db.close()
+    # Preserve old bookmarks while keeping one fully tested candidate screen.
+    return redirect(url_for("candidate_detail", tenant=t.slug, id=cid), code=302)
 
 
 @app.route("/privacy")
