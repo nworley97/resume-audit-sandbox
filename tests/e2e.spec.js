@@ -68,3 +68,33 @@ test('recruiter, AI resume, PDF, and analytics paths work', async ({ page }) => 
   await expect(analytics.getByText('4.5/5').first()).toBeVisible();
   await expect(analytics.getByText('90.0/5')).toHaveCount(0);
 });
+
+
+test('slug-gated mobile demo supports its primary walkthrough', async ({ page }) => {
+  const missing = await page.goto('/mobile-demo/not-the-demo-slug');
+  expect(missing.status()).toBe(404);
+
+  await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
+  await expect(page.getByRole('heading', { name: 'Job Postings' })).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  await page.getByRole('button', { name: 'See candidates' }).click();
+  await expect(page.getByRole('heading', { name: 'Candidates' })).toBeVisible();
+  await page.getByRole('button', { name: 'Diamonds' }).click();
+  await expect(page.locator('[data-candidate]:visible')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /Maya Chen/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'All candidates' }).click();
+  await page.getByRole('button', { name: /Daniel Brooks/ }).click();
+  await expect(page.getByRole('heading', { name: 'Daniel Brooks' })).toBeVisible();
+  await expect(page.locator('#detail-job-one')).toHaveText('Senior SDR · Elevate CRM');
+
+  await page.getByRole('button', { name: 'Original' }).click();
+  await expect(page.locator('#paper-name')).toHaveText('DANIEL BROOKS');
+  await page.getByRole('button', { name: 'Back to candidates' }).click();
+
+  await page.getByRole('button', { name: 'Analytics' }).click();
+  await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+  await page.getByRole('button', { name: 'Account' }).click();
+  await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
+});

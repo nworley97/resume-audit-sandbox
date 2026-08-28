@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Altera Mobile Preview</title>
+  <style>
+    :root {
+      --primary: #0f9f96;
+      --primary-dark: #087b75;
+      --primary-soft: #e8f8f6;
+      --ink: #17212b;
+      --muted: #687684;
+      --line: #e5e9ed;
+      --canvas: #f4f6f5;
+      --card: #ffffff;
+      --gold: #d69d1e;
+      --danger: #d64d67;
+      --success: #26996f;
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #e9eeec; color: var(--ink); }
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .page-shell {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .preview-label {
+      position: fixed;
+      top: 18px;
+      left: 20px;
+      max-width: 270px;
+      padding: 10px 14px;
+      border: 1px solid rgba(15, 159, 150, .22);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .88);
+      box-shadow: 0 8px 28px rgba(26, 49, 46, .08);
+      color: #46615e;
+      font-size: 12px;
+      line-height: 1.35;
+      backdrop-filter: blur(10px);
+    }
+
+    .phone {
+      position: relative;
+      width: min(430px, 100%);
+      height: min(860px, calc(100vh - 48px));
+      min-height: 640px;
+      overflow: hidden;
+      border: 1px solid rgba(23, 33, 43, .12);
+      border-radius: 32px;
+      background: var(--canvas);
+      box-shadow: 0 26px 80px rgba(28, 48, 45, .2);
+    }
+
+    .app {
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px 12px;
+      background: rgba(255, 255, 255, .96);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand { display: flex; align-items: center; gap: 9px; font-weight: 760; letter-spacing: -.02em; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      background: linear-gradient(145deg, #18bdb2, #087b75);
+      color: white;
+      font-weight: 850;
+    }
+
+    .demo-pill {
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+      font-size: 10px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .screen {
+      display: none;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 18px 16px 104px;
+      overscroll-behavior: contain;
+    }
+    .screen.active { display: block; }
+
+    .eyebrow { margin: 0 0 4px; color: var(--primary-dark); font-size: 11px; font-weight: 780; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: 28px; line-height: 1.08; letter-spacing: -.035em; }
+    .subtitle { margin: 7px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+    .summary-card, .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 5px 18px rgba(30, 55, 52, .045);
+    }
+    .summary-card { padding: 14px; }
+    .summary-card strong { display: block; margin-bottom: 3px; font-size: 24px; letter-spacing: -.03em; }
+    .summary-card span { color: var(--muted); font-size: 11px; }
+    .summary-card.accent strong { color: var(--primary-dark); }
+
+    .section-row { display: flex; align-items: center; justify-content: space-between; margin: 18px 2px 10px; }
+    .section-row h2 { margin: 0; font-size: 16px; letter-spacing: -.015em; }
+    .section-row button { border: 0; background: none; color: var(--primary-dark); font-size: 12px; font-weight: 700; }
+
+    .job-card { padding: 15px; margin-bottom: 11px; }
+    .card-top { display: flex; align-items: flex-start; gap: 10px; }
+    .card-copy { min-width: 0; flex: 1; }
+    .card-title { margin: 0 0 5px; font-size: 15px; font-weight: 740; line-height: 1.25; }
+    .card-meta { color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .status { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; background: #e8f6ef; color: var(--success); font-size: 10px; font-weight: 760; }
+    .job-stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .job-stats div { text-align: center; }
+    .job-stats div + div { border-left: 1px solid var(--line); }
+    .job-stats strong { display: block; font-size: 16px; }
+    .job-stats span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
+
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 12px;
+      padding: 11px 12px;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--muted);
+    }
+    .search input { width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 13px; }
+    .filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none; }
+    .filters::-webkit-scrollbar { display: none; }
+    .filter { white-space: nowrap; border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; background: white; color: #52606d; font-size: 11px; }
+    .filter.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); font-weight: 720; }
+
+    .candidate-card { width: 100%; margin-bottom: 10px; padding: 14px; border: 1px solid var(--line); text-align: left; cursor: pointer; }
+    .candidate-row { display: flex; align-items: center; gap: 11px; }
+    .avatar { display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(145deg, #d9f3f0, #bfe4e0); color: var(--primary-dark); font-size: 12px; font-weight: 800; }
+    .candidate-copy { min-width: 0; flex: 1; }
+    .candidate-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+    .candidate-copy span { display: block; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
+    .score { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; background: var(--primary-soft); color: var(--primary-dark); font-size: 13px; font-weight: 820; }
+    .candidate-tags { display: flex; gap: 6px; margin: 11px 0 0 53px; }
+    .tag { padding: 4px 7px; border-radius: 7px; background: #f2f4f5; color: #596775; font-size: 9px; font-weight: 700; }
+    .tag.gold { background: #fff6d9; color: #966908; }
+
+    .chart-card { padding: 16px; margin-bottom: 12px; }
+    .chart-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .chart-title strong { font-size: 14px; }
+    .chart-title span { color: var(--muted); font-size: 10px; }
+    .bars { display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; gap: 9px; height: 150px; }
+    .bar-wrap { display: flex; height: 100%; flex-direction: column; justify-content: flex-end; align-items: center; gap: 7px; }
+    .bar { width: 100%; min-height: 8px; border-radius: 7px 7px 3px 3px; background: linear-gradient(#1bb6ac, #0a817a); }
+    .bar-wrap span { color: var(--muted); font-size: 9px; }
+    .funnel-row { display: grid; grid-template-columns: 92px 1fr 34px; align-items: center; gap: 9px; margin-top: 11px; font-size: 11px; }
+    .track { height: 8px; overflow: hidden; border-radius: 999px; background: #edf0f1; }
+    .fill { height: 100%; border-radius: inherit; background: var(--primary); }
+
+    .profile-card { padding: 18px; text-align: center; margin-bottom: 12px; }
+    .profile-card .avatar { width: 62px; height: 62px; margin: 0 auto 10px; font-size: 17px; }
+    .profile-card h2 { margin: 0; font-size: 18px; }
+    .profile-card p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .menu { overflow: hidden; }
+    .menu-row { display: flex; align-items: center; gap: 12px; padding: 15px; font-size: 13px; }
+    .menu-row + .menu-row { border-top: 1px solid var(--line); }
+    .menu-icon { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; background: var(--primary-soft); color: var(--primary-dark); font-size: 14px; }
+    .menu-row span:nth-child(2) { flex: 1; }
+    .chevron { color: #9aa4ad; }
+
+    .bottom-nav {
+      position: absolute;
+      z-index: 5;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 9px 6px calc(9px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, .96);
+      backdrop-filter: blur(16px);
+    }
+    .nav-button { display: grid; place-items: center; gap: 3px; min-height: 49px; border: 0; background: transparent; color: #7b8792; font-size: 9px; cursor: pointer; }
+    .nav-button svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+    .nav-button.active { color: var(--primary-dark); font-weight: 750; }
+
+    .detail {
+      position: absolute;
+      z-index: 10;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--canvas);
+      transform: translateX(105%);
+      visibility: hidden;
+      pointer-events: none;
+      transition: transform .25s ease, visibility 0s linear .25s;
+    }
+    .detail.open { transform: translateX(0); visibility: visible; pointer-events: auto; transition: transform .25s ease; }
+    .detail-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: white; border-bottom: 1px solid var(--line); }
+    .back { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 11px; background: white; cursor: pointer; }
+    .detail-header strong { font-size: 15px; }
+    .detail-body { flex: 1; overflow-y: auto; padding: 16px 16px 34px; }
+    .identity { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .identity h2 { margin: 0; font-size: 19px; }
+    .identity p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .score-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    .metric { padding: 11px 7px; border-radius: 12px; background: white; border: 1px solid var(--line); text-align: center; }
+    .metric strong { display: block; color: var(--primary-dark); font-size: 15px; }
+    .metric span { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .04em; }
+    .resume-card { padding: 14px; }
+    .resume-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .resume-head strong { font-size: 14px; }
+    .toggle { display: flex; padding: 3px; border-radius: 9px; background: #eef1f2; }
+    .toggle button { border: 0; border-radius: 7px; padding: 6px 9px; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; }
+    .toggle button.active { background: white; color: var(--ink); font-weight: 740; box-shadow: 0 1px 4px rgba(23, 33, 43, .12); }
+    .resume-view { display: none; }
+    .resume-view.active { display: block; }
+    .resume-section { padding: 12px 0; border-top: 1px solid var(--line); }
+    .resume-section:first-child { border-top: 0; padding-top: 2px; }
+    .resume-section h3 { margin: 0 0 7px; color: var(--primary-dark); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    .resume-section h4 { margin: 0 0 3px; font-size: 12px; }
+    .resume-section p, .resume-section li { color: #52606d; font-size: 10px; line-height: 1.5; }
+    .resume-section p { margin: 0; }
+    .resume-section ul { margin: 6px 0 0; padding-left: 17px; }
+    .skill-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .skill-list span { padding: 5px 7px; border-radius: 6px; background: var(--primary-soft); color: var(--primary-dark); font-size: 9px; font-weight: 650; }
+    .paper { min-height: 390px; padding: 21px; border: 1px solid #dfe4e7; background: #fff; box-shadow: 0 4px 12px rgba(23, 33, 43, .08); }
+    .paper h3 { margin: 0; font-size: 17px; text-align: center; letter-spacing: .02em; }
+    .paper .contact { margin: 4px 0 15px; color: #5f6b76; font-size: 8px; text-align: center; }
+    .paper h4 { margin: 12px 0 5px; padding-bottom: 3px; border-bottom: 1px solid #89949d; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+    .paper p, .paper li { font-family: Georgia, serif; color: #3f4850; font-size: 8px; line-height: 1.45; }
+    .paper p { margin: 4px 0; }
+    .paper .multiline { white-space: pre-line; }
+    .paper ul { margin: 4px 0; padding-left: 15px; }
+
+    .notice { margin-top: 14px; padding: 10px 12px; border-radius: 11px; background: #fff8df; color: #6f581d; font-size: 10px; line-height: 1.45; }
+
+    @media (max-width: 720px) {
+      .page-shell { display: block; padding: 0; }
+      .preview-label { display: none; }
+      .phone { width: 100%; height: 100dvh; min-height: 560px; border: 0; border-radius: 0; box-shadow: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { .detail { transition: none; } }
+  </style>
+</head>
+<body>
+  <div class="preview-label">Interactive mobile preview · Fictional demonstration data</div>
+  <main class="page-shell">
+    <section class="phone" aria-label="Altera mobile application preview">
+      <div class="app">
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">A</span><span>Altera</span></div>
+          <span class="demo-pill">Demo mode</span>
+        </header>
+
+        <section class="screen active" data-screen="jobs">
+          <p class="eyebrow">Hiring overview</p>
+          <h1>Job Postings</h1>
+          <p class="subtitle">Manage roles and see where candidates are moving.</p>
+
+          <div class="summary-grid">
+            <div class="summary-card accent"><strong>4</strong><span>Open roles</span></div>
+            <div class="summary-card"><strong>86</strong><span>Total applicants</span></div>
+          </div>
+
+          <div class="section-row"><h2>Active roles</h2><button id="see-all-candidates" type="button">See candidates</button></div>
+          <article class="card job-card">
+            <div class="card-top"><div class="card-copy"><p class="card-title">Senior Product Designer</p><p class="card-meta">Product · New York, NY · Posted Aug 12</p></div><span class="status">Open</span></div>
+            <div class="job-stats"><div><strong>28</strong><span>Applicants</span></div><div><strong>7</strong><span>Reviewed</span></div><div><strong>3</strong><span>Diamonds</span></div></div>
+          </article>
+          <article class="card job-card">
+            <div class="card-top"><div class="card-copy"><p class="card-title">Sales Development Representative</p><p class="card-meta">Sales · Remote · Posted Aug 18</p></div><span class="status">Open</span></div>
+            <div class="job-stats"><div><strong>34</strong><span>Applicants</span></div><div><strong>12</strong><span>Reviewed</span></div><div><strong>5</strong><span>Diamonds</span></div></div>
+          </article>
+          <article class="card job-card">
+            <div class="card-top"><div class="card-copy"><p class="card-title">Customer Success Manager</p><p class="card-meta">Customer Success · Austin, TX · Posted Aug 21</p></div><span class="status">Open</span></div>
+            <div class="job-stats"><div><strong>24</strong><span>Applicants</span></div><div><strong>9</strong><span>Reviewed</span></div><div><strong>2</strong><span>Diamonds</span></div></div>
+          </article>
+        </section>
+
+        <section class="screen" data-screen="candidates">
+          <p class="eyebrow">Talent pipeline</p>
+          <h1>Candidates</h1>
+          <p class="subtitle">Review fit, validate claims, and find overlooked talent.</p>
+          <label class="search"><span aria-hidden="true">⌕</span><input id="candidate-search" type="search" placeholder="Search candidates or roles" autocomplete="off"></label>
+          <div class="filters"><button class="filter active" type="button" data-filter="all">All candidates</button><button class="filter" type="button" data-filter="diamond">Diamonds</button><button class="filter" type="button" data-filter="review">Needs review</button></div>
+
+          <button class="card candidate-card" type="button" data-candidate="maya" data-status="diamond" data-search="maya chen senior product designer diamond">
+            <span class="candidate-row"><span class="avatar">MC</span><span class="candidate-copy"><strong>Maya Chen</strong><span>Senior Product Designer</span></span><span class="score">4.8</span></span>
+            <span class="candidate-tags"><span class="tag gold">◆ Diamond</span><span class="tag">AI assessed</span></span>
+          </button>
+          <button class="card candidate-card" type="button" data-candidate="daniel" data-status="reviewed" data-search="daniel brooks sales development representative reviewed">
+            <span class="candidate-row"><span class="avatar">DB</span><span class="candidate-copy"><strong>Daniel Brooks</strong><span>Sales Development Representative</span></span><span class="score">4.4</span></span>
+            <span class="candidate-tags"><span class="tag">Reviewed</span><span class="tag">4 responses</span></span>
+          </button>
+          <button class="card candidate-card" type="button" data-candidate="amina" data-status="review" data-search="amina patel customer success manager needs review">
+            <span class="candidate-row"><span class="avatar">AP</span><span class="candidate-copy"><strong>Amina Patel</strong><span>Customer Success Manager</span></span><span class="score">4.1</span></span>
+            <span class="candidate-tags"><span class="tag">Needs review</span><span class="tag">AI assessed</span></span>
+          </button>
+          <p id="no-candidates" class="subtitle" hidden>No candidates match that search.</p>
+        </section>
+
+        <section class="screen" data-screen="analytics">
+          <p class="eyebrow">Hiring intelligence</p>
+          <h1>Analytics</h1>
+          <p class="subtitle">Performance across active job postings.</p>
+          <div class="summary-grid">
+            <div class="summary-card accent"><strong>86</strong><span>Applicants</span></div>
+            <div class="summary-card"><strong>10</strong><span>Diamonds found</span></div>
+          </div>
+          <article class="card chart-card">
+            <div class="chart-title"><strong>Applications this week</strong><span>+18% vs last week</span></div>
+            <div class="bars" aria-label="Applications by weekday"><div class="bar-wrap"><div class="bar" style="height:42%"></div><span>Mon</span></div><div class="bar-wrap"><div class="bar" style="height:68%"></div><span>Tue</span></div><div class="bar-wrap"><div class="bar" style="height:54%"></div><span>Wed</span></div><div class="bar-wrap"><div class="bar" style="height:88%"></div><span>Thu</span></div><div class="bar-wrap"><div class="bar" style="height:74%"></div><span>Fri</span></div></div>
+          </article>
+          <article class="card chart-card">
+            <div class="chart-title"><strong>Candidate funnel</strong><span>All active roles</span></div>
+            <div class="funnel-row"><span>Applied</span><span class="track"><span class="fill" style="display:block;width:100%"></span></span><strong>86</strong></div>
+            <div class="funnel-row"><span>AI assessed</span><span class="track"><span class="fill" style="display:block;width:72%"></span></span><strong>62</strong></div>
+            <div class="funnel-row"><span>Reviewed</span><span class="track"><span class="fill" style="display:block;width:41%"></span></span><strong>35</strong></div>
+            <div class="funnel-row"><span>Finalists</span><span class="track"><span class="fill" style="display:block;width:14%"></span></span><strong>12</strong></div>
+          </article>
+        </section>
+
+        <section class="screen" data-screen="account">
+          <p class="eyebrow">Workspace</p>
+          <h1>Account</h1>
+          <p class="subtitle">Team, billing, and preferences.</p>
+          <article class="card profile-card"><div class="avatar">EL</div><h2>Erin Lewis</h2><p>Demo Workspace · Administrator</p></article>
+          <div class="card menu">
+            <div class="menu-row"><span class="menu-icon">⌁</span><span>Copy job board link</span><span class="chevron">›</span></div>
+            <div class="menu-row"><span class="menu-icon">♙</span><span>Team members</span><span class="chevron">›</span></div>
+            <div class="menu-row"><span class="menu-icon">▤</span><span>Departments</span><span class="chevron">›</span></div>
+            <div class="menu-row"><span class="menu-icon">⚙</span><span>Account settings</span><span class="chevron">›</span></div>
+          </div>
+          <p class="notice"><strong>Demo environment:</strong> Every name, résumé, score, and metric on this page is fictional.</p>
+        </section>
+
+        <nav class="bottom-nav" aria-label="Primary mobile navigation">
+          <button class="nav-button active" type="button" data-tab="jobs"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"></path></svg><span>Jobs</span></button>
+          <button class="nav-button" type="button" data-tab="candidates"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span>Candidates</span></button>
+          <button class="nav-button" type="button" data-tab="analytics"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg><span>Analytics</span></button>
+          <button class="nav-button" type="button" data-tab="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>Account</span></button>
+        </nav>
+      </div>
+
+      <section class="detail" id="candidate-detail" aria-hidden="true" aria-label="Candidate profile" inert>
+        <header class="detail-header"><button class="back" id="close-detail" type="button" aria-label="Back to candidates">←</button><strong>Candidate Profile</strong></header>
+        <div class="detail-body">
+          <div class="identity"><div class="avatar" id="detail-initials">MC</div><div><h2 id="detail-name">Maya Chen</h2><p id="detail-role">Senior Product Designer · Product</p></div></div>
+          <div class="score-strip"><div class="metric"><strong id="detail-fit">4.8/5</strong><span>Relevancy</span></div><div class="metric"><strong id="detail-claim">4.6/5</strong><span>Claim validity</span></div><div class="metric"><strong id="detail-tabs">0</strong><span>Tab switches</span></div></div>
+          <article class="card resume-card">
+            <div class="resume-head"><strong>Résumé</strong><div class="toggle" role="tablist" aria-label="Resume format"><button class="active" type="button" data-resume="ai">AI Format</button><button type="button" data-resume="original">Original</button></div></div>
+            <div class="resume-view active" data-resume-view="ai">
+              <div class="resume-section"><h3>Professional Summary</h3><p id="detail-summary">Product designer with seven years of experience turning complex workflows into clear, measurable customer experiences.</p></div>
+              <div class="resume-section"><h3>Experience</h3><h4 id="detail-job-one">Lead Product Designer · Northstar Labs</h4><p id="detail-dates-one">2022–Present · New York, NY</p><ul><li id="detail-bullet-one">Led research and design for a multi-product analytics platform.</li><li id="detail-bullet-two">Improved activation by 23% through onboarding experiments.</li></ul><h4 id="detail-job-two" style="margin-top:11px">Product Designer · Fieldworks</h4><p id="detail-dates-two">2019–2022 · Brooklyn, NY</p><ul><li id="detail-bullet-three">Built a shared design system across web and mobile products.</li></ul></div>
+              <div class="resume-section"><h3>Skills</h3><div class="skill-list" id="detail-skills"><span>Product strategy</span><span>User research</span><span>Figma</span><span>Prototyping</span><span>Design systems</span></div></div>
+              <div class="resume-section"><h3>Education</h3><h4 id="detail-education">BFA, Interaction Design</h4><p id="detail-school">School of Visual Arts · 2019</p></div>
+            </div>
+            <div class="resume-view" data-resume-view="original">
+              <div class="paper"><h3 id="paper-name">MAYA CHEN</h3><p class="contact" id="paper-contact">maya.chen@example.com · New York, NY · (555) 010-2048</p><h4>Profile</h4><p id="paper-summary">Product designer focused on understandable, inclusive customer experiences.</p><h4>Experience</h4><p class="multiline" id="paper-experience-one">Northstar Labs — Lead Product Designer
+2022–Present</p><ul><li id="paper-bullet-one">Led end-to-end design for an analytics platform.</li><li id="paper-bullet-two">Partnered with research, product, and engineering.</li></ul><p class="multiline" id="paper-experience-two">Fieldworks — Product Designer
+2019–2022</p><ul><li id="paper-bullet-three">Created a cross-platform design system.</li></ul><h4>Education</h4><p id="paper-education">BFA, Interaction Design — School of Visual Arts</p><h4>Skills</h4><p id="paper-skills">Product strategy, research, prototyping, Figma, design systems</p></div>
+            </div>
+          </article>
+          <p class="notice">This profile demonstrates both original-file preview and structured AI formatting using fictional content.</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const screens = [...document.querySelectorAll('[data-screen]')];
+      const navButtons = [...document.querySelectorAll('[data-tab]')];
+      const detail = document.getElementById('candidate-detail');
+      const demoCandidates = {
+        maya: {
+          initials: 'MC', name: 'Maya Chen', role: 'Senior Product Designer · Product', fit: '4.8/5', claim: '4.6/5', tabs: '0',
+          summary: 'Product designer with seven years of experience turning complex workflows into clear, measurable customer experiences.',
+          jobs: [
+            ['Lead Product Designer · Northstar Labs', '2022–Present · New York, NY', 'Led research and design for a multi-product analytics platform.', 'Improved activation by 23% through onboarding experiments.'],
+            ['Product Designer · Fieldworks', '2019–2022 · Brooklyn, NY', 'Built a shared design system across web and mobile products.']
+          ],
+          skills: ['Product strategy', 'User research', 'Figma', 'Prototyping', 'Design systems'], education: 'BFA, Interaction Design', school: 'School of Visual Arts · 2019',
+          contact: 'maya.chen@example.com · New York, NY · (555) 010-2048'
+        },
+        daniel: {
+          initials: 'DB', name: 'Daniel Brooks', role: 'Sales Development Representative · Sales', fit: '4.4/5', claim: '4.3/5', tabs: '1',
+          summary: 'Sales development professional with four years of experience building qualified pipeline for B2B software teams.',
+          jobs: [
+            ['Senior SDR · Elevate CRM', '2023–Present · Remote', 'Generated $1.2M in qualified pipeline across mid-market accounts.', 'Maintained 118% average attainment over six quarters.'],
+            ['Sales Development Representative · Brightpath', '2021–2023 · Chicago, IL', 'Created multi-channel outreach sequences for new verticals.']
+          ],
+          skills: ['Prospecting', 'Salesforce', 'HubSpot', 'Discovery', 'Pipeline development'], education: 'BA, Business Administration', school: 'DePaul University · 2021',
+          contact: 'daniel.brooks@example.com · Chicago, IL · (555) 010-3184'
+        },
+        amina: {
+          initials: 'AP', name: 'Amina Patel', role: 'Customer Success Manager · Customer Success', fit: '4.1/5', claim: '4.0/5', tabs: '0',
+          summary: 'Customer success manager with six years of experience improving adoption, retention, and executive alignment.',
+          jobs: [
+            ['Customer Success Manager · Wayline', '2022–Present · Austin, TX', 'Managed a $3.4M portfolio with 94% gross retention.', 'Developed adoption plans for complex enterprise rollouts.'],
+            ['Customer Success Specialist · Constellate', '2019–2022 · Dallas, TX', 'Built onboarding playbooks that reduced time to value.']
+          ],
+          skills: ['Customer success', 'Onboarding', 'Renewals', 'Gainsight', 'Executive reviews'], education: 'BS, Marketing', school: 'University of Texas at Dallas · 2019',
+          contact: 'amina.patel@example.com · Austin, TX · (555) 010-4721'
+        }
+      };
+
+      function openTab(name) {
+        screens.forEach(screen => screen.classList.toggle('active', screen.dataset.screen === name));
+        navButtons.forEach(button => button.classList.toggle('active', button.dataset.tab === name));
+      }
+
+      navButtons.forEach(button => button.addEventListener('click', () => openTab(button.dataset.tab)));
+      document.getElementById('see-all-candidates').addEventListener('click', () => openTab('candidates'));
+
+      function setText(id, value) { document.getElementById(id).textContent = value; }
+
+      function renderCandidate(candidate) {
+        setText('detail-initials', candidate.initials);
+        setText('detail-name', candidate.name);
+        setText('detail-role', candidate.role);
+        setText('detail-fit', candidate.fit);
+        setText('detail-claim', candidate.claim);
+        setText('detail-tabs', candidate.tabs);
+        setText('detail-summary', candidate.summary);
+        setText('detail-job-one', candidate.jobs[0][0]);
+        setText('detail-dates-one', candidate.jobs[0][1]);
+        setText('detail-bullet-one', candidate.jobs[0][2]);
+        setText('detail-bullet-two', candidate.jobs[0][3]);
+        setText('detail-job-two', candidate.jobs[1][0]);
+        setText('detail-dates-two', candidate.jobs[1][1]);
+        setText('detail-bullet-three', candidate.jobs[1][2]);
+        setText('detail-education', candidate.education);
+        setText('detail-school', candidate.school);
+        const skills = document.getElementById('detail-skills');
+        skills.replaceChildren(...candidate.skills.map(skill => {
+          const pill = document.createElement('span');
+          pill.textContent = skill;
+          return pill;
+        }));
+        setText('paper-name', candidate.name.toUpperCase());
+        setText('paper-contact', candidate.contact);
+        setText('paper-summary', candidate.summary);
+        setText('paper-experience-one', `${candidate.jobs[0][0]}\n${candidate.jobs[0][1]}`);
+        setText('paper-bullet-one', candidate.jobs[0][2]);
+        setText('paper-bullet-two', candidate.jobs[0][3]);
+        setText('paper-experience-two', `${candidate.jobs[1][0]}\n${candidate.jobs[1][1]}`);
+        setText('paper-bullet-three', candidate.jobs[1][2]);
+        setText('paper-education', `${candidate.education} — ${candidate.school}`);
+        setText('paper-skills', candidate.skills.join(', '));
+      }
+
+      document.querySelectorAll('[data-candidate]').forEach(button => button.addEventListener('click', () => {
+        const candidate = demoCandidates[button.dataset.candidate] || demoCandidates.maya;
+        renderCandidate(candidate);
+        detail.inert = false;
+        detail.classList.add('open');
+        detail.setAttribute('aria-hidden', 'false');
+      }));
+
+      document.getElementById('close-detail').addEventListener('click', () => {
+        detail.classList.remove('open');
+        detail.setAttribute('aria-hidden', 'true');
+        detail.inert = true;
+      });
+
+      document.querySelectorAll('[data-resume]').forEach(button => button.addEventListener('click', () => {
+        document.querySelectorAll('[data-resume]').forEach(item => item.classList.toggle('active', item === button));
+        document.querySelectorAll('[data-resume-view]').forEach(view => view.classList.toggle('active', view.dataset.resumeView === button.dataset.resume));
+      }));
+
+      const search = document.getElementById('candidate-search');
+      const candidateCards = [...document.querySelectorAll('[data-candidate]')];
+      const empty = document.getElementById('no-candidates');
+      let activeFilter = 'all';
+
+      function applyCandidateFilters() {
+        const query = search.value.trim().toLowerCase();
+        let shown = 0;
+        candidateCards.forEach(card => {
+          const matchesSearch = !query || card.dataset.search.includes(query);
+          const matchesFilter = activeFilter === 'all' || card.dataset.status === activeFilter;
+          const visible = matchesSearch && matchesFilter;
+          card.hidden = !visible;
+          if (visible) shown += 1;
+        });
+        empty.hidden = shown !== 0;
+      }
+
+      search.addEventListener('input', applyCandidateFilters);
+
+      document.querySelectorAll('.filter').forEach(filter => filter.addEventListener('click', () => {
+        document.querySelectorAll('.filter').forEach(item => item.classList.toggle('active', item === filter));
+        activeFilter = filter.dataset.filter;
+        applyCandidateFilters();
+      }));
+    })();
+  </script>
+</body>
+</html>

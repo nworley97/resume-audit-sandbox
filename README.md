@@ -54,3 +54,11 @@ The end-to-end suite uses its own `.playwright.sqlite` database. Never point it 
 ## Mobile app
 
 Open `ios/AlteraSF.xcodeproj` on a Mac. Debug builds default to the local API; a physical phone needs the Mac's LAN address or the HTTPS sandbox URL. Release builds target production. See [ios/README.md](ios/README.md) for signing, local-network, and TestFlight steps.
+
+## Browser mobile demo
+
+The Render sandbox exposes a synthetic-data mobile product walkthrough at:
+
+`/mobile-demo/preview-61d7c4a9f2e8`
+
+The fallback slug is enabled only when Render reports that the deployed branch is `dev`/`Dev` (and in tests). Set `MOBILE_DEMO_SLUG` on the sandbox service to rotate the unlisted link. Production keeps the route disabled unless that environment variable is intentionally configured. The preview never reads tenant or candidate data from the database.

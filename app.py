@@ -86,6 +86,10 @@ app.register_blueprint(analytics_bp)
 from ios_api import mobile_api
 app.register_blueprint(mobile_api)
 
+# Unlisted, synthetic-data browser preview of the native mobile experience.
+from mobile_demo import mobile_demo
+app.register_blueprint(mobile_demo)
+
 # Billing/Subscription blueprint
 from billing_routes import billing_bp, require_feature
 app.register_blueprint(billing_bp)

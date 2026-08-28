@@ -13,6 +13,7 @@ from app import app  # noqa: E402
 from analytics_service import _relevancy_score  # noqa: E402
 from db import Base, SessionLocal, engine  # noqa: E402
 from models import Candidate, JobDescription, Tenant, User  # noqa: E402
+from mobile_demo import DEV_MOBILE_DEMO_SLUG  # noqa: E402
 
 
 class SecurityRegressionTests(unittest.TestCase):
@@ -113,6 +114,27 @@ class SecurityRegressionTests(unittest.TestCase):
         response = app.test_client().get("/analytics/summary?tenant=security-beta")
         self.assertEqual(response.status_code, 302)
         self.assertIn("/login", response.headers["Location"])
+
+    def test_mobile_demo_is_slug_gated_and_contains_only_demo_content(self):
+        client = app.test_client()
+        self.assertEqual(client.get("/mobile-demo/not-the-demo-slug").status_code, 404)
+
+        response = client.get(f"/mobile-demo/{DEV_MOBILE_DEMO_SLUG}")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Interactive mobile preview", response.data)
+        self.assertIn(b"Fictional demonstration data", response.data)
+        self.assertIn(b"AI Format", response.data)
+        self.assertIn(b"Original", response.data)
+        self.assertEqual(response.headers["Cache-Control"], "private, no-store, max-age=0")
+        self.assertEqual(response.headers["X-Robots-Tag"], "noindex, nofollow, noarchive")
+
+    def test_mobile_demo_fallback_is_disabled_outside_dev(self):
+        with patch.dict(
+            os.environ,
+            {"TEST_MODE": "false", "RENDER_GIT_BRANCH": "main", "MOBILE_DEMO_SLUG": ""},
+        ):
+            response = app.test_client().get(f"/mobile-demo/{DEV_MOBILE_DEMO_SLUG}")
+        self.assertEqual(response.status_code, 404)
 
     def test_cross_tenant_candidate_and_metadata_access_is_forbidden(self):
         client = self.authenticated_client(self.alpha_admin_id)
