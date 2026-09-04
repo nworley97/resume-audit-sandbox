@@ -25,7 +25,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
-    baseURL: process.env.BASE_URL || 'http://127.0.0.1:8000',
+    baseURL: process.env.BASE_URL || 'http://127.0.0.1:5050',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -52,15 +52,14 @@ export default defineConfig({
       use: { ...devices['Desktop Safari'] },
     },
 
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 12'] },
+    },
 
     /* Test against branded browsers. */
     // {
@@ -75,8 +74,16 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'OPENAI_API_KEY=test-key-for-playwright TEST_MODE=true python3 app.py',
-    url: process.env.BASE_URL || 'http://127.0.0.1:8000',
+    command: 'python -m alembic upgrade head && python scripts/seed_e2e.py && python app.py',
+    url: process.env.BASE_URL || 'http://127.0.0.1:5050',
+    env: {
+      ...process.env,
+      DATABASE_URL: 'sqlite:///./.playwright.sqlite',
+      OPENAI_API_KEY: '',
+      RESUME_APP_SECRET_KEY: 'playwright-only-secret',
+      SESSION_COOKIE_SECURE: 'false',
+      TEST_MODE: 'true',
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

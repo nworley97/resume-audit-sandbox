@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct JobRowView: View {
+    @EnvironmentObject var authVM: AuthViewModel
     let job: Job
     var onEdit: () -> Void = {}
     var onClose: () -> Void = {}
@@ -25,14 +26,16 @@ struct JobRowView: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                Button {
-                    showActions = true
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 16))
-                        .foregroundColor(AppTheme.textSecondary)
-                        .padding(8)
-                        .contentShape(Rectangle())
+                if authVM.canManageHiring {
+                    Button {
+                        showActions = true
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16))
+                            .foregroundColor(AppTheme.textSecondary)
+                            .padding(8)
+                            .contentShape(Rectangle())
+                    }
                 }
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 2)

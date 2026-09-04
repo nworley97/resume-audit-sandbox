@@ -119,6 +119,8 @@ Icon?
 .vscode/
 .idea/
 .cursor/
+xcuserdata/
+*.xcuserstate
 *.code-workspace
 *.sublime-*
 *.swp
@@ -140,8 +142,7 @@ instance/
 # =============================================================================
 # Note: CSS and JS build files are included in Git for production deployment
 # static/css/output.css - included for production
-# static/js/analytics/analytics.bundle.js - included for production  
-# static/js/analytics/analytics.bundle.js.map - included for production
+# analytics_ui/dashboard/dist - included for production
 
 # =============================================================================
 # DOCUMENTATION & REFERENCES
@@ -151,9 +152,6 @@ references/
 # =============================================================================
 # PLAYWRIGHT E2E TESTING
 # =============================================================================
-# Test files (exclude from git - contains test scenarios)
-/tests/
-
 # Test results and reports
 /test-results/
 /playwright-report/
@@ -162,6 +160,7 @@ references/
 # Playwright cache and authentication
 /playwright/.cache/
 /playwright/.auth/
+/.playwright.sqlite
 
 # Playwright trace files
 trace.zip

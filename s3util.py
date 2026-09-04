@@ -88,6 +88,19 @@ def presign(
         ExpiresIn=expires,
     )
 
+
+def read_s3(s3_url: str) -> bytes:
+    """Read an S3 object for same-origin inline delivery by the application."""
+    if not S3_ENABLED or not s3_url.startswith("s3://"):
+        raise RuntimeError("read_s3() requires an enabled S3 URL")
+    bucket, key = s3_url.split("/", 3)[2], s3_url.split("/", 3)[3]
+    response = s3.get_object(Bucket=bucket, Key=key)
+    body = response["Body"]
+    try:
+        return body.read()
+    finally:
+        body.close()
+
 def delete_s3(s3_url: str) -> None:
     """
     Deletes an object at s3://bucket/key. No-op if S3 disabled.

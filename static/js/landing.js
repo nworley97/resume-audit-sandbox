@@ -40,67 +40,32 @@
   const tabContainer = document.getElementById('tools-tabs');
   const panelContainer = document.getElementById('tools-panels');
   if (tabContainer && panelContainer) {
-    const tabs = Array.from(tabContainer.querySelectorAll('[role="tab"]'));
-    const panels = panelContainer.querySelectorAll('[role="tabpanel"]');
+    const tabs = tabContainer.querySelectorAll('.tab-pill');
+    const panels = panelContainer.querySelectorAll('.tab-panel');
 
     // Default: activate first tab
     if (tabs.length > 0) {
       tabs[0].classList.add('active');
     }
 
-    function activateTab(tab) {
-      var target = tab.dataset.tab;
+    tabContainer.addEventListener('click', function (e) {
+      const pill = e.target.closest('.tab-pill');
+      if (!pill) return;
 
-      // Update ARIA and visual state on all tabs
-      tabs.forEach(function (t) {
-        t.classList.remove('active');
-        t.setAttribute('aria-selected', 'false');
-        t.setAttribute('tabindex', '-1');
-      });
-      tab.classList.add('active');
-      tab.setAttribute('aria-selected', 'true');
-      tab.setAttribute('tabindex', '0');
-      tab.focus();
+      const target = pill.dataset.tab;
 
-      // Show matching panel, hide others
-      panels.forEach(function (p) {
+      // Update active tab
+      tabs.forEach((t) => t.classList.remove('active'));
+      pill.classList.add('active');
+
+      // Show matching panel
+      panels.forEach((p) => {
         if (p.dataset.panel === target) {
           p.classList.remove('hidden');
         } else {
           p.classList.add('hidden');
         }
       });
-    }
-
-    // Click handler
-    tabContainer.addEventListener('click', function (e) {
-      var pill = e.target.closest('[role="tab"]');
-      if (!pill) return;
-      activateTab(pill);
-    });
-
-    // Keyboard navigation
-    tabContainer.addEventListener('keydown', function (e) {
-      var currentTab = e.target.closest('[role="tab"]');
-      if (!currentTab) return;
-
-      var index = tabs.indexOf(currentTab);
-      var newIndex;
-
-      if (e.key === 'ArrowRight') {
-        newIndex = (index + 1) % tabs.length;
-      } else if (e.key === 'ArrowLeft') {
-        newIndex = (index - 1 + tabs.length) % tabs.length;
-      } else if (e.key === 'Home') {
-        newIndex = 0;
-      } else if (e.key === 'End') {
-        newIndex = tabs.length - 1;
-      } else {
-        return;
-      }
-
-      e.preventDefault();
-      activateTab(tabs[newIndex]);
     });
   }
 
@@ -163,11 +128,9 @@
     const burgerMid = document.getElementById('burger-mid');
     const burgerBot = document.getElementById('burger-bot');
 
-    function setMobileMenuState(open) {
-      isOpen = open;
-      menuBtn.setAttribute('aria-expanded', String(open));
-      mobileMenu.setAttribute('aria-hidden', String(!open));
-      if (open) {
+    menuBtn.addEventListener('click', function () {
+      isOpen = !isOpen;
+      if (isOpen) {
         mobileMenu.style.maxHeight = mobileMenu.scrollHeight + 'px';
         burgerTop.style.transform = 'rotate(45deg) translateY(5px)';
         burgerMid.style.opacity = '0';
@@ -178,16 +141,16 @@
         burgerMid.style.opacity = '';
         burgerBot.style.transform = '';
       }
-    }
-
-    menuBtn.addEventListener('click', function () {
-      setMobileMenuState(!isOpen);
     });
 
     // Close menu on link click
     mobileMenu.querySelectorAll('a').forEach(function (link) {
       link.addEventListener('click', function () {
-        setMobileMenuState(false);
+        isOpen = false;
+        mobileMenu.style.maxHeight = '0';
+        burgerTop.style.transform = '';
+        burgerMid.style.opacity = '';
+        burgerBot.style.transform = '';
       });
     });
   }
@@ -271,18 +234,14 @@
 
       // Close all FAQ items
       faqItems.forEach(function (fi) {
-        fi.querySelector('.faq-trigger').setAttribute('aria-expanded', 'false');
         fi.querySelector('.faq-answer').classList.add('hidden');
-        fi.querySelector('.faq-answer').setAttribute('aria-hidden', 'true');
         fi.querySelector('.faq-icon').textContent = 'add';
       });
 
       // Toggle clicked (if it was closed, open it)
       if (!wasOpen) {
         answer.classList.remove('hidden');
-        answer.setAttribute('aria-hidden', 'false');
-        trigger.setAttribute('aria-expanded', 'true');
-        icon.textContent = 'remove';
+        icon.textContent = 'close';
       }
     });
   }
@@ -292,6 +251,13 @@
   var demoModal = document.getElementById('demo-modal');
   var demoModalClose = document.getElementById('demo-modal-close');
   var demoVideo = document.getElementById('demo-video');
+  var demoVideoPreview = document.getElementById('demo-video-preview');
+
+  if (demoVideoPreview) {
+    demoVideoPreview.addEventListener('loadedmetadata', function () {
+      demoVideoPreview.currentTime = Math.min(0.5, demoVideoPreview.duration || 0.5);
+    }, { once: true });
+  }
 
   if (demoPlayBtn && demoModal) {
     demoPlayBtn.addEventListener('click', function () {
@@ -299,7 +265,6 @@
       demoModal.classList.add('flex');
       document.body.style.overflow = 'hidden';
       if (demoVideo) demoVideo.play();
-      if (demoModalClose) demoModalClose.focus();
     });
 
     function closeDemoModal() {
@@ -307,7 +272,6 @@
       demoModal.classList.add('hidden');
       demoModal.classList.remove('flex');
       document.body.style.overflow = '';
-      demoPlayBtn.focus();
     }
 
     if (demoModalClose) {

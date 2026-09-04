@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ResponsiveBar } from "@nivo/bar";
@@ -9,11 +8,10 @@ import type { LucideIcon } from "lucide-react";
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Sparkles } from "lucide-react";
 import { getAnalyticsDetail } from "@/lib/api";
 import { useAnalyticsStore } from "@/stores/analytics-store";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { AnalyticsJobDetail } from "@/types/analytics";
 import { env } from "@/lib/env";
@@ -211,30 +209,6 @@ function DistributionCharts({ detail }: { detail: AnalyticsJobDetail }) {
       candidates: value,
     }));
 
-  // ET-12: Get candidate data from heatmap cells for hover tooltips
-  const getCandidatesForBucket = (bucket: string, isClaim: boolean) => {
-    if (!detail.heatmap?.cells) return [];
-
-    const target = (() => {
-      if (bucket === "No Score") return 0;
-      const numericPortion = bucket.replace(/[^\d.]/g, "");
-      const parsed = Number(numericPortion);
-      return Number.isNaN(parsed) ? null : parsed;
-    })();
-    if (target == null) return [];
-
-    return detail.heatmap.cells
-      .filter(cell => {
-        const value = isClaim ? cell.claim : cell.relevancy;
-        if (target === 0) {
-          return value === 0;
-        }
-        return Math.abs(value - target) < 0.001;
-      })
-      .flatMap(cell => cell.candidates || [])
-      .filter(candidate => candidate.claim_validity_score > 0 && candidate.relevancy_score > 0);
-  };
-
   const charts = [
     {
       title: "Claim Validity Distribution",
@@ -376,7 +350,6 @@ export function AnalyticsDetail({
   tenant: string;
   jobCode: string;
 }) {
-  const navigate = useNavigate();
   const { setSelectedJob, setTenant: persistTenant } = useAnalyticsStore();
 
   useEffect(() => {

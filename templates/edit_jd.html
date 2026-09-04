@@ -375,12 +375,15 @@
       <div class="flex items-center gap-2">
         {% if jd and jd.code %}
           {# Delete: only show for existing JD #}
-          <a href="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
-             class="rounded-lg border px-3 py-2 text-sm
-                    {{ 'pointer-events-none opacity-50 border-gray-300 text-gray-400' if has_candidates else 'border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600' }}"
-             onclick="return confirm('Delete this job?');">
-            Delete
-          </a>
+          <form method="post" action="{{ url_for('delete_jd', tenant=tenant_slug, code=jd.code) }}"
+                onsubmit="return confirm('Delete this job?');">
+            <button type="submit"
+                    class="rounded-lg border px-3 py-2 text-sm
+                           {{ 'opacity-50 border-gray-300 text-gray-400' if has_candidates else 'border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600' }}"
+                    {{ 'disabled' if has_candidates else '' }}>
+              Delete
+            </button>
+          </form>
           {% if has_candidates %}
             <span class="text-xs text-gray-500 align-middle">Disabled: job has applicants</span>
           {% endif %}

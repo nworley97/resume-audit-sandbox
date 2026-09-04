@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CandidateProfileView: View {
+    @EnvironmentObject var authVM: AuthViewModel
     let candidateId: String
     let preloaded: Candidate?   // summary data passed from the list for instant display
 
@@ -31,7 +32,7 @@ struct CandidateProfileView: View {
                     ProgressView("Loading…").padding(.top, 80)
                 }
             }
-            if let c = candidate {
+            if let c = candidate, authVM.canManageHiring {
                 bottomActionBar(c)
             }
         }

@@ -9,10 +9,11 @@ struct APIUser: Decodable {
     let company: String?
     let initials: String
     let isSuper: Bool
+    let role: String?
     let tenantSlug: String?
     let tenantDisplayName: String?
     enum CodingKeys: String, CodingKey {
-        case username, initials
+        case username, initials, role
         case fullName = "full_name"
         case company
         case isSuper = "is_super"
@@ -616,4 +617,19 @@ struct APIBillingResponse: Decodable {
 
 struct APIPortalResponse: Decodable {
     let url: String
+}
+
+struct APIChangePlanResponse: Decodable {
+    let ok: Bool
+    let requiresPayment: Bool?
+    let paymentUrl: String?
+    let planTier: String?
+    let billingCycle: String?
+    enum CodingKeys: String, CodingKey {
+        case ok
+        case requiresPayment = "requires_payment"
+        case paymentUrl = "payment_url"
+        case planTier = "plan_tier"
+        case billingCycle = "billing_cycle"
+    }
 }

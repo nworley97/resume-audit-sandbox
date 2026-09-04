@@ -190,6 +190,7 @@ export function AddedFinalists({
 }) {
   const queryClient = useQueryClient();
   const finalists = detail.finalists;
+  const canManage = detail.permissions.can_manage;
   const [showAll, setShowAll] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
@@ -222,10 +223,10 @@ export function AddedFinalists({
               {showAll ? "Show less" : "View all"}
             </Button>
           ) : null}
-          <Button size="sm" className="cursor-pointer" onClick={() => setAddDialogOpen(true)}>
+          {canManage ? <Button size="sm" className="cursor-pointer" onClick={() => setAddDialogOpen(true)}>
             <Plus className="size-4" />
             Add Candidates
-          </Button>
+          </Button> : null}
         </div>
       </div>
 
@@ -286,10 +287,12 @@ export function AddedFinalists({
                     {formatScore(finalist.overall_score)}/5
                   </td>
                   <td className="px-4 py-3">
-                    <NotePopover finalist={finalist} tenant={tenant} jobCode={jobCode} />
+                    {canManage
+                      ? <NotePopover finalist={finalist} tenant={tenant} jobCode={jobCode} />
+                      : <span className="text-muted-foreground">{finalist.note || "—"}</span>}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button
+                    {canManage ? <Button
                       variant="ghost"
                       size="icon"
                       className="size-7 cursor-pointer text-muted-foreground hover:text-destructive"
@@ -298,7 +301,7 @@ export function AddedFinalists({
                       aria-label={`Remove ${finalist.name} from finalists`}
                     >
                       <X className="size-4" />
-                    </Button>
+                    </Button> : null}
                   </td>
                 </tr>
               ))}
@@ -307,12 +310,12 @@ export function AddedFinalists({
         </div>
       )}
 
-      <AddCandidatesDialog
+      {canManage ? <AddCandidatesDialog
         tenant={tenant}
         jobCode={jobCode}
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
-      />
+      /> : null}
     </div>
   );
 }

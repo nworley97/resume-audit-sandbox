@@ -1,70 +1,64 @@
-# resume-audit-sandbox
+# AlteraSF resume audit
 
-## 🚀 Quick Startt
+The Flask application serves the recruiter experience, public application flow, mobile API, and the built analytics dashboard. The iOS client lives in `ios/` and is released separately through Xcode and TestFlight.
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- npm
+## Branch workflow
 
-### Setup Steps
+Keep exactly two long-lived branches:
 
-1. **Clone and install dependencies**
+- `dev` is the sandbox/test branch.
+- `main` is the production branch.
+
+Create short-lived feature branches from `dev`, merge them back after review, and delete them after the merge. Promote a tested `dev` commit to `main` through a pull request. Before removing the legacy remote `Dev` branch, change the Render sandbox service to watch lowercase `dev` and confirm a successful sandbox deployment.
+
+Sandbox and production must use separate databases, Stripe modes/webhooks, storage prefixes or buckets, and session secrets. Test data must never share the production database.
+
+## Local setup
+
+Prerequisites: Python 3.11+, Node.js 18+, npm, and a local SQLite database or PostgreSQL URL.
+
 ```bash
-git clone <repository-url>
-cd resume-audit-sandbox
-
-# Install Python dependencies
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-
-# Install Node.js dependencies
-npm install
+npm ci
+npm run build
+python -m alembic upgrade head
 ```
 
-2. **Build CSS (IMPORTANT!)**
+Set at minimum:
+
+```text
+RESUME_APP_SECRET_KEY=<random development secret>
+SESSION_COOKIE_SECURE=false
+DATABASE_URL=sqlite:///dev.db
+PUBLIC_APP_URL=http://localhost:5050
+```
+
+Then run `python app.py`. The app is available at `http://localhost:5050`. The analytics dashboard is built into and served by Flask; a second analytics server is not required.
+
+## Verification
+
 ```bash
-npm run build:css
+python -m unittest discover -s tests -p "test_*.py"
+npm --prefix analytics_ui/dashboard run typecheck
+npm --prefix analytics_ui/dashboard run lint
+npm --prefix analytics_ui/dashboard test
+npm run build
+npx playwright test
 ```
 
-3. **Run the application**
-```bash
-# Terminal 1: Main Flask app
-python app.py
+The end-to-end suite uses its own `.playwright.sqlite` database. Never point it at a shared or production database.
 
-# Terminal 2: Analytics service
-python analytics_service.py
+## Mobile app
 
-# Terminal 3: Next.js dashboard (optional)
-cd analytics_ui/dashboard
-npm install
-npm run dev
-```
+Open `ios/AlteraSF.xcodeproj` on a Mac. Debug builds default to the local API; a physical phone needs the Mac's LAN address or the HTTPS sandbox URL. Release builds target production. See [ios/README.md](ios/README.md) for signing, local-network, and TestFlight steps.
 
-### 🔧 CSS Build Issues
+## Browser mobile demo
 
-If you encounter CSS issues after cloning:
+The Render sandbox exposes a synthetic-data mobile product walkthrough at:
 
-1. **Clean and rebuild**
-```bash
-rm -rf node_modules package-lock.json
-npm install
-npm run build:css
-```
+`/mobile-demo/preview-61d7c4a9f2e8`
 
-2. **Check Tailwind version**
-```bash
-npx tailwindcss --version
-```
-
-3. **Manual build**
-```bash
-npx tailwindcss -i ./static/css/app.css -o ./static/css/output.css --minify
-```
-
-### 📁 Project Structure
-- `static/css/app.css` - Tailwind source file
-- `static/css/output.css` - Built CSS (generated)
-- `tailwind.config.js` - Tailwind configuration
-- `postcss.config.js` - PostCSS configuration
+The fallback slug is enabled only when Render reports that the deployed branch is `dev`/`Dev` (and in tests). Set `MOBILE_DEMO_SLUG` on the sandbox service to rotate the unlisted link. Production keeps the route disabled unless that environment variable is intentionally configured. The preview never reads tenant or candidate data from the database.

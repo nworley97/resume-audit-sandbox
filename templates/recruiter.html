@@ -2,9 +2,10 @@
 {% block title %}Job Posting - ALTERA{% endblock %}
 
 {% block content %}
+{% set can_manage = current_user.is_super or current_user.role in ['admin', 'manager'] %}
 
 {# ---------- PAGE HEADER (Create Job OUTSIDE the card) ---------- #}
-<div class="flex items-start justify-between mb-4">
+<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-4 min-w-0">
   <div>
     <div class="flex items-center gap-2 text-slate text-sm mb-2">
       <!-- 4-squares icon -->
@@ -20,8 +21,9 @@
     <p class="text-slate mt-1">Manage and track your job postings</p>
   </div>
 
-  <div class="flex flex-col items-end gap-2">
-    <div class="flex items-center gap-2">
+  {% if can_manage %}
+  <div class="flex flex-col items-start sm:items-end gap-2 min-w-0">
+    <div class="flex flex-wrap items-center gap-2">
       <button type="button"
               id="add-dept-btn"
               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 text-sm font-medium px-3 py-2 text-title hover:bg-gray-50 transition-colors">
@@ -57,11 +59,12 @@
       {% endif %}
     {% endif %}
   </div>
+  {% endif %}
 </div>
 
 {# ---------- SUMMARY CARDS ---------- #}
 {% set sc = status_counts or {} %}
-<div class="grid grid-cols-4 gap-4 mb-4">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 min-w-0">
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
     <p class="text-sm text-slate-500 mb-1">Open Roles</p>
     <p class="text-2xl font-bold text-title">{{ sc.get('open', 0) }}</p>
@@ -81,10 +84,10 @@
 </div>
 
 {# ---------- CARD ---------- #}
-<div class="bg-white rounded-xl shadow-sm border border-gray-200">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 min-w-0 max-w-full">
 
   {# ----- Card header: Search + Filter/Export (inside card) ----- #}
-  <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border-b border-gray-200 min-w-0">
     <!-- Search -->
     <form action="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
           method="get" class="w-full max-w-md">
@@ -161,6 +164,7 @@
       <span>{{ label }}</span>
       <span class="flex flex-col leading-none">
         <a class="h-2 {{ 'text-title' if asc else 'text-slate/40' }}"
+           aria-label="Sort {{ label }} ascending"
            href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, page=1, per_page=per_page, sort=key, dir='asc',
                              department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}">
           <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -168,6 +172,7 @@
           </svg>
         </a>
         <a class="h-2 {{ 'text-title' if desc else 'text-slate/40' }}"
+           aria-label="Sort {{ label }} descending"
            href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None, q=q, status=status, page=1, per_page=per_page, sort=key, dir='desc',
                              department=departments_query_values, start_from=start_from, start_to=start_to, end_from=end_from, end_to=end_to) }}">
           <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -180,18 +185,16 @@
 
   {% macro job_row(jd, show_close=False) %}
   <tr class="border-t border-gray-200 hover:bg-gray-50/60">
-    <td class="py-3 pl-4"><input type="checkbox" class="rounded border-gray-300"></td>
+    <td class="py-3 pl-4"><input type="checkbox" class="rounded border-gray-300" aria-label="Select {{ jd.title or jd.code }}"></td>
     <td class="py-3">
-      <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
-         class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary">
-        {{ jd.code or '' }}
-      </a>
+      {% if can_manage %}<a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
+         class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary">{{ jd.code or '' }}</a>
+      {% else %}{{ jd.code or '' }}{% endif %}
     </td>
     <td class="py-3">
-      <a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
-         class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary">
-        {{ jd.title or '' }}
-      </a>
+      {% if can_manage %}<a href="{{ url_for('edit_jd', tenant=tenant_slug, code=jd.code) }}"
+         class="text-title underline underline-offset-2 decoration-slate-300 transition-colors hover:text-primary hover:decoration-primary">{{ jd.title or '' }}</a>
+      {% else %}{{ jd.title or '' }}{% endif %}
     </td>
     <td class="py-3">{{ jd.department or '' }}</td>
     <td class="py-3">{% set sd = jd.start_date %}{{ sd.strftime('%b %d, %Y') if sd else '' }}</td>
@@ -206,6 +209,7 @@
     <td class="py-3 pr-4">
       <div class="flex items-center justify-between gap-3">
         <a href="{{ url_for('view_candidates', tenant=tenant_slug, code=jd.code) }}"
+           aria-label="View candidates for {{ jd.title or jd.code }}"
            class="flex -space-x-2 max-w-[9rem] overflow-hidden cursor-pointer hover:scale-110 transition-all duration-300 hover:bg-blue-100 rounded-full p-2 -ml-1 hover:shadow-md">
           {% for ini in (cand_peeks.get(jd.code) or []) %}
             <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-700 ring-2 ring-white">{{ ini }}</span>
@@ -214,7 +218,7 @@
             <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-600 ring-2 ring-white">+{{ cand_more.get(jd.code) }}</span>
           {% endif %}
         </a>
-        <div class="relative shrink-0" id="row-menu-{{ jd.code }}">
+        {% if can_manage %}<div class="relative shrink-0" id="row-menu-{{ jd.code }}">
           <button type="button"
                   class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-300 text-slate-500 hover:bg-gray-50 hover:text-slate-700 transition-colors row-menu-btn"
                   data-code="{{ jd.code }}"
@@ -246,7 +250,7 @@
             </form>
             {% endif %}
           </div>
-        </div>
+        </div>{% endif %}
       </div>
     </td>
   </tr>
@@ -255,7 +259,7 @@
   {% macro table_head() %}
   <thead>
     <tr class="text-slate border-y border-gray-200">
-      <th class="text-left font-medium py-3 pl-4 w-10"><input type="checkbox" class="rounded border-gray-300"></th>
+      <th class="text-left font-medium py-3 pl-4 w-10"><input type="checkbox" class="rounded border-gray-300" aria-label="Select all jobs"></th>
       <th class="text-left font-medium py-3 w-32">{{ sort_link('Job ID','job_id') }}</th>
       <th class="text-left font-medium py-3">{{ sort_link('Job Title','job_title') }}</th>
       <th class="text-left font-medium py-3 w-44">{{ sort_link('Department','department') }}</th>
@@ -271,7 +275,7 @@
 
   {% if q or active_filter_count > 0 %}
   {# ---- Search/filter: flat paginated table ---- #}
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-w-full">
     <table class="w-full text-sm">
       {{ table_head() }}
       <tbody>
@@ -329,7 +333,7 @@
       <h3 class="text-sm font-semibold text-title">Open Roles</h3>
       <span class="inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5">{{ (status_counts or {}).get('open', 0) }}</span>
     </div>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto max-w-full">
       <table class="w-full text-sm">
         {{ table_head() }}
         <tbody>
@@ -368,7 +372,7 @@
       <h3 class="text-sm font-semibold text-slate-500">Drafts</h3>
       <span class="inline-flex items-center justify-center rounded-full bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-0.5">{{ draft_jobs_all|length }}</span>
     </div>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto max-w-full">
       <table class="w-full text-sm">
         <tbody>{% for jd in draft_jobs_all %}{{ job_row(jd) }}{% endfor %}</tbody>
       </table>
@@ -382,7 +386,7 @@
       <h3 class="text-sm font-semibold text-slate-500">Closed</h3>
       <span class="inline-flex items-center justify-center rounded-full bg-rose-100 text-rose-700 text-xs font-semibold px-2 py-0.5">{{ closed_jobs_all|length }}</span>
     </div>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto max-w-full">
       <table class="w-full text-sm">
         <tbody>{% for jd in closed_jobs_all %}{{ job_row(jd) }}{% endfor %}</tbody>
       </table>

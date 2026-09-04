@@ -22,6 +22,11 @@
     body.sidebar-collapsed .app-sidebar {
       width: 4.5rem;
     }
+    @media (max-width: 1023px) {
+      .app-sidebar {
+        transition: none;
+      }
+    }
     /* Analytics-style brand area */
     .app-sidebar .brand {
       padding: 1rem;
@@ -170,7 +175,7 @@
     {% include 'partials/sidebar.html' %}
     <div class="flex-1 flex flex-col min-w-0">
       {% include 'partials/header.html' %}
-      <main class="flex-1 p-6">
+      <main class="flex-1 min-w-0 max-w-full p-4 sm:p-6">
         {% block content %}{% endblock %}
       </main>
       {% include 'partials/footer.html' %}

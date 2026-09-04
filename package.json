@@ -7,8 +7,9 @@
     "preinstall": "echo 'Installing CSS dependencies...'",
     "postinstall": "echo 'Dependencies installed. Building assets...'",
     "build:css": "npx tailwindcss -i ./static/css/app.css -o ./static/css/output.css --minify",
-    "build:analytics": "npx esbuild static/js/analytics/main.tsx --bundle --sourcemap --minify --loader:.ts=ts --loader:.tsx=tsx --jsx=automatic --outfile=static/js/analytics/analytics.bundle.js",
-    "build": "npm run build:css && npm run build:analytics"
+    "build:analytics": "npm --prefix analytics_ui/dashboard ci && npm --prefix analytics_ui/dashboard run build",
+    "vendor:pdfjs": "node -e \"const fs=require('fs');fs.mkdirSync('static/vendor/pdfjs',{recursive:true});for(const f of ['pdf.mjs','pdf.worker.mjs'])fs.copyFileSync('node_modules/pdfjs-dist/build/'+f,'static/vendor/pdfjs/'+f)\"",
+    "build": "npm run vendor:pdfjs && npm run build:css && npm run build:analytics"
   },
   "keywords": [],
   "author": "",
@@ -17,12 +18,13 @@
     "@playwright/test": "^1.56.0",
     "@types/node": "^24.7.1",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.23.0",
+    "esbuild": "^0.28.2",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.10"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
+    "pdfjs-dist": "4.10.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }

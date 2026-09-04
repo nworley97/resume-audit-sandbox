@@ -7,11 +7,13 @@ from datetime import datetime, datetime as datetime_class
 from statistics import mean, median, pstdev
 
 from flask import Flask, request, jsonify, abort, make_response, Blueprint
+from flask_login import login_required, current_user
 from sqlalchemy import func, or_
 
 # Re-use your existing DB + models (no changes to app.py)
 from db import SessionLocal
 from models import JobDescription, Candidate, Tenant
+from authz import require_tenant_access, role_required, normalized_role
 
 bp = Blueprint("analytics_api", __name__)
 
@@ -39,26 +41,41 @@ CLAIM_VALIDITY_AXIS = [
 
 @bp.before_app_request
 def handle_cors_preflight():
-    if request.method == "OPTIONS":
+    if request.method == "OPTIONS" and request.path.startswith("/analytics/"):
+        origin = _allowed_cors_origin()
+        if not origin:
+            abort(403, "origin is not allowed")
         response = make_response("", 200)
         response.headers.update(
             {
-                "Access-Control-Allow-Origin": request.headers.get("Origin", "*"),
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-                "Access-Control-Allow-Headers": request.headers.get(
-                    "Access-Control-Request-Headers", "Content-Type"
-                ),
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
                 "Access-Control-Allow-Credentials": "true",
+                "Vary": "Origin",
             }
         )
         return response
 
+
+def _allowed_cors_origin():
+    origin = (request.headers.get("Origin") or "").strip()
+    configured = {
+        item.strip()
+        for item in os.getenv("ANALYTICS_CORS_ORIGINS", "").split(",")
+        if item.strip()
+    }
+    return origin if origin and origin in configured else None
+
+
 @bp.after_app_request
 def add_cors(response):
-    response.headers.setdefault("Access-Control-Allow-Origin", request.headers.get("Origin", "*"))
-    response.headers.setdefault("Access-Control-Allow-Methods", "GET, OPTIONS")
-    response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type")
-    response.headers.setdefault("Access-Control-Allow-Credentials", "true")
+    if request.path.startswith("/analytics/"):
+        origin = _allowed_cors_origin()
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers.add("Vary", "Origin")
     return response
 
 def _tenant_or_404(db, slug: str) -> Tenant:
@@ -67,7 +84,7 @@ def _tenant_or_404(db, slug: str) -> Tenant:
     t = db.query(Tenant).filter(Tenant.slug == slug).first()
     if not t:
         abort(404, "tenant not found")
-    return t
+    return require_tenant_access(t)
 
 def _claim_validity_bucket(ans_scores):
     """
@@ -115,7 +132,10 @@ def _relevancy_score(cand: Candidate):
     if rel is None:
         return None
     try:
-        return float(rel)
+        value = float(rel)
+        if value > 5:
+            value /= 20.0
+        return max(0.0, min(5.0, value))
     except Exception:
         return None
 
@@ -136,7 +156,7 @@ def _relevancy_bucket(cand: Candidate):
     if rel is None:
         return None
     try:
-        b = int(round(float(rel)))
+        b = int(round(_relevancy_score(cand)))
         return max(1, min(5, b))
     except Exception:
         return None
@@ -354,6 +374,7 @@ def _calc_stats(values):
     }
 
 @bp.get("/analytics/summary")
+@login_required
 def analytics_summary():
     """
     Returns a list of jobs with applicant counts and 'diamonds found'.
@@ -416,6 +437,7 @@ def analytics_summary():
         db.close()
 
 @bp.get("/analytics/job/<jd_code>")
+@login_required
 def analytics_job_detail(jd_code):
     """
     Detailed metrics for one job:
@@ -660,6 +682,12 @@ def analytics_job_detail(jd_code):
 
         # ET-12: Heatmap 6×6 matrix with 0..5 (0=No Score, descending claim order)
         payload = {
+            "permissions": {
+                "can_manage": bool(
+                    getattr(current_user, "is_super", False)
+                    or normalized_role() in {"admin", "manager"}
+                ),
+            },
             "jd": {
                 "code": jd.code,
                 "title": jd.title,
@@ -719,6 +747,7 @@ def analytics_job_detail(jd_code):
 
 
 @bp.get("/analytics/job/<jd_code>/candidates")
+@login_required
 def analytics_job_candidates(jd_code):
     """
     Lightweight roster for the 'Add Candidates' picker: everyone applied to
@@ -749,6 +778,8 @@ def analytics_job_candidates(jd_code):
 
 
 @bp.post("/analytics/candidate/<cid>/finalist")
+@login_required
+@role_required("admin", "manager")
 def analytics_set_finalist(cid):
     """Add or remove a candidate from the recruiter's finalist shortlist."""
     payload = request.get_json(silent=True) or {}
@@ -771,6 +802,8 @@ def analytics_set_finalist(cid):
 
 
 @bp.post("/analytics/candidate/<cid>/note")
+@login_required
+@role_required("admin", "manager")
 def analytics_set_note(cid):
     """Save the recruiter's note about a candidate."""
     payload = request.get_json(silent=True) or {}

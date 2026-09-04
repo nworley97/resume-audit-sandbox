@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CandidateQuickPreviewSheet: View {
+    @EnvironmentObject var authVM: AuthViewModel
     let candidate: Candidate
     var onViewFullProfile: () -> Void
     @Environment(\.dismiss) var dismiss
@@ -46,14 +47,16 @@ struct CandidateQuickPreviewSheet: View {
             }
 
             HStack(spacing: 12) {
-                Button { showArchiveAlert = true } label: {
-                    Text("Archive")
-                        .font(.system(size: 15, weight: .medium))
-                        .frame(maxWidth: .infinity).frame(height: 46)
+                if authVM.canManageHiring {
+                    Button { showArchiveAlert = true } label: {
+                        Text("Archive")
+                            .font(.system(size: 15, weight: .medium))
+                            .frame(maxWidth: .infinity).frame(height: 46)
+                    }
+                    .background(AppTheme.secondaryBackground)
+                    .foregroundColor(AppTheme.textPrimary)
+                    .cornerRadius(AppTheme.buttonCornerRadius)
                 }
-                .background(AppTheme.secondaryBackground)
-                .foregroundColor(AppTheme.textPrimary)
-                .cornerRadius(AppTheme.buttonCornerRadius)
 
                 Button(action: onViewFullProfile) {
                     HStack(spacing: 6) {

@@ -79,11 +79,15 @@ class TenantSubscription(Base):
     def is_active(self) -> bool:
         """Check if subscription is in good standing."""
         return self.status in ("active", "trialing", "grandfathered")
+
+    def effective_plan_tier(self) -> str:
+        """Return the tier that should be used for limits and entitlements."""
+        return self.plan_tier if self.is_active() else "free"
     
     def get_total_seats(self) -> int:
         """Get total seats available (included + extra)."""
         from plans_config import get_plan_limit
-        included = get_plan_limit(self.plan_tier, "seats_included")
+        included = get_plan_limit(self.effective_plan_tier(), "seats_included")
         return included + (self.extra_seats or 0)
     
     def get_period_end_date(self) -> datetime:
@@ -317,7 +321,7 @@ def increment_resume_usage(tenant_id: int, db_session) -> bool:
     if not usage:
         return False
     
-    limit = get_plan_limit(sub.plan_tier, "monthly_resumes")
+    limit = get_plan_limit(sub.effective_plan_tier(), "monthly_resumes")
     
     if usage.resumes_reviewed >= limit:
         return False
@@ -350,7 +354,7 @@ def check_can_post_job(tenant_id: int, db_session, exclude_job_id: int = None) -
     if sub.status == "grandfathered":
         return True, 0, 999
     
-    limit = get_plan_limit(sub.plan_tier, "active_jobs")
+    limit = get_plan_limit(sub.effective_plan_tier(), "active_jobs")
     
     # Count open jobs for this tenant (status="open" means published/active)
     query = db_session.query(JobDescription).filter(
@@ -426,8 +430,8 @@ def get_usage_summary(tenant_id: int, db_session) -> dict:
         "is_grandfathered": is_grandfathered,
         
         # Limits
-        "jobs_limit": 999 if is_grandfathered else get_plan_limit(sub.plan_tier, "active_jobs"),
-        "resumes_limit": 999 if is_grandfathered else get_plan_limit(sub.plan_tier, "monthly_resumes"),
+        "jobs_limit": 999 if is_grandfathered else get_plan_limit(sub.effective_plan_tier(), "active_jobs"),
+        "resumes_limit": 999 if is_grandfathered else get_plan_limit(sub.effective_plan_tier(), "monthly_resumes"),
         "seats_limit": 999 if is_grandfathered else sub.get_total_seats(),
         
         # Current usage
@@ -436,9 +440,9 @@ def get_usage_summary(tenant_id: int, db_session) -> dict:
         "seats_used": user_count,
         
         # Feature access
-        "has_claim_validity": is_grandfathered or has_feature_access(sub.plan_tier, "claim_validity_score"),
-        "has_red_flag": is_grandfathered or has_feature_access(sub.plan_tier, "red_flag_detection"),
-        "has_analytics": is_grandfathered or has_feature_access(sub.plan_tier, "full_analytics_engine"),
+        "has_claim_validity": is_grandfathered or has_feature_access(sub.effective_plan_tier(), "claim_validity_score"),
+        "has_red_flag": is_grandfathered or has_feature_access(sub.effective_plan_tier(), "red_flag_detection"),
+        "has_analytics": is_grandfathered or has_feature_access(sub.effective_plan_tier(), "full_analytics_engine"),
         
         # Billing info
         "period_end": sub.get_period_end_date() if not is_grandfathered else None,

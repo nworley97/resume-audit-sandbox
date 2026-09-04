@@ -2,6 +2,7 @@
 {% block title %}Candidate Detail - ALTERA{% endblock %}
 
 {% block content %}
+{% set can_manage = current_user.is_super or current_user.role in ['admin', 'manager'] %}
 <div class="space-y-6 pb-12">
 
   <!-- Breadcrumb -->
@@ -14,34 +15,34 @@
   </div>
 
   <!-- Summary Card -->
-  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-6">
-    <div class="flex items-center justify-between mb-6">
+  <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 sm:p-6 min-w-0">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 min-w-0">
       <h2 class="text-lg font-semibold text-gray-900">{{ c.name or 'Candidate' }}</h2>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         {% if c.status == 'finalist' %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-200">
           ★ Finalist
         </span>
-        <form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}" class="inline">
+        {% if can_manage %}<form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}" class="inline">
           <input type="hidden" name="status" value="">
           <button type="submit" class="inline-flex items-center rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors">
             Remove
           </button>
-        </form>
+        </form>{% endif %}
         {% else %}
-        <form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}" class="inline">
+        {% if can_manage %}<form method="POST" action="{{ url_for('set_candidate_status', tenant=tenant.slug, cid=c.id) }}" class="inline">
           <input type="hidden" name="status" value="finalist">
           <button type="submit" class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-200 px-3 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors">
             ★ Add Finalist
           </button>
-        </form>
+        </form>{% endif %}
         {% if c.status == 'archived' %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-500 ring-1 ring-gray-300">
           Archived
         </span>
         {% endif %}
         {% endif %}
-        {% set is_diamond = (relevancy is not none and relevancy >= 5) and (claim_validity is not none and claim_validity > 4) %}
+        {% set is_diamond = (relevancy is not none and relevancy >= 4) and (claim_validity is not none and claim_validity >= 4) %}
         {% if is_diamond %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700 ring-1 ring-amber-200">
           <svg class="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
@@ -57,8 +58,8 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-0 divide-x divide-gray-200">
-      <div class="pr-8 space-y-3">
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-gray-200 min-w-0">
+      <div class="space-y-3 lg:pr-8 min-w-0">
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-32 flex-shrink-0">Role</div>
           <div class="text-sm text-gray-900">{% if jd %}{{ jd.title or '-' }}{% else %}{{ c.job_title or '-' }}{% endif %}</div>
@@ -76,7 +77,7 @@
           <div class="text-sm text-gray-900 break-all">{{ c.email or '-' }}</div>
         </div>
       </div>
-      <div class="pl-8 space-y-3">
+      <div class="space-y-3 lg:pl-8 min-w-0">
         <div class="flex items-center">
           <div class="text-sm text-gray-500 w-40 flex-shrink-0">Relevancy Score</div>
           {% set rel = relevancy or 0 %}
@@ -111,10 +112,10 @@
   </div>
 
   <!-- Side-by-side: Resume (left) | Q&A (right) -->
-  <div class="grid gap-6" style="grid-template-columns: 1fr 420px; align-items: start;">
+  <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-6 items-start min-w-0">
 
     <!-- ── Left: Resume Card ── -->
-    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4">
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl p-4 space-y-4 min-w-0 max-w-full">
       <!-- Header -->
       <div class="flex justify-between items-center flex-wrap gap-2">
         <div>
@@ -151,8 +152,8 @@
           {% endif %}
 
           <!-- Download button -->
-          {% if c and c.id %}
-          <a href="{{ url_for('download_resume', tenant=tenant.slug, cid=c.id) }}"
+          {% if download_url %}
+          <a href="{{ download_url }}"
              download data-noload
              class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -161,14 +162,16 @@
             </svg>
             Download
           </a>
+          {% elif resume_missing %}
+          <span class="text-xs font-medium text-amber-700">Uploaded file unavailable</span>
           {% endif %}
         </div>
       </div>
 
       <!-- ── AI Format View (default) ── -->
       <div id="resumeAiView">
-        {% set rj = c.resume_json or {} %}
-        {% if rj %}
+        {% set rj = ai_resume or {} %}
+        {% if has_ai_resume %}
         <div class="space-y-5 text-sm px-2 py-1">
 
           {# Name + Contact header #}
@@ -293,6 +296,9 @@
                   <div class="flex justify-between items-start gap-2">
                     <span class="font-bold text-gray-900">{{ _etitle }}</span>
                     {% set dt = e.get('duration') or e.get('dates') or e.get('date') %}
+                    {% if not dt and (e.get('start_date') or e.get('end_date')) %}
+                      {% set dt = (e.get('start_date') or '') ~ (' – ' if e.get('start_date') and e.get('end_date') else '') ~ (e.get('end_date') or '') %}
+                    {% endif %}
                     {% if dt %}<span class="text-xs text-gray-400 flex-shrink-0">{{ dt }}</span>{% endif %}
                   </div>
                   {% if _eco %}<div class="text-sm font-semibold text-teal-600">{{ _eco }}</div>{% endif %}
@@ -415,8 +421,13 @@
             <svg class="mx-auto h-10 w-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
+            {% if resume_missing %}
+            <h3 class="mt-2 text-sm font-semibold text-gray-900">Uploaded resume is unavailable</h3>
+            <p class="mt-1 text-sm text-gray-500">The stored file did not survive deployment. Ask the candidate to upload it again.</p>
+            {% else %}
             <h3 class="mt-2 text-sm font-semibold text-gray-900">No resume uploaded</h3>
             <p class="mt-1 text-sm text-gray-500">This candidate has not provided a resume.</p>
+            {% endif %}
           </div>
         </div>
         {% endif %}
@@ -424,7 +435,7 @@
     </div>
 
     <!-- ── Right: Q&A Panel ── -->
-    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden" style="max-height: 640px; display: flex; flex-direction: column; position: sticky; top: 1rem;">
+    <div class="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden min-w-0 max-w-full xl:sticky xl:top-4" style="max-height: 640px; display: flex; flex-direction: column;">
       {# timing helper #}
       {% macro _mmss(ms) -%}
         {%- set _ms_int = ms|int if ms else 0 -%}
@@ -548,7 +559,7 @@
       ← Back to Analytics
     </a>
 
-    <div class="flex items-center gap-2 flex-wrap">
+    {% if can_manage %}<div class="flex items-center gap-2 flex-wrap">
       <!-- Email Candidate -->
       {% if c.email %}
       <button
@@ -574,7 +585,7 @@
           {{ 'Unarchive' if c.status == 'archived' else 'Archive Candidate' }}
         </button>
       </form>
-    </div>
+    </div>{% endif %}
   </div>
 
 </div><!-- end main space-y-6 -->
@@ -770,6 +781,7 @@ function setResumeView(view) {
   const RESUME_URL = {{ resume_url | tojson }};
   const IS_PDF     = {{ is_pdf | tojson }};
   if (!IS_PDF || !RESUME_URL) return;
+  let pdfjsLib;
 
   const state  = window._hl;
   const QA_META = state.QA_META;
@@ -793,7 +805,11 @@ function setResumeView(view) {
     const errEl   = document.getElementById('pdfError');
 
     try {
-      const pdfDoc = await pdfjsLib.getDocument({ url: RESUME_URL, withCredentials: true }).promise;
+      const pdfDoc = await pdfjsLib.getDocument({
+        url: RESUME_URL,
+        withCredentials: true,
+        isEvalSupported: false,
+      }).promise;
       loading.style.display = 'none';
       const SCALE = 1.5;
 
@@ -861,19 +877,18 @@ function setResumeView(view) {
     });
   }
 
-  const s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-  s.onload = function () {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  import({{ url_for('static', filename='vendor/pdfjs/pdf.mjs') | tojson }}).then(function (module) {
+    pdfjsLib = module;
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      {{ url_for('static', filename='vendor/pdfjs/pdf.worker.mjs') | tojson }};
     renderPDF().then(initClickHandlers);
-  };
-  s.onerror = function () {
+  }).catch(function (error) {
+    console.error('Unable to load PDF.js:', error);
     const loading = document.getElementById('pdfLoading');
     const errEl   = document.getElementById('pdfError');
     if (loading) loading.style.display = 'none';
     if (errEl)   errEl.classList.remove('hidden');
-  };
-  document.head.appendChild(s);
+  });
 })();
 </script>
 

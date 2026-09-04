@@ -20,15 +20,15 @@ final class BillingViewModel: ObservableObject {
         isLoading = false
     }
 
-    func changePlan(tier: String, cycle: String) async -> Bool {
+    func changePlan(tier: String, cycle: String) async -> ChangePlanOutcome? {
         actionError = nil
         do {
-            try await api.changePlan(tier: tier, cycle: cycle)
-            await load()
-            return true
+            let outcome = try await api.changePlan(tier: tier, cycle: cycle)
+            if case .applied = outcome { await load() }
+            return outcome
         } catch {
             actionError = error.localizedDescription
-            return false
+            return nil
         }
     }
 
@@ -102,7 +102,14 @@ struct BillingView: View {
         .sheet(isPresented: $showUpgradeSheet) {
             if let billing = vm.billing {
                 UpgradeSheet(billing: billing) { tier, cycle in
-                    await vm.changePlan(tier: tier, cycle: cycle)
+                    guard let outcome = await vm.changePlan(tier: tier, cycle: cycle) else { return false }
+                    switch outcome {
+                    case .applied:
+                        return true
+                    case .paymentRequired(let url):
+                        openURL(url)
+                        return true
+                    }
                 }
             }
         }

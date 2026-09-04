@@ -13,6 +13,8 @@ This blueprint handles:
 ADDITIVE: This is a new blueprint that doesn't modify existing routes.
 """
 
+import os
+
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import (
@@ -37,6 +39,7 @@ from subscription_models import (
     get_usage_summary, check_can_post_job, check_can_add_seat,
     increment_resume_usage
 )
+from authz import role_required, rate_limit
 
 # Create Blueprint
 billing_bp = Blueprint('billing', __name__, url_prefix='/billing')
@@ -81,6 +84,7 @@ def pricing():
 
 
 @billing_bp.route('/signup', methods=['GET', 'POST'])
+@rate_limit(10, 3600, key_prefix="billing-signup")
 def signup():
     """
     New user signup with plan selection.
@@ -103,8 +107,8 @@ def signup():
             errors.append('Email is required')
         elif '@' not in email:
             errors.append('Please enter a valid email address')
-        if not password or len(password) < 6:
-            errors.append('Password must be at least 6 characters')
+        if not password or len(password) < 8:
+            errors.append('Password must be at least 8 characters')
         if not company_name:
             errors.append('Company name is required')
         
@@ -258,6 +262,7 @@ def signup():
 
 
 @billing_bp.route('/checkout', methods=['GET', 'POST'])
+@rate_limit(10, 3600, key_prefix="billing-checkout")
 def checkout():
     """
     DEPRECATED: Payment checkout page with direct card entry.
@@ -295,8 +300,8 @@ def checkout():
         errors = []
         if not email:
             errors.append('Email is required')
-        if not password or len(password) < 6:
-            errors.append('Password must be at least 6 characters')
+        if not password or len(password) < 8:
+            errors.append('Password must be at least 8 characters')
         if not company_name:
             errors.append('Company name is required')
         if not card_number:
@@ -547,21 +552,11 @@ def check_account_status():
     API endpoint to check if account has been created after Stripe payment.
     Used by payment_success page to poll for account creation.
     
-    Supports:
-    - Session-based lookup (normal flow)
-    - Email query param (recovery/manual check)
+    Only the email stored in the server-signed signup session may be checked.
     """
     signup_data = session.get('signup_data')
     
-    # Get email from session or query param
-    email = None
-    if signup_data:
-        email = signup_data.get('email', '').lower()
-    
-    # Allow email override via query param (for recovery scenarios)
-    query_email = request.args.get('email', '').strip().lower()
-    if query_email:
-        email = query_email
+    email = signup_data.get('email', '').lower() if signup_data else None
     
     if not email:
         return jsonify({'account_created': False, 'error': 'No email provided'})
@@ -619,6 +614,7 @@ def notifications_demo():
 
 @billing_bp.route('/account')
 @login_required
+@role_required("admin")
 def account():
     """Account billing management page."""
     if not current_user.tenant_id:
@@ -654,6 +650,7 @@ def account():
 
 @billing_bp.route('/change-plan', methods=['GET', 'POST'])
 @login_required
+@role_required("admin")
 def change_plan():
     """Change subscription plan."""
     if not current_user.tenant_id:
@@ -682,44 +679,67 @@ def change_plan():
                 flash('Invalid plan selected.')
                 return redirect(url_for('billing.change_plan'))
             
-            # Calculate new price
-            new_amount = get_plan_price(new_tier, new_cycle)
-            old_amount = get_plan_price(subscription.plan_tier, subscription.billing_cycle)
-            
-            # Update Stripe subscription if we have one
+            if new_tier == 'free':
+                if subscription.stripe_subscription_id:
+                    success, error = PaymentService.cancel_subscription(
+                        subscription.stripe_subscription_id,
+                        cancel_at_period_end=False,
+                    )
+                    if not success:
+                        flash(error or 'Failed to cancel subscription. Please try again.', 'error')
+                        return redirect(url_for('billing.change_plan'))
+                    subscription.stripe_subscription_id = None
+                subscription.plan_tier = 'free'
+                subscription.billing_cycle = 'monthly'
+                subscription.status = 'active'
+                db.commit()
+                flash('Plan updated to Free.')
+                return redirect(url_for('billing.account'))
+
+            # Existing paid subscriptions can be changed and prorated directly.
             if subscription.stripe_subscription_id:
+                new_amount = get_plan_price(new_tier, new_cycle)
+                old_amount = get_plan_price(subscription.plan_tier, subscription.billing_cycle)
                 success, error, sub_info = PaymentService.update_subscription(
                     subscription.stripe_subscription_id,
                     new_tier,
                     new_cycle
                 )
-                
                 if not success:
                     flash(error or 'Failed to update subscription. Please try again.', 'error')
                     return redirect(url_for('billing.change_plan'))
-            
-            # Update local subscription record
-            subscription.plan_tier = new_tier
-            subscription.billing_cycle = new_cycle
-            
-            # Record the change
-            payment = PaymentHistory(
-                tenant_id=current_user.tenant_id,
-                amount=new_amount - old_amount if new_amount > old_amount else 0,
-                currency='USD',
-                description=f"Plan change to {PLAN_PRICING[new_tier]['display_name']} ({new_cycle})",
-                status='succeeded',
-                plan_tier=new_tier,
-                billing_cycle=new_cycle,
-                payment_method_last4=subscription.payment_method_last4,
-                payment_method_brand=subscription.payment_method_brand,
-            )
-            db.add(payment)
-            
-            db.commit()
-            
-            flash(f'Plan updated to {PLAN_PRICING[new_tier]["display_name"]}!')
-            return redirect(url_for('billing.account'))
+
+                subscription.plan_tier = new_tier
+                subscription.billing_cycle = new_cycle
+                subscription.status = 'active'
+                db.add(PaymentHistory(
+                    tenant_id=current_user.tenant_id,
+                    amount=max(new_amount - old_amount, 0),
+                    currency='USD',
+                    description=f"Plan change to {PLAN_PRICING[new_tier]['display_name']} ({new_cycle})",
+                    status='succeeded',
+                    plan_tier=new_tier,
+                    billing_cycle=new_cycle,
+                    payment_method_last4=subscription.payment_method_last4,
+                    payment_method_brand=subscription.payment_method_brand,
+                ))
+                db.commit()
+                flash(f'Plan updated to {PLAN_PRICING[new_tier]["display_name"]}!')
+                return redirect(url_for('billing.account'))
+
+            # A paid tier must never be granted locally without a successful
+            # Stripe checkout backing it.
+            from stripe_config import get_payment_link
+            from urllib.parse import quote
+
+            payment_link = get_payment_link(new_tier, new_cycle)
+            if not payment_link:
+                flash('Payment link not configured for this plan. Please contact support.', 'error')
+                return redirect(url_for('billing.change_plan'))
+            if current_user.username:
+                payment_link = f"{payment_link}?prefilled_email={quote(current_user.username)}"
+            flash('Complete payment to activate your new plan.', 'info')
+            return redirect(payment_link)
         
         return render_template(
             'billing/change_plan.html',
@@ -733,6 +753,7 @@ def change_plan():
 
 @billing_bp.route('/add-seats', methods=['GET', 'POST'])
 @login_required
+@role_required("admin")
 def add_seats():
     """Add additional seats to subscription via Stripe payment links."""
     if not current_user.tenant_id:
@@ -793,6 +814,7 @@ def add_seats():
 
 @billing_bp.route('/cancel-subscription', methods=['GET', 'POST'])
 @login_required
+@role_required("admin")
 def cancel_subscription():
     """Cancel the current subscription."""
     if not current_user.tenant_id:
@@ -854,6 +876,7 @@ def cancel_subscription():
 
 @billing_bp.route('/update-payment')
 @login_required
+@role_required("admin")
 def update_payment():
     """
     Redirect to Stripe Customer Portal for payment method updates.
@@ -883,7 +906,11 @@ def update_payment():
         # Create a portal session to redirect user to Stripe's hosted portal
         from stripe_service import create_billing_portal_session
         
-        return_url = url_for('billing.account', _external=True)
+        public_origin = os.environ.get("PUBLIC_APP_URL", "").rstrip("/")
+        account_path = url_for("billing.account")
+        return_url = f"{public_origin}{account_path}" if public_origin else url_for(
+            "billing.account", _external=True
+        )
         success, error, portal_url = create_billing_portal_session(
             subscription.stripe_customer_id,
             return_url
@@ -902,6 +929,7 @@ def update_payment():
 
 @billing_bp.route('/api/usage')
 @login_required
+@role_required("admin")
 def api_usage():
     """Get current usage summary as JSON."""
     if not current_user.tenant_id:
@@ -917,6 +945,7 @@ def api_usage():
 
 @billing_bp.route('/api/check-limit/<limit_type>')
 @login_required
+@role_required("admin")
 def api_check_limit(limit_type):
     """
     Check if a specific limit is reached.
@@ -967,6 +996,7 @@ def api_check_limit(limit_type):
 
 @billing_bp.route('/api/check-feature/<feature_key>')
 @login_required
+@role_required("admin")
 def api_check_feature(feature_key):
     """
     Check if a feature is available on current plan.
@@ -986,7 +1016,7 @@ def api_check_feature(feature_key):
         if subscription.status == 'grandfathered':
             return jsonify({'has_access': True})
         
-        has_access = has_feature_access(subscription.plan_tier, feature_key)
+        has_access = has_feature_access(subscription.effective_plan_tier(), feature_key)
         
         return jsonify({
             'has_access': has_access,
@@ -1087,7 +1117,7 @@ def require_feature(feature_key: str):
                 if not subscription or subscription.status == 'grandfathered':
                     return f(*args, **kwargs)
                 
-                if not has_feature_access(subscription.plan_tier, feature_key):
+                if not has_feature_access(subscription.effective_plan_tier(), feature_key):
                     notification = get_feature_notification(feature_key, subscription.plan_tier)
                     session['limit_notification'] = notification
                     referer = request.referrer

@@ -24,6 +24,7 @@
     {% set base_classes = 'flex items-center rounded-lg text-sm transition py-2' %}
     {% set job_active_endpoints = ['recruiter', 'edit_jd'] %}
     <a href="{{ url_for('recruiter', tenant=tenant.slug if tenant else None) }}"
+       aria-label="Job Posting"
        class="{{ base_classes }} gap-2 px-3 {{ 'bg-primary/10 text-primary' if request.endpoint in job_active_endpoints else 'text-slate-900 hover:bg-gray-50' }}">
       <!-- Lucide layout-grid icon -->
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -37,6 +38,7 @@
 
 <!-- Sidebar Candidates link (drop-in) -->
 <a href="{{ url_for('candidates_overview', tenant=tenant.slug if tenant else None) }}"
+   aria-label="Candidates"
    class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if request.endpoint in ['candidates_overview', 'candidate_detail', 'view_candidates'] else 'text-slate-900 hover:bg-gray-50' }}">
   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M18 21a8 8 0 0 0-16 0"></path>
@@ -51,6 +53,7 @@
 {% if user_plan_tier != 'free' %}
   {% if tenant and tenant.slug %}
     <a href="{{ url_for('analytics_dashboard', tenant=tenant.slug) }}"
+       aria-label="Analytics"
        class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M5 21v-6"></path>
@@ -61,6 +64,7 @@
     </a>
   {% else %}
     <a href="{{ url_for('analytics_dashboard') }}"
+       aria-label="Analytics"
        class="{{ base_classes }} mt-1 gap-2 px-3 {{ 'bg-primary/10 text-primary' if is_analytics_active else 'text-slate-900 hover:bg-gray-50' }}">
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M5 21v-6"></path>
@@ -78,6 +82,7 @@
 <!-- Public Job Board -->
 {% if tenant and tenant.slug %}
   <a href="{{ url_for('job_listings', tenant=tenant.slug) }}"
+     aria-label="Job Board (opens in new tab)"
      target="_blank"
      class="{{ base_classes }} gap-2 px-3 text-slate-900 hover:bg-gray-50 group relative"
      title="View public job board (opens in new tab)">
@@ -95,6 +100,7 @@
   
   <!-- Copy Link Button -->
   <button type="button"
+          aria-label="Copy Job Board Link"
           onclick="copyJobBoardLink(event)"
           data-url="{{ url_for('job_listings', tenant=tenant.slug, _external=True) }}"
           class="{{ base_classes }} mt-1 gap-2 px-3 text-slate-600 hover:bg-teal-50 hover:text-primary group"
@@ -111,18 +117,20 @@
 <div class="my-3 mx-2 border-t border-gray-200"></div>
 
 <!-- Billing & Subscription -->
-<a href="{{ url_for('billing.account') }}"
+{% if current_user.is_super or current_user.role == 'admin' %}<a href="{{ url_for('billing.account') }}"
+   aria-label="Billing"
    class="{{ base_classes }} gap-2 px-3 {{ 'bg-primary/10 text-primary' if request.endpoint and 'billing' in request.endpoint else 'text-slate-900 hover:bg-gray-50' }}">
   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
     <line x1="1" y1="10" x2="23" y2="10"></line>
   </svg>
   <span class="nav-label">Billing</span>
-</a>
+</a>{% endif %}
 
 <!-- Settings -->
 {% set _settings_slug = session.get('tenant_slug', '') %}
 <a href="{{ url_for('app_settings', tenant=_settings_slug) if _settings_slug else url_for('app_settings') }}"
+   aria-label="Settings"
    class="{{ base_classes }} gap-2 px-3 {{ 'bg-primary/10 text-primary' if request.endpoint == 'app_settings' else 'text-slate-900 hover:bg-gray-50' }}">
   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="12" cy="12" r="3"/>
