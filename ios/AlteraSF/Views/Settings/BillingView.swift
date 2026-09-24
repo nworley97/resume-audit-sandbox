@@ -70,7 +70,7 @@ struct BillingView: View {
                     .padding(16)
             } else if let billing = vm.billing {
                 ScrollView {
-                    VStack(spacing: 20) {
+                    VStack(spacing: 16) {
                         if let actionError = vm.actionError {
                             Text(actionError)
                                 .font(.caption)
@@ -133,7 +133,7 @@ struct BillingView: View {
                 colors: [AppTheme.primary, AppTheme.primaryDark],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
-            .frame(height: 6)
+            .frame(height: 4)
             .cornerRadius(AppTheme.cardCornerRadius, corners: [.topLeft, .topRight])
 
             VStack(alignment: .leading, spacing: 16) {
@@ -430,11 +430,16 @@ struct UpgradeSheet: View {
                     }
 
                     if upgradeOptions.isEmpty {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 12) {
+                            Image(systemName: "rosette")
+                                .font(.system(size: 36)).foregroundColor(AppTheme.primary)
                             Text("You're on our highest plan.")
-                                .font(.subheadline).foregroundColor(AppTheme.textSecondary)
-                            Link("Contact sales for Enterprise", destination: URL(string: "mailto:sales@alterasf.com")!)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 20, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                            Text("Contact sales for Enterprise.")
+                                .font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+                            Link("Contact sales", destination: URL(string: "mailto:sales@alterasf.com")!)
+                                .buttonStyle(AlteraButtonStyle())
+                                .padding(.top, 16)
                         }
                         .padding(.top, 40)
                     }
@@ -445,6 +450,8 @@ struct UpgradeSheet: View {
             .navigationTitle("Change Plan").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ResetPasswordView: View {
+    let onBackToSignIn: () -> Void
     @Environment(\.dismiss) var dismiss
     @State private var email = ""
     @State private var sent = false
@@ -15,7 +16,7 @@ struct ResetPasswordView: View {
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(AppTheme.primary)
                     Text("Reset password")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(AppTheme.pageTitle)
                         .foregroundColor(AppTheme.textPrimary)
                     Text("Enter the email tied to your account and we'll send you a secure reset link.")
                         .font(.subheadline)
@@ -31,6 +32,8 @@ struct ResetPasswordView: View {
                     TextField("you@company.com", text: $email)
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
+                        .autocorrectionDisabled()
+                        .textContentType(.emailAddress)
                         .textFieldStyle(AlteraTextFieldStyle())
                 }
 
@@ -57,7 +60,7 @@ struct ResetPasswordView: View {
                 .disabled(isSending || email.isEmpty)
                 .padding(.top, 24)
                 .navigationDestination(isPresented: $sent) {
-                    CheckEmailView()
+                    CheckEmailView(onBackToSignIn: onBackToSignIn)
                 }
 
                 Button("Remembered it? Back to sign in") {
@@ -70,7 +73,7 @@ struct ResetPasswordView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
         }
-        .background(AppTheme.background.ignoresSafeArea())
+        .background(AppTheme.pageBackground.ignoresSafeArea())
         .navigationBarBackButtonHidden(false)
     }
 

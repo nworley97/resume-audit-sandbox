@@ -73,28 +73,66 @@ test('recruiter, AI resume, PDF, and analytics paths work', async ({ page }) => 
 test('slug-gated mobile demo supports its primary walkthrough', async ({ page }) => {
   const missing = await page.goto('/mobile-demo/not-the-demo-slug');
   expect(missing.status()).toBe(404);
-
   await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
-  await expect(page.getByRole('heading', { name: 'Job Postings' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Job Posting', exact: true })).toBeVisible();
   await expectNoPageOverflow(page);
 
-  await page.getByRole('button', { name: 'See candidates' }).click();
-  await expect(page.getByRole('heading', { name: 'Candidates' })).toBeVisible();
-  await page.getByRole('button', { name: 'Diamonds' }).click();
-  await expect(page.locator('[data-candidate]:visible')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: /Maya Chen/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Candidates', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search candidates' }).fill('Ketaki');
+  await expect(page.locator('[data-candidate]')).toHaveCount(1);
+  await page.getByRole('button', { name: /KK Ketaki Kulkarni/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('Diamond in the Rough');
+  await page.getByRole('button', { name: 'View full profile' }).click();
+  await page.getByRole('button', { name: 'Original', exact: true }).click();
+  await expect(page.locator('#paper-name')).toHaveText('KETAKI KULKARNI');
 
-  await page.getByRole('button', { name: 'All candidates' }).click();
-  await page.getByRole('button', { name: /Daniel Brooks/ }).click();
-  await expect(page.getByRole('heading', { name: 'Daniel Brooks' })).toBeVisible();
-  await expect(page.locator('#detail-job-one')).toHaveText('Senior SDR · Elevate CRM');
+  await page.getByRole('combobox', { name: 'Figma screen' }).selectOption('39');
+  await page.getByRole('button', { name: 'Add Yafei Zhang to finalists' }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit note for Yafei Zhang' }).click();
+  await page.getByRole('textbox', { name: 'Private note' }).fill('Follow up on assessment.');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit note for Yafei Zhang' }).click();
+  await expect(page.getByRole('textbox', { name: 'Private note' })).toHaveValue('Follow up on assessment.');
+  await page.keyboard.press('Escape');
 
-  await page.getByRole('button', { name: 'Original' }).click();
-  await expect(page.locator('#paper-name')).toHaveText('DANIEL BROOKS');
-  await page.getByRole('button', { name: 'Back to candidates' }).click();
+  await page.getByRole('combobox', { name: 'Figma screen' }).selectOption('41');
+  await page.getByRole('button', { name: '10', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Start date', exact: true })).toHaveText('Aug 10, 2026');
 
-  await page.getByRole('button', { name: 'Analytics' }).click();
-  await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
-  await page.getByRole('button', { name: 'Account' }).click();
-  await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Figma screen' }).selectOption('14');
+  await expect(page.locator('.phone')).toHaveClass(/dark/);
+  await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
+  await expect(page.locator('.phone')).not.toHaveClass(/dark/);
+});
+
+test('all mobile design states render without script errors or overflow', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
+  for (let screen = 1; screen <= 43; screen++) {
+    await page.getByRole('combobox', { name: 'Figma screen' }).selectOption(String(screen));
+    await expect(page.locator('#app')).not.toBeEmpty();
+    expect(await page.locator('.phone').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('mobile sheets return focus and preserve date selection until committed', async ({ page }) => {
+  await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
+  const trigger = page.getByRole('button', { name: 'Add Dept', exact: true });
+  await trigger.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+
+  await page.getByRole('combobox', { name: 'Figma screen' }).selectOption('41');
+  const day = page.getByRole('button', { name: '10', exact: true });
+  await day.click();
+  await expect(day).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Start date', exact: true })).toHaveText('Aug 5, 2026');
 });

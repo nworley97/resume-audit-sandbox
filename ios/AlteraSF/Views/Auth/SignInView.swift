@@ -12,25 +12,25 @@ struct SignInView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     // Header
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 8) {
                             Circle()
                                 .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.42, blue: 0.85), AppTheme.primary],
                                                      startPoint: .topLeading, endPoint: .bottomTrailing))
                                 .frame(width: 22, height: 22)
                             Text("AlteraSF")
-                                .font(.system(size: 22, weight: .bold))
+                                .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(AppTheme.primary)
                         }
                         Text("Welcome back")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(AppTheme.pageTitle)
                             .foregroundColor(AppTheme.textPrimary)
                         Text("Sign in to your AlteraSF recruiter dashboard.")
                             .font(.subheadline)
                             .foregroundColor(AppTheme.textSecondary)
                     }
-                    .padding(.top, 60)
-                    .padding(.bottom, 40)
+                    .padding(.top, 64)
+                    .padding(.bottom, 48)
 
                     // Form
                     VStack(spacing: 16) {
@@ -41,6 +41,8 @@ struct SignInView: View {
                             TextField("you@company.com", text: $email)
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
+                                .autocorrectionDisabled()
+                                .textContentType(.username)
                                 .textFieldStyle(AlteraTextFieldStyle())
                         }
 
@@ -63,6 +65,7 @@ struct SignInView: View {
                                     Image(systemName: showPassword ? "eye" : "eye.slash")
                                         .foregroundColor(AppTheme.textSecondary)
                                 }
+                                .accessibilityLabel(showPassword ? "Hide password" : "Show password")
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
@@ -83,6 +86,8 @@ struct SignInView: View {
                             Text(error)
                                 .font(.caption)
                                 .foregroundColor(AppTheme.danger)
+                                .frame(maxWidth: .infinity)
+                                .multilineTextAlignment(.center)
                         }
 
                         Button {
@@ -128,6 +133,7 @@ struct SignInView: View {
                         .cornerRadius(AppTheme.buttonCornerRadius)
                         .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius)
                             .stroke(AppTheme.divider, lineWidth: 1))
+                        .disabled(authVM.isLoading)
                     }
 
                     HStack {
@@ -143,10 +149,11 @@ struct SignInView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
             }
-            .background(AppTheme.background.ignoresSafeArea())
+            .background(AppTheme.pageBackground.ignoresSafeArea())
             .navigationDestination(isPresented: $showResetPassword) {
-                ResetPasswordView()
+                ResetPasswordView(onBackToSignIn: { showResetPassword = false })
             }
+            .tint(AppTheme.primary)
         }
     }
 }

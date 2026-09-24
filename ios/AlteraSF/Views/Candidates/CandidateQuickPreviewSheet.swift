@@ -4,82 +4,72 @@ struct CandidateQuickPreviewSheet: View {
     @EnvironmentObject var authVM: AuthViewModel
     let candidate: Candidate
     var onViewFullProfile: () -> Void
-    @Environment(\.dismiss) var dismiss
-    @State private var showArchiveAlert = false
-
-    private let api = APIService.shared
+    @State private var isAdding = false
+    @State private var added = false
+    @State private var error: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 14) {
-                AvatarView(initials: candidate.initials, size: 48)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 4) {
-                        Text(candidate.fullName).font(.system(size: 16, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 14) {
+                    AvatarView(initials: candidate.initials, size: 64)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(candidate.fullName)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(AppTheme.textPrimary)
+                        Text(candidate.jobTitle)
+                            .font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
                         if candidate.isDiamond {
-                            Image(systemName: "diamond.fill").font(.system(size: 11)).foregroundColor(AppTheme.diamond)
+                            Label("Diamond in the Rough", systemImage: "diamond.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(AppTheme.primaryDark)
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(AppTheme.primaryLight).clipShape(Capsule())
                         }
                     }
-                    Text(candidate.jobTitle).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                    Spacer(minLength: 0)
                 }
-                Spacer()
-            }
-
-            HStack(spacing: 10) {
-                ProfileScoreCard(label: "Relevancy", value: candidate.relevancyScore)
-                ProfileScoreCard(label: "Claim Validity", value: candidate.claimValidityScore)
-                ProfileTabSwitchCard(value: candidate.tabSwitches)
-            }
-
-            if !candidate.qaResponses.isEmpty {
-                let avg = candidate.qaResponses.map(\.score).reduce(0, +) / Double(candidate.qaResponses.count)
                 HStack(spacing: 10) {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 14)).foregroundColor(AppTheme.primary)
-                    Text("\(candidate.qaResponses.count) questions · avg \(String(format: "%.1f", avg))/5 · \(candidate.isFlagged ? "flagged" : "no flags")")
-                        .font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 12)).foregroundColor(AppTheme.textTertiary)
+                    ProfileScoreCard(label: "Relevancy", value: candidate.relevancyScore, background: AppTheme.groupedBackground)
+                    ProfileScoreCard(label: "Claim Validity", value: candidate.claimValidityScore, background: AppTheme.groupedBackground)
+                    ProfileTabSwitchCard(value: candidate.tabSwitches, background: AppTheme.groupedBackground)
                 }
-                .padding(12)
-                .background(AppTheme.primaryLight)
-                .cornerRadius(AppTheme.cornerRadius)
-            }
-
-            HStack(spacing: 12) {
-                if authVM.canManageHiring {
-                    Button { showArchiveAlert = true } label: {
-                        Text("Archive")
-                            .font(.system(size: 15, weight: .medium))
-                            .frame(maxWidth: .infinity).frame(height: 46)
+                Text("Applied \(candidate.appliedDate.formatted(.dateTime.month(.abbreviated).day().year()))")
+                    .font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                if let error {
+                    Text(error).font(.caption).foregroundColor(AppTheme.danger)
+                }
+                VStack(spacing: 10) {
+                    Button("View full profile", action: onViewFullProfile)
+                        .buttonStyle(AlteraButtonStyle())
+                    if authVM.canManageHiring {
+                        Button {
+                            Task { await addFinalist() }
+                        } label: {
+                            if isAdding { ProgressView() }
+                            else { Text(added || candidate.status == .finalist ? "Added to Finalists" : "Add to Finalists") }
+                        }
+                        .buttonStyle(AlteraButtonStyle(secondary: true))
+                        .disabled(isAdding || added || candidate.status == .finalist)
                     }
-                    .background(AppTheme.secondaryBackground)
-                    .foregroundColor(AppTheme.textPrimary)
-                    .cornerRadius(AppTheme.buttonCornerRadius)
                 }
-
-                Button(action: onViewFullProfile) {
-                    HStack(spacing: 6) {
-                        Text("View full profile").font(.system(size: 15, weight: .semibold))
-                        Image(systemName: "arrow.right")
-                    }
-                    .frame(maxWidth: .infinity).frame(height: 46)
-                }
-                .background(AppTheme.primary)
-                .foregroundColor(.white)
-                .cornerRadius(AppTheme.buttonCornerRadius)
             }
+            .padding(24)
         }
-        .padding(20)
-        .presentationDetents([.medium])
-        .alert("Archive candidate?", isPresented: $showArchiveAlert) {
-            Button("Archive", role: .destructive) {
-                Task { try? await api.setCandidateStatus(id: candidate.id, status: "archived") }
-                dismiss()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will remove \(candidate.firstName) from your active pipeline.")
+        .presentationDetents([.height(460), .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    @MainActor
+    private func addFinalist() async {
+        isAdding = true
+        error = nil
+        defer { isAdding = false }
+        do {
+            try await APIService.shared.setCandidateStatus(id: candidate.id, status: "finalist")
+            added = true
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 }

@@ -11,6 +11,7 @@ struct JobRowView: View {
     @State private var confirmDelete = false
     @State private var navigateToCandidates = false
     @State private var navigateToDetail = false
+    @State private var copiedBoardLink = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -69,7 +70,7 @@ struct JobRowView: View {
             JobDetailView(job: job, onEdit: onEdit, onClose: onClose, onDelete: onDelete)
         }
         .navigationDestination(isPresented: $navigateToCandidates) {
-            CandidatesView(filterJobId: job.jobId)
+            CandidatesView(filterJobId: job.jobId, filterJobTitle: job.title)
         }
         .sheet(isPresented: $showActions) {
             JobActionsSheet(
@@ -77,8 +78,18 @@ struct JobRowView: View {
                 onViewCandidates: { navigateToCandidates = true },
                 onEdit: onEdit,
                 onClose: onClose,
-                onDelete: { confirmDelete = true }
+                onDelete: { confirmDelete = true },
+                onCopy: {
+                    copiedBoardLink = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        copiedBoardLink = false
+                    }
+                }
             )
+        }
+        .overlay(alignment: .bottom) {
+            if copiedBoardLink { ToastView(message: "Job board link copied") }
         }
         .alert("Delete this role?", isPresented: $confirmDelete) {
             Button("Delete", role: .destructive) { onDelete() }
@@ -96,6 +107,7 @@ struct JobActionsSheet: View {
     let onEdit: () -> Void
     let onClose: () -> Void
     let onDelete: () -> Void
+    var onCopy: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -103,22 +115,24 @@ struct JobActionsSheet: View {
                 Text(job.title)
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(AppTheme.textPrimary)
-                Text("\(job.jobId) · \(job.applicantCount) applicants")
+                Text(job.jobId)
                     .font(.system(size: 13))
                     .foregroundColor(AppTheme.textSecondary)
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
 
-            actionRow(icon: "eye", label: "View candidates", tint: AppTheme.textPrimary) {
-                dismiss(); onViewCandidates()
-            }
             actionRow(icon: "pencil", label: "Edit role", tint: AppTheme.textPrimary) {
                 dismiss(); onEdit()
             }
-            actionRow(icon: "lock", label: "Close role", tint: AppTheme.textPrimary) {
+            actionRow(icon: "link", label: "Copy job board link", tint: AppTheme.textPrimary) {
+                guard let slug = APIService.shared.tenantSlug else { return }
+                UIPasteboard.general.string = AppConfig.baseURL.appendingPathComponent("\(slug)/jobs").absoluteString
+                dismiss(); onCopy()
+            }
+            actionRow(icon: "checkmark.circle", label: "Close role", tint: AppTheme.textPrimary) {
                 dismiss(); onClose()
             }
-            actionRow(icon: "trash", label: "Delete role", tint: AppTheme.danger) {
+            actionRow(icon: "trash", label: "Delete this role", tint: AppTheme.danger) {
                 dismiss(); onDelete()
             }
 

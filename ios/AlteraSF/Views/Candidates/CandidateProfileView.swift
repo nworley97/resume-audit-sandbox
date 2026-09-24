@@ -13,6 +13,8 @@ struct CandidateProfileView: View {
     @State private var isDownloadingResume = false
     @State private var resumeShareURL: URL?
     @State private var resumeDownloadError: String?
+    @State private var statusError: String?
+    @State private var isUpdatingStatus = false
 
     private let api = APIService.shared
 
@@ -53,7 +55,7 @@ struct CandidateProfileView: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle").foregroundColor(AppTheme.textPrimary)
+                    Image(systemName: "ellipsis").foregroundColor(AppTheme.textPrimary)
                 }
             }
         }
@@ -88,12 +90,15 @@ struct CandidateProfileView: View {
         }
         .alert("Archive candidate?", isPresented: $showArchiveAlert) {
             Button("Archive", role: .destructive) {
-                api.setCandidateStatus(id: candidate?.id ?? candidateId, status: "archived")
+                Task { await updateStatus(.archived) }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will remove \(candidate?.firstName ?? "this candidate") from your active pipeline.")
         }
+        .alert("Couldn't update candidate", isPresented: Binding(
+            get: { statusError != nil }, set: { if !$0 { statusError = nil } }
+        )) { Button("OK", role: .cancel) {} } message: { Text(statusError ?? "") }
     }
 
     @ViewBuilder
@@ -109,19 +114,32 @@ struct CandidateProfileView: View {
             .cornerRadius(AppTheme.buttonCornerRadius)
 
             Button {
-                showFinalistToast = true
-                api.setCandidateStatus(id: c.id, status: "finalist")
+                Task { await updateStatus(.finalist) }
             } label: {
-                Label("Add to Finalists", systemImage: "star.fill")
+                Label(c.status == .finalist ? "Added to Finalists" : "Add to Finalists", systemImage: "star")
                     .font(.system(size: 15, weight: .semibold))
                     .frame(maxWidth: .infinity).frame(height: 48)
             }
             .background(AppTheme.primary)
             .foregroundColor(.white)
             .cornerRadius(AppTheme.buttonCornerRadius)
+            .disabled(c.status == .finalist)
         }
+        .disabled(isUpdatingStatus)
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(.regularMaterial)
+    }
+
+    @MainActor
+    private func updateStatus(_ status: CandidateStatus) async {
+        guard !isUpdatingStatus else { return }
+        isUpdatingStatus = true
+        defer { isUpdatingStatus = false }
+        do {
+            try await api.setCandidateStatus(id: candidateId, status: status.rawValue.lowercased())
+            candidate?.status = status
+            if status == .finalist { showFinalistToast = true }
+        } catch { statusError = error.localizedDescription }
     }
 
     private func downloadResume(candidateId: String) async {
@@ -275,8 +293,9 @@ struct CandidateProfileView: View {
 struct ProfileScoreCard: View {
     let label: String
     let value: Double
+    var background: Color = AppTheme.background
     private var tint: Color {
-        value >= 4 ? AppTheme.success : (value >= 3 ? AppTheme.warning : AppTheme.danger)
+        value >= 4 ? AppTheme.primaryDark : (value >= 3 ? AppTheme.warning : AppTheme.danger)
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -290,7 +309,7 @@ struct ProfileScoreCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(AppTheme.background)
+        .background(background)
         .cornerRadius(AppTheme.cornerRadius)
         .shadow(color: AppTheme.cardShadow, radius: 6, x: 0, y: 2)
     }
@@ -298,6 +317,7 @@ struct ProfileScoreCard: View {
 
 struct ProfileTabSwitchCard: View {
     let value: Int
+    var background: Color = AppTheme.background
     private var tint: Color { value > 10 ? AppTheme.danger : AppTheme.warning }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -311,7 +331,7 @@ struct ProfileTabSwitchCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(AppTheme.background)
+        .background(background)
         .cornerRadius(AppTheme.cornerRadius)
         .shadow(color: AppTheme.cardShadow, radius: 6, x: 0, y: 2)
     }

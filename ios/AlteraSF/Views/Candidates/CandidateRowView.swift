@@ -2,12 +2,13 @@ import SwiftUI
 
 struct CandidateRowView: View {
     let candidate: Candidate
+    var showsJobTitle = true
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            AvatarView(initials: candidate.initials, size: 44)
+        HStack(alignment: .center, spacing: 12) {
+            AvatarView(initials: candidate.initials, size: 48)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(candidate.fullName)
                         .font(.system(size: 15, weight: .semibold))
@@ -31,7 +32,7 @@ struct CandidateRowView: View {
                     Text(reason)
                         .font(.system(size: 12))
                         .foregroundColor(AppTheme.flagged)
-                } else {
+                } else if showsJobTitle {
                     Text(candidate.jobTitle)
                         .font(.system(size: 12))
                         .foregroundColor(AppTheme.textSecondary)
@@ -49,7 +50,7 @@ struct CandidateRowView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(AppTheme.textTertiary)
         }
-        .padding(14)
+        .padding(12)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
                 .fill(AppTheme.background)
@@ -60,7 +61,7 @@ struct CandidateRowView: View {
         )
         .shadow(color: AppTheme.cardShadow, radius: 6, x: 0, y: 2)
         .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.vertical, 5)
     }
 }
 
@@ -71,9 +72,9 @@ private struct ScorePill: View {
     var body: some View {
         Text("\(label) \(String(format: "%.1f", value))")
             .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(AppTheme.primaryDark)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(AppTheme.primaryLight)
-            .cornerRadius(6)
+            .foregroundColor(value > 0 ? AppTheme.primaryDark : AppTheme.textSecondary)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(value > 0 ? AppTheme.primaryLight : AppTheme.secondaryBackground)
+            .cornerRadius(4)
     }
 }

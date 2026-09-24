@@ -11,14 +11,18 @@ struct JobPostingsView: View {
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
                     AppTopBar()
-                    PageHeader(title: "Job Posting", subtitle: "Manage open roles, drafts, and filled positions across your teams.")
+                    PageHeader(title: "Job Posting", subtitle: "Manage your open roles and drafts.")
+                    if let error = vm.error {
+                        InlineErrorBanner(message: error) { Task { await vm.load() } }
+                            .padding(.horizontal, 16).padding(.bottom, 16)
+                    }
 
                     // Summary stats grid
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        StatCard(icon: "folder", value: "\(vm.openCount)", label: "Open roles", iconColor: AppTheme.primary)
-                        StatCard(icon: "pencil.line", value: "\(vm.draftCount)", label: "Drafts", iconColor: AppTheme.warning)
-                        StatCard(icon: "checkmark.circle", value: "\(vm.closedCount)", label: "Closed", iconColor: AppTheme.success)
-                        StatCard(icon: "person.2", value: "\(vm.applicantCount)", label: "Applicants", iconColor: Color(red: 0.4, green: 0.3, blue: 0.9))
+                        StatCard(icon: "folder", value: "\(vm.openCount)", label: "Open roles", iconColor: AppTheme.primary, outlined: true)
+                        StatCard(icon: "pencil", value: "\(vm.draftCount)", label: "Drafts", iconColor: AppTheme.warning, outlined: true)
+                        StatCard(icon: "checkmark.circle", value: "\(vm.closedCount)", label: "Closed", iconColor: AppTheme.success, outlined: true)
+                        StatCard(icon: "person.2", value: "\(vm.applicantCount)", label: "Applicants", iconColor: Color(red: 0.4, green: 0.3, blue: 0.9), outlined: true)
                     }
                     .padding(.horizontal, 16).padding(.bottom, 10)
                     .background(AppTheme.background)
@@ -72,9 +76,7 @@ struct JobPostingsView: View {
                         Spacer()
                         ProgressView("Loading jobs…")
                         Spacer()
-                    } else if let err = vm.error {
-                        ErrorBanner(message: err) { Task { await vm.load() } }
-                    } else {
+                    } else if vm.error == nil || !vm.allJobs.isEmpty {
                         ScrollView {
                             LazyVStack(spacing: 0) {
                                 switch vm.selectedTab {
@@ -87,8 +89,11 @@ struct JobPostingsView: View {
                         }
                         .background(AppTheme.groupedBackground)
                         .refreshable { await vm.load() }
+                    } else {
+                        Spacer()
                     }
                 }
+                .background(AppTheme.pageBackground)
 
                 if let toast = vm.toast {
                     ToastView(message: toast)
@@ -126,24 +131,6 @@ struct JobPostingsView: View {
         .environmentObject(vm)
     }
 
-    static let exampleClosedJob = Job(
-        id: "example-closed",
-        title: "Product Designer",
-        jobId: "EPD-PD-01",
-        department: "Engineering & Product Development",
-        location: "Remote",
-        employmentType: .fullTime,
-        workArrangement: .remote,
-        salaryMin: 0,
-        salaryMax: 0,
-        description: "",
-        numberOfQuestions: 3,
-        status: .closed,
-        postedDate: Date(),
-        applicantCount: 0,
-        diamondCount: 0,
-        hiredCandidate: "Jordan Lee"
-    )
 }
 
 // MARK: – Open Roles
@@ -217,17 +204,6 @@ struct EditDepartmentSheet: View {
                 TextField("Department name", text: $name).textFieldStyle(AlteraTextFieldStyle())
             }
 
-            Button {
-                Task {
-                    await vm.deleteDepartment(originalName)
-                    dismiss()
-                }
-            } label: {
-                Label("Delete department", systemImage: "trash")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(AppTheme.danger)
-            }
-
             HStack(spacing: 12) {
                 Button("Cancel") { dismiss() }
                     .frame(maxWidth: .infinity).frame(height: 46)
@@ -241,13 +217,25 @@ struct EditDepartmentSheet: View {
                         dismiss()
                     }
                 } label: {
-                    if isSaving { ProgressView().tint(.white) } else { Text("Save changes") }
+                    if isSaving { ProgressView().tint(.white) } else { Text("Save") }
                 }
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(AppTheme.primary).cornerRadius(AppTheme.buttonCornerRadius)
                 .foregroundColor(.white).font(.system(size: 15, weight: .semibold))
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
             }
+            Button {
+                Task {
+                    await vm.deleteDepartment(originalName)
+                    dismiss()
+                }
+            } label: {
+                Text("Delete department")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.danger)
+                    .frame(maxWidth: .infinity)
+            }
+
         }
         .padding(24)
         .presentationDetents([.medium])
@@ -304,24 +292,22 @@ struct ClosedContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("\(vm.closedJobs().count) filled")
-                .font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
-                .padding(.horizontal, 16).padding(.vertical, 10)
-
             if vm.closedJobs().isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("EXAMPLE")
-                        .font(.system(size: 9, weight: .bold))
+                VStack(spacing: 12) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 36, weight: .light))
                         .foregroundColor(AppTheme.textTertiary)
-                        .padding(.horizontal, 16).padding(.top, 4)
-                    ClosedJobRowView(job: JobPostingsView.exampleClosedJob, onReopen: {})
-                        .disabled(true)
-                        .opacity(0.55)
                     Text("Roles you close will show up here, along with who was hired.")
-                        .font(.system(size: 12)).foregroundColor(AppTheme.textTertiary)
-                        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
+                        .font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 56)
             } else {
+                Text("\(vm.closedJobs().count) filled")
+                    .font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
                 ForEach(vm.closedJobs()) { job in
                     ClosedJobRowView(job: job, onReopen: {
                         if authVM.canManageHiring { vm.reopenRole(job) }
@@ -329,11 +315,31 @@ struct ClosedContent: View {
                 }
             }
         }
-        .background(AppTheme.background).padding(.top, 8)
+        .background(AppTheme.groupedBackground).padding(.top, 8)
     }
 }
 
 // MARK: – Supporting Views
+
+struct InlineErrorBanner: View {
+    let message: String
+    let retry: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.circle")
+            Text(message).frame(maxWidth: .infinity, alignment: .leading)
+            Button("Retry", action: retry).fontWeight(.semibold)
+        }
+        .font(.system(size: 13))
+        .foregroundColor(AppTheme.danger)
+        .padding(14)
+        .background(AppTheme.danger.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
+            .stroke(AppTheme.danger.opacity(0.2), lineWidth: 1))
+    }
+}
 
 struct ErrorBanner: View {
     let message: String; let retry: () -> Void
@@ -457,10 +463,10 @@ struct ToastView: View {
     let message: String
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill").foregroundColor(.white)
-            Text(message).font(.subheadline.weight(.medium)).foregroundColor(.white)
+            Image(systemName: "checkmark.circle").foregroundColor(Color(red: 0.46, green: 0.85, blue: 0.75))
+            Text(message).font(.system(size: 13, weight: .medium)).foregroundColor(.white)
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
-        .background(Color.black.opacity(0.85)).cornerRadius(24).shadow(radius: 8)
+        .background(Color(white: 0.1)).cornerRadius(12).shadow(color: .black.opacity(0.2), radius: 6, y: 2)
     }
 }

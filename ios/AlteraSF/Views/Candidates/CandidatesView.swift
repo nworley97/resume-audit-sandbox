@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CandidatesView: View {
     var filterJobId: String? = nil   // jd_code when drilling in from a job row
+    var filterJobTitle: String? = nil
 
     @EnvironmentObject var authVM: AuthViewModel
     @StateObject private var vm: CandidatesViewModel
@@ -13,8 +14,9 @@ struct CandidatesView: View {
     @State private var showDepartmentFilterSheet = false
     @State private var showSortSheet = false
 
-    init(filterJobId: String? = nil) {
+    init(filterJobId: String? = nil, filterJobTitle: String? = nil) {
         self.filterJobId = filterJobId
+        self.filterJobTitle = filterJobTitle
         _vm = StateObject(wrappedValue: CandidatesViewModel(filterJobId: filterJobId))
     }
 
@@ -27,8 +29,8 @@ struct CandidatesView: View {
     @ViewBuilder
     private var content: some View {
         mainContent
-            .navigationTitle("Candidates")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar(filterJobId == nil ? .hidden : .automatic, for: .navigationBar)
             .task {
                 if filterJobId == nil { await jobsVM.load() }
@@ -62,7 +64,7 @@ struct CandidatesView: View {
                 DepartmentFilterSheet(selection: $vm.selectedDepartment, departments: jobsVM.allDepartments)
             }
             .sheet(isPresented: $showSortSheet) {
-                SelectionListSheet(title: "Sort candidates", options: CandidatesViewModel.SortOption.allCases, selection: $vm.sortOption) { $0.rawValue }
+                SelectionListSheet(title: "Sort", options: CandidatesViewModel.SortOption.allCases, selection: $vm.sortOption) { $0.rawValue }
             }
     }
 
@@ -72,6 +74,15 @@ struct CandidatesView: View {
             if filterJobId == nil {
                 AppTopBar()
                 header
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(filterJobTitle ?? filterJobId ?? "")
+                        .font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                    Text("\(vm.displayedCandidates.count) Candidates")
+                        .font(AppTheme.pageTitle).foregroundColor(AppTheme.textPrimary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).padding(.bottom, 12)
             }
 
             // Search
@@ -82,7 +93,7 @@ struct CandidatesView: View {
             .padding(.horizontal, 12).padding(.vertical, 10)
             .background(AppTheme.secondaryBackground).cornerRadius(10)
             .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
-            .background(AppTheme.background)
+            .background(filterJobId == nil ? AppTheme.pageBackground : AppTheme.groupedBackground)
 
             if filterJobId == nil {
                 filterPills
@@ -100,12 +111,13 @@ struct CandidatesView: View {
                 candidateList
             }
         }
+        .background(filterJobId == nil ? AppTheme.pageBackground : AppTheme.groupedBackground)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Candidates")
-                .font(.system(size: 28, weight: .bold))
+                .font(AppTheme.pageTitle)
                 .foregroundColor(AppTheme.textPrimary)
             Text("Review and compare applicants across your open roles.")
                 .font(.system(size: 13))
@@ -122,7 +134,7 @@ struct CandidatesView: View {
             }
 
             Button { showSortSheet = true } label: {
-                FilterPill(text: "Sort: \(vm.sortOption.rawValue)")
+                FilterPill(text: vm.sortOption.rawValue)
             }
 
             Spacer()
@@ -138,7 +150,7 @@ struct CandidatesView: View {
                     // Flat list for single-role view
                     ForEach(vm.displayedCandidates) { candidate in
                         Button { previewCandidate = candidate } label: {
-                            CandidateRowView(candidate: candidate)
+                            CandidateRowView(candidate: candidate, showsJobTitle: false)
                         }
                         .buttonStyle(.plain)
                     }
@@ -166,7 +178,7 @@ struct CandidatesView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.bottom, 100)
+            .padding(.bottom, 24)
         }
         .background(AppTheme.groupedBackground)
         .refreshable { await vm.load(jobCode: filterJobId) }
@@ -186,7 +198,7 @@ struct GroupHeaderRow: View {
                 .background(AppTheme.primary).cornerRadius(9)
             Spacer()
             NavigationLink {
-                CandidatesView(filterJobId: job.jobId)
+                CandidatesView(filterJobId: job.jobId, filterJobTitle: job.title)
             } label: {
                 HStack(spacing: 2) {
                     Text("View").font(.system(size: 13, weight: .medium))
@@ -205,23 +217,26 @@ struct DepartmentFilterSheet: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Filter by department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
-                .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
-            row(label: "All departments", isSelected: selection == nil) {
-                selection = nil
-                dismiss()
-            }
-            ForEach(departments, id: \.id) { dept in
-                row(label: dept.name, isSelected: selection == dept.name) {
-                    selection = dept.name
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Filter by department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                    .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
+                row(label: "All departments", isSelected: selection == nil) {
+                    selection = nil
                     dismiss()
                 }
-            }
-            Spacer(minLength: 8)
+                ForEach(departments, id: \.id) { dept in
+                    row(label: dept.name, isSelected: selection == dept.name) {
+                        selection = dept.name
+                        dismiss()
+                    }
+                }
+                Spacer(minLength: 8)
         }
         .padding(.bottom, 16)
-        .presentationDetents([.medium])
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private func row(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -246,7 +261,7 @@ private struct FilterPill: View {
             Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
         }
         .foregroundColor(AppTheme.textPrimary)
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, 12).padding(.vertical, 5)
         .background(AppTheme.secondaryBackground)
         .cornerRadius(20)
     }

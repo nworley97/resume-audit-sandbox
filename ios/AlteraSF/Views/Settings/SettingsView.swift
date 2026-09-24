@@ -87,6 +87,16 @@ struct SettingsView: View {
             .tint(AppTheme.primary)
 
             Section("Account") {
+                if authVM.canManageHiring {
+                    NavigationLink { DepartmentsView() } label: {
+                        Label("Departments", systemImage: "folder")
+                    }
+                }
+                if authVM.isAdmin {
+                    NavigationLink { TeamView() } label: {
+                        Label("Team members", systemImage: "person.3")
+                    }
+                }
                 Button {
                     showChangePassword = true
                 } label: {
@@ -106,6 +116,9 @@ struct SettingsView: View {
             }
 
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.groupedBackground)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -140,43 +153,47 @@ struct ChangePasswordView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    SecureField("Current password", text: $current)
-                } footer: {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
                     Text("Enter your current password to verify your identity.")
-                }
-                Section {
-                    SecureField("New password", text: $newPass)
-                    SecureField("Confirm new password", text: $confirm)
-                } header: {
-                    Text("New Password")
-                } footer: {
+                        .font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+                    passwordField("Current password", text: $current, contentType: .password)
+                    passwordField("New password", text: $newPass, contentType: .newPassword)
+                    passwordField("Confirm new password", text: $confirm, contentType: .newPassword)
                     Text("At least 8 characters, with a mix of letters and numbers.")
-                }
-                if let err = error {
-                    Section {
-                        Text(err).foregroundColor(AppTheme.danger).font(.caption)
+                        .font(.caption).foregroundColor(AppTheme.textSecondary)
+                    if let error {
+                        Text(error).foregroundColor(AppTheme.danger).font(.caption)
                     }
+                    Button {
+                        guard newPass == confirm else { error = "Passwords do not match."; return }
+                        guard newPass.count >= 8 else { error = "Password must be at least 8 characters."; return }
+                        Task { await save() }
+                    } label: {
+                        if isSaving { ProgressView().tint(.white) }
+                        else { Text("Update password") }
+                    }
+                    .buttonStyle(AlteraButtonStyle())
+                    .disabled(isSaving)
                 }
+                .padding(24)
             }
-            .navigationTitle("Change Password")
+            .background(AppTheme.groupedBackground.ignoresSafeArea())
+            .navigationTitle("Change password")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    if isSaving {
-                        ProgressView().scaleEffect(0.8)
-                    } else {
-                        Button("Save") {
-                            guard newPass == confirm else { error = "Passwords do not match."; return }
-                            guard newPass.count >= 8 else { error = "Password must be at least 8 characters."; return }
-                            Task { await save() }
-                        }
-                        .fontWeight(.semibold).foregroundColor(AppTheme.primary)
-                    }
-                }
             }
+        }
+    }
+
+    private func passwordField(_ title: String, text: Binding<String>, contentType: UITextContentType) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.system(size: 14, weight: .medium))
+            SecureField("••••••••", text: text)
+                .textContentType(contentType)
+                .textFieldStyle(AlteraTextFieldStyle())
+                .accessibilityLabel(title)
         }
     }
 

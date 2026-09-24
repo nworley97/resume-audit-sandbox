@@ -1,46 +1,33 @@
 import SwiftUI
 
 struct CheckEmailView: View {
-    @Environment(\.dismiss) var dismiss
+    let onBackToSignIn: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            ZStack {
-                Circle().fill(AppTheme.primaryLight).frame(width: 96, height: 96)
-                Image(systemName: "envelope.badge.fill")
-                    .font(.system(size: 36))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("AlteraSF")
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundColor(AppTheme.primary)
+                Image(systemName: "envelope.badge.fill")
+                    .font(.system(size: 38))
+                    .foregroundColor(AppTheme.primary)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Check your email")
+                        .font(AppTheme.pageTitle)
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text("We sent a password reset link to your inbox. Follow it to set a new password.")
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                Button("Back to sign in", action: onBackToSignIn)
+                    .buttonStyle(AlteraButtonStyle())
+                    .padding(.top, 12)
             }
-
-            VStack(spacing: 8) {
-                Text("Check your email")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
-                Text("We sent a password reset link to your inbox. Follow it to set a new password.")
-                    .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-            Spacer()
-            Button {
-                // Pop to root (sign in)
-                dismiss()
-                dismiss()
-            } label: {
-                Text("Back to sign in")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-            }
-            .background(AppTheme.primary)
-            .foregroundColor(.white)
-            .cornerRadius(AppTheme.buttonCornerRadius)
             .padding(.horizontal, 24)
-            .padding(.bottom, 40)
+            .padding(.top, 40)
         }
-        .background(AppTheme.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
+        .background(AppTheme.pageBackground.ignoresSafeArea())
     }
 }

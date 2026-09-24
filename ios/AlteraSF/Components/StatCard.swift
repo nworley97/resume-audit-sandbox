@@ -5,24 +5,31 @@ struct StatCard: View {
     let value: String
     let label: String
     var iconColor: Color = AppTheme.primary
+    var outlined = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 2) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(iconColor)
+                .padding(.bottom, 8)
             Text(value)
-                .font(.system(size: 22, weight: .bold))
+                .font(.system(size: 28, weight: .bold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
                 .foregroundColor(AppTheme.textPrimary)
             Text(label)
-                .font(.caption)
+                .font(.system(size: 13))
                 .foregroundColor(AppTheme.textSecondary)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.background)
         .cornerRadius(AppTheme.cornerRadius)
-        .shadow(color: AppTheme.cardShadow, radius: 6, x: 0, y: 2)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
+            .stroke(outlined ? AppTheme.divider : .clear, lineWidth: 1))
+        .accessibilityElement(children: .combine)
     }
 }
 

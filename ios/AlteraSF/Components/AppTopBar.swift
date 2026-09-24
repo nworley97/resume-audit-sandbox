@@ -4,7 +4,6 @@ struct AppTopBar: View {
     @EnvironmentObject var authVM: AuthViewModel
     @StateObject private var notificationsVM = NotificationsViewModel()
     @State private var showNotifications = false
-    @State private var showAccount = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -22,25 +21,21 @@ struct AppTopBar: View {
 
             Button { showNotifications = true } label: {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: "bell").font(.system(size: 17)).foregroundColor(AppTheme.textPrimary)
+                    Image(systemName: "bell").font(.system(size: 21)).foregroundColor(AppTheme.textPrimary)
                     if notificationsVM.unreadCount > 0 {
                         Circle().fill(AppTheme.danger).frame(width: 7, height: 7).offset(x: 3, y: -2)
                     }
                 }
+                .frame(width: 44, height: 44)
             }
-
-            Button { showAccount = true } label: {
-                AvatarView(initials: authVM.currentUserInitials, size: 30)
-            }
+            .accessibilityLabel("Notifications")
+            .accessibilityValue("\(notificationsVM.unreadCount) unread")
         }
-        .padding(.horizontal, 16).padding(.vertical, 10)
-        .background(AppTheme.background)
+        .padding(.leading, 16).padding(.trailing, 6)
+        .background(AppTheme.pageBackground)
         .task { await notificationsVM.load() }
         .sheet(isPresented: $showNotifications) {
             NotificationsPreviewSheet(vm: notificationsVM)
-        }
-        .sheet(isPresented: $showAccount) {
-            AccountSheet()
         }
     }
 }
@@ -50,11 +45,11 @@ struct PageHeader: View {
     let subtitle: String
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.system(size: 28, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Text(title).font(AppTheme.pageTitle).foregroundColor(AppTheme.textPrimary)
             Text(subtitle).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
+        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 20)
     }
 }
 
@@ -64,25 +59,27 @@ struct NotificationsPreviewSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if vm.notifications.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "bell.slash").font(.system(size: 32)).foregroundColor(AppTheme.textTertiary)
-                        Text("No notifications yet").foregroundColor(AppTheme.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity).padding(.vertical, 48)
-                } else {
-                    ForEach(vm.notifications.prefix(5)) { notif in
-                        NotificationRow(notification: notif)
-                            .onTapGesture { Task { await vm.markRead(notif) } }
-                    }
-                    NavigationLink {
-                        NotificationsView()
-                    } label: {
-                        Text("View all notifications")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(AppTheme.primary)
-                            .frame(maxWidth: .infinity).padding(.vertical, 16)
+            ScrollView {
+                VStack(spacing: 0) {
+                    if vm.notifications.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "bell.slash").font(.system(size: 32)).foregroundColor(AppTheme.textTertiary)
+                            Text("No notifications yet").foregroundColor(AppTheme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity).padding(.vertical, 48)
+                    } else {
+                        ForEach(vm.notifications.prefix(5)) { notif in
+                            NotificationRow(notification: notif)
+                                .onTapGesture { Task { await vm.markRead(notif) } }
+                        }
+                        NavigationLink {
+                            NotificationsView()
+                        } label: {
+                            Text("View all notifications")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(AppTheme.primary)
+                                .frame(maxWidth: .infinity).padding(.vertical, 16)
+                        }
                     }
                 }
             }
@@ -98,6 +95,7 @@ struct NotificationsPreviewSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 

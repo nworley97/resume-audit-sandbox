@@ -16,9 +16,9 @@ private let faqItems: [FAQItem] = [
     FAQItem(question: "Why was a candidate flagged?",
             answer: "Candidates are flagged when our anti-cheat monitoring detects they left the assessment tab more than 5 times while answering questions, which can indicate they searched for answers elsewhere."),
     FAQItem(question: "How do I add or remove team members?",
-            answer: "Go to More → Team Members. Admins can invite new members by email and role, and remove members. Seat limits are enforced by your current plan — upgrade under Billing & Plans if you're at capacity."),
+            answer: "Go to Account → Account settings → Team members. Admins can invite new members by email and role, and remove members. Seat limits are enforced by your current plan — upgrade under Billing if you're at capacity."),
     FAQItem(question: "Can I change my plan from the app?",
-            answer: "Yes. Open More → Billing & Plans → Change Plan to move between Starter, Pro, and Ultra. Enterprise pricing is available by contacting sales."),
+            answer: "Yes. Open Account → Billing → Change Plan to see the plans available to you. Enterprise pricing is available by contacting sales."),
 ]
 
 struct HelpSupportView: View {
@@ -53,5 +53,9 @@ struct HelpSupportView: View {
         }
         .navigationTitle("Help & Support")
         .navigationBarTitleDisplayMode(.large)
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.groupedBackground)
+        .tint(AppTheme.primary)
     }
 }

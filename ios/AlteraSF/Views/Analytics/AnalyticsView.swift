@@ -6,9 +6,10 @@ struct AnalyticsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    AppTopBar()
+            VStack(spacing: 0) {
+                AppTopBar()
+                ScrollView {
+                  VStack(spacing: 14) {
                     PageHeader(title: "Analytics", subtitle: "Performance across your job postings.")
 
                     if vm.isLoading && vm.overview == nil {
@@ -40,7 +41,8 @@ struct AnalyticsView: View {
                         }
                     }
                 }
-                .padding(.vertical, 16).padding(.bottom, 32)
+                  .padding(.top, 20).padding(.bottom, 24)
+                }
             }
             .background(AppTheme.groupedBackground.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
@@ -65,10 +67,10 @@ struct AnalyticsJobCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(summary.jobTitle).font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary).multilineTextAlignment(.leading)
+                    Text(summary.department).font(.caption).foregroundColor(AppTheme.textSecondary)
                     if let posted = summary.postedDateFormatted {
                         Text("Posted \(posted)").font(.system(size: 11)).foregroundColor(AppTheme.textTertiary)
                     }
-                    Text(summary.department).font(.caption).foregroundColor(AppTheme.textSecondary)
                 }
                 Spacer()
                 JobStatusTag(status: status)

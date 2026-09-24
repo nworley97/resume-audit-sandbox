@@ -48,10 +48,10 @@ struct JobDetailView: View {
             .padding(16).padding(.bottom, 24)
         }
         .background(AppTheme.groupedBackground.ignoresSafeArea())
-        .navigationTitle(job.title)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $navigateToCandidates) {
-            CandidatesView(filterJobId: job.jobId)
+            CandidatesView(filterJobId: job.jobId, filterJobTitle: job.title)
         }
         .toolbar {
             if authVM.canManageHiring {
@@ -116,6 +116,7 @@ struct JobDetailView: View {
             Text(label).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
             Spacer()
             Text(value).font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+                .multilineTextAlignment(.trailing)
         }
     }
 

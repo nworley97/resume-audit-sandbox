@@ -7,6 +7,7 @@ struct PrivacyPolicyView: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            Spacer()
             Image(systemName: "shield.fill")
                 .font(.system(size: 40))
                 .foregroundColor(AppTheme.primary)
@@ -21,6 +22,9 @@ struct PrivacyPolicyView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
+            Spacer()
+        }
+        .safeAreaInset(edge: .bottom) {
             Link(destination: policyURL) {
                 Text("View Full Policy")
                     .font(.system(size: 15, weight: .semibold))
@@ -30,11 +34,8 @@ struct PrivacyPolicyView: View {
                     .cornerRadius(AppTheme.buttonCornerRadius)
             }
             .padding(.horizontal, 24)
-            .padding(.top, 8)
-
-            Spacer()
+            .padding(.vertical, 16)
         }
-        .padding(.top, 48)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.groupedBackground.ignoresSafeArea())
         .navigationTitle("Privacy Policy")

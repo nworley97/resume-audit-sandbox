@@ -61,7 +61,7 @@ struct NotificationsView: View {
             }
         }
         .navigationTitle("Notifications")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Mark all read") {
@@ -85,7 +85,7 @@ struct NotificationRow: View {
             ZStack {
                 Circle()
                     .fill(iconBackground)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 32, height: 32)
                 Image(systemName: notification.iconName)
                     .font(.system(size: 16))
                     .foregroundColor(iconColor)
@@ -98,6 +98,7 @@ struct NotificationRow: View {
                 Text(notification.subtitle)
                     .font(.system(size: 13))
                     .foregroundColor(AppTheme.textSecondary)
+                    .lineLimit(1)
                 Text(notification.relativeTime)
                     .font(.system(size: 11))
                     .foregroundColor(AppTheme.textTertiary)
@@ -113,7 +114,7 @@ struct NotificationRow: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .background(notification.isRead ? AppTheme.background : AppTheme.primaryLight)
         .overlay(alignment: .bottom) {
             Divider()

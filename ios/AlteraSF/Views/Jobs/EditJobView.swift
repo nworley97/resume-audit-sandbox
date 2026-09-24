@@ -361,32 +361,35 @@ struct SelectionListSheet<T: Hashable>: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title).font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
-                .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
-            ForEach(options, id: \.self) { option in
-                Button {
-                    selection = option
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(label(option))
-                            .font(.system(size: 16))
-                            .foregroundColor(option == selection ? AppTheme.primary : AppTheme.textPrimary)
-                        Spacer()
-                        if option == selection {
-                            Image(systemName: "checkmark").foregroundColor(AppTheme.primary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                    .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
+                ForEach(options, id: \.self) { option in
+                    Button {
+                        selection = option
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Text(label(option))
+                                .font(.system(size: 16))
+                                .foregroundColor(option == selection ? AppTheme.primary : AppTheme.textPrimary)
+                            Spacer()
+                            if option == selection {
+                                Image(systemName: "checkmark").foregroundColor(AppTheme.primary)
+                            }
                         }
+                        .padding(.horizontal, 20).padding(.vertical, 14)
+                        .background(option == selection ? AppTheme.primaryLight : Color.clear)
                     }
-                    .padding(.horizontal, 20).padding(.vertical, 14)
-                    .background(option == selection ? AppTheme.primaryLight : Color.clear)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-            }
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
         }
         .padding(.bottom, 16)
-        .presentationDetents([.medium])
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 
@@ -397,93 +400,99 @@ struct DepartmentSelectSheet: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Select department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
-                .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
-            ForEach(departments, id: \.id) { dept in
-                Button {
-                    selection = dept.name
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(dept.name)
-                            .font(.system(size: 16))
-                            .foregroundColor(dept.name == selection ? AppTheme.primary : AppTheme.textPrimary)
-                        Spacer()
-                        if dept.name == selection {
-                            Image(systemName: "checkmark").foregroundColor(AppTheme.primary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Select department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                    .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
+                ForEach(departments, id: \.id) { dept in
+                    Button {
+                        selection = dept.name
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Text(dept.name)
+                                .font(.system(size: 16))
+                                .foregroundColor(dept.name == selection ? AppTheme.primary : AppTheme.textPrimary)
+                            Spacer()
+                            if dept.name == selection {
+                                Image(systemName: "checkmark").foregroundColor(AppTheme.primary)
+                            }
                         }
+                        .padding(.horizontal, 20).padding(.vertical, 14)
+                        .background(dept.name == selection ? AppTheme.primaryLight : Color.clear)
                     }
-                    .padding(.horizontal, 20).padding(.vertical, 14)
-                    .background(dept.name == selection ? AppTheme.primaryLight : Color.clear)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-            }
-            Button(action: onAddNew) {
-                Label("Add department", systemImage: "plus")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(AppTheme.primary)
-                    .padding(.horizontal, 20).padding(.vertical, 14)
-            }
-            Spacer(minLength: 8)
+                Button(action: onAddNew) {
+                    Label("Add department", systemImage: "plus")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(AppTheme.primary)
+                        .padding(.horizontal, 20).padding(.vertical, 14)
+                }
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(AlteraButtonStyle(secondary: true))
+                    .padding(.horizontal, 20).padding(.top, 12)
+                Spacer(minLength: 8)
         }
         .padding(.bottom, 16)
-        .presentationDetents([.medium])
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 
 struct DateSheet: View {
     let title: String
     @Binding var date: Date
-    @State private var draft: Date = Date()
+    @State private var draft = Date()
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        VStack(spacing: 16) {
-            DatePicker(title, selection: $draft, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .labelsHidden()
-                .padding(.horizontal, 16)
-            Button("Confirm date") {
-                date = draft
-                dismiss()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(title).font(.system(size: 20, weight: .bold))
+                DatePicker(title, selection: $draft, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .labelsHidden()
+                    .tint(AppTheme.primary)
+                HStack(spacing: 12) {
+                    Button("Cancel") { dismiss() }
+                        .buttonStyle(AlteraButtonStyle(secondary: true))
+                    Button("Done") { date = draft; dismiss() }
+                        .buttonStyle(AlteraButtonStyle())
+                }
             }
-            .frame(maxWidth: .infinity).frame(height: 48)
-            .background(AppTheme.primary).foregroundColor(.white)
-            .cornerRadius(AppTheme.buttonCornerRadius)
-            .font(.system(size: 15, weight: .semibold))
-            .padding(.horizontal, 16)
+            .padding(24)
         }
-        .padding(.top, 8).padding(.bottom, 16)
         .onAppear { draft = date }
-        .presentationDetents([.large])
+        .presentationDetents([.height(480), .large])
+        .presentationDragIndicator(.visible)
     }
 }
 
 struct TimeSheet: View {
     let title: String
     @Binding var date: Date
-    @State private var draft: Date = Date()
+    @State private var draft = Date()
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text(title).font(.system(size: 16, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title).font(.system(size: 20, weight: .bold))
             DatePicker(title, selection: $draft, displayedComponents: .hourAndMinute)
                 .datePickerStyle(.wheel)
                 .labelsHidden()
-            Button("Confirm time") {
-                date = draft
-                dismiss()
+                .frame(maxWidth: .infinity)
+            HStack(spacing: 12) {
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(AlteraButtonStyle(secondary: true))
+                Button("Done") { date = draft; dismiss() }
+                    .buttonStyle(AlteraButtonStyle())
             }
-            .frame(maxWidth: .infinity).frame(height: 48)
-            .background(AppTheme.primary).foregroundColor(.white)
-            .cornerRadius(AppTheme.buttonCornerRadius)
-            .font(.system(size: 15, weight: .semibold))
-            .padding(.horizontal, 16)
         }
-        .padding(.top, 16).padding(.bottom, 16)
+        .padding(24)
         .onAppear { draft = date }
-        .presentationDetents([.height(340)])
+        .presentationDetents([.height(360), .large])
+        .presentationDragIndicator(.visible)
     }
 }

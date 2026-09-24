@@ -74,7 +74,7 @@ struct JobAnalyticsView: View {
         .navigationTitle(jobTitle)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $navigateToCandidates) {
-            CandidatesView(filterJobId: jobCode)
+            CandidatesView(filterJobId: jobCode, filterJobTitle: jobTitle)
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -455,69 +455,78 @@ struct AddFinalistsSheet: View {
     @ObservedObject var vm: JobAnalyticsViewModel
     let jobCode: String
     @Environment(\.dismiss) var dismiss
-
     @State private var search = ""
     @State private var options: [APIFinalistCandidateOption] = []
     @State private var isLoading = false
-    @State private var addingId: String? = nil
+    @State private var addingId: String?
 
     private var filtered: [APIFinalistCandidateOption] {
-        guard !search.isEmpty else { return options }
-        return options.filter { $0.name.localizedCaseInsensitiveContains(search) }
+        search.isEmpty ? options : options.filter { $0.name.localizedCaseInsensitiveContains(search) }
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add finalists").font(.system(size: 20, weight: .bold))
+            Text("Shortlisted candidates you're comparing for this role.")
+                .font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+            if options.count > 6 {
+                TextField("Search candidates…", text: $search)
+                    .textFieldStyle(AlteraTextFieldStyle())
+            }
+            if let error = vm.error { Text(error).font(.caption).foregroundColor(AppTheme.danger) }
+            ScrollView {
                 if isLoading {
-                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                    ProgressView().padding(24)
                 } else if filtered.isEmpty {
                     Text("No remaining candidates to add.")
-                        .foregroundColor(AppTheme.textSecondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .font(.subheadline).foregroundColor(AppTheme.textSecondary).padding(.vertical, 24)
                 } else {
-                    List(filtered) { c in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(c.name).font(.system(size: 14, weight: .medium))
-                                Text("Claim \(String(format: "%.1f", c.claimValidityScore))/5 \u{2022} Relevancy \(String(format: "%.1f", c.relevancyScore))/5")
-                                    .font(.caption).foregroundColor(AppTheme.textSecondary)
-                            }
-                            Spacer()
-                            Button {
-                                addingId = c.id
-                                Task {
-                                    await vm.addFinalist(candidateId: c.id, jobCode: jobCode)
-                                    options.removeAll { $0.id == c.id }
-                                    addingId = nil
-                                }
-                            } label: {
-                                if addingId == c.id {
-                                    ProgressView().scaleEffect(0.7)
-                                } else {
-                                    Label("Add", systemImage: "plus")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(addingId != nil)
-                        }
+                    VStack(spacing: 0) {
+                        ForEach(filtered) { candidate in candidateRow(candidate) }
                     }
                 }
             }
-            .searchable(text: $search, prompt: "Search candidates\u{2026}")
-            .navigationTitle("Add Candidates")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
-            }
-            .task { await loadOptions() }
+            Button("Done") { dismiss() }.buttonStyle(AlteraButtonStyle())
+        }
+        .padding(24)
+        .presentationDetents([.height(520), .large])
+        .presentationDragIndicator(.visible)
+        .task {
+            isLoading = true
+            options = await vm.loadCandidateOptions(jobCode: jobCode)
+            isLoading = false
         }
     }
 
-    private func loadOptions() async {
-        isLoading = true
-        options = await vm.loadCandidateOptions(jobCode: jobCode)
-        isLoading = false
+    private func candidateRow(_ candidate: APIFinalistCandidateOption) -> some View {
+        HStack(spacing: 12) {
+            AvatarView(initials: candidate.name.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }.joined(), size: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(candidate.name).font(.system(size: 15, weight: .medium))
+                Text("Fit \(String(format: "%.1f", candidate.relevancyScore))")
+                    .font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+            }
+            Spacer()
+            Button {
+                addingId = candidate.id
+                vm.error = nil
+                Task {
+                    await vm.addFinalist(candidateId: candidate.id, jobCode: jobCode)
+                    if vm.error == nil { options.removeAll { $0.id == candidate.id } }
+                    addingId = nil
+                }
+            } label: {
+                Group {
+                    if addingId == candidate.id { ProgressView() }
+                    else { Image(systemName: "plus.circle").font(.system(size: 20)) }
+                }
+                .frame(width: 44, height: 44)
+            }
+            .foregroundColor(AppTheme.primary)
+            .disabled(addingId != nil)
+            .accessibilityLabel("Add \(candidate.name) to finalists")
+        }
+        .padding(.vertical, 8)
     }
 }
 
@@ -528,27 +537,27 @@ struct NoteEditorSheet: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Note about \(finalist.name)").font(.system(size: 14, weight: .medium)).foregroundColor(AppTheme.textSecondary)
-                TextEditor(text: $draft)
-                    .frame(height: 140)
-                    .padding(8)
-                    .background(AppTheme.groupedBackground).cornerRadius(8)
-                Spacer()
-            }
-            .padding(16)
-            .navigationTitle("Edit Note")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        onSave(draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                        dismiss()
-                    }.fontWeight(.semibold)
-                }
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Note").font(.system(size: 20, weight: .bold))
+            Text("Private to your team.").font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+            TextEditor(text: $draft)
+                .font(.system(size: 15))
+                .scrollContentBackground(.hidden)
+                .padding(10)
+                .frame(minHeight: 140, maxHeight: 200)
+                .background(AppTheme.groupedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
+                .accessibilityLabel("Note about \(finalist.name)")
+            HStack(spacing: 12) {
+                Button("Cancel") { dismiss() }.buttonStyle(AlteraButtonStyle(secondary: true))
+                Button("Save") {
+                    onSave(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+                    dismiss()
+                }.buttonStyle(AlteraButtonStyle())
             }
         }
+        .padding(24)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
