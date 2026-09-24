@@ -136,3 +136,28 @@ test('mobile sheets return focus and preserve date selection until committed', a
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Start date', exact: true })).toHaveText('Aug 5, 2026');
 });
+
+test('mobile claim averages and Diamond analytics use the same candidate data', async ({ page }) => {
+  await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
+  await page.getByRole('button', { name: 'Candidates', exact: true }).click();
+  await page.getByRole('button', { name: /JG June Gu/ }).click();
+  await page.getByRole('button', { name: 'View full profile' }).click();
+  const scores = await page.locator('[data-question-score]').evaluateAll(elements => elements.map(el => Number(el.dataset.questionScore)));
+  const expected = (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1);
+  await expect(page.locator('.score-grid .score').nth(1)).toContainText(expected + '/5');
+  await expect(page.getByText('Demo email', { exact: true })).toBeVisible();
+
+  await page.getByRole('combobox', { name: 'Figma screen' }).selectOption('8');
+  const diamonds = page.getByRole('region', { name: 'Diamonds in the Rough' });
+  await expect(diamonds.getByRole('button', { name: /Ketaki Kulkarni/ })).toBeVisible();
+  await expect(diamonds.getByRole('button', { name: /Manthan/ })).toHaveCount(0);
+  await diamonds.getByRole('button', { name: /Ketaki Kulkarni/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('Ketaki Kulkarni');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.getByRole('combobox', { name: 'Figma screen' }).selectOption('23');
+  const roleDiamonds = page.getByRole('region', { name: 'Diamonds in the Rough' });
+  await expect(roleDiamonds.getByRole('button', { name: /Yafei Zhang/ })).toBeVisible();
+  await expect(roleDiamonds.getByRole('button', { name: /Ketaki Kulkarni/ })).toHaveCount(0);
+});

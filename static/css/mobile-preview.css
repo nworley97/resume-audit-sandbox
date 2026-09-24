@@ -55,3 +55,5 @@
 @media(max-height:650px){.sheet{min-height:0;max-height:94%}.sheet[data-kind="adddept"] .sheet-content,.sheet[data-kind="editdept"] .sheet-content{margin:0}}
 .switch.on{justify-content:flex-start}
 .switch.on:before{transform:translateX(18px)}
+.diamond-list .candidate-row{width:100%;margin:10px 0 0;padding:10px 0;border-radius:0;border-bottom:1px solid var(--line)}
+.diamond-list .candidate-row:last-child{border-bottom:0}

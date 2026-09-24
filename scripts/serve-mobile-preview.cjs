@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const routes = new Map([
+  ['/static/js/mobile-preview-data.js', ['static/js/mobile-preview-data.js', 'text/javascript']],
   ['/mobile-demo/preview-61d7c4a9f2e8', ['templates/mobile_demo.html', 'text/html']],
   ['/static/css/mobile-preview.css', ['static/css/mobile-preview.css', 'text/css']],
   ['/static/js/mobile-preview.js', ['static/js/mobile-preview.js', 'text/javascript']],

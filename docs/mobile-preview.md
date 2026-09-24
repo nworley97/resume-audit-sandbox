@@ -59,3 +59,18 @@ In-place sheet updates retain focus and scroll without recreating the animated
 container. Cancel/Escape restore focus after dismissal. Visible handles support
 pointer drag-to-dismiss; this gesture is a native-style fallback, not a verified
 Figma gesture specification. Reduced-motion preference disables animation.
+
+## Consistent candidate fixtures
+
+Candidate question scores, aggregate Claim Validity, and Diamond qualification now
+share `static/js/mobile-preview-data.js`. Claim averages are calculated from scored
+responses. Diamond qualification follows the native API threshold (Fit >= 4 and
+Claim Validity >= 4). Global and role analytics list qualifying candidates, link to
+profiles, and derive their Diamond counts from those same preview records.
+
+Email addresses remain reserved-domain demo addresses, explicitly labeled in the
+profile. They are not actual applicant contact details. No real candidate data was
+added to the public preview. Demo scores are illustrative, not hiring assessments.
+
+Run `node --test tests/mobile-preview-data.test.cjs` for aggregation, boundary,
+missing-score, role-filter and archived-candidate checks.
