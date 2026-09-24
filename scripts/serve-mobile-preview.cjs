@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const routes = new Map([
   ['/static/js/mobile-preview-data.js', ['static/js/mobile-preview-data.js', 'text/javascript']],
-  ['/mobile-demo/preview-61d7c4a9f2e8', ['templates/mobile_demo.html', 'text/html']],
+  ['/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd', ['templates/mobile_demo.html', 'text/html']],
   ['/static/css/mobile-preview.css', ['static/css/mobile-preview.css', 'text/css']],
   ['/static/js/mobile-preview.js', ['static/js/mobile-preview.js', 'text/javascript']],
 ]);
@@ -14,4 +14,4 @@ http.createServer((req, res) => {
   if (!entry) { res.writeHead(404); res.end('Not found'); return; }
   res.writeHead(200, {'Content-Type': entry[1] + '; charset=utf-8', 'Cache-Control':'no-store', 'X-Robots-Tag':'noindex, nofollow, noarchive'});
   fs.createReadStream(path.join(root, entry[0])).pipe(res);
-}).listen(5057, '127.0.0.1', () => console.log('Preview: http://127.0.0.1:5057/mobile-demo/preview-61d7c4a9f2e8'));
+}).listen(5057, '127.0.0.1', () => console.log('Preview: http://127.0.0.1:5057/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd'));

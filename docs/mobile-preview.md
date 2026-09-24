@@ -1,6 +1,6 @@
 # iOS browser preview
 
-The existing slug-gated route `/mobile-demo/preview-61d7c4a9f2e8` now serves the
+The existing slug-gated route `/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd` now serves the
 Figma-aligned iOS walkthrough. `MOBILE_DEMO_SLUG` may override that slug in Render.
 The existing blueprint access rules and no-store/no-index headers are unchanged.
 
@@ -13,7 +13,7 @@ The existing blueprint access rules and no-store/no-index headers are unchanged.
   serving only these three files at port 5057.
 
 Run `node scripts/serve-mobile-preview.cjs`, then open
-`http://127.0.0.1:5057/mobile-demo/preview-61d7c4a9f2e8`.
+`http://127.0.0.1:5057/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd`.
 The normal Flask app serves the same files without a build step.
 
 The selector outside the device makes all 43 Figma states accessible. Ordinary

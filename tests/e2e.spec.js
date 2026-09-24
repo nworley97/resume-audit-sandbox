@@ -73,7 +73,7 @@ test('recruiter, AI resume, PDF, and analytics paths work', async ({ page }) => 
 test('slug-gated mobile demo supports its primary walkthrough', async ({ page }) => {
   const missing = await page.goto('/mobile-demo/not-the-demo-slug');
   expect(missing.status()).toBe(404);
-  await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
+  await page.goto('/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd');
   await expect(page.getByRole('heading', { name: 'Job Posting', exact: true })).toBeVisible();
   await expectNoPageOverflow(page);
 
@@ -110,7 +110,7 @@ test('slug-gated mobile demo supports its primary walkthrough', async ({ page })
 test('all mobile design states render without script errors or overflow', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
+  await page.goto('/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd');
   for (let screen = 1; screen <= 43; screen++) {
     await page.getByRole('combobox', { name: 'Figma screen' }).selectOption(String(screen));
     await expect(page.locator('#app')).not.toBeEmpty();
@@ -120,7 +120,7 @@ test('all mobile design states render without script errors or overflow', async 
 });
 
 test('mobile sheets return focus and preserve date selection until committed', async ({ page }) => {
-  await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
+  await page.goto('/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd');
   const trigger = page.getByRole('button', { name: 'Add Dept', exact: true });
   await trigger.click();
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -138,7 +138,7 @@ test('mobile sheets return focus and preserve date selection until committed', a
 });
 
 test('mobile claim averages and Diamond analytics use the same candidate data', async ({ page }) => {
-  await page.goto('/mobile-demo/preview-61d7c4a9f2e8');
+  await page.goto('/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd');
   await page.getByRole('button', { name: 'Candidates', exact: true }).click();
   await page.getByRole('button', { name: /JG June Gu/ }).click();
   await page.getByRole('button', { name: 'View full profile' }).click();

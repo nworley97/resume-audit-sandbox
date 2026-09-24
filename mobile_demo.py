@@ -15,7 +15,7 @@ mobile_demo = Blueprint("mobile_demo", __name__)
 
 # This fallback is only active on the Render dev branch (or under tests).  Set
 # MOBILE_DEMO_SLUG on Render to rotate the link without changing the code.
-DEV_MOBILE_DEMO_SLUG = "preview-61d7c4a9f2e8"
+DEV_MOBILE_DEMO_SLUG = "preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd"
 
 
 def _configured_demo_slug() -> str | None:

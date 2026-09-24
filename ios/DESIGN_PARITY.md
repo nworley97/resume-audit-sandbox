@@ -3,7 +3,7 @@
 Reference: [Figma design](https://www.figma.com/design/IhwBTlbcWYbBcKR9a8E4xc/Untitled?node-id=0-1).
 
 The native implementation is accompanied by an interactive browser recreation at
-`/mobile-demo/preview-61d7c4a9f2e8`. That preview has now been updated separately;
+`/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd`. That preview has now been updated separately;
 it does not execute SwiftUI. The main web application and Flask API are unchanged.
 See `../docs/mobile-preview.md` for preview coverage and verification.
 

@@ -59,6 +59,6 @@ Open `ios/AlteraSF.xcodeproj` on a Mac. Debug builds default to the local API; a
 
 The Render sandbox exposes a synthetic-data mobile product walkthrough at:
 
-`/mobile-demo/preview-61d7c4a9f2e8`
+`/mobile-demo/preview-798d342bc7cf47bb72d54e8ac0a46f93202e75050dd84abd`
 
 The fallback slug is enabled only when Render reports that the deployed branch is `dev`/`Dev` (and in tests). Set `MOBILE_DEMO_SLUG` on the sandbox service to rotate the unlisted link. Production keeps the route disabled unless that environment variable is intentionally configured. The preview never reads tenant or candidate data from the database.
