@@ -32,6 +32,11 @@ test('every displayed aggregate agrees with its candidate responses', () => {
   for (const candidate of candidates) {
     const expected = candidate.responses.reduce((sum, response) => sum + response.score, 0) / candidate.responses.length;
     assert.equal(candidate.claim.toFixed(1), expected.toFixed(1));
-    assert.ok(candidate.email.endsWith('@example.com'));
+    assert.ok(candidate.email.endsWith('.example'));
   }
+});
+
+test('anonymized emails use varied, non-deliverable domains', () => {
+  assert.equal(new Set(candidates.map(c => c.email)).size, candidates.length);
+  assert.ok(new Set(candidates.map(c => c.email.split('@')[1])).size >= 4);
 });

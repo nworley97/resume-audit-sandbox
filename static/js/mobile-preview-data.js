@@ -44,9 +44,16 @@
     'I established a baseline, checked the result against the requirements, and monitored the outcome after release.',
     'I shared progress early, asked for feedback, and documented the decisions so the team could move forward together.',
   ];
-  const candidates = fixtures.map(([name, role, fit, scores]) => ({
+  const demoEmails = [
+    'june.gu@inbox.example', 'v.chhun@outlook.example',
+    'manthan.dev@proton.example', 'ketaki.kulkarni@gmail.example',
+    'abhishek.raj@icloud.example', 'yafei.zhang@outlook.example',
+    'gunnar.g@fastmail.example', 'a.skrypnychenko@proton.example',
+    'gavin.best@gmail.example', 'haoyu.chou@inbox.example',
+  ];
+  const candidates = fixtures.map(([name, role, fit, scores], candidateIndex) => ({
     name, role, fit,
-    email: name.toLowerCase().replaceAll(' ', '.') + '@example.com',
+    email: demoEmails[candidateIndex],
     responses: scores.map((score, index) => ({question: prompts[index], answer: answers[index], score})),
     get claim() { return averageClaim(this.responses); },
     get diamond() { return isDiamond(this); },
