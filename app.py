@@ -1,5 +1,5 @@
 # app.py
-import os, json, uuid, logging, tempfile, mimetypes, re, io, csv, html, secrets
+import os, json, uuid, logging, tempfile, mimetypes, re, io, csv, html, secrets, hmac
 try:
     from dotenv import load_dotenv; load_dotenv()
 except ImportError:
@@ -193,13 +193,16 @@ def _capture_route_tenant():
 @app.before_request
 def _reject_cross_site_state_changes():
     """Block authenticated cross-site form submissions without breaking native clients."""
-    if request.method not in {"POST", "PUT", "PATCH", "DELETE"} or not current_user.is_authenticated:
+    super_session = bool(session.get("is_superadmin"))
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"} or not (current_user.is_authenticated or super_session):
         return None
     source = request.headers.get("Origin") or request.headers.get("Referer")
     if not source:
+        if super_session:
+            abort(403, "request origin required")
         return None
     parsed = urlsplit(source)
-    if parsed.netloc and parsed.netloc.lower() != request.host.lower():
+    if parsed.scheme not in {"http", "https"} or parsed.netloc.lower() != request.host.lower():
         abort(403, "cross-site request rejected")
 
 
@@ -370,9 +373,16 @@ def super_required(f):
 # ─── Flask-Login ─────────────────────────────────────────────────
 @login_manager.user_loader
 def load_user(uid: str):
+    try:
+        user_id, _proof = uid.split(":", 1)
+        user_id = int(user_id)
+    except (ValueError, AttributeError):
+        return None
     db = SessionLocal()
     try:
-        user = db.get(User, int(uid))
+        user = db.get(User, user_id)
+        if user is None or not hmac.compare_digest(uid.encode(), user.get_id().encode()):
+            return None
         if user is not None and user.tenant_id:
             # Load the relationship while the SQLAlchemy session is active so
             # request handlers never trigger a detached lazy-load.

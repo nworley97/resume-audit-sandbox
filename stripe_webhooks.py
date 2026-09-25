@@ -168,14 +168,8 @@ def handle_stripe_webhook():
             logger.error(f"Invalid webhook payload: {e}")
             return jsonify({"error": "Invalid payload"}), 400
     else:
-        # No webhook secret configured - parse without verification (not recommended for production)
-        logger.warning("Processing webhook without signature verification - configure STRIPE_WEBHOOK_SECRET")
-        try:
-            import json
-            event = stripe.Event.construct_from(json.loads(payload), stripe.api_key)
-        except Exception as e:
-            logger.error(f"Failed to parse webhook payload: {e}")
-            return jsonify({"error": "Invalid payload"}), 400
+        logger.error("Stripe webhook signing secret is not configured")
+        return jsonify({"error": "Webhook verification unavailable"}), 503
     
     # Route to appropriate handler
     event_type = event.type

@@ -77,7 +77,8 @@ class BillingProtectionTests(unittest.TestCase):
     def authenticated_client(self):
         client = app.test_client()
         with client.session_transaction() as session:
-            session["_user_id"] = str(self.user_id)
+            with app.app_context():
+                session["_user_id"] = SessionLocal().get(User, self.user_id).get_id()
             session["_fresh"] = True
             session["tenant_slug"] = "billing-test"
         return client
@@ -282,7 +283,8 @@ class ResumeEndpointTests(unittest.TestCase):
     def test_inline_pdf_has_pdf_content_type_and_inline_disposition(self):
         client = app.test_client()
         with client.session_transaction() as session:
-            session["_user_id"] = str(self.user_id)
+            with app.app_context():
+                session["_user_id"] = SessionLocal().get(User, self.user_id).get_id()
             session["_fresh"] = True
             session["tenant_slug"] = "test-tenant"
         response = client.get("/test-tenant/resume/pdf-test?inline=1")

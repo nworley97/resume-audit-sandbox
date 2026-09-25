@@ -34,7 +34,7 @@
     <div id="success-area" class="hidden mb-6">
       <p class="text-green-600 font-medium mb-4">Your account is ready! Redirecting you now...</p>
       <a href="#" id="redirect-link" class="inline-block bg-slate-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-slate-800 transition-colors">
-        Go to Dashboard
+        Sign In
       </a>
     </div>
     
@@ -80,7 +80,7 @@
     document.getElementById('error-area').classList.add('hidden');
     document.getElementById('help-text').classList.add('hidden');
     document.getElementById('redirect-link').href = redirectUrl;
-    document.getElementById('page-subtitle').textContent = 'Your account has been created successfully!';
+    document.getElementById('page-subtitle').textContent = 'Your account is ready. Please sign in to continue.';
     
     // Auto-redirect after 1.5 seconds
     setTimeout(function() {

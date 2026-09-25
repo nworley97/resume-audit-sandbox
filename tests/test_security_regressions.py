@@ -105,7 +105,8 @@ class SecurityRegressionTests(unittest.TestCase):
     def authenticated_client(user_id, tenant_slug="security-alpha"):
         client = app.test_client()
         with client.session_transaction() as flask_session:
-            flask_session["_user_id"] = str(user_id)
+            with app.app_context():
+                flask_session["_user_id"] = SessionLocal().get(User, user_id).get_id()
             flask_session["_fresh"] = True
             flask_session["tenant_slug"] = tenant_slug
         return client
@@ -246,6 +247,92 @@ class SecurityRegressionTests(unittest.TestCase):
         self.assertFalse(response.get_json()["account_created"])
         with client.session_transaction() as flask_session:
             self.assertNotIn("_user_id", flask_session)
+
+    def test_payment_recovery_and_polling_never_authenticate(self):
+        client = app.test_client()
+        response = client.get('/billing/payment-success?email=security-admin@example.com')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login', response.headers['Location'])
+        with client.session_transaction() as state:
+            self.assertNotIn('_user_id', state)
+            self.assertNotIn('signup_data', state)
+            state['signup_data'] = {'email': 'security-admin@example.com'}
+        self.assertEqual(client.get('/billing/payment-success').status_code, 200)
+        response = client.get('/billing/api/check-account-status')
+        self.assertTrue(response.json['account_created'])
+        self.assertEqual(response.json['redirect_url'], '/login')
+        with client.session_transaction() as state:
+            self.assertNotIn('_user_id', state)
+        self.assertEqual(client.get('/api/session/me').status_code, 302)
+
+    def test_password_change_revokes_existing_and_legacy_sessions(self):
+        from models import PasswordResetToken
+        from datetime import datetime, timedelta
+        db = SessionLocal()
+        user = db.get(User, self.alpha_admin_id)
+        original = user.pw_hash
+        user.set_pw('original-test-password')
+        db.commit()
+        try:
+            first = app.test_client()
+            second = app.test_client()
+            for client in (first, second):
+                self.assertEqual(client.post('/api/mobile/auth/login', json={
+                    'email': user.username, 'password': 'original-test-password'
+                }).status_code, 200)
+            self.assertEqual(first.post('/api/mobile/auth/change-password', json={
+                'current_password': 'original-test-password', 'new_password': 'replacement-test-password'
+            }).status_code, 200)
+            for client in (first, second):
+                self.assertEqual(client.get('/api/session/me').status_code, 302)
+            self.assertEqual(first.post('/api/mobile/auth/login', json={
+                'email': user.username, 'password': 'replacement-test-password'
+            }).status_code, 200)
+            self.assertEqual(first.get('/api/session/me').status_code, 200)
+            db.add(PasswordResetToken(user_id=user.id, token='synthetic-reset-token',
+                                     expires_at=datetime.utcnow() + timedelta(hours=1)))
+            db.commit()
+            self.assertEqual(app.test_client().post('/reset-password/synthetic-reset-token', data={
+                'password': 'reset-test-password', 'confirm_password': 'reset-test-password'
+            }).status_code, 302)
+            self.assertEqual(first.get('/api/session/me').status_code, 302)
+            with second.session_transaction() as state:
+                state['_user_id'] = str(user.id)
+            self.assertEqual(second.get('/api/session/me').status_code, 302)
+        finally:
+            user.pw_hash = original
+            db.commit()
+
+    def test_superadmin_origin_guard(self):
+        client = app.test_client()
+        with client.session_transaction() as state:
+            state['is_superadmin'] = True
+        url = '/super/tenants/999999/users'
+        for headers in ({}, {'Origin': 'https://untrusted.invalid'}, {'Origin': 'null'}):
+            self.assertEqual(client.post(url, headers=headers).status_code, 403)
+        # A same-origin submission reaches the handler (missing tenant redirects).
+        self.assertEqual(client.post(url, headers={'Origin': 'http://localhost'}).status_code, 302)
+        self.assertEqual(client.post(url, headers={'Referer': 'http://localhost/super/tenants'}).status_code, 302)
+
+    def test_webhook_requires_valid_signature_and_configured_secret(self):
+        import stripe_webhooks as webhooks
+        import json, hmac, hashlib, time
+        payload = json.dumps({'id': 'evt_security_test', 'type': 'security.test', 'data': {'object': {}}})
+        secret = 'synthetic-webhook-secret'
+        timestamp = str(int(time.time()))
+        digest = hmac.new(secret.encode(), f'{timestamp}.{payload}'.encode(), hashlib.sha256).hexdigest()
+        headers = {'Stripe-Signature': f't={timestamp},v1={digest}'}
+        url = '/billing/webhooks/stripe'
+        with patch('stripe_config.STRIPE_SECRET_KEY', 'synthetic-api-key'), patch.dict(
+            webhooks.WEBHOOK_HANDLERS, {'security.test': lambda event: {}}
+        ), patch.object(webhooks, 'get_webhook_secret', return_value=None):
+            self.assertEqual(app.test_client().post(url, data=payload, headers=headers).status_code, 503)
+        with patch('stripe_config.STRIPE_SECRET_KEY', 'synthetic-api-key'), patch.dict(
+            webhooks.WEBHOOK_HANDLERS, {'security.test': lambda event: {}}
+        ), patch.object(webhooks, 'get_webhook_secret', return_value=secret):
+            self.assertEqual(app.test_client().post(url, data=payload, headers=headers).status_code, 200)
+            self.assertEqual(app.test_client().post(url, data=payload + ' ', headers=headers).status_code, 400)
+            self.assertEqual(app.test_client().post(url, data=payload).status_code, 400)
 
     def test_session_identity_does_not_lazy_load_detached_tenant(self):
         response = self.authenticated_client(self.alpha_admin_id).get("/api/session/me")

@@ -1,5 +1,8 @@
 # models.py
 from datetime import datetime
+import hashlib
+import hmac
+from flask import current_app
 from sqlalchemy import (
     Column, String, Integer, Boolean, DateTime, JSON, ForeignKey, Text, Time,
     UniqueConstraint
@@ -54,6 +57,14 @@ class User(Base, UserMixin):
 
     def set_pw(self, pw: str) -> None:
         self.pw_hash = generate_password_hash(pw)
+
+    def get_id(self) -> str:
+        """Bind login cookies to the current password without exposing its hash."""
+        key = current_app.secret_key
+        if isinstance(key, str):
+            key = key.encode()
+        proof = hmac.new(key, f"login:{self.id}:{self.pw_hash}".encode(), hashlib.sha256).hexdigest()
+        return f"{self.id}:{proof}"
 
     def check_pw(self, pw: str) -> bool:
         return check_password_hash(self.pw_hash, pw)

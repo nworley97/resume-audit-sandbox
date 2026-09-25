@@ -462,78 +462,11 @@ def checkout():
 
 @billing_bp.route('/payment-success')
 def payment_success():
-    """
-    Handle successful payment from Stripe payment link.
-    
-    Note: Account creation happens asynchronously via webhook.
-    This page informs the user their account is being set up.
-    
-    Supports both:
-    1. Normal flow: session has signup_data
-    2. Recovery flow: email passed as query param (for cross-device/session-loss scenarios)
-    """
-    # Check if we have signup data in session
+    """Display checkout progress; payment completion never authenticates a user."""
     signup_data = session.get('signup_data')
-    
-    # Recovery: Allow email via query param if session is lost
-    recovery_email = request.args.get('email', '').strip().lower()
-    if recovery_email and not signup_data:
-        # Try to recover by checking if this email has a pending signup or existing account
-        db = SessionLocal()
-        try:
-            # First check if account already exists
-            user = db.query(User).filter(User.username == recovery_email).first()
-            if user:
-                login_user(user)
-                tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
-                if tenant:
-                    session['tenant_slug'] = tenant.slug
-                    flash('Welcome back! You have been logged in.', 'success')
-                    return redirect(url_for('recruiter', tenant=tenant.slug))
-            
-            # Check for pending signup
-            pending = db.query(PendingSignup).filter(
-                PendingSignup.email == recovery_email,
-                PendingSignup.processed == False
-            ).first()
-            if pending:
-                # Restore session data from pending signup
-                signup_data = {
-                    'email': pending.email,
-                    'plan_tier': pending.plan_tier,
-                    'billing_cycle': pending.billing_cycle,
-                    'company_name': pending.company_name,
-                    'full_name': pending.full_name,
-                }
-                session['signup_data'] = signup_data
-        finally:
-            db.close()
-    
-    # Also check if user was created by webhook and try to log them in
-    if signup_data:
-        db = SessionLocal()
-        try:
-            user = db.query(User).filter(
-                User.username == signup_data.get('email', '').lower()
-            ).first()
-            if user:
-                # Account was created by webhook, log them in
-                login_user(user)
-                session.pop('signup_data', None)
-                tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
-                if tenant:
-                    session['tenant_slug'] = tenant.slug
-                    flash('Welcome! Your account has been created successfully.', 'success')
-                    return redirect(url_for('recruiter', tenant=tenant.slug))
-        finally:
-            db.close()
-    
     if not signup_data:
-        # User might have come directly here - redirect to signup
-        flash('Please complete your account setup first.', 'error')
-        return redirect(url_for('billing.signup'))
-    
-    # Account creation will be handled by webhook when payment succeeds
+        flash('Please sign in to access your account.', 'info')
+        return redirect(url_for('login'))
     return render_template('billing/payment_success.html', signup_data=signup_data)
 
 
@@ -565,20 +498,11 @@ def check_account_status():
     try:
         user = db.query(User).filter(User.username == email).first()
         if user:
-            # Account was created! Auto-login the user
-            login_user(user)
             session.pop('signup_data', None)
-            
-            tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
-            tenant_slug = tenant.slug if tenant else ''
-            
-            if tenant:
-                session['tenant_slug'] = tenant.slug
-            
             return jsonify({
                 'account_created': True,
-                'redirect_url': url_for('recruiter', tenant=tenant_slug),
-                'message': 'Account created successfully!'
+                'redirect_url': url_for('login'),
+                'message': 'Account created. Please sign in to continue.'
             })
         else:
             # Check if there's a pending signup for this email

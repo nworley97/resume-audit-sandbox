@@ -174,3 +174,5 @@ trace.zip
 # Playwright debug files
 *.trace
 *.har
+# Local security regression environment
+.venv-security/
