@@ -76,9 +76,17 @@ python ios/scripts/validate_sources.py
 git diff --check -- ios
 ```
 
-**Still required:** Swift type checking, an Xcode build, native interaction tests,
-and rendered screenshot comparison. This Windows workspace has no Xcode or iOS
-simulator, so this is an implementation pass, not certified visual parity.
+On September 30, 2026, Codemagic successfully built commit `932c4b0` with Xcode
+26.6 for the iOS simulator (arm64 and x86_64), launched the app, and produced
+light/dark sign-in screenshot artifacts. This verifies native compilation and
+launch, not all-screen visual parity. The first simulator boot logged a migration
+failure but subsequently launched the app and completed both captures.
+
+Build: https://codemagic.io/app/6abd48f2feb1fabba1e12f0f/build/6abd49cc083ff0a9a53acb15
+
+**Still required:** inspect the screenshot artifacts against Figma, capture and
+compare authenticated screens, test native interactions and animations, and
+validate a signed device archive/TestFlight build.
 
 ## Mac verification checklist
 
@@ -96,4 +104,5 @@ simulator, so this is an implementation pass, not certified visual parity.
    support/privacy links and logout. Use sandbox records for mutations.
 7. Record any screenshot differences and resolve them before TestFlight release.
 
-No build, archive, upload or deployment was performed during this implementation.
+The original alignment pass did not run Xcode. The later Codemagic simulator
+build above succeeded; no signed archive or TestFlight upload has been performed.
