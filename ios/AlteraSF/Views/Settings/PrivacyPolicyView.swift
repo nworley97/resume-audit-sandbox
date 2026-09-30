@@ -8,8 +8,8 @@ struct PrivacyPolicyView: View {
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            Image(systemName: "shield.fill")
-                .font(.system(size: 40))
+            Image(systemName: "shield")
+                .font(.figtree(size: 40))
                 .foregroundColor(AppTheme.primary)
 
             Text("AlteraSF Privacy Policy")
@@ -17,7 +17,7 @@ struct PrivacyPolicyView: View {
                 .foregroundColor(AppTheme.textPrimary)
 
             Text("Our full privacy policy covers what data we collect from candidates and employers, how resumes and assessment answers are stored, and your rights to access or delete your data.")
-                .font(.subheadline)
+                .font(.figtree(size: 15))
                 .foregroundColor(AppTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -27,7 +27,7 @@ struct PrivacyPolicyView: View {
         .safeAreaInset(edge: .bottom) {
             Link(destination: policyURL) {
                 Text("View Full Policy")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.figtree(size: 15, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity).frame(height: 48)
                     .background(AppTheme.primary)

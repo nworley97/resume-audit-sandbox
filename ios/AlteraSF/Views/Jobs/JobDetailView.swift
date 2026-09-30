@@ -35,9 +35,9 @@ struct JobDetailView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "person.3.fill").foregroundColor(AppTheme.primary)
                         Text("View \(job.applicantCount) Candidate\(job.applicantCount == 1 ? "" : "s")")
-                            .font(.system(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+                            .font(.figtree(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary)
                         Spacer()
-                        Image(systemName: "chevron.right").font(.caption).foregroundColor(AppTheme.textTertiary)
+                        Image(systemName: "chevron.right").font(.figtree(size: 13)).foregroundColor(AppTheme.textTertiary)
                     }
                     .padding(14)
                     .background(AppTheme.background).cornerRadius(AppTheme.cardCornerRadius)
@@ -84,11 +84,11 @@ struct JobDetailView: View {
             HStack {
                 JobStatusTag(status: job.status)
                 Spacer()
-                Text(job.jobId).font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                Text(job.jobId).font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
             }
-            Text(job.title).font(.system(size: 22, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Text(job.title).font(.figtree(size: 22, weight: .bold)).foregroundColor(AppTheme.textPrimary)
             Text("Posted \(job.postedDate.formatted(.dateTime.month(.abbreviated).day().year()))")
-                .font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                .font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
         }
     }
 
@@ -112,18 +112,18 @@ struct JobDetailView: View {
 
     private func infoRow(icon: String, label: String, value: String) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary).frame(width: 18)
-            Text(label).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+            Image(systemName: icon).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary).frame(width: 18)
+            Text(label).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
             Spacer()
-            Text(value).font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+            Text(value).font(.figtree(size: 13, weight: .medium)).foregroundColor(AppTheme.textPrimary)
                 .multilineTextAlignment(.trailing)
         }
     }
 
     private var descriptionCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Role Description").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
-            Text(job.description).font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+            Text("Role Description").font(.figtree(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Text(job.description).font(.figtree(size: 14)).foregroundColor(AppTheme.textSecondary)
         }
         .padding(16)
         .background(AppTheme.background).cornerRadius(AppTheme.cardCornerRadius)
@@ -132,12 +132,12 @@ struct JobDetailView: View {
 
     private var applicationLinkCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Application Link").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Text("Application Link").font(.figtree(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
             Text("Share this link on your website, social media, or job boards.")
-                .font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                .font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
             HStack(spacing: 8) {
                 Text(applicationLink)
-                    .font(.system(size: 12))
+                    .font(.figtree(size: 12))
                     .foregroundColor(AppTheme.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -151,7 +151,7 @@ struct JobDetailView: View {
                     }
                 } label: {
                     Label(copiedLink ? "Copied" : "Copy", systemImage: copiedLink ? "checkmark" : "doc.on.doc")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.figtree(size: 12, weight: .semibold))
                 }
                 .buttonStyle(.bordered)
                 .tint(AppTheme.primary)

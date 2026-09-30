@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B00000000000000000000001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002 /* Fonts */; };
 		719B15D94D859403CAFBDFAA /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 70515275D174273AEA09A30E /* GoogleSignIn */; };
 		A00000000000000000000021 /* AlteraSFApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* AlteraSFApp.swift */; };
 		A00000000000000000000023 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ContentView.swift */; };
@@ -56,6 +57,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		B00000000000000000000002 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
 		A00000000000000000000004 /* AlteraSF.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AlteraSF.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000020 /* AlteraSFApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlteraSFApp.swift; sourceTree = "<group>"; };
 		A00000000000000000000022 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -140,6 +142,7 @@
 				A00000000000000000000022 /* ContentView.swift */,
 				A00000000000000000000026 /* Assets.xcassets */,
 				A00000000000000000000028 /* Info.plist */,
+				B00000000000000000000002 /* Fonts */,
 				A00000000000000000000011 /* Models */,
 				A000000000000000000000E6 /* Config */,
 				A00000000000000000000012 /* Services */,
@@ -363,6 +366,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000027 /* Assets.xcassets in Resources */,
+				B00000000000000000000001 /* Fonts in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

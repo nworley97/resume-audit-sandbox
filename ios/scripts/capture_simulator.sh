@@ -11,7 +11,10 @@ phones = [d for runtime, group in devices.items() if 'iOS' in runtime
           for d in group if d.get('isAvailable') and d['name'].startswith('iPhone')]
 if not phones:
     raise SystemExit('No available iPhone simulator on this build image')
-phone = sorted(phones, key=lambda d: d['name'])[-1]
+# Match the 393 x 852 Figma canvas where the installed runtimes allow it.
+preferred = ['iPhone 16', 'iPhone 15', 'iPhone 14 Pro']
+phone = next((d for name in preferred for d in phones if d['name'] == name),
+             sorted(phones, key=lambda d: d['name'])[-1])
 Path('build/artifacts/device.txt').write_text(phone['name'] + '\n')
 print(phone['udid'])
 PY

@@ -5,24 +5,24 @@ struct CandidateRowView: View {
     var showsJobTitle = true
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 16) {
             AvatarView(initials: candidate.initials, size: 48)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(candidate.fullName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.figtree(size: 18, weight: .semibold))
                         .foregroundColor(AppTheme.textPrimary)
                     if candidate.isDiamond {
                         Image(systemName: "diamond.fill")
-                            .font(.system(size: 11))
+                            .font(.figtree(size: 11))
                             .foregroundColor(AppTheme.diamond)
                     }
                     Spacer()
                     if candidate.isFlagged {
                         HStack(spacing: 3) {
-                            Image(systemName: "flag.fill").font(.system(size: 9))
-                            Text("Flagged").font(.system(size: 11, weight: .semibold))
+                            Image(systemName: "flag.fill").font(.figtree(size: 9))
+                            Text("Flagged").font(.figtree(size: 11, weight: .semibold))
                         }
                         .foregroundColor(AppTheme.flagged)
                     }
@@ -30,11 +30,11 @@ struct CandidateRowView: View {
 
                 if candidate.isFlagged, let reason = candidate.flagReason {
                     Text(reason)
-                        .font(.system(size: 12))
+                        .font(.figtree(size: 15))
                         .foregroundColor(AppTheme.flagged)
                 } else if showsJobTitle {
                     Text(candidate.jobTitle)
-                        .font(.system(size: 12))
+                        .font(.figtree(size: 15))
                         .foregroundColor(AppTheme.textSecondary)
                 }
 
@@ -47,10 +47,11 @@ struct CandidateRowView: View {
 
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.figtree(size: 12, weight: .semibold))
                 .foregroundColor(AppTheme.textTertiary)
         }
-        .padding(12)
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .frame(minHeight: 96)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
                 .fill(AppTheme.background)
@@ -71,7 +72,7 @@ private struct ScorePill: View {
 
     var body: some View {
         Text("\(label) \(String(format: "%.1f", value))")
-            .font(.system(size: 11, weight: .semibold))
+            .font(.figtree(size: 13, weight: .medium))
             .foregroundColor(value > 0 ? AppTheme.primaryDark : AppTheme.textSecondary)
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(value > 0 ? AppTheme.primaryLight : AppTheme.secondaryBackground)

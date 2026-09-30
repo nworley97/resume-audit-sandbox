@@ -33,11 +33,17 @@ struct CandidatesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(filterJobId == nil ? .hidden : .automatic, for: .navigationBar)
             .task {
-                if filterJobId == nil { await jobsVM.load() }
-                await vm.load(jobCode: filterJobId)
+                if filterJobId == nil {
+                    async let jobs: () = jobsVM.load()
+                    await vm.load(jobCode: filterJobId)
+                    await jobs
+                } else {
+                    await vm.load(jobCode: filterJobId)
+                }
             }
             .onChange(of: vm.searchText) { _ in vm.triggerSearch(jobCode: filterJobId) }
             .onChange(of: vm.sortOption) { _ in Task { await vm.load(jobCode: filterJobId) } }
+            .onChange(of: vm.selectedDepartment) { _ in Task { await vm.load(jobCode: filterJobId) } }
             .onChange(of: vm.selectedTab) { _ in /* filter locally */ }
             .sheet(item: $previewCandidate, onDismiss: {
                 if let candidate = pendingFullProfileCandidate {
@@ -77,8 +83,8 @@ struct CandidatesView: View {
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(filterJobTitle ?? filterJobId ?? "")
-                        .font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
-                    Text("\(vm.displayedCandidates.count) Candidates")
+                        .font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
+                    Text("\(vm.totalCount) Candidates")
                         .font(AppTheme.pageTitle).foregroundColor(AppTheme.textPrimary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -88,7 +94,7 @@ struct CandidatesView: View {
             // Search
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundColor(AppTheme.textSecondary)
-                TextField("Search roles or candidates…", text: $vm.searchText).font(.system(size: 15))
+                TextField("Search roles or candidates…", text: $vm.searchText).font(.figtree(size: 15))
             }
             .padding(.horizontal, 12).padding(.vertical, 10)
             .background(AppTheme.secondaryBackground).cornerRadius(10)
@@ -101,12 +107,14 @@ struct CandidatesView: View {
 
             Divider()
 
-            if vm.isLoading && vm.candidates.isEmpty {
+            if (vm.isLoading || (filterJobId == nil && jobsVM.isLoading)) && vm.candidates.isEmpty {
                 Spacer()
                 ProgressView("Loading candidates…")
                 Spacer()
             } else if let err = vm.error {
                 ErrorBanner(message: err) { Task { await vm.load(jobCode: filterJobId) } }
+            } else if filterJobId == nil, let err = jobsVM.error {
+                ErrorBanner(message: err) { Task { await jobsVM.load() } }
             } else {
                 candidateList
             }
@@ -120,11 +128,11 @@ struct CandidatesView: View {
                 .font(AppTheme.pageTitle)
                 .foregroundColor(AppTheme.textPrimary)
             Text("Review and compare applicants across your open roles.")
-                .font(.system(size: 13))
+                .font(.figtree(size: 15))
                 .foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
+        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 16)
     }
 
     private var filterPills: some View {
@@ -158,7 +166,7 @@ struct CandidatesView: View {
                     // Grouped by job
                     let groups = vm.grouped(allJobs: jobsVM.allJobs)
                     ForEach(groups, id: \.job.id) { group in
-                        GroupHeaderRow(job: group.job, count: group.candidates.count)
+                        GroupHeaderRow(job: group.job, count: group.total)
                         ForEach(group.candidates.prefix(3)) { candidate in
                             Button { previewCandidate = candidate } label: {
                                 CandidateRowView(candidate: candidate)
@@ -169,11 +177,25 @@ struct CandidatesView: View {
                     }
                 }
 
+                if let error = vm.pageError {
+                    Text(error).font(.figtree(size: 13)).foregroundColor(AppTheme.danger).padding()
+                }
+                if vm.hasMore {
+                    Button {
+                        Task { await vm.loadMore(jobCode: filterJobId) }
+                    } label: {
+                        if vm.isLoadingMore { ProgressView() }
+                        else { Text("Load more candidates (\(vm.candidates.count) of \(vm.totalCount))") }
+                    }
+                    .disabled(vm.isLoadingMore || vm.isLoading)
+                    .padding()
+                }
+
                 if vm.candidates.isEmpty && !vm.isLoading {
                     VStack(spacing: 12) {
                         Image(systemName: "person.2.slash")
-                            .font(.system(size: 40)).foregroundColor(AppTheme.textTertiary).padding(.top, 48)
-                        Text("No candidates yet").font(.headline).foregroundColor(AppTheme.textSecondary)
+                            .font(.figtree(size: 40)).foregroundColor(AppTheme.textTertiary).padding(.top, 48)
+                        Text("No candidates yet").font(.figtree(size: 17, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -192,8 +214,8 @@ struct GroupHeaderRow: View {
     let count: Int
     var body: some View {
         HStack {
-            Text(job.title).font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
-            Text("\(count)").font(.system(size: 12, weight: .bold)).foregroundColor(.white)
+            Text(job.title).font(.figtree(size: 16, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Text("\(count)").font(.figtree(size: 12, weight: .bold)).foregroundColor(.white)
                 .padding(.horizontal, 7).padding(.vertical, 2)
                 .background(AppTheme.primary).cornerRadius(9)
             Spacer()
@@ -201,8 +223,8 @@ struct GroupHeaderRow: View {
                 CandidatesView(filterJobId: job.jobId, filterJobTitle: job.title)
             } label: {
                 HStack(spacing: 2) {
-                    Text("View").font(.system(size: 13, weight: .medium))
-                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                    Text("View").font(.figtree(size: 13, weight: .medium))
+                    Image(systemName: "chevron.right").font(.figtree(size: 11, weight: .semibold))
                 }
                 .foregroundColor(AppTheme.primary)
             }
@@ -219,7 +241,7 @@ struct DepartmentFilterSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Filter by department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                Text("Filter by department").font(.figtree(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                     .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
                 row(label: "All departments", isSelected: selection == nil) {
                     selection = nil
@@ -242,7 +264,7 @@ struct DepartmentFilterSheet: View {
     private func row(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                Text(label).font(.system(size: 16)).foregroundColor(isSelected ? AppTheme.primary : AppTheme.textPrimary)
+                Text(label).font(.figtree(size: 16)).foregroundColor(isSelected ? AppTheme.primary : AppTheme.textPrimary)
                 Spacer()
                 if isSelected { Image(systemName: "checkmark").foregroundColor(AppTheme.primary) }
             }
@@ -257,8 +279,8 @@ private struct FilterPill: View {
     let text: String
     var body: some View {
         HStack(spacing: 4) {
-            Text(text).font(.system(size: 13, weight: .medium)).lineLimit(1)
-            Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+            Text(text).font(.figtree(size: 13, weight: .medium)).lineLimit(1)
+            Image(systemName: "chevron.down").font(.figtree(size: 10, weight: .semibold))
         }
         .foregroundColor(AppTheme.textPrimary)
         .padding(.horizontal, 12).padding(.vertical, 5)

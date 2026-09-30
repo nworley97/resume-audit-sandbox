@@ -74,12 +74,12 @@ struct TeamView: View {
                                     .fill(roleColor(member.role).opacity(0.15))
                                     .frame(width: 40, height: 40)
                                 Text(member.initials)
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.figtree(size: 14, weight: .bold))
                                     .foregroundColor(roleColor(member.role))
                             }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(member.name).font(.system(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary)
-                                Text(member.email).font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                                Text(member.name).font(.figtree(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+                                Text(member.email).font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
                             }
                             Spacer()
                             Menu {
@@ -146,7 +146,7 @@ struct RolePill: View {
     }
     var body: some View {
         Text(role.capitalized)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.figtree(size: 11, weight: .semibold))
             .foregroundColor(color)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(color.opacity(0.12))
@@ -185,7 +185,7 @@ struct InviteTeamMemberSheet: View {
                 }
                 if let err = error {
                     Section {
-                        Text(err).foregroundColor(AppTheme.danger).font(.caption)
+                        Text(err).foregroundColor(AppTheme.danger).font(.figtree(size: 13))
                     }
                 }
             }

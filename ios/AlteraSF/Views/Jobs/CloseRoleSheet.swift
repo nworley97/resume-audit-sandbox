@@ -12,11 +12,11 @@ struct CloseRoleSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Close role").font(.system(size: 20, weight: .bold))
+            Text("Close role").font(.figtree(size: 20, weight: .bold))
             Text("Who did you hire? This moves the role to Closed.")
-                .font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+                .font(.figtree(size: 14)).foregroundColor(AppTheme.textSecondary)
             if isLoading { ProgressView().frame(maxWidth: .infinity) }
-            if let error { Text(error).font(.caption).foregroundColor(AppTheme.danger) }
+            if let error { Text(error).font(.figtree(size: 13)).foregroundColor(AppTheme.danger) }
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(candidates) { candidate in
@@ -26,7 +26,7 @@ struct CloseRoleSheet: View {
                         } label: {
                             HStack(spacing: 12) {
                                 AvatarView(initials: candidate.initials, size: 36)
-                                Text(candidate.fullName).font(.system(size: 15))
+                                Text(candidate.fullName).font(.figtree(size: 15))
                                     .foregroundColor(AppTheme.textPrimary)
                                 Spacer()
                             }

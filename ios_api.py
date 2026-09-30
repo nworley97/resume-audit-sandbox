@@ -10,7 +10,7 @@ import json
 import math
 import secrets
 import html
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, abort, session, url_for
@@ -33,6 +33,49 @@ from analytics_service import (
 )
 
 mobile_api = Blueprint("mobile_api", __name__, url_prefix="/api/mobile")
+
+
+def _schedule_instant(value, clock=None):
+    if value is None:
+        return None
+    if clock is not None:
+        value = datetime.combine(value.date(), clock, tzinfo=value.tzinfo)
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
+def _schedule_json(value, clock=None):
+    instant = _schedule_instant(value, clock)
+    return instant.isoformat().replace("+00:00", "Z") if instant else None
+
+
+def _schedule_updates(data, existing=None):
+    """Mobile clients send instants with an explicit UTC offset, never local guesses."""
+    values = {}
+    for name in ("start_date", "end_date"):
+        if name not in data:
+            continue
+        raw = data[name]
+        if raw is None:
+            values[name] = None
+            continue
+        try:
+            if not isinstance(raw, str):
+                raise ValueError()
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if parsed.tzinfo is None or not 2020 <= parsed.year <= 2099:
+                raise ValueError()
+            values[name] = parsed.astimezone(timezone.utc)
+        except (ValueError, OverflowError):
+            abort(400, f"{name} must be an ISO 8601 date/time with a UTC offset (2020–2099)")
+    def effective(name):
+        if name in values:
+            return values[name]
+        return _schedule_instant(getattr(existing, name, None),
+                                 getattr(existing, name.replace("date", "time"), None))
+    start, end = effective("start_date"), effective("end_date")
+    if values and start and end and end < start:
+        abort(400, "end_date must not be before start_date")
+    return values
 
 
 _LABEL_ACRONYMS = {"gpa", "ap", "sat", "psat", "act", "gre", "gmat", "id", "url", "llm", "ai"}
@@ -235,8 +278,8 @@ def _job_dict(jd: JobDescription, db, t: Tenant) -> dict:
         "salary_range": jd.salary_range or "",
         "status": (jd.status or "draft").lower(),
         "question_count": jd.question_count or 4,
-        "start_date": jd.start_date.isoformat() if jd.start_date else None,
-        "end_date": jd.end_date.isoformat() if jd.end_date else None,
+        "start_date": _schedule_json(jd.start_date, jd.start_time),
+        "end_date": _schedule_json(jd.end_date, jd.end_time),
         "posted_date": posted.isoformat() if posted else None,
         "applicant_count": applicant_count,
         "diamond_count": diamond_count,
@@ -644,6 +687,7 @@ def get_job(t: Tenant, code: str):
 @role_required("admin", "manager")
 def create_job(t: Tenant):
     data = request.get_json(silent=True) or {}
+    schedule = _schedule_updates(data)
     code = _json_text(data, "code", max_length=20, required=True)
     title = _json_text(data, "title", max_length=200, required=True)
     status = _json_text(data, "status", max_length=20) or "draft"
@@ -671,7 +715,10 @@ def create_job(t: Tenant):
             question_count=_bounded_json_int(data, "question_count", 4, 1, 5),
             id_surveys_enabled=data.get("id_surveys_enabled", True),
             tenant_id=t.id,
+            **schedule,
         )
+        for name, value in schedule.items():
+            setattr(jd, name.replace("date", "time"), value.time() if value else None)
         db.add(jd)
         db.commit()
         db.refresh(jd)
@@ -701,6 +748,7 @@ def update_job(t: Tenant, code: str):
         if not jd:
             abort(404)
 
+        schedule = _schedule_updates(data, jd)
         for field, col in [
             ("title", "title"), ("department", "department"),
             ("location", "location"), ("employment_type", "employment_type"),
@@ -718,6 +766,9 @@ def update_job(t: Tenant, code: str):
             jd.question_count = question_count
         if "id_surveys_enabled" in data:
             jd.id_surveys_enabled = data["id_surveys_enabled"]
+        for name, value in schedule.items():
+            setattr(jd, name, value)
+            setattr(jd, name.replace("date", "time"), value.time() if value else None)
         jd.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(jd)
@@ -876,6 +927,7 @@ def delete_department(t: Tenant, dept_id: int):
 @tenant_required
 def list_candidates(t: Tenant):
     job_code = request.args.get("job_code", "").strip()
+    department = request.args.get("department", "").strip()
     status_filter = request.args.get("status", "").strip()   # finalist / archived / ''
     search = request.args.get("q", "").strip()
     # score/fit_desc, fit_asc, claim_desc, claim_asc, combined_desc, combined_asc, newest, flagged
@@ -889,6 +941,9 @@ def list_candidates(t: Tenant):
 
         if job_code:
             qry = qry.filter_by(jd_code=job_code)
+        if department:
+            codes = db.query(JobDescription.code).filter_by(tenant_id=t.id, department=department)
+            qry = qry.filter(Candidate.jd_code.in_(codes))
 
         if status_filter in ("finalist", "archived"):
             qry = qry.filter(Candidate.status == status_filter)
@@ -901,13 +956,18 @@ def list_candidates(t: Tenant):
                 Candidate.name.ilike(like),
                 Candidate.email.ilike(like),
                 Candidate.jd_code.ilike(like),
+                Candidate.jd_code.in_(db.query(JobDescription.code).filter(
+                    JobDescription.tenant_id == t.id, JobDescription.title.ilike(like))),
             ))
+
+        job_counts = dict(qry.with_entities(Candidate.jd_code, func.count(Candidate.id))
+                          .group_by(Candidate.jd_code).all())
 
         # claim_validity_score isn't a DB column (it's computed from answer_scores
         # JSON), so sorting by it or the combined score has to happen in Python.
         PY_SORT_KEYS = {"claim_asc", "claim_desc", "combined_asc", "combined_desc"}
         if sort in PY_SORT_KEYS:
-            all_cands = qry.all()
+            all_cands = qry.order_by(Candidate.id).all()
 
             def _sort_key(c: Candidate):
                 rel = _normalize_score(getattr(c, "fit_score", None))
@@ -930,7 +990,7 @@ def list_candidates(t: Tenant):
                 qry = qry.order_by(Candidate.fit_score.desc())
 
             total = qry.count()
-            cands = qry.offset((page - 1) * per_page).limit(per_page).all()
+            cands = qry.order_by(Candidate.id).offset((page - 1) * per_page).limit(per_page).all()
 
         # Build jd lookup
         codes = {c.jd_code for c in cands if c.jd_code}
@@ -947,6 +1007,7 @@ def list_candidates(t: Tenant):
             "page": page,
             "per_page": per_page,
             "pages": math.ceil(total / per_page) if per_page else 1,
+            "job_counts": {code: count for code, count in job_counts.items() if code},
             "candidates": [_candidate_list_dict(c, jd_map.get(c.jd_code)) for c in cands],
         })
     finally:

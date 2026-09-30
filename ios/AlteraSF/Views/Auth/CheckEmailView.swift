@@ -7,10 +7,10 @@ struct CheckEmailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("AlteraSF")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.figtree(size: 20, weight: .bold))
                     .foregroundColor(AppTheme.primary)
                 Image(systemName: "envelope.badge.fill")
-                    .font(.system(size: 38))
+                    .font(.figtree(size: 38))
                     .foregroundColor(AppTheme.primary)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 6) {
@@ -18,7 +18,7 @@ struct CheckEmailView: View {
                         .font(AppTheme.pageTitle)
                         .foregroundColor(AppTheme.textPrimary)
                     Text("We sent a password reset link to your inbox. Follow it to set a new password.")
-                        .font(.system(size: 14))
+                        .font(.figtree(size: 14))
                         .foregroundColor(AppTheme.textSecondary)
                 }
                 Button("Back to sign in", action: onBackToSignIn)

@@ -7,7 +7,7 @@ struct AvatarView: View {
 
     var body: some View {
         Text(initials)
-            .font(.system(size: size * 0.38, weight: .semibold))
+            .font(.figtree(size: size * 0.38, weight: .semibold))
             .foregroundColor(.white)
             .frame(width: size, height: size)
             .background(color)

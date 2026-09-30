@@ -8,9 +8,10 @@ struct AnalyticsView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 AppTopBar()
+                PageHeader(title: "Analytics", subtitle: "Performance across your job postings.")
+                    .background(AppTheme.pageBackground)
                 ScrollView {
                   VStack(spacing: 14) {
-                    PageHeader(title: "Analytics", subtitle: "Performance across your job postings.")
 
                     if vm.isLoading && vm.overview == nil {
                         ProgressView("Loading analytics…").padding(.top, 48)
@@ -19,14 +20,14 @@ struct AnalyticsView: View {
                     } else if let overview = vm.overview {
                         // Overall stats
                         HStack(spacing: 12) {
-                            StatCard(icon: "person.2.fill", value: "\(overview.totalApplicants)",
+                            StatCard(icon: "person.2", value: "\(overview.totalApplicants)",
                                      label: "Applicants", iconColor: AppTheme.primary)
-                            StatCard(icon: "diamond.fill", value: "\(overview.totalDiamonds)",
+                            StatCard(icon: "diamond", value: "\(overview.totalDiamonds)",
                                      label: "Diamonds", iconColor: AppTheme.diamond)
                         }
                         .padding(.horizontal, 16)
 
-                        Text("Job Postings").font(.system(size: 16, weight: .semibold))
+                        Text("Job Postings").font(.figtree(size: 16, weight: .semibold))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 16)
 
@@ -41,7 +42,7 @@ struct AnalyticsView: View {
                         }
                     }
                 }
-                  .padding(.top, 20).padding(.bottom, 24)
+                  .padding(.top, 16).padding(.bottom, 24)
                 }
             }
             .background(AppTheme.groupedBackground.ignoresSafeArea())
@@ -64,16 +65,21 @@ struct AnalyticsJobCard: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(summary.jobTitle).font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary).multilineTextAlignment(.leading)
-                    Text(summary.department).font(.caption).foregroundColor(AppTheme.textSecondary)
+                    Text(summary.jobTitle).font(.figtree(size: 17, weight: .semibold)).foregroundColor(AppTheme.textPrimary).multilineTextAlignment(.leading)
+                    Text(summary.department).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     if let posted = summary.postedDateFormatted {
-                        Text("Posted \(posted)").font(.system(size: 11)).foregroundColor(AppTheme.textTertiary)
+                        Text("Posted \(posted)").font(.figtree(size: 11)).foregroundColor(AppTheme.textTertiary)
                     }
                 }
                 Spacer()
-                JobStatusTag(status: status)
+                Text(status.rawValue)
+                    .font(.figtree(size: 14, weight: .medium))
+                    .foregroundColor(status == .open ? .white : AppTheme.textSecondary)
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .background(status == .open ? AppTheme.primary : AppTheme.secondaryBackground)
+                    .cornerRadius(8)
             }
             HStack(spacing: 0) {
                 AnalyticsMetric(value: "\(summary.totalApplicants)", label: "Applicants")
@@ -93,8 +99,8 @@ struct AnalyticsMetric: View {
     var valueColor: Color = AppTheme.textPrimary
     var body: some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 20, weight: .bold)).foregroundColor(valueColor)
-            Text(label).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+            Text(value).font(.figtree(size: 20, weight: .bold)).foregroundColor(valueColor)
+            Text(label).font(.figtree(size: 11)).foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 10)
     }

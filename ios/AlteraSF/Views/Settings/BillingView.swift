@@ -73,7 +73,7 @@ struct BillingView: View {
                     VStack(spacing: 16) {
                         if let actionError = vm.actionError {
                             Text(actionError)
-                                .font(.caption)
+                                .font(.figtree(size: 13))
                                 .foregroundColor(AppTheme.danger)
                                 .padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -141,10 +141,10 @@ struct BillingView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
                             Image(systemName: "bolt.fill")
-                                .font(.system(size: 12))
+                                .font(.figtree(size: 12))
                                 .foregroundColor(AppTheme.primary)
                             Text(summary.isGrandfathered ? "Grandfathered" : (summary.status == "canceled" ? "Canceled" : "Current Plan"))
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.figtree(size: 11, weight: .bold))
                                 .foregroundColor(AppTheme.primary)
                                 .textCase(.uppercase)
                         }
@@ -152,17 +152,17 @@ struct BillingView: View {
                         .background(AppTheme.primaryLight).cornerRadius(6)
 
                         Text(summary.planDisplay)
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.figtree(size: 24, weight: .bold))
                             .foregroundColor(AppTheme.textPrimary)
                     }
                     Spacer()
                     if !summary.isGrandfathered {
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(price > 0 ? "$\(Int(price))" : "Free")
-                                .font(.system(size: 28, weight: .bold))
+                                .font(.figtree(size: 28, weight: .bold))
                                 .foregroundColor(AppTheme.textPrimary)
                             Text(summary.billingCycle == "yearly" ? "/ year" : "/ month")
-                                .font(.caption).foregroundColor(AppTheme.textSecondary)
+                                .font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                         }
                     }
                 }
@@ -173,8 +173,13 @@ struct BillingView: View {
                     if let periodEnd = summary.periodEnd, let date = ISO8601DateFormatter().date(from: periodEnd) {
                         BillingMetric(label: "Next billing", value: date.formatted(.dateTime.month(.abbreviated).day().year()))
                     }
-                    BillingMetric(label: "Status", value: summary.status.capitalized, valueColor: summary.status == "active" || summary.isGrandfathered ? AppTheme.success : AppTheme.warning)
-                    BillingMetric(label: "Seats", value: "\(summary.seatsUsed)/\(summary.seatsLimit >= 999 ? "∞" : "\(summary.seatsLimit)")")
+                    if summary.isGrandfathered {
+                        BillingMetric(label: "Members", value: "\(summary.seatsUsed)")
+                        BillingMetric(label: "Seats", value: summary.seatsLimit >= 999 ? "Unlimited" : "\(summary.seatsLimit)")
+                    } else {
+                        BillingMetric(label: "Status", value: summary.status.capitalized, valueColor: summary.status == "active" ? AppTheme.success : AppTheme.warning)
+                        BillingMetric(label: "Seats", value: "\(summary.seatsUsed)/\(summary.seatsLimit >= 999 ? "∞" : "\(summary.seatsLimit)")")
+                    }
                 }
 
                 if !summary.isGrandfathered {
@@ -182,7 +187,7 @@ struct BillingView: View {
                         showUpgradeSheet = true
                     } label: {
                         Text("Change Plan")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.figtree(size: 14, weight: .semibold))
                             .foregroundColor(AppTheme.primary)
                             .frame(maxWidth: .infinity).frame(height: 40)
                             .background(AppTheme.primaryLight)
@@ -202,7 +207,7 @@ struct BillingView: View {
     private func usageCard(_ billing: APIBillingResponse) -> some View {
         let summary = billing.summary
         return VStack(alignment: .leading, spacing: 16) {
-            Text("Usage this period").font(.system(size: 16, weight: .semibold))
+            Text("Usage this period").font(.figtree(size: 16, weight: .semibold))
 
             UsageBar(label: "Active job postings", used: summary.jobsUsed, limit: summary.jobsLimit >= 999 ? 0 : summary.jobsLimit, color: AppTheme.primary)
             UsageBar(label: "Resumes screened this month", used: summary.resumesUsed, limit: summary.resumesLimit >= 999 ? 0 : summary.resumesLimit, color: AppTheme.success)
@@ -222,14 +227,14 @@ struct BillingView: View {
     private func paymentCard(_ billing: APIBillingResponse) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Payment method").font(.system(size: 16, weight: .semibold))
+                Text("Payment method").font(.figtree(size: 16, weight: .semibold))
                 Spacer()
                 Button(billing.hasStripeCustomer ? "Manage" : "Add") {
                     Task {
                         if let url = await vm.portalURL() { openURL(url) }
                     }
                 }
-                .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+                .font(.figtree(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
             }
 
             if let brand = billing.paymentMethod.brand, let last4 = billing.paymentMethod.last4 {
@@ -238,15 +243,15 @@ struct BillingView: View {
                         .fill(Color(red: 0.1, green: 0.15, blue: 0.35))
                         .frame(width: 50, height: 32)
                         .overlay(
-                            Text(brand.uppercased()).font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                            Text(brand.uppercased()).font(.figtree(size: 11, weight: .bold)).foregroundColor(.white)
                         )
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(brand.capitalized) ending in \(last4)")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.figtree(size: 14, weight: .medium))
                             .foregroundColor(AppTheme.textPrimary)
                         if let m = billing.paymentMethod.expMonth, let y = billing.paymentMethod.expYear {
                             Text("Expires \(m) / \(y)")
-                                .font(.caption)
+                                .font(.figtree(size: 13))
                                 .foregroundColor(AppTheme.textSecondary)
                         }
                     }
@@ -259,7 +264,7 @@ struct BillingView: View {
                 .cornerRadius(10)
             } else {
                 Text("No payment method on file.")
-                    .font(.system(size: 13))
+                    .font(.figtree(size: 13))
                     .foregroundColor(AppTheme.textSecondary)
             }
         }
@@ -272,31 +277,31 @@ struct BillingView: View {
     private func invoicesCard(_ billing: APIBillingResponse) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Invoices").font(.system(size: 16, weight: .semibold))
+                Text("Invoices").font(.figtree(size: 16, weight: .semibold))
                 Spacer()
                 if !billing.invoices.isEmpty {
                     ShareLink(item: receiptText(billing.invoices)) {
                         Text("Share all")
-                            .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+                            .font(.figtree(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
                     }
                 }
             }
 
             if billing.invoices.isEmpty {
                 Text("No invoices yet.")
-                    .font(.system(size: 13))
+                    .font(.figtree(size: 13))
                     .foregroundColor(AppTheme.textSecondary)
             } else {
                 ForEach(billing.invoices) { invoice in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(invoice.description).font(.system(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary)
-                            Text(formattedDate(invoice.createdAt)).font(.caption).foregroundColor(AppTheme.textSecondary)
+                            Text(invoice.description).font(.figtree(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+                            Text(formattedDate(invoice.createdAt)).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                         }
                         Spacer()
-                        Text(String(format: "$%.2f", invoice.amount)).font(.system(size: 14, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                        Text(String(format: "$%.2f", invoice.amount)).font(.figtree(size: 14, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
                         ShareLink(item: receiptText([invoice])) {
-                            Image(systemName: "square.and.arrow.up").font(.system(size: 16)).foregroundColor(AppTheme.primary).padding(.leading, 8)
+                            Image(systemName: "square.and.arrow.up").font(.figtree(size: 16)).foregroundColor(AppTheme.primary).padding(.leading, 8)
                         }
                     }
                     .padding(.vertical, 4)
@@ -313,7 +318,7 @@ struct BillingView: View {
             showCancelConfirm = true
         } label: {
             Text("Cancel Subscription")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.figtree(size: 14, weight: .semibold))
                 .foregroundColor(AppTheme.danger)
                 .frame(maxWidth: .infinity).frame(height: 44)
                 .background(AppTheme.danger.opacity(0.1))
@@ -341,8 +346,8 @@ struct BillingMetric: View {
     var valueColor: Color = AppTheme.textPrimary
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
-            Text(value).font(.system(size: 13, weight: .semibold)).foregroundColor(valueColor)
+            Text(label).font(.figtree(size: 11)).foregroundColor(AppTheme.textSecondary)
+            Text(value).font(.figtree(size: 13, weight: .semibold)).foregroundColor(valueColor)
         }
     }
 }
@@ -353,10 +358,10 @@ struct UsageBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(label).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                Text(label).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                 Spacer()
                 Text(limit > 0 ? "\(used) / \(limit)" : "\(used)")
-                    .font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                    .font(.figtree(size: 13, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -374,8 +379,8 @@ struct FeatureAccessBox: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: enabled ? "checkmark.circle.fill" : "lock.fill")
-                .font(.system(size: 18)).foregroundColor(enabled ? AppTheme.success : AppTheme.textTertiary)
-            Text(label).font(.system(size: 10)).foregroundColor(AppTheme.textSecondary).multilineTextAlignment(.center)
+                .font(.figtree(size: 18)).foregroundColor(enabled ? AppTheme.success : AppTheme.textTertiary)
+            Text(label).font(.figtree(size: 10)).foregroundColor(AppTheme.textSecondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 12)
         .background(AppTheme.secondaryBackground).cornerRadius(10)
@@ -403,12 +408,12 @@ struct UpgradeSheet: View {
                             HStack {
                                 Text(plan.displayName).font(.title3.weight(.bold))
                                 Spacer()
-                                Text("$\(Int(plan.monthlyPrice))/mo").font(.system(size: 16, weight: .semibold)).foregroundColor(AppTheme.primary)
+                                Text("$\(Int(plan.monthlyPrice))/mo").font(.figtree(size: 16, weight: .semibold)).foregroundColor(AppTheme.primary)
                             }
                             ForEach(plan.features) { feature in
                                 HStack(spacing: 10) {
                                     Image(systemName: "checkmark.circle.fill").foregroundColor(AppTheme.success)
-                                    Text(feature.name).font(.system(size: 14))
+                                    Text(feature.name).font(.figtree(size: 14))
                                 }
                             }
                             Button {
@@ -420,7 +425,7 @@ struct UpgradeSheet: View {
                                 }
                             } label: {
                                 Text("Switch to \(plan.displayName)")
-                                    .font(.system(size: 14, weight: .semibold)).foregroundColor(.white)
+                                    .font(.figtree(size: 14, weight: .semibold)).foregroundColor(.white)
                                     .frame(maxWidth: .infinity).frame(height: 44)
                                     .background(AppTheme.primary).cornerRadius(AppTheme.buttonCornerRadius)
                             }
@@ -432,11 +437,11 @@ struct UpgradeSheet: View {
                     if upgradeOptions.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "rosette")
-                                .font(.system(size: 36)).foregroundColor(AppTheme.primary)
+                                .font(.figtree(size: 36)).foregroundColor(AppTheme.primary)
                             Text("You're on our highest plan.")
-                                .font(.system(size: 20, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                                .font(.figtree(size: 20, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                             Text("Contact sales for Enterprise.")
-                                .font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+                                .font(.figtree(size: 14)).foregroundColor(AppTheme.textSecondary)
                             Link("Contact sales", destination: URL(string: "mailto:sales@alterasf.com")!)
                                 .buttonStyle(AlteraButtonStyle())
                                 .padding(.top, 16)

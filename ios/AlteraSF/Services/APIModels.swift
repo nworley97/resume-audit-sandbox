@@ -90,9 +90,11 @@ struct APIJob: Decodable {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let fallback = ISO8601DateFormatter()
-        func parse(_ s: String?) -> Date {
-            guard let s else { return Date() }
-            return formatter.date(from: s) ?? fallback.date(from: s) ?? Date()
+        func parse(_ s: String?) -> Date? {
+            guard let s else { return nil }
+            // Legacy API timestamps omit the UTC suffix.
+            let utc = s.contains("Z") || s.dropFirst(10).contains("+") || s.dropFirst(10).contains("-") ? s : s + "Z"
+            return formatter.date(from: utc) ?? fallback.date(from: utc)
         }
         return Job(
             id: String(id),
@@ -107,10 +109,13 @@ struct APIJob: Decodable {
             description: description,
             numberOfQuestions: questionCount,
             status: domainStatus,
-            postedDate: parse(postedDate),
+            postedDate: parse(postedDate) ?? Date(),
             applicantCount: applicantCount,
             diamondCount: diamondCount,
-            idSurveysEnabled: idSurveysEnabled
+            idSurveysEnabled: idSurveysEnabled,
+            startDate: parse(startDate),
+            endDate: parse(endDate),
+            salaryRange: salaryRange
         )
     }
 }
@@ -225,9 +230,11 @@ struct APICandidateListResponse: Decodable {
     let perPage: Int
     let pages: Int
     let candidates: [APICandidate]
+    let jobCounts: [String: Int]?
     enum CodingKeys: String, CodingKey {
         case total, page, pages, candidates
         case perPage = "per_page"
+        case jobCounts = "job_counts"
     }
 }
 

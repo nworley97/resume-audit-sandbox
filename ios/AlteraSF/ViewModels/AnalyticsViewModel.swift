@@ -87,13 +87,10 @@ final class JobAnalyticsViewModel: ObservableObject {
     }
 
     @MainActor
-    func updateNote(candidateId: String, note: String, jobCode: String) async {
-        do {
-            try await api.setCandidateNote(id: candidateId, note: note)
-            detail = try await api.fetchJobAnalytics(code: jobCode)
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func updateNote(candidateId: String, note: String, jobCode: String) async throws {
+        try await api.setCandidateNote(id: candidateId, note: note)
+        // The write succeeded; refresh failure must not masquerade as save failure.
+        await load(code: jobCode)
     }
 
     @MainActor

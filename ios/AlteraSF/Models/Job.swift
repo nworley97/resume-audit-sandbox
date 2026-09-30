@@ -38,6 +38,9 @@ struct Job: Identifiable, Hashable {
     var diamondCount: Int
     var hiredCandidate: String?
     var idSurveysEnabled: Bool = true
+    var startDate: Date? = nil
+    var endDate: Date? = nil
+    var salaryRange: String = ""
 
     var avatarInitials: [String] {
         ["AB", "MK", "JS"]

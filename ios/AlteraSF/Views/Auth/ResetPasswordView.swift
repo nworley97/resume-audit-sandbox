@@ -13,13 +13,13 @@ struct ResetPasswordView: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("AlteraSF")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.figtree(size: 22, weight: .bold))
                         .foregroundColor(AppTheme.primary)
                     Text("Reset password")
                         .font(AppTheme.pageTitle)
                         .foregroundColor(AppTheme.textPrimary)
                     Text("Enter the email tied to your account and we'll send you a secure reset link.")
-                        .font(.subheadline)
+                        .font(.figtree(size: 15))
                         .foregroundColor(AppTheme.textSecondary)
                 }
                 .padding(.top, 40)
@@ -27,7 +27,7 @@ struct ResetPasswordView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Email")
-                        .font(.subheadline).fontWeight(.medium)
+                        .font(.figtree(size: 15)).fontWeight(.medium)
                         .foregroundColor(AppTheme.textPrimary)
                     TextField("you@company.com", text: $email)
                         .keyboardType(.emailAddress)
@@ -38,7 +38,7 @@ struct ResetPasswordView: View {
                 }
 
                 if let error {
-                    Text(error).font(.caption).foregroundColor(AppTheme.danger).padding(.top, 8)
+                    Text(error).font(.figtree(size: 13)).foregroundColor(AppTheme.danger).padding(.top, 8)
                 }
 
                 Button {
@@ -48,7 +48,7 @@ struct ResetPasswordView: View {
                         if isSending {
                             ProgressView().tint(.white)
                         } else {
-                            Text("Send reset link").font(.system(size: 16, weight: .semibold))
+                            Text("Send reset link").font(.figtree(size: 16, weight: .semibold))
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -66,7 +66,7 @@ struct ResetPasswordView: View {
                 Button("Remembered it? Back to sign in") {
                     dismiss()
                 }
-                .font(.subheadline)
+                .font(.figtree(size: 15))
                 .foregroundColor(AppTheme.primary)
                 .padding(.top, 16)
             }

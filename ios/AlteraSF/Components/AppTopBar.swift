@@ -13,7 +13,7 @@ struct AppTopBar: View {
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 26, height: 26)
                 Text("AlteraSF")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.figtree(size: 17, weight: .bold))
                     .foregroundColor(AppTheme.textPrimary)
             }
 
@@ -21,7 +21,7 @@ struct AppTopBar: View {
 
             Button { showNotifications = true } label: {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: "bell").font(.system(size: 21)).foregroundColor(AppTheme.textPrimary)
+                    Image(systemName: "bell").font(.figtree(size: 21)).foregroundColor(AppTheme.textPrimary)
                     if notificationsVM.unreadCount > 0 {
                         Circle().fill(AppTheme.danger).frame(width: 7, height: 7).offset(x: 3, y: -2)
                     }
@@ -46,10 +46,10 @@ struct PageHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(AppTheme.pageTitle).foregroundColor(AppTheme.textPrimary)
-            Text(subtitle).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+            Text(subtitle).font(.figtree(size: 15)).foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 20)
+        .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 16)
     }
 }
 
@@ -63,7 +63,7 @@ struct NotificationsPreviewSheet: View {
                 VStack(spacing: 0) {
                     if vm.notifications.isEmpty {
                         VStack(spacing: 12) {
-                            Image(systemName: "bell.slash").font(.system(size: 32)).foregroundColor(AppTheme.textTertiary)
+                            Image(systemName: "bell.slash").font(.figtree(size: 32)).foregroundColor(AppTheme.textTertiary)
                             Text("No notifications yet").foregroundColor(AppTheme.textSecondary)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 48)
@@ -76,7 +76,7 @@ struct NotificationsPreviewSheet: View {
                             NotificationsView()
                         } label: {
                             Text("View all notifications")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.figtree(size: 14, weight: .medium))
                                 .foregroundColor(AppTheme.primary)
                                 .frame(maxWidth: .infinity).padding(.vertical, 16)
                         }
@@ -88,13 +88,13 @@ struct NotificationsPreviewSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Mark all read") { Task { await vm.markAllRead() } }
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.figtree(size: 13, weight: .medium))
                         .foregroundColor(AppTheme.primary)
                         .disabled(vm.unreadCount == 0)
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.height(500), .large])
         .presentationDragIndicator(.visible)
     }
 }
@@ -111,8 +111,8 @@ struct AccountSheet: View {
             HStack(spacing: 14) {
                 AvatarView(initials: authVM.currentUserInitials, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(authVM.currentUserName).font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
-                    Text(authVM.currentUserEmail).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                    Text(authVM.currentUserName).font(.figtree(size: 15, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                    Text(authVM.currentUserEmail).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                 }
                 Spacer()
             }
@@ -133,8 +133,8 @@ struct AccountSheet: View {
                 authVM.signOut()
             } label: {
                 HStack(spacing: 14) {
-                    Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16)).foregroundColor(AppTheme.danger).frame(width: 20)
-                    Text("Log out").font(.system(size: 16)).foregroundColor(AppTheme.danger)
+                    Image(systemName: "rectangle.portrait.and.arrow.right").font(.figtree(size: 16)).foregroundColor(AppTheme.danger).frame(width: 20)
+                    Text("Log out").font(.figtree(size: 16)).foregroundColor(AppTheme.danger)
                     Spacer()
                 }
                 .padding(.horizontal, 20).padding(.vertical, 13)
@@ -151,8 +151,8 @@ struct AccountSheet: View {
     private func row(icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 16)).foregroundColor(AppTheme.textPrimary).frame(width: 20)
-                Text(label).font(.system(size: 16)).foregroundColor(AppTheme.textPrimary)
+                Image(systemName: icon).font(.figtree(size: 16)).foregroundColor(AppTheme.textPrimary).frame(width: 20)
+                Text(label).font(.figtree(size: 16)).foregroundColor(AppTheme.textPrimary)
                 Spacer()
             }
             .padding(.horizontal, 20).padding(.vertical, 13)

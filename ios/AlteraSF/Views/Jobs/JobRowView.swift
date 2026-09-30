@@ -22,7 +22,7 @@ struct JobRowView: View {
                     .frame(width: 8, height: 8)
                     .padding(.top, 5)
                 Text(job.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.figtree(size: 15, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -32,7 +32,7 @@ struct JobRowView: View {
                         showActions = true
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 16))
+                            .font(.figtree(size: 16))
                             .foregroundColor(AppTheme.textSecondary)
                             .padding(8)
                             .contentShape(Rectangle())
@@ -43,7 +43,7 @@ struct JobRowView: View {
 
             // Job ID + posted date
             Text("\(job.jobId)  ·  Posted \(job.postedDate.formatted(.dateTime.month(.abbreviated).day()))")
-                .font(.system(size: 12))
+                .font(.figtree(size: 12))
                 .foregroundColor(AppTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
@@ -52,11 +52,11 @@ struct JobRowView: View {
             HStack(spacing: 10) {
                 StackedAvatars(initials: job.avatarInitials)
                 Text("\(job.applicantCount) applicants")
-                    .font(.system(size: 13))
+                    .font(.figtree(size: 13))
                     .foregroundColor(AppTheme.textSecondary)
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.figtree(size: 13, weight: .semibold))
                     .foregroundColor(AppTheme.textTertiary)
             }
             .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 14)
@@ -113,10 +113,10 @@ struct JobActionsSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(job.title)
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.figtree(size: 17, weight: .bold))
                     .foregroundColor(AppTheme.textPrimary)
                 Text(job.jobId)
-                    .font(.system(size: 13))
+                    .font(.figtree(size: 13))
                     .foregroundColor(AppTheme.textSecondary)
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
@@ -137,7 +137,7 @@ struct JobActionsSheet: View {
             }
 
             Button("Cancel") { dismiss() }
-                .font(.system(size: 16, weight: .medium))
+                .font(.figtree(size: 16, weight: .medium))
                 .foregroundColor(AppTheme.textPrimary)
                 .frame(maxWidth: .infinity).frame(height: 48)
                 .background(AppTheme.secondaryBackground)
@@ -151,8 +151,8 @@ struct JobActionsSheet: View {
     private func actionRow(icon: String, label: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 16)).foregroundColor(tint).frame(width: 20)
-                Text(label).font(.system(size: 16)).foregroundColor(tint)
+                Image(systemName: icon).font(.figtree(size: 16)).foregroundColor(tint).frame(width: 20)
+                Text(label).font(.figtree(size: 16)).foregroundColor(tint)
                 Spacer()
             }
             .padding(.horizontal, 20).padding(.vertical, 13)

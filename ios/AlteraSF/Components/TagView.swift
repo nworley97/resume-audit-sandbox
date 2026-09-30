@@ -8,7 +8,7 @@ struct TagView: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.figtree(size: 11, weight: .semibold))
             .foregroundColor(filled ? .white : color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -38,7 +38,7 @@ struct DiamondBadge: View {
 
     var body: some View {
         Image(systemName: "diamond.fill")
-            .font(.system(size: size))
+            .font(.figtree(size: size))
             .foregroundColor(AppTheme.diamond)
     }
 }
@@ -48,7 +48,7 @@ struct FlagBadge: View {
 
     var body: some View {
         Image(systemName: "flag.fill")
-            .font(.system(size: size))
+            .font(.figtree(size: size))
             .foregroundColor(AppTheme.flagged)
     }
 }

@@ -3,46 +3,70 @@ import SwiftUI
 struct MainTabView: View {
     @EnvironmentObject var authVM: AuthViewModel
     @State private var selectedTab = 0
+    @State private var visitedTabs: Set<Int> = [0]
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            JobPostingsView()
-                .tabItem { Label("Jobs", systemImage: "briefcase") }
-                .tag(0)
-            CandidatesView()
-                .tabItem { Label("Candidates", systemImage: "person.2") }
-                .tag(1)
-            AnalyticsView()
-                .tabItem { Label("Analytics", systemImage: "chart.bar.fill") }
-                .tag(2)
-            AccountTabView()
-                .tabItem {
-                    Label {
-                        Text("Account")
-                    } icon: {
-                        Image(uiImage: accountAvatar).renderingMode(.original)
-                    }
+        ZStack {
+            ForEach(0..<4) { index in
+                if visitedTabs.contains(index) {
+                    tabContent(index)
+                        .opacity(selectedTab == index ? 1 : 0)
+                        .allowsHitTesting(selectedTab == index)
+                        .accessibilityHidden(selectedTab != index)
+                        .zIndex(selectedTab == index ? 1 : 0)
                 }
-                .tag(3)
+            }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .font(.figtree(size: 16))
         .tint(AppTheme.primary)
     }
 
-    // Tab items are rendered by UIKit; arbitrary SwiftUI avatar views are ignored.
-    private var accountAvatar: UIImage {
-        let size = CGSize(width: 24, height: 24)
-        return UIGraphicsImageRenderer(size: size).image { _ in
-            UIColor(AppTheme.primary).setFill()
-            UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
-            let initials = String(authVM.currentUserInitials.prefix(2)) as NSString
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
-                .foregroundColor: UIColor.white
-            ]
-            let textSize = initials.size(withAttributes: attributes)
-            initials.draw(at: CGPoint(x: (24 - textSize.width) / 2,
-                                      y: (24 - textSize.height) / 2), withAttributes: attributes)
+    @ViewBuilder private func tabContent(_ index: Int) -> some View {
+        switch index {
+        case 0: JobPostingsView()
+        case 1: CandidatesView()
+        case 2: AnalyticsView()
+        default: AccountTabView()
         }
+    }
+
+    private var bottomBar: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(AppTheme.divider).frame(height: 0.5)
+            HStack(spacing: 0) {
+                tabButton(0, "Jobs", "briefcase")
+                tabButton(1, "Candidates", "person.2")
+                tabButton(2, "Analytics", "chart.bar")
+                tabButton(3, "Account", "person.circle")
+            }
+            .padding(.top, 8).padding(.bottom, 4)
+        }
+        .background(AppTheme.pageBackground)
+    }
+
+    private func tabButton(_ index: Int, _ title: String, _ icon: String) -> some View {
+        Button {
+            visitedTabs.insert(index)
+            selectedTab = index
+        } label: {
+            VStack(spacing: 3) {
+                if index == 3 {
+                    AvatarView(initials: String(authVM.currentUserInitials.prefix(2)), size: 26)
+                } else {
+                    Image(systemName: icon).font(.system(size: 22))
+                        .frame(height: 26)
+                }
+                Text(title).font(.figtree(size: 11))
+            }
+            .foregroundColor(selectedTab == index ? AppTheme.primary : AppTheme.textSecondary)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("tab.\(title.lowercased())")
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selectedTab == index ? .isSelected : [])
     }
 }
 
@@ -66,10 +90,10 @@ struct AccountTabView: View {
                             AvatarView(initials: authVM.currentUserInitials, size: 44)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(authVM.currentUserName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.figtree(size: 16, weight: .semibold))
                                     .foregroundColor(AppTheme.textPrimary)
                                 Text(authVM.currentUserEmail)
-                                    .font(.system(size: 13))
+                                    .font(.figtree(size: 13))
                                     .foregroundColor(AppTheme.textSecondary)
                             }
                             Spacer(minLength: 0)
@@ -97,7 +121,7 @@ struct AccountTabView: View {
                                 set: { appearanceModeRaw = $0 ? AppearanceMode.dark.rawValue : AppearanceMode.light.rawValue }
                             )) {
                                 Label("Dark mode", systemImage: "moon")
-                                    .font(.system(size: 15))
+                                    .font(.figtree(size: 15))
                                     .foregroundColor(AppTheme.textPrimary)
                             }
                             .tint(AppTheme.primary)
@@ -112,7 +136,7 @@ struct AccountTabView: View {
 
                         Button { authVM.signOut() } label: {
                             Label("Log out", systemImage: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 15))
+                                .font(.figtree(size: 15))
                                 .foregroundColor(AppTheme.danger)
                                 .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
                                 .padding(.horizontal, 16)
@@ -152,10 +176,10 @@ struct AccountTabView: View {
             Text(title)
             Spacer()
             Image(systemName: accessory)
-                .font(.system(size: 12))
+                .font(.figtree(size: 12))
                 .foregroundColor(accessory == "doc.on.doc" ? AppTheme.primary : AppTheme.textTertiary)
         }
-        .font(.system(size: 15))
+        .font(.figtree(size: 15))
         .foregroundColor(AppTheme.textPrimary)
         .frame(minHeight: 44)
         .padding(.horizontal, 16)

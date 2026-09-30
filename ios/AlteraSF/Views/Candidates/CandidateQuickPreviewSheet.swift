@@ -15,13 +15,13 @@ struct CandidateQuickPreviewSheet: View {
                     AvatarView(initials: candidate.initials, size: 64)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(candidate.fullName)
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.figtree(size: 20, weight: .bold))
                             .foregroundColor(AppTheme.textPrimary)
                         Text(candidate.jobTitle)
-                            .font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                            .font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                         if candidate.isDiamond {
                             Label("Diamond in the Rough", systemImage: "diamond.fill")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.figtree(size: 10, weight: .semibold))
                                 .foregroundColor(AppTheme.primaryDark)
                                 .padding(.horizontal, 8).padding(.vertical, 4)
                                 .background(AppTheme.primaryLight).clipShape(Capsule())
@@ -35,9 +35,9 @@ struct CandidateQuickPreviewSheet: View {
                     ProfileTabSwitchCard(value: candidate.tabSwitches, background: AppTheme.groupedBackground)
                 }
                 Text("Applied \(candidate.appliedDate.formatted(.dateTime.month(.abbreviated).day().year()))")
-                    .font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                    .font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                 if let error {
-                    Text(error).font(.caption).foregroundColor(AppTheme.danger)
+                    Text(error).font(.figtree(size: 13)).foregroundColor(AppTheme.danger)
                 }
                 VStack(spacing: 10) {
                     Button("View full profile", action: onViewFullProfile)

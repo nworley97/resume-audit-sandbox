@@ -146,12 +146,14 @@ final class APIService: ObservableObject {
     // MARK: – Candidates
 
     func fetchCandidates(jobCode: String? = nil, search: String? = nil,
-                         sort: String = "score", page: Int = 1) async throws -> APICandidateListResponse {
+                         sort: String = "score", page: Int = 1,
+                         department: String? = nil) async throws -> APICandidateListResponse {
         let tenant = try requireTenant()
         var comps = URLComponents()
         comps.queryItems = [URLQueryItem(name: "page", value: "\(page)")]
         if let jc = jobCode { comps.queryItems!.append(.init(name: "job_code", value: jc)) }
         if let s = search, !s.isEmpty { comps.queryItems!.append(.init(name: "q", value: s)) }
+        if let department { comps.queryItems!.append(.init(name: "department", value: department)) }
         comps.queryItems!.append(.init(name: "sort", value: sort))
         let qs = comps.percentEncodedQuery.map { "?\($0)" } ?? ""
         return try await get("/api/mobile/\(tenant)/candidates\(qs)")

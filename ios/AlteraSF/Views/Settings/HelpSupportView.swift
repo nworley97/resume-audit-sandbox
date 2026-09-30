@@ -40,12 +40,12 @@ struct HelpSupportView: View {
                 ForEach(faqItems) { item in
                     DisclosureGroup {
                         Text(item.answer)
-                            .font(.system(size: 13))
+                            .font(.figtree(size: 13))
                             .foregroundColor(AppTheme.textSecondary)
                             .padding(.top, 4)
                     } label: {
                         Text(item.question)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.figtree(size: 14, weight: .medium))
                             .foregroundColor(AppTheme.textPrimary)
                     }
                 }

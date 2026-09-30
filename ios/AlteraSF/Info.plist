@@ -22,6 +22,14 @@
 	<string>$(API_BASE_URL)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fonts/Figtree-Regular.ttf</string>
+		<string>Fonts/Figtree-Medium.ttf</string>
+		<string>Fonts/Figtree-SemiBold.ttf</string>
+		<string>Fonts/Figtree-Bold.ttf</string>
+		<string>Fonts/Poppins-Bold.ttf</string>
+	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to sign in to your AlteraSF account.</string>
 	<key>NSLocalNetworkUsageDescription</key>

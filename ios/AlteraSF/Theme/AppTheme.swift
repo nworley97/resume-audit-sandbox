@@ -12,8 +12,8 @@ enum AppTheme {
     static let groupedBackground = adaptive(0xF3F2F7, dark: 0x000000)
     static let pageBackground = adaptive(0xFFFFFF, dark: 0x000000)
 
-    static let textPrimary = Color(UIColor.label)
-    static let textSecondary = Color(UIColor.secondaryLabel)
+    static let textPrimary = adaptive(0x0A0A0A, dark: 0xFFFFFF)
+    static let textSecondary = adaptive(0x8E8E93, dark: 0x8E8E93)
     static let textTertiary = adaptive(0x929296, dark: 0x929298)
 
     static let divider = adaptive(0xE9E9ED, dark: 0x333336)
@@ -28,9 +28,9 @@ enum AppTheme {
     static let cardShadow = Color.clear
 
     static let cornerRadius: CGFloat = 10
-    static let cardCornerRadius: CGFloat = 12
+    static let cardCornerRadius: CGFloat = 14
     static let buttonCornerRadius: CGFloat = 10
-    static let pageTitle: Font = .system(size: 34, weight: .bold)
+    static let pageTitle: Font = .custom("Poppins-Bold", size: 32, relativeTo: .largeTitle)
 
     private static func adaptive(_ light: UInt32, dark: UInt32) -> Color {
         Color(UIColor { traits in
@@ -42,13 +42,26 @@ enum AppTheme {
     }
 }
 
+extension Font {
+    static func figtree(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        let face: String
+        switch weight {
+        case .bold, .heavy, .black: face = "Bold"
+        case .semibold: face = "SemiBold"
+        case .medium: face = "Medium"
+        default: face = "Regular"
+        }
+        return .custom("Figtree-\(face)", size: size, relativeTo: .body)
+    }
+}
+
 struct AlteraButtonStyle: ButtonStyle {
     var secondary = false
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15, weight: .medium))
+            .font(.figtree(size: 15, weight: .medium))
             .frame(maxWidth: .infinity, minHeight: 48)
             .foregroundColor(secondary ? AppTheme.textPrimary : .white)
             .background(secondary ? AppTheme.secondaryBackground : AppTheme.primary)

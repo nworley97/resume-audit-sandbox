@@ -18,6 +18,8 @@ struct EditJobView: View {
     @State private var copiedLink = false
     @State private var startDate = Date()
     @State private var endDate = Date().addingTimeInterval(86400 * 30)
+    @State private var startDateChanged = false
+    @State private var endDateChanged = false
     @State private var isSaving = false
     @State private var saveError: String? = nil
     @State private var showPublishConfirm = false
@@ -46,13 +48,23 @@ struct EditJobView: View {
         _location = State(initialValue: job?.location ?? "Remote")
         _employmentType = State(initialValue: job?.employmentType ?? .fullTime)
         _workArrangement = State(initialValue: job?.workArrangement ?? .remote)
-        _salaryRange = State(initialValue: job.map { "\($0.salaryMin > 0 ? "$\($0.salaryMin)" : "")–$\($0.salaryMax > 0 ? "\($0.salaryMax)" : "")" } ?? "")
+        _salaryRange = State(initialValue: job?.salaryRange ?? "")
         _description = State(initialValue: job?.description ?? "")
         _numberOfQuestions = State(initialValue: job?.numberOfQuestions ?? 3)
         _idSurveysEnabled = State(initialValue: job?.idSurveysEnabled ?? true)
+        _startDate = State(initialValue: job?.startDate ?? Date())
+        _endDate = State(initialValue: job?.endDate ?? Date().addingTimeInterval(86400 * 30))
     }
 
     var isNew: Bool { job == nil }
+    private var hasStartDate: Bool { isNew || job?.startDate != nil || startDateChanged }
+    private var hasEndDate: Bool { isNew || job?.endDate != nil || endDateChanged }
+    private var startSelection: Binding<Date> {
+        Binding(get: { startDate }, set: { startDate = $0; startDateChanged = true })
+    }
+    private var endSelection: Binding<Date> {
+        Binding(get: { endDate }, set: { endDate = $0; endDateChanged = true })
+    }
 
     private var applicationLink: String {
         guard let slug = api.tenantSlug else { return "" }
@@ -65,7 +77,7 @@ struct EditJobView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         card {
-                            Text("Basic Information").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                            Text("Basic Information").font(.figtree(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
 
                             fieldLabel("Job Title", required: true)
                             borderedTextField("e.g. Software Engineer Intern – Frontend", text: $title)
@@ -79,7 +91,7 @@ struct EditJobView: View {
                                 showAddDepartment = true
                             } label: {
                                 Label("Add Department", systemImage: "plus.circle.fill")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.figtree(size: 14, weight: .medium))
                                     .foregroundColor(AppTheme.primary)
                             }
 
@@ -89,21 +101,21 @@ struct EditJobView: View {
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 6) {
                                     fieldLabel("Start date")
-                                    tappableField(startDate.formatted(.dateTime.month(.abbreviated).day().year()), icon: "calendar") { showStartDateSheet = true }
+                                    tappableField(hasStartDate ? startDate.formatted(.dateTime.month(.abbreviated).day().year()) : "Not set", icon: "calendar") { showStartDateSheet = true }
                                 }
                                 VStack(alignment: .leading, spacing: 6) {
                                     fieldLabel("Start time")
-                                    tappableField(startDate.formatted(.dateTime.hour().minute()), icon: "clock") { showStartTimeSheet = true }
+                                    tappableField(hasStartDate ? startDate.formatted(.dateTime.hour().minute()) : "Not set", icon: "clock") { showStartTimeSheet = true }
                                 }
                             }
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 6) {
                                     fieldLabel("End date")
-                                    tappableField(endDate.formatted(.dateTime.month(.abbreviated).day().year()), icon: "calendar") { showEndDateSheet = true }
+                                    tappableField(hasEndDate ? endDate.formatted(.dateTime.month(.abbreviated).day().year()) : "Not set", icon: "calendar") { showEndDateSheet = true }
                                 }
                                 VStack(alignment: .leading, spacing: 6) {
                                     fieldLabel("End time")
-                                    tappableField(endDate.formatted(.dateTime.hour().minute()), icon: "clock") { showEndTimeSheet = true }
+                                    tappableField(hasEndDate ? endDate.formatted(.dateTime.hour().minute()) : "Not set", icon: "clock") { showEndTimeSheet = true }
                                 }
                             }
 
@@ -115,12 +127,12 @@ struct EditJobView: View {
                         }
 
                         card {
-                            Text("Salary Range").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                            Text("Salary Range").font(.figtree(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                             borderedTextField("e.g. $80,000–$120,000", text: $salaryRange)
                         }
 
                         card {
-                            Text("Role Description").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                            Text("Role Description").font(.figtree(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                             TextEditor(text: $description)
                                 .frame(minHeight: 100)
                                 .padding(8)
@@ -128,26 +140,26 @@ struct EditJobView: View {
                         }
 
                         card {
-                            Text("Assessment").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                            Text("Assessment").font(.figtree(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                             fieldLabel("Number of questions")
                             tappableField("\(numberOfQuestions) question\(numberOfQuestions == 1 ? "" : "s")") { showQuestionCountSheet = true }
                         }
 
                         card {
-                            Text("Self-Identification Survey").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                            Text("Self-Identification Survey").font(.figtree(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                             Toggle("Enable self-identification survey", isOn: $idSurveysEnabled)
-                                .font(.system(size: 14))
+                                .font(.figtree(size: 14))
                                 .tint(AppTheme.primary)
                         }
 
                         if !isNew {
                             card {
-                                Text("Application Link").font(.system(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                                Text("Application Link").font(.figtree(size: 15, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                                 Text("Your job is live! Share this application link on your website, social media, or job boards.")
-                                    .font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                                    .font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
                                 HStack(spacing: 8) {
                                     Text(applicationLink)
-                                        .font(.system(size: 12))
+                                        .font(.figtree(size: 12))
                                         .foregroundColor(AppTheme.textSecondary)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
@@ -161,7 +173,7 @@ struct EditJobView: View {
                                         }
                                     } label: {
                                         Label(copiedLink ? "Copied" : "Copy", systemImage: copiedLink ? "checkmark" : "doc.on.doc")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .font(.figtree(size: 12, weight: .semibold))
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(AppTheme.primary)
@@ -172,7 +184,7 @@ struct EditJobView: View {
                         }
 
                         if let err = saveError {
-                            Text(err).foregroundColor(AppTheme.danger).font(.caption)
+                            Text(err).foregroundColor(AppTheme.danger).font(.figtree(size: 13))
                         }
                     }
                     .padding(16)
@@ -191,7 +203,7 @@ struct EditJobView: View {
                         .foregroundColor(.white)
                         .cornerRadius(AppTheme.buttonCornerRadius)
                 }
-                .font(.system(size: 15, weight: .semibold))
+                .font(.figtree(size: 15, weight: .semibold))
                 .padding(.horizontal, 16).padding(.vertical, 12)
                 .background(.regularMaterial)
                 .overlay(isSaving ? ProgressView().scaleEffect(0.9) : nil)
@@ -205,7 +217,7 @@ struct EditJobView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Text(isNew ? "New" : "Draft")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.figtree(size: 11, weight: .semibold))
                         .foregroundColor(AppTheme.warning)
                         .padding(.horizontal, 10).padding(.vertical, 4)
                         .background(AppTheme.warning.opacity(0.15))
@@ -244,16 +256,16 @@ struct EditJobView: View {
                 SelectionListSheet(title: "Work arrangement", options: WorkArrangement.allCases, selection: $workArrangement) { $0.rawValue }
             }
             .sheet(isPresented: $showStartDateSheet) {
-                DateSheet(title: "Start date", date: $startDate)
+                DateSheet(title: "Start date", date: startSelection)
             }
             .sheet(isPresented: $showEndDateSheet) {
-                DateSheet(title: "End date", date: $endDate)
+                DateSheet(title: "End date", date: endSelection)
             }
             .sheet(isPresented: $showStartTimeSheet) {
-                TimeSheet(title: "Start time", date: $startDate)
+                TimeSheet(title: "Start time", date: startSelection)
             }
             .sheet(isPresented: $showEndTimeSheet) {
-                TimeSheet(title: "End time", date: $endDate)
+                TimeSheet(title: "End time", date: endSelection)
             }
             .sheet(isPresented: $showQuestionCountSheet) {
                 SelectionListSheet(title: "Number of questions", options: [1, 2, 3, 4, 5], selection: $numberOfQuestions) { "\($0) question\($0 == 1 ? "" : "s")" }
@@ -274,7 +286,7 @@ struct EditJobView: View {
 
     private func fieldLabel(_ text: String, required: Bool = false) -> some View {
         HStack(spacing: 2) {
-            Text(text).font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+            Text(text).font(.figtree(size: 13, weight: .medium)).foregroundColor(AppTheme.textPrimary)
             if required { Text("*").foregroundColor(AppTheme.danger) }
         }
         .padding(.top, 4)
@@ -289,9 +301,9 @@ struct EditJobView: View {
     private func tappableField(_ text: String, icon: String = "chevron.down", action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                Text(text).font(.system(size: 15)).foregroundColor(AppTheme.textPrimary)
+                Text(text).font(.figtree(size: 15)).foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Image(systemName: icon).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                Image(systemName: icon).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppTheme.divider, lineWidth: 1))
@@ -321,9 +333,13 @@ struct EditJobView: View {
             saveError = "Title and Job ID are required."
             return
         }
+        guard !hasStartDate || !hasEndDate || endDate >= startDate else {
+            saveError = "End date and time must be after the start."
+            return
+        }
         isSaving = true
         saveError = nil
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "title": title, "code": code, "department": department,
             "location": location,
             "employment_type": employmentType.rawValue,
@@ -334,6 +350,9 @@ struct EditJobView: View {
             "id_surveys_enabled": idSurveysEnabled,
             "status": status,
         ]
+        // Editing unrelated fields must not invent a deadline for an unscheduled role.
+        if hasStartDate { body["start_date"] = ISO8601DateFormatter().string(from: startDate) }
+        if hasEndDate { body["end_date"] = ISO8601DateFormatter().string(from: endDate) }
         Task { @MainActor in
             defer { isSaving = false }
             do {
@@ -363,7 +382,7 @@ struct SelectionListSheet<T: Hashable>: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text(title).font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                Text(title).font(.figtree(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                     .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
                 ForEach(options, id: \.self) { option in
                     Button {
@@ -372,7 +391,7 @@ struct SelectionListSheet<T: Hashable>: View {
                     } label: {
                         HStack {
                             Text(label(option))
-                                .font(.system(size: 16))
+                                .font(.figtree(size: 16))
                                 .foregroundColor(option == selection ? AppTheme.primary : AppTheme.textPrimary)
                             Spacer()
                             if option == selection {
@@ -402,7 +421,7 @@ struct DepartmentSelectSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Select department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                Text("Select department").font(.figtree(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                     .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
                 ForEach(departments, id: \.id) { dept in
                     Button {
@@ -411,7 +430,7 @@ struct DepartmentSelectSheet: View {
                     } label: {
                         HStack {
                             Text(dept.name)
-                                .font(.system(size: 16))
+                                .font(.figtree(size: 16))
                                 .foregroundColor(dept.name == selection ? AppTheme.primary : AppTheme.textPrimary)
                             Spacer()
                             if dept.name == selection {
@@ -425,7 +444,7 @@ struct DepartmentSelectSheet: View {
                 }
                 Button(action: onAddNew) {
                     Label("Add department", systemImage: "plus")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.figtree(size: 15, weight: .medium))
                         .foregroundColor(AppTheme.primary)
                         .padding(.horizontal, 20).padding(.vertical, 14)
                 }
@@ -450,7 +469,7 @@ struct DateSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text(title).font(.system(size: 20, weight: .bold))
+                Text(title).font(.figtree(size: 20, weight: .bold))
                 DatePicker(title, selection: $draft, displayedComponents: .date)
                     .datePickerStyle(.graphical)
                     .labelsHidden()
@@ -478,7 +497,7 @@ struct TimeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.system(size: 20, weight: .bold))
+            Text(title).font(.figtree(size: 20, weight: .bold))
             DatePicker(title, selection: $draft, displayedComponents: .hourAndMinute)
                 .datePickerStyle(.wheel)
                 .labelsHidden()

@@ -44,7 +44,7 @@ struct NotificationsView: View {
                     .padding(16)
             } else if vm.notifications.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "bell.slash").font(.system(size: 40)).foregroundColor(AppTheme.textTertiary)
+                    Image(systemName: "bell.slash").font(.figtree(size: 40)).foregroundColor(AppTheme.textTertiary)
                     Text("No notifications yet").foregroundColor(AppTheme.textSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -67,7 +67,7 @@ struct NotificationsView: View {
                 Button("Mark all read") {
                     Task { await vm.markAllRead() }
                 }
-                .font(.system(size: 13, weight: .medium))
+                .font(.figtree(size: 13, weight: .medium))
                 .foregroundColor(AppTheme.primary)
                 .disabled(vm.unreadCount == 0)
             }
@@ -87,20 +87,20 @@ struct NotificationRow: View {
                     .fill(iconBackground)
                     .frame(width: 32, height: 32)
                 Image(systemName: notification.iconName)
-                    .font(.system(size: 16))
+                    .font(.figtree(size: 16))
                     .foregroundColor(iconColor)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(notification.title)
-                    .font(.system(size: 14, weight: notification.isRead ? .regular : .semibold))
+                    .font(.figtree(size: 16, weight: notification.isRead ? .regular : .semibold))
                     .foregroundColor(AppTheme.textPrimary)
                 Text(notification.subtitle)
-                    .font(.system(size: 13))
+                    .font(.figtree(size: 15))
                     .foregroundColor(AppTheme.textSecondary)
                     .lineLimit(1)
                 Text(notification.relativeTime)
-                    .font(.system(size: 11))
+                    .font(.figtree(size: 11))
                     .foregroundColor(AppTheme.textTertiary)
             }
 

@@ -7,6 +7,7 @@ struct CandidateProfileView: View {
 
     @State private var candidate: Candidate?
     @State private var isLoadingDetail = false
+    @State private var detailError: String?
     @State private var expandedQA: Set<UUID> = []
     @State private var showArchiveAlert = false
     @State private var showFinalistToast = false
@@ -27,10 +28,14 @@ struct CandidateProfileView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             ScrollView {
+                if let detailError {
+                    ErrorBanner(message: detailError) { Task { await loadDetail() } }
+                        .padding(16)
+                }
                 if let c = candidate {
                     profileContent(c)
                         .padding(.bottom, 84)
-                } else {
+                } else if detailError == nil {
                     ProgressView("Loading…").padding(.top, 80)
                 }
             }
@@ -106,7 +111,7 @@ struct CandidateProfileView: View {
         HStack(spacing: 12) {
             Button { showArchiveAlert = true } label: {
                 Label("Archive", systemImage: "archivebox")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.figtree(size: 15, weight: .medium))
                     .frame(maxWidth: .infinity).frame(height: 48)
             }
             .background(AppTheme.secondaryBackground)
@@ -117,7 +122,7 @@ struct CandidateProfileView: View {
                 Task { await updateStatus(.finalist) }
             } label: {
                 Label(c.status == .finalist ? "Added to Finalists" : "Add to Finalists", systemImage: "star")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.figtree(size: 15, weight: .semibold))
                     .frame(maxWidth: .infinity).frame(height: 48)
             }
             .background(AppTheme.primary)
@@ -156,14 +161,16 @@ struct CandidateProfileView: View {
         }
     }
 
+    @MainActor
     private func loadDetail() async {
         guard !isLoadingDetail else { return }
         isLoadingDetail = true
+        detailError = nil
         do {
             let detail = try await api.fetchCandidate(id: candidateId)
             await MainActor.run { self.candidate = detail.toDomain() }
         } catch {
-            // Keep the preloaded summary if detail fetch fails
+            detailError = "Couldn't load the full profile. \(error.localizedDescription)"
         }
         isLoadingDetail = false
     }
@@ -178,26 +185,26 @@ struct CandidateProfileView: View {
                         AvatarView(initials: c.initials, size: 64)
                         if c.isDiamond {
                             Image(systemName: "diamond.fill")
-                                .font(.system(size: 14)).foregroundColor(AppTheme.diamond).offset(x: 4, y: -4)
+                                .font(.figtree(size: 14)).foregroundColor(AppTheme.diamond).offset(x: 4, y: -4)
                         }
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(c.fullName).font(.system(size: 20, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                        Text(c.fullName).font(.figtree(size: 20, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                         if c.isDiamond {
                             HStack(spacing: 4) {
-                                Image(systemName: "diamond.fill").font(.system(size: 9)).foregroundColor(AppTheme.diamond)
-                                Text("Diamond in the Rough").font(.system(size: 11, weight: .semibold)).foregroundColor(AppTheme.diamond)
+                                Image(systemName: "diamond.fill").font(.figtree(size: 9)).foregroundColor(AppTheme.diamond)
+                                Text("Diamond in the Rough").font(.figtree(size: 11, weight: .semibold)).foregroundColor(AppTheme.diamond)
                             }
                             .padding(.horizontal, 8).padding(.vertical, 3)
                             .background(AppTheme.primaryLight)
                             .cornerRadius(20)
                         }
                         if !c.phone.isEmpty {
-                            Label(c.phone, systemImage: "phone").font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                            Label(c.phone, systemImage: "phone").font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
                         }
-                        Label(c.email, systemImage: "envelope").font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                        Label(c.email, systemImage: "envelope").font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
                         Label("Applied \(c.appliedDate.formatted(.dateTime.month().day().year()))", systemImage: "calendar")
-                            .font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                            .font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
                     }
                     Spacer()
                     if isLoadingDetail {
@@ -222,8 +229,8 @@ struct CandidateProfileView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Résumé").font(.system(size: 16, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
-                            Text("AI cross-checked against answers").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                            Text("Résumé").font(.figtree(size: 16, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                            Text("AI cross-checked against answers").font(.figtree(size: 11)).foregroundColor(AppTheme.textSecondary)
                         }
                         Spacer()
                     }
@@ -238,7 +245,7 @@ struct CandidateProfileView: View {
                                     ProgressView().scaleEffect(0.8)
                                 } else {
                                     Image(systemName: "arrow.down.doc")
-                                    Text("Download Résumé PDF").font(.system(size: 14, weight: .medium))
+                                    Text("Download Résumé PDF").font(.figtree(size: 14, weight: .medium))
                                 }
                             }
                             .frame(maxWidth: .infinity).frame(height: 44)
@@ -261,11 +268,11 @@ struct CandidateProfileView: View {
             if !c.qaResponses.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
-                        Text("AI Q&A Assessment").font(.system(size: 16, weight: .semibold))
+                        Text("AI Q&A Assessment").font(.figtree(size: 16, weight: .semibold))
                         Spacer()
                         let avg = c.qaResponses.map(\.score).reduce(0,+) / Double(c.qaResponses.count)
                         Text("\(c.qaResponses.count) questions  avg \(String(format: "%.1f", avg))/5")
-                            .font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                            .font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
                     }
                     .padding(16)
                     Divider()
@@ -299,9 +306,9 @@ struct ProfileScoreCard: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+            Text(label).font(.figtree(size: 11)).foregroundColor(AppTheme.textSecondary)
             Text(String(format: "%.1f/5", value))
-                .font(.system(size: 14, weight: .bold))
+                .font(.figtree(size: 14, weight: .bold))
                 .foregroundColor(tint)
                 .padding(.horizontal, 8).padding(.vertical, 3)
                 .background(tint.opacity(0.15))
@@ -321,9 +328,9 @@ struct ProfileTabSwitchCard: View {
     private var tint: Color { value > 10 ? AppTheme.danger : AppTheme.warning }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Tab Switches").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+            Text("Tab Switches").font(.figtree(size: 11)).foregroundColor(AppTheme.textSecondary)
             Text("\(value)")
-                .font(.system(size: 14, weight: .bold))
+                .font(.figtree(size: 14, weight: .bold))
                 .foregroundColor(tint)
                 .padding(.horizontal, 8).padding(.vertical, 3)
                 .background(tint.opacity(0.15))
@@ -345,10 +352,10 @@ struct ResumeDocumentCard: View {
             // Name + contact header
             VStack(alignment: .leading, spacing: 4) {
                 Text(candidate.fullName)
-                    .font(.system(size: 19, weight: .bold))
+                    .font(.figtree(size: 19, weight: .bold))
                     .foregroundColor(AppTheme.textPrimary)
                 Text([candidate.phone, candidate.email, candidate.location].filter { !$0.isEmpty }.joined(separator: "   ·   "))
-                    .font(.system(size: 12))
+                    .font(.figtree(size: 12))
                     .foregroundColor(AppTheme.textSecondary)
             }
             .padding(.bottom, 12)
@@ -396,7 +403,7 @@ struct ResumeSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .bold))
+                .font(.figtree(size: 11, weight: .bold))
                 .tracking(1.2)
                 .foregroundColor(AppTheme.primary)
                 .padding(.bottom, 5)
@@ -423,22 +430,22 @@ struct ResumeEntryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text(entry.header).font(.system(size: 14, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+                Text(entry.header).font(.figtree(size: 14, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                 Spacer()
                 if !entry.trailing.isEmpty {
-                    Text(entry.trailing).font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                    Text(entry.trailing).font(.figtree(size: 11)).foregroundColor(AppTheme.textSecondary)
                 }
             }
             if !entry.subheader.isEmpty {
-                Text(entry.subheader).font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.primary)
+                Text(entry.subheader).font(.figtree(size: 13, weight: .semibold)).foregroundColor(AppTheme.primary)
             }
             ForEach(entry.details, id: \.self) { line in
                 if line.contains(": ") {
-                    Text(line).font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                    Text(line).font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
                 } else {
                     HStack(alignment: .top, spacing: 6) {
-                        Text("•").font(.system(size: 13)).foregroundColor(AppTheme.primary)
-                        Text(line).font(.system(size: 13)).foregroundColor(AppTheme.textSecondary)
+                        Text("•").font(.figtree(size: 13)).foregroundColor(AppTheme.primary)
+                        Text(line).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     }
                 }
             }
@@ -492,27 +499,27 @@ struct QAResponseRow: View {
         VStack(alignment: .leading, spacing: 0) {
             Button(action: onToggle) {
                 HStack(alignment: .top, spacing: 12) {
-                    Text("Q\(index) \(qa.question)").font(.system(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary).multilineTextAlignment(.leading)
+                    Text("Q\(index) \(qa.question)").font(.figtree(size: 14, weight: .medium)).foregroundColor(AppTheme.textPrimary).multilineTextAlignment(.leading)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
                         HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill").foregroundColor(AppTheme.primary).font(.system(size: 12))
-                            Text(String(format: "%.1f/5", qa.score)).font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
+                            Image(systemName: "checkmark.circle.fill").foregroundColor(AppTheme.primary).font(.figtree(size: 12))
+                            Text(String(format: "%.1f/5", qa.score)).font(.figtree(size: 13, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
                         }
-                        Label(qa.durationFormatted, systemImage: "clock").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                        Label(qa.durationFormatted, systemImage: "clock").font(.figtree(size: 11)).foregroundColor(AppTheme.textSecondary)
                     }
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.system(size: 12)).foregroundColor(AppTheme.textSecondary)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.figtree(size: 12)).foregroundColor(AppTheme.textSecondary)
                 }
                 .padding(16)
             }
             .buttonStyle(.plain)
             if isExpanded {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(qa.answer).font(.system(size: 14)).foregroundColor(AppTheme.textPrimary)
+                    Text(qa.answer).font(.figtree(size: 14)).foregroundColor(AppTheme.textPrimary)
                     if qa.hasPastedContent {
                         HStack(spacing: 4) {
-                            Image(systemName: "doc.on.clipboard").font(.system(size: 11))
-                            Text("Highlighted text indicates content the candidate pasted into their answer.").font(.system(size: 11))
+                            Image(systemName: "doc.on.clipboard").font(.figtree(size: 11))
+                            Text("Highlighted text indicates content the candidate pasted into their answer.").font(.figtree(size: 11))
                         }
                         .foregroundColor(AppTheme.warning).padding(8)
                         .background(AppTheme.warning.opacity(0.1)).cornerRadius(6)

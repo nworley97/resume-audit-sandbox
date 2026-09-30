@@ -21,12 +21,12 @@ struct ScoreBadge: View {
                     .stroke(color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text(String(format: "%.1f", value))
-                    .font(.system(size: size * 0.28, weight: .bold))
+                    .font(.figtree(size: size * 0.28, weight: .bold))
                     .foregroundColor(AppTheme.textPrimary)
             }
             .frame(width: size, height: size)
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.figtree(size: 10, weight: .medium))
                 .foregroundColor(AppTheme.textSecondary)
         }
     }
@@ -39,13 +39,13 @@ struct InlineScore: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption2)
+                .font(.figtree(size: 12))
                 .foregroundColor(AppTheme.textSecondary)
             Text(String(format: "%.1f", value))
-                .font(.system(size: 15, weight: .bold))
+                .font(.figtree(size: 15, weight: .bold))
                 .foregroundColor(AppTheme.textPrimary)
             Text("/5")
-                .font(.caption2)
+                .font(.figtree(size: 12))
                 .foregroundColor(AppTheme.textSecondary)
         }
     }

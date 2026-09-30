@@ -36,7 +36,7 @@ struct JobPostingsView: View {
                             showCreateJob = true
                         } label: {
                             Label("Create Job", systemImage: "plus")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.figtree(size: 13, weight: .semibold))
                                 .foregroundColor(AppTheme.primary)
                                 .padding(.horizontal, 14).padding(.vertical, 8)
                                 .background(AppTheme.primaryLight)
@@ -46,7 +46,7 @@ struct JobPostingsView: View {
                             showAddDept = true
                         } label: {
                             Label("Add Dept", systemImage: "folder.badge.plus")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.figtree(size: 13, weight: .medium))
                                 .foregroundColor(AppTheme.textSecondary)
                                 .padding(.horizontal, 14).padding(.vertical, 8)
                                 .background(AppTheme.secondaryBackground)
@@ -144,23 +144,23 @@ struct OpenRolesContent: View {
         Group {
             if vm.openDepartments().isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "briefcase").font(.system(size: 40)).foregroundColor(AppTheme.textTertiary).padding(.top, 60)
-                    Text("No open roles").font(.headline).foregroundColor(AppTheme.textSecondary)
-                    Text("Tap Create Job to post your first role.").font(.subheadline).foregroundColor(AppTheme.textTertiary)
+                    Image(systemName: "briefcase").font(.figtree(size: 40)).foregroundColor(AppTheme.textTertiary).padding(.top, 60)
+                    Text("No open roles").font(.figtree(size: 17, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
+                    Text("Tap Create Job to post your first role.").font(.figtree(size: 15)).foregroundColor(AppTheme.textTertiary)
                 }
                 .frame(maxWidth: .infinity)
             } else {
                 ForEach(vm.openDepartments()) { dept in
                     VStack(alignment: .leading, spacing: 0) {
                         HStack {
-                            Text(dept.name).font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
-                            Text("· \(dept.openCount) open").font(.system(size: 12)).foregroundColor(AppTheme.textTertiary)
+                            Text(dept.name).font(.figtree(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
+                            Text("· \(dept.openCount) open").font(.figtree(size: 12)).foregroundColor(AppTheme.textTertiary)
                             Spacer()
                             if authVM.canManageHiring {
                                 Button {
                                     editingDept = dept.name
                                 } label: {
-                                    Label("Edit", systemImage: "pencil").font(.system(size: 11)).foregroundColor(AppTheme.textSecondary)
+                                    Label("Edit", systemImage: "pencil").font(.figtree(size: 11)).foregroundColor(AppTheme.textSecondary)
                                 }
                             }
                         }
@@ -198,7 +198,7 @@ struct EditDepartmentSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Edit department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Text("Edit department").font(.figtree(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
             VStack(alignment: .leading, spacing: 6) {
                 Text("Department name").font(.subheadline.weight(.medium))
                 TextField("Department name", text: $name).textFieldStyle(AlteraTextFieldStyle())
@@ -208,7 +208,7 @@ struct EditDepartmentSheet: View {
                 Button("Cancel") { dismiss() }
                     .frame(maxWidth: .infinity).frame(height: 46)
                     .background(AppTheme.secondaryBackground).cornerRadius(AppTheme.buttonCornerRadius)
-                    .foregroundColor(AppTheme.textPrimary).font(.system(size: 15, weight: .medium))
+                    .foregroundColor(AppTheme.textPrimary).font(.figtree(size: 15, weight: .medium))
                 Button {
                     Task {
                         isSaving = true
@@ -221,7 +221,7 @@ struct EditDepartmentSheet: View {
                 }
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(AppTheme.primary).cornerRadius(AppTheme.buttonCornerRadius)
-                .foregroundColor(.white).font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white).font(.figtree(size: 15, weight: .semibold))
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
             }
             Button {
@@ -231,7 +231,7 @@ struct EditDepartmentSheet: View {
                 }
             } label: {
                 Text("Delete department")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.figtree(size: 14, weight: .medium))
                     .foregroundColor(AppTheme.danger)
                     .frame(maxWidth: .infinity)
             }
@@ -255,7 +255,7 @@ struct DraftsContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("\(drafts.count) unpublished")
-                .font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
+                .font(.figtree(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
                 .padding(.horizontal, 16).padding(.vertical, 10)
 
             ForEach(visible) { job in
@@ -272,9 +272,9 @@ struct DraftsContent: View {
                 } label: {
                     HStack {
                         Text(showAll ? "Show fewer" : "Show all \(drafts.count) drafts")
-                            .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+                            .font(.figtree(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
                         Image(systemName: showAll ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11)).foregroundColor(AppTheme.primary)
+                            .font(.figtree(size: 11)).foregroundColor(AppTheme.primary)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
                 }
@@ -295,10 +295,10 @@ struct ClosedContent: View {
             if vm.closedJobs().isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 36, weight: .light))
+                        .font(.figtree(size: 36, weight: .light))
                         .foregroundColor(AppTheme.textTertiary)
                     Text("Roles you close will show up here, along with who was hired.")
-                        .font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+                        .font(.figtree(size: 14)).foregroundColor(AppTheme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }
@@ -306,7 +306,7 @@ struct ClosedContent: View {
                 .padding(.vertical, 56)
             } else {
                 Text("\(vm.closedJobs().count) filled")
-                    .font(.system(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
+                    .font(.figtree(size: 13, weight: .semibold)).foregroundColor(AppTheme.textSecondary)
                     .padding(.horizontal, 16).padding(.vertical, 10)
                 ForEach(vm.closedJobs()) { job in
                     ClosedJobRowView(job: job, onReopen: {
@@ -331,7 +331,7 @@ struct InlineErrorBanner: View {
             Text(message).frame(maxWidth: .infinity, alignment: .leading)
             Button("Retry", action: retry).fontWeight(.semibold)
         }
-        .font(.system(size: 13))
+        .font(.figtree(size: 13))
         .foregroundColor(AppTheme.danger)
         .padding(14)
         .background(AppTheme.danger.opacity(0.1))
@@ -346,9 +346,9 @@ struct ErrorBanner: View {
     var body: some View {
         VStack(spacing: 12) {
             Spacer()
-            Image(systemName: "exclamationmark.triangle").font(.system(size: 36)).foregroundColor(AppTheme.warning)
-            Text(message).font(.subheadline).foregroundColor(AppTheme.textSecondary).multilineTextAlignment(.center).padding(.horizontal, 32)
-            Button("Retry", action: retry).font(.system(size: 15, weight: .semibold)).foregroundColor(AppTheme.primary)
+            Image(systemName: "exclamationmark.triangle").font(.figtree(size: 36)).foregroundColor(AppTheme.warning)
+            Text(message).font(.figtree(size: 15)).foregroundColor(AppTheme.textSecondary).multilineTextAlignment(.center).padding(.horizontal, 32)
+            Button("Retry", action: retry).font(.figtree(size: 15, weight: .semibold)).foregroundColor(AppTheme.primary)
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -360,8 +360,8 @@ struct DraftRowView: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(job.title).font(.system(size: 15, weight: .medium)).foregroundColor(AppTheme.textPrimary)
-                Text(job.department).font(.caption).foregroundColor(AppTheme.textSecondary)
+                Text(job.title).font(.figtree(size: 15, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+                Text(job.department).font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
             }
             Spacer()
             Text("Draft").font(.caption2.weight(.semibold))
@@ -382,15 +382,15 @@ struct ClosedJobRowView: View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill").foregroundColor(AppTheme.success)
             VStack(alignment: .leading, spacing: 3) {
-                Text(job.title).font(.system(size: 15, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+                Text(job.title).font(.figtree(size: 15, weight: .medium)).foregroundColor(AppTheme.textPrimary)
                 if let hired = job.hiredCandidate {
-                    Text("Hired \(hired)").font(.caption).foregroundColor(AppTheme.textSecondary)
+                    Text("Hired \(hired)").font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                 }
             }
             Spacer()
             if authVM.canManageHiring {
                 Button("Reopen", action: onReopen)
-                    .font(.system(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
+                    .font(.figtree(size: 13, weight: .medium)).foregroundColor(AppTheme.primary)
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 14).background(AppTheme.background)
@@ -407,8 +407,8 @@ struct AddDepartmentSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Add department").font(.system(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
-            Text("Group your open roles by team.").font(.subheadline).foregroundColor(AppTheme.textSecondary)
+            Text("Add department").font(.figtree(size: 18, weight: .bold)).foregroundColor(AppTheme.textPrimary)
+            Text("Group your open roles by team.").font(.figtree(size: 15)).foregroundColor(AppTheme.textSecondary)
             VStack(alignment: .leading, spacing: 6) {
                 Text("Department name").font(.subheadline.weight(.medium))
                 TextField("e.g. Customer Success", text: $name).textFieldStyle(AlteraTextFieldStyle())
@@ -418,7 +418,7 @@ struct AddDepartmentSheet: View {
                 Button("Cancel") { isPresented = false }
                     .frame(maxWidth: .infinity).frame(height: 46)
                     .background(AppTheme.secondaryBackground).cornerRadius(AppTheme.buttonCornerRadius)
-                    .foregroundColor(AppTheme.textPrimary).font(.system(size: 15, weight: .medium))
+                    .foregroundColor(AppTheme.textPrimary).font(.figtree(size: 15, weight: .medium))
                 Button {
                     Task { await add() }
                 } label: {
@@ -426,7 +426,7 @@ struct AddDepartmentSheet: View {
                 }
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(AppTheme.primary).cornerRadius(AppTheme.buttonCornerRadius)
-                .foregroundColor(.white).font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white).font(.figtree(size: 15, weight: .semibold))
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
             }
         }
@@ -464,7 +464,7 @@ struct ToastView: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.circle").foregroundColor(Color(red: 0.46, green: 0.85, blue: 0.75))
-            Text(message).font(.system(size: 13, weight: .medium)).foregroundColor(.white)
+            Text(message).font(.figtree(size: 13, weight: .medium)).foregroundColor(.white)
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
         .background(Color(white: 0.1)).cornerRadius(12).shadow(color: .black.opacity(0.2), radius: 6, y: 2)

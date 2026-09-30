@@ -15,7 +15,7 @@ struct DepartmentsView: View {
             if isLoading && departments.isEmpty {
                 HStack { Spacer(); ProgressView(); Spacer() }.listRowBackground(Color.clear)
             } else if let err = error {
-                Text(err).foregroundColor(AppTheme.danger).font(.caption)
+                Text(err).foregroundColor(AppTheme.danger).font(.figtree(size: 13))
             } else {
                 Section("\(departments.count) departments") {
                     ForEach(departments, id: \.id) { dept in
@@ -25,14 +25,14 @@ struct DepartmentsView: View {
                                 .frame(width: 10, height: 10)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(dept.name)
-                                    .font(.system(size: 15, weight: .medium))
+                                    .font(.figtree(size: 15, weight: .medium))
                                     .foregroundColor(AppTheme.textPrimary)
                                 Text(dept.teamLead.isEmpty ? "No lead assigned" : dept.teamLead)
-                                    .font(.system(size: 12))
+                                    .font(.figtree(size: 12))
                                     .foregroundColor(AppTheme.textSecondary)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").font(.caption).foregroundColor(AppTheme.textTertiary)
+                            Image(systemName: "chevron.right").font(.figtree(size: 13)).foregroundColor(AppTheme.textTertiary)
                         }
                         .padding(.vertical, 4)
                     }

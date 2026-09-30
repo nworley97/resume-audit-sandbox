@@ -19,14 +19,14 @@ struct SignInView: View {
                                                      startPoint: .topLeading, endPoint: .bottomTrailing))
                                 .frame(width: 22, height: 22)
                             Text("AlteraSF")
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.figtree(size: 20, weight: .bold))
                                 .foregroundColor(AppTheme.primary)
                         }
                         Text("Welcome back")
                             .font(AppTheme.pageTitle)
                             .foregroundColor(AppTheme.textPrimary)
                         Text("Sign in to your AlteraSF recruiter dashboard.")
-                            .font(.subheadline)
+                            .font(.figtree(size: 15))
                             .foregroundColor(AppTheme.textSecondary)
                     }
                     .padding(.top, 64)
@@ -36,7 +36,7 @@ struct SignInView: View {
                     VStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Email")
-                                .font(.subheadline).fontWeight(.medium)
+                                .font(.figtree(size: 15)).fontWeight(.medium)
                                 .foregroundColor(AppTheme.textPrimary)
                             TextField("you@company.com", text: $email)
                                 .keyboardType(.emailAddress)
@@ -48,7 +48,7 @@ struct SignInView: View {
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Password")
-                                .font(.subheadline).fontWeight(.medium)
+                                .font(.figtree(size: 15)).fontWeight(.medium)
                                 .foregroundColor(AppTheme.textPrimary)
                             HStack {
                                 Group {
@@ -78,13 +78,13 @@ struct SignInView: View {
                             Button("Forgot password?") {
                                 showResetPassword = true
                             }
-                            .font(.subheadline)
+                            .font(.figtree(size: 15))
                             .foregroundColor(AppTheme.primary)
                         }
 
                         if let error = authVM.errorMessage {
                             Text(error)
-                                .font(.caption)
+                                .font(.figtree(size: 13))
                                 .foregroundColor(AppTheme.danger)
                                 .frame(maxWidth: .infinity)
                                 .multilineTextAlignment(.center)
@@ -100,7 +100,7 @@ struct SignInView: View {
                                         .tint(.white)
                                 } else {
                                     Text("Sign In")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.figtree(size: 16, weight: .semibold))
                                 }
                             }
                             .frame(maxWidth: .infinity)
@@ -113,7 +113,7 @@ struct SignInView: View {
 
                         HStack {
                             Rectangle().frame(height: 1).foregroundColor(AppTheme.divider)
-                            Text("or").font(.subheadline).foregroundColor(AppTheme.textSecondary)
+                            Text("or").font(.figtree(size: 15)).foregroundColor(AppTheme.textSecondary)
                             Rectangle().frame(height: 1).foregroundColor(AppTheme.divider)
                         }
 
@@ -123,7 +123,7 @@ struct SignInView: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "globe")
                                 Text("Continue with Google")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.figtree(size: 16, weight: .medium))
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
@@ -138,7 +138,7 @@ struct SignInView: View {
 
                     HStack {
                         Text("Don't have an account?")
-                            .font(.subheadline)
+                            .font(.figtree(size: 15))
                             .foregroundColor(AppTheme.textSecondary)
                         Link("Sign up", destination: AppConfig.baseURL.appendingPathComponent("billing/signup"))
                             .font(.subheadline.weight(.medium))

@@ -8,13 +8,6 @@ struct SettingsView: View {
     @State private var profileError: String? = nil
     @State private var showChangePassword = false
 
-    @AppStorage("notif_new_applicant") private var notifNewApplicant = true
-    @AppStorage("notif_daily_summary") private var notifDailySummary = false
-    @AppStorage("notif_weekly_report") private var notifWeeklyReport = true
-    @AppStorage("notif_job_expiring") private var notifJobExpiring = true
-    @AppStorage("notif_candidate_flagged") private var notifCandidateFlagged = true
-    @AppStorage("notif_product_news") private var notifProductNews = false
-
     var body: some View {
         List {
             Section("Profile") {
@@ -38,53 +31,54 @@ struct SettingsView: View {
                     HStack { Spacer(); ProgressView().scaleEffect(0.7); Spacer() }
                 }
                 if let profileError {
-                    Text(profileError).foregroundColor(AppTheme.danger).font(.caption)
+                    Text(profileError).foregroundColor(AppTheme.danger).font(.figtree(size: 13))
                 }
             }
 
             Section {
-                Toggle(isOn: $notifNewApplicant) {
+                Toggle(isOn: .constant(false)) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("New applicant applies")
-                        Text("Get an email when someone applies").font(.caption).foregroundColor(AppTheme.textSecondary)
+                        Text("Get an email when someone applies").font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     }
                 }
-                Toggle(isOn: $notifDailySummary) {
+                Toggle(isOn: .constant(false)) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Daily applicant summary")
-                        Text("A digest of the day's applicants").font(.caption).foregroundColor(AppTheme.textSecondary)
+                        Text("A digest of the day's applicants").font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     }
                 }
-                Toggle(isOn: $notifWeeklyReport) {
+                Toggle(isOn: .constant(false)) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Weekly hiring report")
-                        Text("Performance summary every Monday").font(.caption).foregroundColor(AppTheme.textSecondary)
+                        Text("Performance summary every Monday").font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     }
                 }
-                Toggle(isOn: $notifJobExpiring) {
+                Toggle(isOn: .constant(false)) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Job post expiring soon")
-                        Text("Remind me 3 days before a post closes").font(.caption).foregroundColor(AppTheme.textSecondary)
+                        Text("Remind me 3 days before a post closes").font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     }
                 }
-                Toggle(isOn: $notifCandidateFlagged) {
+                Toggle(isOn: .constant(false)) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Candidate flagged for review")
-                        Text("Integrity alerts from AI screening").font(.caption).foregroundColor(AppTheme.textSecondary)
+                        Text("Integrity alerts from AI screening").font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     }
                 }
-                Toggle(isOn: $notifProductNews) {
+                Toggle(isOn: .constant(false)) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Product news & tips")
-                        Text("Occasional updates from AlteraSF").font(.caption).foregroundColor(AppTheme.textSecondary)
+                        Text("Occasional updates from AlteraSF").font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     }
                 }
             } header: {
                 Text("Email Notifications")
             } footer: {
-                Text("Choose which emails AlteraSF sends you.")
+                Text("Email notifications aren't available yet. These controls will become available when email delivery is supported.")
             }
             .tint(AppTheme.primary)
+            .disabled(true)
 
             Section("Account") {
                 if authVM.canManageHiring {
@@ -116,13 +110,15 @@ struct SettingsView: View {
             }
 
         }
+        .font(.figtree(size: 16))
+        .environment(\.defaultMinListRowHeight, 44)
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(AppTheme.groupedBackground)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            name = authVM.currentUserName
+            name = APIService.shared.currentUser?.fullName ?? ""
             email = authVM.currentUserEmail
         }
         .sheet(isPresented: $showChangePassword) { ChangePasswordView() }
@@ -156,14 +152,14 @@ struct ChangePasswordView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Enter your current password to verify your identity.")
-                        .font(.system(size: 14)).foregroundColor(AppTheme.textSecondary)
+                        .font(.figtree(size: 14)).foregroundColor(AppTheme.textSecondary)
                     passwordField("Current password", text: $current, contentType: .password)
                     passwordField("New password", text: $newPass, contentType: .newPassword)
                     passwordField("Confirm new password", text: $confirm, contentType: .newPassword)
                     Text("At least 8 characters, with a mix of letters and numbers.")
-                        .font(.caption).foregroundColor(AppTheme.textSecondary)
+                        .font(.figtree(size: 13)).foregroundColor(AppTheme.textSecondary)
                     if let error {
-                        Text(error).foregroundColor(AppTheme.danger).font(.caption)
+                        Text(error).foregroundColor(AppTheme.danger).font(.figtree(size: 13))
                     }
                     Button {
                         guard newPass == confirm else { error = "Passwords do not match."; return }
@@ -189,7 +185,7 @@ struct ChangePasswordView: View {
 
     private func passwordField(_ title: String, text: Binding<String>, contentType: UITextContentType) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(size: 14, weight: .medium))
+            Text(title).font(.figtree(size: 14, weight: .medium))
             SecureField("••••••••", text: text)
                 .textContentType(contentType)
                 .textFieldStyle(AlteraTextFieldStyle())
