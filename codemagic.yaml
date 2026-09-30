@@ -1,0 +1,28 @@
+workflows:
+  ios-simulator:
+    name: AlteraSF native iOS simulator
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    scripts:
+      - name: Build native simulator app
+        script: |
+          set -euo pipefail
+          mkdir -p build/artifacts
+          xcodebuild build \
+            -project ios/AlteraSF.xcodeproj \
+            -scheme AlteraSF \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            API_BASE_URL=https://app.alterasf.com \
+            2>&1 | tee build/artifacts/xcodebuild.log
+      - name: Capture native sign-in screens
+        script: bash ios/scripts/capture_simulator.sh
+    artifacts:
+      - build/DerivedData/Build/Products/Debug-iphonesimulator/AlteraSF.app
+      - build/artifacts/**

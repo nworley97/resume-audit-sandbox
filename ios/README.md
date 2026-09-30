@@ -35,6 +35,23 @@ An unauthenticated response from `/auth/me` is expected; a 404 means the server 
 
 ## TestFlight deployment
 
+### Build from Windows with Codemagic
+
+The root `codemagic.yaml` provides a manually started `ios-simulator` workflow.
+Select it on `main` in Codemagic. It compiles the native app on a hosted Mac,
+then boots an iPhone simulator and captures light/dark sign-in screenshots.
+The artifacts include the simulator `.app`, screenshots, device name and build log.
+It uses the production HTTPS API, but the automated capture never signs in or
+changes records. No Apple signing credentials are needed for this workflow.
+
+The simulator app cannot be installed on a physical iPhone. TestFlight still
+requires a separate signed archive workflow and App Store Connect setup.
+This first capture covers sign-in only; it does not certify all-screen visual or
+animation parity. Browser interaction with the simulator is a separate Codemagic
+App Preview feature and may require enabling a paid team plan.
+
+### Signed release
+
 1. Merge the tested API and iOS changes from `dev` into `main`.
 2. In Xcode, increment **Version** for a release and **Build** for every upload.
 3. Select **Any iOS Device (arm64)**, then **Product → Archive**.
