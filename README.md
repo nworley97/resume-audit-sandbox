@@ -51,6 +51,16 @@ npx playwright test
 
 The end-to-end suite uses its own `.playwright.sqlite` database. Never point it at a shared or production database.
 
+## Website account settings
+
+The website Settings page saves profile details and per-user preferences through `/api/settings`. Migration `0005_user_settings` adds the preference/address table; the existing Render release command runs migrations before starting the app. Email and password changes require the current password. Password changes invalidate other sessions and outstanding reset links.
+
+Email choices are saved, but delivery is inactive and clearly labeled until email jobs are implemented. Site alerts use the existing tenant notification API. Optional sound and desktop notifications require browser support; desktop notifications work while the dashboard is open, with browser permission, and do not provide background push delivery. Light/Dark choices persist per account; System is not offered.
+
+For isolated manual testing, run `python scripts/preview_settings.py` and open `http://127.0.0.1:5063`. The script prints synthetic sign-in credentials and creates a temporary local database. Run the regression suite with `python -m unittest discover -s tests -p "test_*.py"`.
+
+Run the website notification race regression with `node --test tests/web-settings-notifications.test.cjs`.
+
 ## Mobile app
 
 Open `ios/AlteraSF.xcodeproj` on a Mac. Debug builds default to the local API; a physical phone needs the Mac's LAN address or the HTTPS sandbox URL. Release builds target production. See [ios/README.md](ios/README.md) for signing, local-network, and TestFlight steps.

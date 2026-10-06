@@ -66,15 +66,15 @@
 
       <!-- Profile Dropdown -->
       <div class="relative" id="profile-wrapper">
-        {% set user_initials = (current_user.username[:2] if current_user and current_user.username else 'JD') | upper %}
-        {% set display_name = current_user.username.split(' ')[0] | title if current_user and current_user.username else 'User' %}
+        {% set user_initials = ((current_user.full_name or current_user.username)[:2] if current_user and current_user.username else 'JD') | upper %}
+        {% set display_name = (current_user.full_name or current_user.username) if current_user and current_user.username else 'User' %}
         <button type="button"
                 id="profile-btn"
                 class="w-8 h-8 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary/60"
                 aria-label="Profile menu"
                 aria-expanded="false"
                 aria-haspopup="true">
-          {{ user_initials }}
+          <span data-account-initials>{{ user_initials }}</span>
         </button>
 
         <!-- Profile Dropdown -->
@@ -88,11 +88,11 @@
           <!-- Avatar + greeting -->
           <div class="px-5 py-4 border-b border-gray-100 text-center">
             <div class="mx-auto mb-2 w-12 h-12 rounded-full bg-gray-900 text-white flex items-center justify-center text-base font-semibold">
-              {{ user_initials }}
+              <span data-account-initials>{{ user_initials }}</span>
             </div>
-            <p class="text-sm font-semibold text-gray-900">Hi, {{ display_name }}!</p>
-            {% if current_user.email %}
-            <p class="text-xs text-slate-400 mt-0.5 truncate">{{ current_user.email }}</p>
+            <p class="text-sm font-semibold text-gray-900"><span data-account-greeting>Hi, {{ display_name }}!</span></p>
+            {% if current_user.username %}
+            <p class="text-xs text-slate-400 mt-0.5 truncate">{{ current_user.username }}</p>
             {% endif %}
           </div>
 
@@ -156,10 +156,12 @@
   } catch (err) {}
 
   // ── Notification timeline (localStorage-backed) ──────────────────────────
-  var NOTIF_KEY = 'altera-notifs-v1';
+  var NOTIF_KEY = 'altera-notifs-v2-' + window.dashboardSettings.user_id + '-' + {{ (tenant_slug or '') | tojson }};
+  var SEEN_KEY = NOTIF_KEY + '-seen';
+  function prefs() { return window.dashboardSettings.preferences; }
 
   function getNotifs() {
-    try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); }
+    try { var list = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); return Array.isArray(list) ? list : []; }
     catch (e) { return []; }
   }
   function saveNotifs(list) {
@@ -181,15 +183,16 @@
     var list = getNotifs();
     var unread = list.filter(function(n){ return !n.read; }).length;
     var badge = document.getElementById('notif-badge');
-    if (badge) badge.style.display = unread > 0 ? 'block' : 'none';
+    if (badge) badge.style.display = prefs().site_alerts && prefs().site_badge && unread > 0 ? 'block' : 'none';
   }
 
   function renderTimeline() {
-    var list = getNotifs();
+    var list = prefs().site_alerts ? getNotifs() : [];
     var listEl  = document.getElementById('notif-list');
     var emptyEl = document.getElementById('notif-empty');
     var clearBtn = document.getElementById('notif-clear-btn');
     if (!listEl) return;
+    if (emptyEl) emptyEl.textContent = prefs().site_alerts ? 'No notifications yet' : 'In-app alerts are off. Enable them in Settings.';
     if (list.length === 0) {
       listEl.innerHTML = '';
       if (emptyEl)  emptyEl.style.display  = '';
@@ -226,29 +229,33 @@
   }
 
   function ctaHref(cta_action) {
+    if (cta_action === 'candidates') return {{ url_for('candidates_overview', tenant=tenant_slug) | tojson }};
     if (cta_action === 'add_seat')      return '/billing/add-seats';
     if (cta_action === 'contact_sales') return '/billing/enterprise';
     return '/billing/change-plan';
   }
 
-  window.addToNotifTimeline = function(notification) {
+  window.addToNotifTimeline = function(notification, silent) {
+    if (!prefs().site_alerts) return;
     var list = getNotifs();
     // Deduplicate: skip if same title+message already in list
     var already = list.some(function(n) {
-      return n.title === notification.title && n.message === notification.message;
+      return notification.id ? n.id === notification.id : n.title === notification.title && n.message === notification.message;
     });
     if (already) return;
     list.unshift({
+      id: notification.id || null,
       title:      notification.title,
       message:    notification.message,
       cta_action: notification.cta_action || 'see_plans',
       cta_text:   notification.cta_text   || 'See Plans',
-      ts:         Date.now(),
-      read:       false
+      ts:         notification.ts || Date.now(),
+      read:       notification.is_read || false
     });
     if (list.length > 30) list = list.slice(0, 30);
     saveNotifs(list);
     updateBadge();
+    if (!silent && window.announceDashboardNotification) window.announceDashboardNotification(notification);
   };
 
   window.clearAllNotifs = function() {
@@ -311,7 +318,47 @@
     if (e.key === 'Escape') closeAll();
   });
 
-  // Init badge on page load
+  window.addEventListener('dashboard-preferences-changed', function() {
+    updateBadge(); renderTimeline();
+  });
+  window.addEventListener('dashboard-profile-changed', function() {
+    var profile = window.dashboardSettings.profile;
+    var name = profile.full_name || profile.email;
+    document.querySelectorAll('[data-account-initials]').forEach(function(el) { el.textContent = name.slice(0, 2).toUpperCase(); });
+    document.querySelectorAll('[data-account-greeting]').forEach(function(el) { el.textContent = 'Hi, ' + name + '!'; });
+  });
+  {% if tenant_slug %}
+  var firstPoll = true, polling = false;
+  async function pollNotifications() {
+    if (!prefs().site_alerts || polling) return;
+    polling = true;
+    try {
+      var response = await fetch({{ url_for('mobile_api.list_notifications', tenant=tenant_slug) | tojson }}, {credentials:'same-origin'});
+      if (!response.ok) return;
+      var rows = await response.json();
+      // The user may have disabled alerts while the request was in flight.
+      // Do not consume IDs for notifications we will not display.
+      if (!prefs().site_alerts) return;
+      var seen;
+      try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'); } catch (_) { seen = []; }
+      if (!Array.isArray(seen)) seen = [];
+      var unseen = rows.filter(function(row) { return !seen.includes(row.id); });
+      unseen.slice().reverse().forEach(function(row) {
+        var timestamp = row.created_at;
+        if (timestamp && !/(Z|[+-]\d{2}:\d{2})$/.test(timestamp)) timestamp += 'Z';
+        window.addToNotifTimeline({id:row.id, title:row.title, message:row.subtitle, is_read:row.is_read,
+          ts:Date.parse(timestamp) || Date.now(), cta_action:'candidates', cta_text:'View candidates'}, true);
+      });
+      try { localStorage.setItem(SEEN_KEY, JSON.stringify([...new Set(rows.map(function(row) { return row.id; }).concat(seen))].slice(0, 200))); } catch (_) {}
+      if (!firstPoll && unseen.some(function(row) { return !row.is_read; }) && window.announceDashboardNotification) window.announceDashboardNotification(unseen[0]);
+      firstPoll = false;
+      if (notifDrop && !notifDrop.classList.contains('hidden')) renderTimeline();
+    } catch (_) { /* Leave the last successful timeline intact while offline. */ }
+    finally { polling = false; }
+  }
+  pollNotifications();
+  setInterval(pollNotifications, 60000);
+  {% endif %}
   updateBadge();
 })();
 </script>

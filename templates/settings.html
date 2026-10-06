@@ -1,6 +1,9 @@
 {% extends "base_app.html" %}
 {% block title %}Settings - ALTERA{% endblock %}
 
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+{% endblock %}
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6 pb-12">
 
@@ -17,31 +20,34 @@
     <p class="text-slate mt-1">Manage your account preferences and notifications</p>
   </div>
 
+  <p id="settings-feedback" role="status" aria-live="polite" hidden></p>
+
   <!-- Email Notifications -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-100">
       <h2 class="text-base font-semibold text-title">Email Notifications</h2>
-      <p class="text-sm text-slate-500 mt-0.5">Choose which updates you receive by email</p>
+      <p class="text-sm text-slate-500 mt-0.5">Save which updates you want to receive by email</p>
     </div>
+    <p class="settings-notice">Email delivery is not active yet. Your choices are saved, but these emails will not be sent until delivery is enabled.</p>
     <div class="divide-y divide-gray-100">
       {% set email_notifs = [
-        ('New applicant applies',       'Get an email when someone applies',              True),
-        ('Daily applicant summary',     'A digest of the day\'s applicants',              False),
-        ('Weekly hiring report',        'Performance summary every Monday',               True),
-        ('Job post expiring soon',      'Remind me 3 days before a post closes',         True),
-        ('Candidate flagged for review','Integrity alerts from AI screening',             True),
-        ('Product news & tips',         'Occasional updates from AlteraSF',              False),
+        ('New applicant applies',       'Get an email when someone applies',              'email_new_applicant'),
+        ('Daily applicant summary',     'A digest of the day\'s applicants',              'email_daily_summary'),
+        ('Weekly hiring report',        'Performance summary every Monday',               'email_weekly_report'),
+        ('Job post expiring soon',      'Remind me 3 days before a post closes',         'email_expiring_job'),
+        ('Candidate flagged for review','Integrity alerts from AI screening',             'email_flagged_candidate'),
+        ('Product news & tips',         'Occasional updates from AlteraSF',              'email_product_news'),
       ] %}
-      {% for label, desc, checked in email_notifs %}
+      {% for label, desc, key in email_notifs %}
+      {% set checked = dashboard_settings.preferences[key] %}
       <div class="flex items-center justify-between px-6 py-4">
         <div>
           <p class="text-sm font-medium text-title">{{ label }}</p>
           <p class="text-xs text-slate-400 mt-0.5">{{ desc }}</p>
         </div>
-        <button type="button" role="switch" aria-checked="{{ 'true' if checked else 'false' }}"
-                aria-disabled="true" disabled title="Preference saving is coming soon"
-                style="position:relative;display:inline-flex;align-items:center;width:2.5rem;height:1.5rem;border-radius:9999px;border:none;cursor:not-allowed;opacity:.65;flex-shrink:0;background:{{ '#0d9488' if checked else '#d1d5db' }}">
-          <span style="position:absolute;top:3px;left:{{ '17px' if checked else '3px' }};width:1.125rem;height:1.125rem;background:white;border-radius:50%;transition:left 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></span>
+        <button type="button" role="switch" class="settings-switch" data-preference="{{ key }}"
+                aria-label="{{ label }}" aria-checked="{{ 'true' if checked else 'false' }}">
+          <span aria-hidden="true"></span>
         </button>
       </div>
       {% endfor %}
@@ -56,21 +62,21 @@
     </div>
     <div class="divide-y divide-gray-100">
       {% set site_notifs = [
-        ('In-app alerts',              'Show alerts in the notification bell',           True),
-        ('Notification sounds',        'Play a sound for new alerts',                   False),
-        ('Desktop push notifications', 'Send browser push notifications',               True),
-        ('Unread badge on bell',       'Show the red dot for unread items',             True),
+        ('In-app alerts',              'Show alerts in the notification bell',           'site_alerts'),
+        ('Notification sounds',        'Play a sound for new alerts',                   'site_sound'),
+        ('Desktop notifications', 'While the dashboard is open; browser permission required',               'site_desktop'),
+        ('Unread badge on bell',       'Show the red dot for unread items',             'site_badge'),
       ] %}
-      {% for label, desc, checked in site_notifs %}
+      {% for label, desc, key in site_notifs %}
+      {% set checked = dashboard_settings.preferences[key] %}
       <div class="flex items-center justify-between px-6 py-4">
         <div>
           <p class="text-sm font-medium text-title">{{ label }}</p>
           <p class="text-xs text-slate-400 mt-0.5">{{ desc }}</p>
         </div>
-        <button type="button" role="switch" aria-checked="{{ 'true' if checked else 'false' }}"
-                aria-disabled="true" disabled title="Preference saving is coming soon"
-                style="position:relative;display:inline-flex;align-items:center;width:2.5rem;height:1.5rem;border-radius:9999px;border:none;cursor:not-allowed;opacity:.65;flex-shrink:0;background:{{ '#0d9488' if checked else '#d1d5db' }}">
-          <span style="position:absolute;top:3px;left:{{ '17px' if checked else '3px' }};width:1.125rem;height:1.125rem;background:white;border-radius:50%;transition:left 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></span>
+        <button type="button" role="switch" class="settings-switch" data-preference="{{ key }}"
+                aria-label="{{ label }}" aria-checked="{{ 'true' if checked else 'false' }}">
+          <span aria-hidden="true"></span>
         </button>
       </div>
       {% endfor %}
@@ -85,22 +91,16 @@
     </div>
     <div class="px-6 py-4">
       <p class="text-sm font-medium text-title mb-3">Theme</p>
-      <div class="flex gap-3">
+      <fieldset class="flex gap-3" id="theme-options">
+        <legend class="sr-only">Dashboard theme</legend>
+        {% for theme in ['light', 'dark'] %}
         <label class="flex items-center gap-2 cursor-pointer">
-          <input type="radio" name="theme" value="light" class="accent-primary" checked>
-          <span class="text-sm text-title">Light</span>
+          <input type="radio" name="theme" value="{{ theme }}" class="accent-primary"
+                 {{ 'checked' if dashboard_settings.preferences.theme == theme else '' }}>
+          <span class="text-sm text-title">{{ theme | title }}</span>
         </label>
-        <label class="flex items-center gap-2 cursor-not-allowed opacity-60">
-          <input type="radio" name="theme" value="dark" class="accent-primary" disabled>
-          <span class="text-sm text-title">Dark</span>
-          <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Coming soon</span>
-        </label>
-        <label class="flex items-center gap-2 cursor-not-allowed opacity-60">
-          <input type="radio" name="theme" value="system" class="accent-primary" disabled>
-          <span class="text-sm text-title">System</span>
-          <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Coming soon</span>
-        </label>
-      </div>
+        {% endfor %}
+      </fieldset>
     </div>
   </div>
 
@@ -144,43 +144,15 @@
       <p class="text-sm text-slate-500 mt-0.5">Update your personal details and account security</p>
     </div>
     <div class="divide-y divide-gray-100">
-
-      <!-- Display name -->
-      <div class="px-6 py-4 flex items-center justify-between gap-4">
+      {% for field, label in [('full_name', 'Display Name'), ('email', 'Email'), ('password', 'Password & Security'), ('work_address', 'Work Address')] %}
+      <div class="px-6 py-4 flex items-center justify-between gap-4" {% if field == 'password' %}id="security"{% elif field == 'work_address' %}id="work-address"{% endif %}>
         <div class="min-w-0">
-          <p class="text-sm font-medium text-title">Display Name</p>
-          <p class="text-xs text-slate-400 mt-0.5">{{ current_user.username if current_user else '—' }}</p>
+          <p class="text-sm font-medium text-title">{{ label }}</p>
+          <p class="text-xs text-slate-400 mt-0.5 settings-profile-value" data-profile-value="{{ field }}">{{ '••••••••••••' if field == 'password' else (dashboard_settings.profile[field] or 'Not set') }}</p>
         </div>
-        <span class="flex-shrink-0 text-xs text-slate-400">Coming soon</span>
+        <button type="button" class="settings-change" data-change-field="{{ field }}" aria-label="Change {{ label }}">Change</button>
       </div>
-
-      <!-- Email -->
-      <div class="px-6 py-4 flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-title">Email</p>
-          <p class="text-xs text-slate-400 mt-0.5">{{ current_user.username if current_user else '—' }}</p>
-        </div>
-        <span class="flex-shrink-0 text-xs text-slate-400">Coming soon</span>
-      </div>
-
-      <!-- Password -->
-      <div class="px-6 py-4 flex items-center justify-between gap-4" id="security">
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-title">Password &amp; Security</p>
-          <p class="text-xs text-slate-400 mt-0.5">••••••••••••</p>
-        </div>
-        <span class="flex-shrink-0 text-xs text-slate-400">Coming soon</span>
-      </div>
-
-      <!-- Work address -->
-      <div class="px-6 py-4 flex items-center justify-between gap-4" id="work-address">
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-title">Work Address</p>
-          <p class="text-xs text-slate-400 mt-0.5">Not set</p>
-        </div>
-        <span class="flex-shrink-0 text-xs text-slate-400">Coming soon</span>
-      </div>
-
+      {% endfor %}
     </div>
   </div>
 
@@ -264,7 +236,7 @@
   {% endif %}
 
   <div class="flex justify-end">
-    <span class="text-xs text-slate-400">Preference saving is coming soon.</span>
+    <span class="text-xs text-slate-400">Changes are saved to your account.</span>
   </div>
 
 </div>
@@ -272,4 +244,38 @@
 
 {% block body_extra %}
 {{ super() }}
+<dialog id="profile-dialog" aria-labelledby="profile-dialog-title">
+  <form id="profile-form" data-noload>
+    <h2 id="profile-dialog-title">Change profile</h2>
+    <p id="profile-dialog-help" class="settings-help"></p>
+    <div id="profile-value-group" class="settings-field">
+      <label id="profile-value-label" for="profile-value">Value</label>
+      <input id="profile-value" name="value" type="text" maxlength="200" autocomplete="name">
+    </div>
+    <div id="profile-address-group" class="settings-field" hidden>
+      <label for="profile-address">Work address</label>
+      <textarea id="profile-address" name="work_address" maxlength="1000" rows="4" autocomplete="street-address"></textarea>
+    </div>
+    <div id="profile-current-group" class="settings-field" hidden>
+      <label for="profile-current">Current password</label>
+      <input id="profile-current" name="current_password" type="password" maxlength="1024" autocomplete="current-password">
+    </div>
+    <div id="profile-password-group" hidden>
+      <div class="settings-field">
+        <label for="profile-new">New password</label>
+        <input id="profile-new" name="new_password" type="password" minlength="8" maxlength="128" autocomplete="new-password">
+      </div>
+      <div class="settings-field">
+        <label for="profile-confirm">Confirm new password</label>
+        <input id="profile-confirm" name="confirm_password" type="password" minlength="8" maxlength="128" autocomplete="new-password">
+      </div>
+    </div>
+    <p id="profile-error" role="alert" hidden></p>
+    <div class="settings-actions">
+      <button type="button" id="profile-cancel" class="settings-cancel">Cancel</button>
+      <button type="submit" id="profile-save" class="settings-save">Save</button>
+    </div>
+  </form>
+</dialog>
+<script src="{{ url_for('static', filename='js/settings.js') }}" defer></script>
 {% endblock %}

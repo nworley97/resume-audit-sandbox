@@ -70,6 +70,13 @@ class User(Base, UserMixin):
         return check_password_hash(self.pw_hash, pw)
 
 
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), primary_key=True)
+    work_address = Column(String(1000), nullable=False, default="")
+    preferences = Column(MutableDict.as_mutable(JSON), nullable=False, default=dict)
+
+
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_token"
 

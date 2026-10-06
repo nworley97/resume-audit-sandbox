@@ -1,0 +1,17 @@
+/* Dashboard-only theme; public application pages use their existing styles. */
+html[data-theme="dark"] { color-scheme: dark; --dash-bg:#111827; --dash-card:#1f2937; --dash-text:#f3f4f6; --dash-muted:#b6c2d2; --dash-border:#3a4658; }
+html[data-theme="dark"] body { background:var(--dash-bg); color:var(--dash-text); }
+html[data-theme="dark"] .bg-white { background-color:var(--dash-card) !important; }
+html[data-theme="dark"] :is(.bg-background,.bg-gray-50,.bg-gray-100,.bg-slate-50,.bg-slate-100) { background-color:#283447 !important; }
+html[data-theme="dark"] :is(.text-title,.text-gray-900,.text-gray-800,.text-gray-700,.text-slate-900,.text-slate-800,.text-slate-700) { color:var(--dash-text) !important; }
+html[data-theme="dark"] :is(.text-slate,.text-slate-400,.text-slate-500,.text-slate-600,.text-gray-400,.text-gray-500,.text-gray-600) { color:var(--dash-muted) !important; }
+html[data-theme="dark"] :is(.border-gray-100,.border-gray-200,.border-gray-300,.border-slate-200),
+html[data-theme="dark"] :is(.divide-gray-100,.divide-gray-200)>:not([hidden])~:not([hidden]) { border-color:var(--dash-border) !important; }
+html[data-theme="dark"] :is(input,textarea,select) { background-color:#111827; color:var(--dash-text); border-color:var(--dash-border); }
+html[data-theme="dark"] :is(.hover\:bg-gray-50,.hover\:bg-gray-100):hover { background-color:#374151 !important; }
+html[data-theme="dark"] .text-primary { color:#5eead4 !important; }
+html[data-theme="dark"] .app-sidebar nav a.bg-primary\/10 { background:#134e4a !important; }
+html[data-theme="dark"] #notif-list a { background:#243245 !important; border-color:var(--dash-border) !important; }
+html[data-theme="dark"] #notif-list p { color:var(--dash-text) !important; }
+html[data-theme="dark"] #notif-list a:hover { background:#334155 !important; }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; transition-duration:0.01ms !important; } }
