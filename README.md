@@ -59,6 +59,8 @@ Email choices are saved, but delivery is inactive and clearly labeled until emai
 
 For isolated manual testing, run `python scripts/preview_settings.py` and open `http://127.0.0.1:5063`. The script prints synthetic sign-in credentials and creates a temporary local database. Run the regression suite with `python -m unittest discover -s tests -p "test_*.py"`.
 
+Run the website notification race regression with `node --test tests/web-settings-notifications.test.cjs`.
+
 ## Mobile app
 
 Open `ios/AlteraSF.xcodeproj` on a Mac. Debug builds default to the local API; a physical phone needs the Mac's LAN address or the HTTPS sandbox URL. Release builds target production. See [ios/README.md](ios/README.md) for signing, local-network, and TestFlight steps.

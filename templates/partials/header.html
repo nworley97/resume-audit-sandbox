@@ -336,6 +336,9 @@
       var response = await fetch({{ url_for('mobile_api.list_notifications', tenant=tenant_slug) | tojson }}, {credentials:'same-origin'});
       if (!response.ok) return;
       var rows = await response.json();
+      // The user may have disabled alerts while the request was in flight.
+      // Do not consume IDs for notifications we will not display.
+      if (!prefs().site_alerts) return;
       var seen;
       try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'); } catch (_) { seen = []; }
       if (!Array.isArray(seen)) seen = [];
