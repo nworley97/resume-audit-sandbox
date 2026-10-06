@@ -23,6 +23,30 @@
 </style>
 {% endblock %}
 
+{% block body_extra %}
+{{ super() }}
+<script>
+(() => {
+  const frame = document.querySelector('.analytics-iframe-wrap iframe');
+  function syncTheme() {
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    const theme = document.documentElement.dataset.theme;
+    doc.documentElement.dataset.theme = theme;
+    doc.documentElement.classList.toggle('dark', theme === 'dark');
+    if (!doc.getElementById('dashboard-theme')) {
+      const style = doc.createElement('link');
+      style.id = 'dashboard-theme'; style.rel = 'stylesheet';
+      style.href = {{ url_for('static', filename='css/dashboard-theme.css') | tojson }};
+      doc.head.appendChild(style);
+    }
+  }
+  frame.addEventListener('load', syncTheme);
+  window.addEventListener('dashboard-preferences-changed', syncTheme);
+})();
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="analytics-iframe-wrap">
   <iframe src="{{ spa_url }}"
