@@ -23,6 +23,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
+        # This revision ID exceeds Alembic's default VARCHAR(32). Widen its
+        # bookkeeping column before Alembic records the completed upgrade.
+        op.alter_column(
+            "alembic_version", "version_num",
+            existing_type=sa.String(32), type_=sa.String(64),
+            existing_nullable=False,
+        )
         # A literal expression keeps Alembic's offline ``--sql`` mode usable;
         # SQLAlchemy has no generic literal renderer for JSON list values.
         op.execute(

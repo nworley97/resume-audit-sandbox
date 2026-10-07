@@ -53,7 +53,7 @@ The end-to-end suite uses its own `.playwright.sqlite` database. Never point it 
 
 ## Website account settings
 
-The website Settings page saves profile details and per-user preferences through `/api/settings`. Migration `0005_user_settings` adds the preference/address table; the existing Render release command runs migrations before starting the app. Email and password changes require the current password. Password changes invalidate other sessions and outstanding reset links.
+The website Settings page saves profile details and per-user preferences through `/api/settings`. Migration `0005_user_settings` adds the preference/address table. In Render, set **Pre-Deploy Command** to `python -m alembic upgrade head`; its dashboard Start Command overrides the repository Procfile, so the Procfile alone does not guarantee migrations run. Verify the deployed database reaches `0005_user_settings` before checking the authenticated dashboard. Email and password changes require the current password. Password changes invalidate other sessions and outstanding reset links.
 
 Email choices are saved, but delivery is inactive and clearly labeled until email jobs are implemented. Site alerts use the existing tenant notification API. Optional sound and desktop notifications require browser support; desktop notifications work while the dashboard is open, with browser permission, and do not provide background push delivery. Light/Dark choices persist per account; System is not offered.
 
