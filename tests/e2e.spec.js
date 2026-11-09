@@ -33,6 +33,43 @@ async function expectNoPageOverflow(page) {
   expect(dimensions.body, detail).toBeLessThanOrEqual(dimensions.viewport);
 }
 
+test('settings uses public prices and admins can add a teammate', async ({ page }, testInfo) => {
+  await page.goto('/pricing');
+  const publicPrices = {};
+  for (const tier of ['free', 'starter', 'pro', 'ultra']) {
+    publicPrices[tier] = await page.locator(`[data-plan-tier="${tier}"] .pricing-amount`).textContent();
+  }
+  await page.getByRole('button', { name: 'Yearly', exact: true }).click();
+  await expect(page.locator('[data-plan-tier="pro"] .pricing-amount')).toHaveText('$83.85');
+  await login(page);
+  await page.goto('/playwright/settings');
+  for (const tier of Object.keys(publicPrices)) {
+    await expect(page.locator(`#plans [data-plan-tier="${tier}"]`)).toContainText(publicPrices[tier]);
+  }
+  const email = `team-${testInfo.project.name.replace(/\s/g, '-').toLowerCase()}-${Date.now()}@example.com`;
+  await page.getByLabel('Teammate name').fill('Browser Teammate');
+  await page.getByLabel('Teammate email').fill(email);
+  await page.getByLabel('Team role', { exact: true }).selectOption('viewer');
+  const created = page.waitForResponse(response => response.url().endsWith('/api/settings/playwright/team') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Add user', exact: true }).click();
+  const response = await created;
+  expect(response.status()).toBe(201);
+  const member = await response.json();
+  try {
+    await expect(page.locator('#team-password')).not.toBeEmpty();
+    await expect(page.locator('#team-members')).toContainText(email);
+    await expectNoPageOverflow(page);
+    await page.getByRole('button', { name: 'Dismiss password' }).click();
+    await expect(page.locator('#team-password')).toBeEmpty();
+    await page.reload();
+    await expect(page.locator('#team-members')).toContainText(email);
+    await expect(page.locator('#team-created')).toBeHidden();
+  } finally {
+    const removed = await page.request.delete(`/api/mobile/playwright/team/${member.id}`);
+    expect(removed.ok()).toBeTruthy();
+  }
+});
+
 
 test('landing page fits the viewport', async ({ page }) => {
   await page.goto('/');

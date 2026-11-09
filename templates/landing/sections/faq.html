@@ -37,7 +37,7 @@
       </button>
     </div>
     <p class="font-medium text-[16px] text-[#0051ff] text-center" style="font-family: 'Poppins', sans-serif;">
-      Save 35% Annually
+      Save {{ plan_yearly_discount }}% Annually
     </p>
   </div>
 
@@ -45,170 +45,27 @@
   <div class="max-w-[1440px] mx-auto px-4 md:px-6 lg:px-[80px] xl:px-[140px] mb-[16px] reveal reveal-delay-2">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 justify-center gap-[16px]">
 
-      <!-- Free Card -->
-      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full min-h-[480px] p-[24px] flex flex-col">
+      {% for plan in plan_catalog %}
+      <article data-plan-tier="{{ plan.tier }}" class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full min-h-[480px] p-[24px] flex flex-col">
         <div class="flex flex-col gap-[4px] mb-[16px] min-h-[72px]">
-          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Get started for</span>
-          <span class="font-ibm-sans font-bold text-[30px] text-black">Free*</span>
-        </div>
-        <div class="flex flex-col gap-[12px] flex-1">
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="font-ibm-sans text-[16px] text-black">1 active job</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="font-ibm-sans text-[16px] text-black">Up to 25 resumes</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Relevancy Score</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">1 seat</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
-          </div>
-        </div>
-        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="free" data-plan-name="Free" data-monthly-price="$0" data-yearly-price="$0" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
-          Start Free
-        </button>
-      </div>
-
-      <!-- Starter Card -->
-      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full min-h-[480px] p-[24px] flex flex-col">
-        <div class="flex flex-col gap-[4px] mb-[16px] min-h-[72px]">
-          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Starter</span>
+          <h3 class="font-ibm-sans font-bold text-[20px] text-landing-blue">{{ plan.display_name }}</h3>
           <div class="flex items-baseline">
-            <span class="pricing-amount font-bold text-[30px] text-black" data-monthly="$49" data-yearly="$32" style="font-family: 'Poppins', sans-serif;">$49</span>
-            <span class="text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">/mo*</span>
+            <span class="pricing-amount font-bold text-[30px] text-black" data-monthly="${{ '%g'|format(plan.monthly_price) }}" data-yearly="${{ '%.2f'|format(plan.yearly_price / 12) }}" style="font-family: 'Poppins', sans-serif;">${{ '%g'|format(plan.monthly_price) }}</span>
+            <span class="text-[20px] text-black">/mo*</span>
           </div>
         </div>
-        <div class="flex flex-col gap-[12px] flex-1">
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="font-ibm-sans text-[16px] text-black">3 active jobs</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Up to 100 resumes</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Relevancy Score</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">1 seat</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
-          </div>
-        </div>
-        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="starter" data-plan-name="Starter" data-monthly-price="$49/mo" data-yearly-price="$32/mo" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
-          Select Plan
+        <ul class="flex flex-col gap-[12px] flex-1 font-ibm-sans text-[16px] text-black">
+          <li>{{ plan.limits.active_jobs }} active job{{ 's' if plan.limits.active_jobs != 1 else '' }}</li>
+          <li>Up to {{ plan.limits.monthly_resumes }} resumes per month</li>
+          <li>{{ plan.limits.seats_included }} seat{{ 's' if plan.limits.seats_included != 1 else '' }}</li>
+          {% for feature in plan.features %}<li>{{ feature.name }}</li>{% endfor %}
+        </ul>
+        <p class="text-xs text-black my-3">Annual total: ${{ '%.2f'|format(plan.yearly_price) }}</p>
+        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="{{ plan.tier }}" data-plan-name="{{ plan.display_name }}" data-monthly-price="${{ '%g'|format(plan.monthly_price) }}/mo" data-yearly-price="${{ '%.2f'|format(plan.yearly_price / 12) }}/mo (${{ '%.2f'|format(plan.yearly_price) }} billed yearly)" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
+          {{ 'Start Free' if plan.tier == 'free' else 'Select Plan' }}
         </button>
-      </div>
-
-      <!-- Pro Card -->
-      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full min-h-[480px] p-[24px] flex flex-col">
-        <div class="flex flex-col gap-[4px] mb-[16px] min-h-[72px]">
-          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Pro</span>
-          <div class="flex items-baseline">
-            <span class="pricing-amount font-bold text-[30px] text-black" data-monthly="$129" data-yearly="$84" style="font-family: 'Poppins', sans-serif;">$129</span>
-            <span class="text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">/mo*</span>
-          </div>
-        </div>
-        <div class="flex flex-col gap-[12px] flex-1">
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="font-ibm-sans text-[16px] text-black">10 active jobs</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Up to 500 resumes</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Relevancy Score</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Claim Validity Score</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Red Flag Detection</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">3 seats</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-black" style="font-family: 'Poppins', sans-serif;">Job Board</span>
-          </div>
-        </div>
-        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="pro" data-plan-name="Pro" data-monthly-price="$129/mo" data-yearly-price="$84/mo" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
-          Select Plan
-        </button>
-      </div>
-
-      <!-- Ultra Card -->
-      <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full min-h-[480px] p-[24px] flex flex-col">
-        <div class="flex flex-col gap-[4px] mb-[16px] min-h-[72px]">
-          <span class="font-ibm-sans font-bold text-[20px] text-landing-blue">Ultra</span>
-          <div class="flex items-baseline">
-            <span class="pricing-amount font-bold text-[30px] text-black" data-monthly="$239" data-yearly="$155" style="font-family: 'Poppins', sans-serif;">$239</span>
-            <span class="text-[30px] text-black" style="font-family: 'Poppins', sans-serif;">/mo*</span>
-          </div>
-        </div>
-        <div class="flex flex-col gap-[12px] flex-1">
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">20 active jobs</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Up to 1k resumes</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Job Relevancy Score</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Claim Validity Score</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Red Flag Detection</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Full Analytics Engine</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Dedicated support rep</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">3 seats</span>
-          </div>
-          <div class="flex gap-[8px] items-center">
-            <span class="material-symbols-outlined text-landing-blue text-[20px]">check</span>
-            <span class="text-[16px] text-landing-navy" style="font-family: 'Poppins', sans-serif;">Job Board</span>
-          </div>
-        </div>
-        <button type="button" class="pricing-cta landing-signup-btn mt-auto bg-landing-navy text-white text-center rounded-[8px] h-[48px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity w-full" data-plan="ultra" data-plan-name="Ultra" data-monthly-price="$239/mo" data-yearly-price="$155/mo" style="font-family: 'Figtree', sans-serif; font-size: 16px;">
-          Select Plan
-        </button>
-      </div>
+      </article>
+      {% endfor %}
 
       <!-- Enterprise Card -->
       <div class="bg-white rounded-[10px] shadow-[0px_4px_8px_0px_rgba(0,0,0,0.5)] w-full min-h-[480px] p-[24px] flex flex-col">
@@ -233,7 +90,7 @@
   <!-- Footnote -->
   <div class="max-w-[1440px] mx-auto px-6 pb-[40px] md:pb-[80px] reveal reveal-delay-2">
     <p class="font-ibm-sans font-medium text-[16px] text-black text-center mt-[16px]">
-      *Extra Seats: +$20/mo per seat.
+      *Extra Seats: +${{ plan_extra_seat_price }}/mo per seat. Annual plans are billed yearly.
     </p>
   </div>
 

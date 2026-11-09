@@ -105,21 +105,22 @@ struct TeamView: View {
                 Button {
                     showInviteSheet = true
                 } label: {
-                    Label("Invite", systemImage: "person.badge.plus")
+                    Label("Add user", systemImage: "person.badge.plus")
                         .foregroundColor(AppTheme.primary)
                 }
             }
         }
         .task { await vm.load() }
         .refreshable { await vm.load() }
-        .sheet(isPresented: $showInviteSheet) {
+        .sheet(isPresented: $showInviteSheet, onDismiss: {
+            showTempPasswordAlert = vm.lastInvitedTempPassword != nil
+        }) {
             InviteTeamMemberSheet { name, email, role in
                 let ok = await vm.invite(name: name, email: email, role: role)
-                if ok && vm.lastInvitedTempPassword != nil { showTempPasswordAlert = true }
-                return ok
+                return ok ? nil : (vm.error ?? "Could not add member. Please try again.")
             }
         }
-        .alert("Member invited", isPresented: $showTempPasswordAlert) {
+        .alert("Member added", isPresented: $showTempPasswordAlert) {
             Button("Done") { vm.lastInvitedTempPassword = nil }
         } message: {
             Text("Temporary password: \(vm.lastInvitedTempPassword ?? "")\n\nShare this with them securely — they should change it after signing in.")
@@ -156,7 +157,7 @@ struct RolePill: View {
 
 struct InviteTeamMemberSheet: View {
     @Environment(\.dismiss) var dismiss
-    let onAdd: (String, String, String) async -> Bool
+    let onAdd: (String, String, String) async -> String?
     @State private var name = ""
     @State private var email = ""
     @State private var role = "manager"
@@ -181,7 +182,7 @@ struct InviteTeamMemberSheet: View {
                 } header: {
                     Text("Role")
                 } footer: {
-                    Text("Admins can manage billing and team members. Managers can post jobs and review candidates. Viewers have read-only access.")
+                    Text("Admins can manage billing and team members. Managers can post jobs and review candidates. Viewers have read-only access. No email is sent; share the generated password securely after adding the user.")
                 }
                 if let err = error {
                     Section {
@@ -189,7 +190,7 @@ struct InviteTeamMemberSheet: View {
                     }
                 }
             }
-            .navigationTitle("Invite member")
+            .navigationTitle("Add team member")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -197,12 +198,12 @@ struct InviteTeamMemberSheet: View {
                     if isSaving {
                         ProgressView().scaleEffect(0.8)
                     } else {
-                        Button("Send invite") {
+                        Button("Add user") {
                             Task {
                                 isSaving = true
-                                let ok = await onAdd(name, email, role)
+                                let message = await onAdd(name, email, role)
                                 isSaving = false
-                                if ok { dismiss() } else { error = "Could not invite member. Check the seat limit on your plan." }
+                                if let message { error = message } else { dismiss() }
                             }
                         }
                         .fontWeight(.semibold).foregroundColor(AppTheme.primary)

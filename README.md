@@ -6,16 +6,16 @@ The Flask application serves the recruiter experience, public application flow, 
 
 Keep exactly two long-lived branches:
 
-- `dev` is the sandbox/test branch.
+- `Dev` (uppercase D on the remote) is the sandbox/test branch. The local checkout may be named `dev` on Windows.
 - `main` is the production branch.
 
-Create short-lived feature branches from `dev`, merge them back after review, and delete them after the merge. Promote a tested `dev` commit to `main` through a pull request. Before removing the legacy remote `Dev` branch, change the Render sandbox service to watch lowercase `dev` and confirm a successful sandbox deployment.
+Promote a tested `Dev` commit to `main` through a pull request. Preserve remote `Dev` after merging; the sandbox service watches that branch. Do not create a separate remote lowercase `dev` branch.
 
 Sandbox and production must use separate databases, Stripe modes/webhooks, storage prefixes or buckets, and session secrets. Test data must never share the production database.
 
 ## Local setup
 
-Prerequisites: Python 3.11+, Node.js 18+, npm, and a local SQLite database or PostgreSQL URL.
+Prerequisites: Python 3.11+, Node.js 20.19+ or 22.12+, npm, and a local SQLite database or PostgreSQL URL.
 
 ```bash
 python -m venv .venv
@@ -60,6 +60,12 @@ Email choices are saved, but delivery is inactive and clearly labeled until emai
 For isolated manual testing, run `python scripts/preview_settings.py` and open `http://127.0.0.1:5063`. The script prints synthetic sign-in credentials and creates a temporary local database. Run the regression suite with `python -m unittest discover -s tests -p "test_*.py"`.
 
 Run the website notification race regression with `node --test tests/web-settings-notifications.test.cjs`.
+
+## Pricing, team management, and AI
+
+Settings and public pricing read `plans_config.py`, including all four tiers, limits, features, and annual totals. Admins can add users from the Team members section of Settings. Creation enforces seats and tenant permissions, and returns a generated password to share securely; it does not send an email invitation. Mobile uses the same creation service.
+
+AI screening requires `OPENAI_API_KEY`. `OPENAI_MODEL` defaults to `gpt-6-astra`; `OPENAI_REASONING_EFFORT` defaults to `low`. An explicit model override allows rollback. Do not set `TEST_MODE=true` in production: it enables synthetic results when no API client is available. Run `python scripts/evaluate_ai_upgrade.py --model gpt-6-astra` with a development API key for a small, billable evaluation using fictional resumes before production rollout. See [the November stack review](docs/stack-review-2026-11-09.md) for the remaining billing, AI validation, storage, and deployment findings.
 
 ## Mobile app
 

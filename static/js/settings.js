@@ -5,6 +5,35 @@
   function notify(message, error = false) {
     feedback.textContent = message; feedback.dataset.error = String(error); feedback.hidden = false;
   }
+  const teamForm = document.getElementById('team-form');
+  if (teamForm) {
+    const result = document.getElementById('team-created');
+    const teamError = document.getElementById('team-error');
+    const password = document.getElementById('team-password');
+    const dismissPassword = () => { password.textContent = ''; result.hidden = true; };
+    document.getElementById('team-dismiss').addEventListener('click', dismissPassword);
+    window.addEventListener('pagehide', dismissPassword);
+    teamForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const submit = teamForm.querySelector('[type="submit"]');
+      if (submit.disabled) return;
+      const body = Object.fromEntries(new FormData(teamForm));
+      submit.disabled = true; submit.textContent = 'Adding…'; teamError.hidden = true;
+      dismissPassword();
+      try {
+        const member = await window.settingsRequest(teamForm.dataset.endpoint, 'POST', body);
+        const row = document.createElement('li');
+        row.className = 'px-6 py-3 text-sm';
+        row.textContent = `${member.name} · ${member.email} · ${member.role}`;
+        document.getElementById('team-members').append(row);
+        document.getElementById('team-count').textContent = document.getElementById('team-members').children.length;
+        document.getElementById('team-created-email').textContent = member.email;
+        password.textContent = member.temp_password;
+        result.hidden = false; teamForm.reset(); notify('Team member added.');
+      } catch (e) { teamError.textContent = e.message; teamError.hidden = false; }
+      finally { submit.disabled = false; submit.textContent = 'Add user'; }
+    });
+  }
   document.querySelectorAll('[data-preference]').forEach(button => {
     button.addEventListener('click', async () => {
       const key = button.dataset.preference, value = !state.preferences[key];
