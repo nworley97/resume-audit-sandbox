@@ -64,7 +64,7 @@ class PricingTeamTests(unittest.TestCase):
     def test_pricing_tracks_catalog_changes(self):
         from plans_config import PLAN_PRICING, PLAN_LIMITS
         with patch.dict(PLAN_PRICING["pro"], monthly_price=137), patch.dict(PLAN_LIMITS["pro"], active_jobs=11):
-            for path in ("/pricing", "/team-test/settings"):
+            for path in ("/pricing", "/team-test/settings", "/billing/signup"):
                 html = self.client.get(path).get_data(as_text=True)
                 self.assertIn("$137", html)
                 self.assertIn("11 active jobs", html)
@@ -132,15 +132,25 @@ class PricingTeamTests(unittest.TestCase):
 
 
 class AITransportTests(unittest.TestCase):
+    def test_questions_include_job_and_grading_keeps_late_experience(self):
+        with patch.object(module, "chat", return_value='{"questions": []}') as chat:
+            module.generate_questions({"skills": ["Python"]}, "Needs database optimization")
+            self.assertIn("Needs database optimization", chat.call_args.args[1])
+        resume = {"summary": "x" * 1600, "experience": [{"company": "Earlier role", "title": "Database engineer"}]}
+        with patch.object(module, "chat", return_value='{"score": 4}') as chat:
+            module.score_answers(resume, ["Describe your experience"], ["I maintained the database and improved its query performance significantly."])
+            self.assertIn("Earlier role", chat.call_args.args[1])
+
     def reply(self, content='{"score": 4}', finish="stop", refusal=None):
         return SimpleNamespace(choices=[SimpleNamespace(finish_reason=finish, message=SimpleNamespace(content=content, refusal=refusal))])
 
     def test_reasoning_model_uses_supported_parameters_and_json(self):
         client = Mock()
         client.chat.completions.create.return_value = self.reply()
-        with patch.object(module, "client", client), patch.object(module, "MODEL", "gpt-6-astra"):
+        with patch.object(module, "client", client), patch.object(module, "MODEL", "gpt-6-luna"):
             self.assertEqual(module.chat("Return JSON", "sample", structured=True), '{"score": 4}')
         params = client.chat.completions.create.call_args.kwargs
+        self.assertEqual(params["model"], "gpt-6-luna")
         self.assertNotIn("temperature", params)
         self.assertNotIn("top_p", params)
         self.assertEqual(params["reasoning_effort"], "low")

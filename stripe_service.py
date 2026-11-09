@@ -3,7 +3,7 @@
 Stripe payment service - Production-ready implementation.
 
 This module provides a payment processing interface that can work in two modes:
-1. MOCK MODE (default): Simulates Stripe for testing without a real account
+1. MOCK MODE (TEST_MODE only): Simulates Stripe for explicit local tests
 2. LIVE MODE: Uses real Stripe API (set STRIPE_SECRET_KEY env var)
 
 Configuration is loaded from stripe_config.py which maps plan tiers to
@@ -26,6 +26,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import logging
+from functools import wraps
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +58,18 @@ if USE_REAL_STRIPE:
         logger.info(f"Stripe initialized in {'LIVE' if 'live' in STRIPE_SECRET_KEY else 'TEST'} mode")
     except ImportError:
         USE_REAL_STRIPE = False
-        logger.warning("stripe package not installed, falling back to mock mode")
+        logger.error("stripe package not installed; real payments disabled")
 else:
-    logger.info("Stripe running in MOCK mode (no API key set)")
+    logger.info("Stripe API key not configured; real payments disabled")
+
+
+def _requires_payment_backend(func):
+    @wraps(func)
+    def guarded(*args, **kwargs):
+        if not USE_REAL_STRIPE and not PaymentService.is_mock_mode():
+            raise RuntimeError("Payments are unavailable. Please contact support.")
+        return func(*args, **kwargs)
+    return guarded
 
 
 # ─── Data Classes ───────────────────────────────────────────────────────────
@@ -333,17 +343,18 @@ class PaymentService:
     
     @staticmethod
     def is_mock_mode() -> bool:
-        """Check if running in mock mode."""
-        return not USE_REAL_STRIPE
+        """Synthetic payments require an explicit test environment."""
+        return not USE_REAL_STRIPE and os.getenv("TEST_MODE", "").lower() in {"true", "1"}
     
     @staticmethod
     def get_publishable_key() -> str:
         """Get the publishable key for frontend."""
         if USE_REAL_STRIPE:
             return STRIPE_PUBLISHABLE_KEY or ""
-        return "pk_mock_test_key"
+        return "pk_mock_test_key" if PaymentService.is_mock_mode() else ""
     
     @staticmethod
+    @_requires_payment_backend
     def create_customer(email: str, name: str = None, company: str = None) -> str:
         """Create a customer in Stripe/Mock."""
         if USE_REAL_STRIPE:
@@ -357,6 +368,7 @@ class PaymentService:
             return MockStripe.create_customer(email, name)
     
     @staticmethod
+    @_requires_payment_backend
     def process_signup(
         email: str,
         name: str,
@@ -588,6 +600,7 @@ class PaymentService:
             )
     
     @staticmethod
+    @_requires_payment_backend
     def charge_additional_seats(
         customer_id: str,
         num_seats: int,
@@ -635,6 +648,7 @@ class PaymentService:
             return MockStripe.charge_for_seats(customer_id, num_seats, price_per_seat)
     
     @staticmethod
+    @_requires_payment_backend
     def update_subscription(
         subscription_id: str,
         new_plan_tier: str,
@@ -685,12 +699,15 @@ class PaymentService:
                         "price": new_price.id,
                     }],
                     proration_behavior=PRORATION_BEHAVIOR,
+                    payment_behavior="error_if_incomplete",
                     metadata={
                         "plan_tier": new_plan_tier,
                         "billing_cycle": new_billing_cycle,
                     }
                 )
                 
+                if updated_sub.get('status') not in {"active", "trialing"}:
+                    return False, "Payment must be completed before changing plans", {}
                 # Use dict-style access for compatibility across Stripe library versions
                 return True, None, {
                     "subscription_id": updated_sub.get('id') if isinstance(updated_sub, dict) else getattr(updated_sub, 'id', None),
@@ -708,6 +725,7 @@ class PaymentService:
             return MockStripe.update_subscription(subscription_id, new_plan_tier, new_billing_cycle)
     
     @staticmethod
+    @_requires_payment_backend
     def cancel_subscription(
         subscription_id: str,
         cancel_at_period_end: bool = True
@@ -748,6 +766,7 @@ class PaymentService:
             return MockStripe.cancel_subscription(subscription_id)
     
     @staticmethod
+    @_requires_payment_backend
     def update_payment_method(
         customer_id: str,
         card_number: str,
@@ -850,7 +869,7 @@ def create_billing_portal_session(customer_id: str, return_url: str) -> Tuple[bo
         except Exception as e:
             logger.error(f"Error creating portal session: {e}")
             return False, "Failed to create billing portal session", None
-    else:
-        # Mock mode - return a fake URL
+    elif PaymentService.is_mock_mode():
         return True, None, f"{return_url}?mock_portal=true"
+    return False, "Payments are unavailable. Please contact support.", None
 

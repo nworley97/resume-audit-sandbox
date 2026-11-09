@@ -1648,13 +1648,11 @@ def billing_change_plan(t: Tenant):
             db.commit()
             return jsonify({"ok": True, "plan_tier": new_tier, "billing_cycle": new_cycle})
 
-        from stripe_config import get_payment_link
-        from urllib.parse import quote
-        payment_link = get_payment_link(new_tier, new_cycle)
-        if not payment_link:
-            abort(400, "payment link not configured for this plan")
-        if current_user.username:
-            payment_link = f"{payment_link}?prefilled_email={quote(current_user.username)}"
+        from billing_routes import _account_checkout
+        try:
+            payment_link = _account_checkout(db, sub, new_tier, new_cycle)
+        except Exception:
+            abort(503, "Unable to open payment checkout. Please try again or contact support.")
         return jsonify({
             "ok": False,
             "requires_payment": True,
@@ -1670,6 +1668,7 @@ def billing_change_plan(t: Tenant):
 @role_required("admin")
 def billing_cancel(t: Tenant):
     from subscription_models import TenantSubscription, get_tenant_subscription
+    from stripe_service import PaymentService
 
     db = SessionLocal()
     try:
@@ -1681,7 +1680,16 @@ def billing_cancel(t: Tenant):
         if not sub or sub.status == "canceled":
             abort(400, "no active subscription to cancel")
 
-        sub.status = "canceled"
+        if sub.stripe_subscription_id:
+            try:
+                success, error = PaymentService.cancel_subscription(sub.stripe_subscription_id, cancel_at_period_end=True)
+            except RuntimeError:
+                abort(503, "Payments are unavailable. Please contact support.")
+            if not success:
+                abort(502, error or "Unable to cancel subscription")
+            # Stripe's final deletion event removes access when the paid period ends.
+        else:
+            sub.status = "canceled"
         sub.canceled_at = datetime.utcnow()
         db.commit()
         return jsonify({"ok": True})

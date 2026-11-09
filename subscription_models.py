@@ -88,7 +88,7 @@ class TenantSubscription(Base):
         """Get total seats available (included + extra)."""
         from plans_config import get_plan_limit
         included = get_plan_limit(self.effective_plan_tier(), "seats_included")
-        return included + (self.extra_seats or 0)
+        return included + ((self.extra_seats or 0) if self.is_active() else 0)
     
     def get_period_end_date(self) -> datetime:
         """Calculate the end of the current billing period."""
@@ -199,6 +199,16 @@ class PaymentHistory(Base):
     payment_method_brand = Column(String(20), nullable=True)
 
 
+class CheckoutFulfillment(Base):
+    """One receipt per checkout, committed atomically with purchased access."""
+    __tablename__ = "checkout_fulfillment"
+
+    session_id = Column(String(255), primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
+    kind = Column(String(20), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
 # ─── Schema Migration Helper ────────────────────────────────────────────────
 
 def ensure_subscription_schema():
@@ -224,6 +234,9 @@ def ensure_subscription_schema():
     
     if "pending_signup" not in existing_tables:
         tables_to_create.append(PendingSignup.__table__)
+
+    if "checkout_fulfillment" not in existing_tables:
+        tables_to_create.append(CheckoutFulfillment.__table__)
     
     if tables_to_create:
         Base.metadata.create_all(models_engine, tables=tables_to_create)

@@ -37,7 +37,7 @@ No employment history or internships.
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default=os.getenv("OPENAI_MODEL", "gpt-6-astra"))
+    parser.add_argument("--model", default=os.getenv("OPENAI_MODEL", "gpt-6-luna"))
     args = parser.parse_args()
     if not os.getenv("OPENAI_API_KEY"):
         parser.exit(2, "OPENAI_API_KEY is required; no live evaluation was run.\n")

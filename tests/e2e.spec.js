@@ -71,6 +71,22 @@ test('settings uses public prices and admins can add a teammate', async ({ page 
 });
 
 
+test('signup uses catalog prices for cards and selected billing cycle', async ({ page }, testInfo) => {
+  await page.goto('/billing/signup');
+  await expect(page.locator('[data-plan-tier]')).toHaveCount(4);
+  const pro = page.locator('[data-plan-tier="pro"]');
+  await expect(pro).toContainText('$129');
+  await expect(pro).toContainText('10 active jobs');
+  await page.getByRole('button', { name: 'Yearly', exact: true }).click();
+  await expect(pro).toContainText('$1006.20');
+  await pro.getByRole('button', { name: 'Select Plan' }).click();
+  await expect(page.locator('#display-plan-name')).toHaveText('Pro');
+  await expect(page.locator('#display-plan-price')).toHaveText('$1006.20/yr');
+  await expect(page.locator('#form-billing-cycle')).toHaveValue('yearly');
+  await expectNoPageOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath('signup.png'), fullPage: true });
+});
+
 test('landing page fits the viewport', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();

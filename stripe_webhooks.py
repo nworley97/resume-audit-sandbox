@@ -181,8 +181,8 @@ def handle_stripe_webhook():
         return jsonify({"status": "success", "event": event_type}), 200
     except Exception as e:
         logger.error(f"Error processing webhook {event_type}: {e}", exc_info=True)
-        # Return 200 to prevent Stripe from retrying (we'll handle errors internally)
-        return jsonify({"status": "error", "message": str(e)}), 200
+        # Transient failures must be retried; never acknowledge lost fulfillment.
+        return jsonify({"status": "error", "message": "Payment processing failed; retry required"}), 500
 
 
 # ─── Event Handlers ──────────────────────────────────────────────────────────
@@ -402,55 +402,14 @@ def handle_payment_method_attached(event) -> Dict[str, Any]:
 
 
 def handle_customer_created(event) -> Dict[str, Any]:
-    """Handle customer.created event."""
-    customer = event.data.object
-    customer_id = _safe_get(customer, 'id')
-    customer_email = _safe_get(customer, 'email')
-    
-    logger.info(f"Customer created: {customer_id} ({customer_email})")
-    
-    # Check if this customer email matches a pending signup
-    if customer_email:
-        _maybe_create_account_from_pending_signup(customer_email, customer_id)
-    
-    return {"customer_id": customer_id, "email": customer_email}
+    """Customer creation never proves payment or grants account access."""
+    return {"customer_id": _safe_get(event.data.object, "id"), "status": "ignored"}
 
 
 def handle_checkout_session_completed(event) -> Dict[str, Any]:
-    """Handle checkout.session.completed event (for payment links)."""
-    checkout_session = event.data.object
-    customer_id = _safe_get(checkout_session, 'customer')
-    session_id = _safe_get(checkout_session, 'id')
-
-    # Extract email - try multiple fields for compatibility
-    customer_email = None
-    customer_details = _safe_get(checkout_session, 'customer_details')
-    if customer_details:
-        customer_email = _safe_get(customer_details, 'email')
-    # Fallback to customer_email field
-    if not customer_email:
-        customer_email = _safe_get(checkout_session, 'customer_email')
-
-    logger.info(f"Checkout session completed: {session_id} for customer {customer_id}, email: {customer_email}")
-
-    # Check if this is an extra_seat purchase
-    seat_added = _maybe_add_extra_seat(session_id, customer_id)
-    if seat_added:
-        return {"session_id": session_id, "customer_id": customer_id, "seat_added": True}
-
-    # Otherwise, try to create account from pending signup (new plan purchase)
-    account_created = False
-    if customer_email:
-        account_created = _maybe_create_account_from_pending_signup(customer_email, customer_id)
-
-    if not account_created:
-        # Log for debugging - this might indicate an email mismatch
-        logger.warning(
-            f"Checkout completed but no account created for email: {customer_email}, "
-            f"customer_id: {customer_id}. Check if pending signup exists with matching email."
-        )
-
-    return {"session_id": session_id, "customer_id": customer_id, "account_created": account_created}
+    """Fulfill verified paid sessions, including delayed-payment success."""
+    from billing_fulfillment import fulfill_checkout
+    return fulfill_checkout(_safe_get(event.data.object, "id"))
 
 
 def handle_unknown_event(event) -> Dict[str, Any]:
@@ -470,6 +429,7 @@ WEBHOOK_HANDLERS = {
     "payment_method.attached": handle_payment_method_attached,
     "customer.created": handle_customer_created,
     "checkout.session.completed": handle_checkout_session_completed,
+    "checkout.session.async_payment_succeeded": handle_checkout_session_completed,
 }
 
 
@@ -590,225 +550,6 @@ def _update_payment_method_in_db(
         return False
 
 
-def _maybe_add_extra_seat(session_id: str, stripe_customer_id: str) -> bool:
-    """
-    Check if a checkout session is for an extra_seat product and increment seats.
-
-    Expands the checkout session's line_items via the Stripe API to determine
-    the purchased product. If it matches the extra_seat product ID, find the
-    tenant's subscription by stripe_customer_id and increment extra_seats.
-    """
-    if not stripe_customer_id:
-        return False
-
-    try:
-        import stripe
-        from stripe_config import STRIPE_SECRET_KEY, STRIPE_PRODUCTS
-        from db import SessionLocal
-        from subscription_models import TenantSubscription, PaymentHistory
-
-        extra_seat_product_id = STRIPE_PRODUCTS.get("extra_seat")
-        if not extra_seat_product_id or not STRIPE_SECRET_KEY:
-            return False
-
-        stripe.api_key = STRIPE_SECRET_KEY
-
-        # Retrieve the checkout session with line_items expanded
-        cs = stripe.checkout.Session.retrieve(session_id, expand=["line_items"])
-        line_items = cs.line_items.data if cs.line_items else []
-
-        # Check if any line item matches the extra_seat product
-        seat_quantity = 0
-        for item in line_items:
-            product_id = None
-            if item.price and item.price.product:
-                product_id = item.price.product
-                if isinstance(product_id, dict):
-                    product_id = product_id.get('id')
-            if product_id == extra_seat_product_id:
-                seat_quantity += item.quantity or 1
-
-        if seat_quantity == 0:
-            return False
-
-        logger.info(f"Extra seat purchase detected: {seat_quantity} seat(s) for customer {stripe_customer_id}")
-
-        # Increment extra_seats on the tenant's subscription
-        db = SessionLocal()
-        try:
-            subscription = db.query(TenantSubscription).filter(
-                TenantSubscription.stripe_customer_id == stripe_customer_id
-            ).first()
-
-            if not subscription:
-                logger.warning(f"No subscription found for customer {stripe_customer_id} to add seats")
-                return False
-
-            subscription.extra_seats = (subscription.extra_seats or 0) + seat_quantity
-
-            # Record payment history
-            amount = cs.amount_total / 100.0 if cs.amount_total else 0
-            payment = PaymentHistory(
-                tenant_id=subscription.tenant_id,
-                amount=amount,
-                currency=(cs.currency or 'usd').upper(),
-                status='succeeded',
-                description=f"Added {seat_quantity} additional seat(s)",
-                extra_seats=seat_quantity,
-                stripe_payment_intent_id=cs.payment_intent if isinstance(cs.payment_intent, str) else None,
-                payment_method_last4=subscription.payment_method_last4,
-                payment_method_brand=subscription.payment_method_brand,
-            )
-            db.add(payment)
-
-            db.commit()
-            logger.info(f"Added {seat_quantity} extra seat(s) to subscription {subscription.id}")
-            return True
-
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error adding extra seats: {e}", exc_info=True)
-            return False
-        finally:
-            db.close()
-
-    except Exception as e:
-        logger.error(f"Error checking for extra seat purchase: {e}", exc_info=True)
-        return False
-
-
-def _maybe_create_account_from_pending_signup(customer_email: str, stripe_customer_id: str) -> bool:
-    """
-    Create an account from pending signup data when payment succeeds.
-    
-    Called by webhook handlers when a customer is created or checkout completes.
-    Looks up pending signup by email and creates tenant/user/subscription.
-    
-    Uses SELECT FOR UPDATE to prevent race conditions when multiple webhooks
-    fire for the same customer (e.g., customer.created + checkout.session.completed).
-    """
-    if not customer_email:
-        return False
-    
-    try:
-        from db import SessionLocal
-        from models import Tenant, User
-        from subscription_models import PendingSignup, TenantSubscription, TenantUsage
-        from plans_config import PLAN_PRICING
-        
-        db = SessionLocal()
-        try:
-            # Find pending signup by email with row lock to prevent race conditions
-            # Normalize email to lowercase for consistent matching
-            pending = db.query(PendingSignup).filter(
-                PendingSignup.email == customer_email.lower(),
-                PendingSignup.processed == False,
-                PendingSignup.expires_at > datetime.utcnow()
-            ).with_for_update(skip_locked=True).first()
-            
-            if not pending:
-                logger.debug(f"No pending signup found for email: {customer_email}")
-                return False
-            
-            # Check if user already exists
-            existing_user = db.query(User).filter(User.username == pending.email).first()
-            if existing_user:
-                logger.warning(f"User already exists for email: {pending.email}, marking pending as processed")
-                pending.processed = True
-                db.commit()
-                return False
-            
-            # Create tenant
-            tenant_slug = pending.company_name.lower().replace(' ', '-').replace('.', '')[:20]
-            base_slug = tenant_slug
-            counter = 1
-            while db.query(Tenant).filter(Tenant.slug == tenant_slug).first():
-                tenant_slug = f"{base_slug}-{counter}"
-                counter += 1
-            
-            tenant = Tenant(
-                slug=tenant_slug,
-                display_name=pending.company_name,
-            )
-            db.add(tenant)
-            db.flush()
-            
-            # Create user
-            user = User(
-                username=pending.email,
-                tenant_id=tenant.id,
-            )
-            user.pw_hash = pending.password_hash  # Use the stored hash directly
-            db.add(user)
-            db.flush()
-            
-            # Get subscription info from Stripe if available
-            subscription_status = 'active'
-            stripe_subscription_id = None
-            
-            try:
-                import stripe
-                from stripe_config import STRIPE_SECRET_KEY
-                if STRIPE_SECRET_KEY:
-                    stripe.api_key = STRIPE_SECRET_KEY
-                    # Try to get subscription for this customer
-                    subscriptions = stripe.Subscription.list(customer=stripe_customer_id, limit=1)
-                    if subscriptions.data:
-                        sub = subscriptions.data[0]
-                        stripe_subscription_id = sub.id
-                        subscription_status = _map_stripe_status(sub.status)
-            except Exception as e:
-                logger.warning(f"Could not fetch subscription from Stripe: {e}")
-            
-            # Create subscription record
-            now = datetime.utcnow()
-            subscription = TenantSubscription(
-                tenant_id=tenant.id,
-                plan_tier=pending.plan_tier,
-                billing_cycle=pending.billing_cycle,
-                status=subscription_status,
-                created_at=now,
-                current_period_start=now,
-                stripe_customer_id=stripe_customer_id,
-                stripe_subscription_id=stripe_subscription_id,
-            )
-            db.add(subscription)
-            
-            # Create initial usage record
-            period_end = subscription.get_period_end_date()
-            usage = TenantUsage(
-                tenant_id=tenant.id,
-                period_start=now,
-                period_end=period_end,
-                resumes_reviewed=0,
-            )
-            db.add(usage)
-            
-            # Mark pending signup as processed
-            pending.processed = True
-            
-            db.commit()
-            
-            logger.info(f"Created account from pending signup: {pending.email} -> tenant {tenant.id}")
-
-            _send_welcome_email(
-                to=pending.email,
-                company_name=pending.company_name,
-                plan_tier=pending.plan_tier,
-                tenant_slug=tenant_slug,
-            )
-            return True
-            
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error creating account from pending signup: {e}", exc_info=True)
-            return False
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logger.error(f"Error in _maybe_create_account_from_pending_signup: {e}", exc_info=True)
-        return False
 
 
 def _record_payment_history(

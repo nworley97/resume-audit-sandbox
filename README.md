@@ -15,7 +15,7 @@ Sandbox and production must use separate databases, Stripe modes/webhooks, stora
 
 ## Local setup
 
-Prerequisites: Python 3.11+, Node.js 20.19+ or 22.12+, npm, and a local SQLite database or PostgreSQL URL.
+Prerequisites: Python 3.11+, Node.js 22.12+ or 24+, npm, and a local SQLite database or PostgreSQL URL.
 
 ```bash
 python -m venv .venv
@@ -53,7 +53,7 @@ The end-to-end suite uses its own `.playwright.sqlite` database. Never point it 
 
 ## Website account settings
 
-The website Settings page saves profile details and per-user preferences through `/api/settings`. Migration `0005_user_settings` adds the preference/address table. In Render, set **Pre-Deploy Command** to `python -m alembic upgrade head`; its dashboard Start Command overrides the repository Procfile, so the Procfile alone does not guarantee migrations run. Verify the deployed database reaches `0005_user_settings` before checking the authenticated dashboard. Email and password changes require the current password. Password changes invalidate other sessions and outstanding reset links.
+The website Settings page saves profile details and per-user preferences through `/api/settings`. Migration `0005_user_settings` adds the preference/address table; `0006_checkout_fulfillment` adds payment receipts. In Render, set **Pre-Deploy Command** to `python -m alembic upgrade head`; its dashboard Start Command overrides the repository Procfile, so the Procfile alone does not guarantee migrations run. Verify the deployed database reaches the migration head before checking the authenticated dashboard and billing. Email and password changes require the current password. Password changes invalidate other sessions and outstanding reset links.
 
 Email choices are saved, but delivery is inactive and clearly labeled until email jobs are implemented. Site alerts use the existing tenant notification API. Optional sound and desktop notifications require browser support; desktop notifications work while the dashboard is open, with browser permission, and do not provide background push delivery. Light/Dark choices persist per account; System is not offered.
 
@@ -63,9 +63,11 @@ Run the website notification race regression with `node --test tests/web-setting
 
 ## Pricing, team management, and AI
 
-Settings and public pricing read `plans_config.py`, including all four tiers, limits, features, and annual totals. Admins can add users from the Team members section of Settings. Creation enforces seats and tenant permissions, and returns a generated password to share securely; it does not send an email invitation. Mobile uses the same creation service.
+Settings, public pricing, and signup read `plans_config.py`, including all four tiers, limits, features, and annual totals. Admins can add users from the Team members section of Settings. Creation enforces seats and tenant permissions, and returns a generated password to share securely; it does not send an email invitation. Mobile uses the same creation service.
 
-AI screening requires `OPENAI_API_KEY`. `OPENAI_MODEL` defaults to `gpt-6-astra`; `OPENAI_REASONING_EFFORT` defaults to `low`. An explicit model override allows rollback. Do not set `TEST_MODE=true` in production: it enables synthetic results when no API client is available. Run `python scripts/evaluate_ai_upgrade.py --model gpt-6-astra` with a development API key for a small, billable evaluation using fictional resumes before production rollout. See [the November stack review](docs/stack-review-2026-11-09.md) for the remaining billing, AI validation, storage, and deployment findings.
+AI screening requires `OPENAI_API_KEY`. `OPENAI_MODEL` defaults to `gpt-6-luna`; `OPENAI_REASONING_EFFORT` defaults to `low`. This cheaper model handles extraction, questions, and scoring; there is no automatic Astra fallback. If Render already sets `OPENAI_MODEL`, change it explicitly to `gpt-6-luna` because environment overrides take precedence. An explicit model override also allows rollback. Do not set `TEST_MODE=true` in production: it enables synthetic AI results and mock payments when their real services are unavailable. Run `python scripts/evaluate_ai_upgrade.py --model gpt-6-luna` with a development API key for a small, billable evaluation using fictional resumes before production rollout. See [the November stack review](docs/stack-review-2026-11-09.md) for the remaining billing, AI validation, storage, and deployment findings.
+
+Paid signup and account upgrades/seats open Stripe Checkout sessions using the configured product/price lookup keys. Web and mobile purchases attach to the account's saved Stripe customer. Configure `STRIPE_SECRET_KEY` and a signing secret; enable `checkout.session.completed` and `checkout.session.async_payment_succeeded` on the webhook endpoint. Fulfillment retrieves the checkout and subscription from Stripe, validates payment and product, and commits a unique receipt with access changes. Failed processing returns HTTP 500 for retry. `customer.created` never creates a paid account. Legacy already-open Payment Links still use verified checkout email for new signups; new signups bind the exact pending account details. Missing payment configuration disables paid actions outside explicit test mode.
 
 ## Mobile app
 

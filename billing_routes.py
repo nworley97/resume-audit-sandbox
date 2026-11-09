@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
-    flash, session, jsonify, g
+    flash, session, jsonify, g, abort
 )
 from flask_login import login_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -43,6 +43,34 @@ from authz import role_required, rate_limit
 
 # Create Blueprint
 billing_bp = Blueprint('billing', __name__, url_prefix='/billing')
+
+
+@billing_bp.before_request
+def require_payment_configuration():
+    from stripe_service import USE_REAL_STRIPE
+    if USE_REAL_STRIPE or PaymentService.is_mock_mode():
+        return
+    paid_action = request.endpoint == 'billing.update_payment'
+    if request.method == 'POST':
+        paid_action = request.endpoint in {
+            'billing.checkout', 'billing.change_plan', 'billing.add_seats', 'billing.cancel_subscription',
+        } or (request.endpoint == 'billing.signup' and request.form.get('plan_tier', 'free') != 'free')
+    if paid_action:
+        abort(503, description='Payments are unavailable. Please contact support.')
+
+
+def _account_checkout(db, subscription, tier, cycle):
+    """Bind purchases to the signed-in account's actual Stripe customer."""
+    from billing_fulfillment import create_checkout
+    if not subscription.stripe_customer_id:
+        subscription.stripe_customer_id = PaymentService.create_customer(
+            current_user.username, name=current_user.full_name)
+        db.commit()
+    return create_checkout(
+        tier, cycle, customer_id=subscription.stripe_customer_id, tenant_id=subscription.tenant_id,
+        success_url=url_for('billing.account', _external=True),
+        cancel_url=url_for('billing.account', _external=True),
+    )
 
 
 # ─── Initialize Schema ──────────────────────────────────────────────────────
@@ -103,6 +131,8 @@ def signup():
         
         # Validate inputs before proceeding
         errors = []
+        if plan_tier not in PLAN_TIERS or billing_cycle not in {'monthly', 'yearly'}:
+            errors.append('Invalid plan or billing cycle')
         if not email:
             errors.append('Email is required')
         elif '@' not in email:
@@ -235,22 +265,29 @@ def signup():
             finally:
                 db2.close()
 
-        # Paid plans: redirect to Stripe payment link
-        from stripe_config import get_payment_link
-        from urllib.parse import quote
-
-        payment_link = get_payment_link(plan_tier, billing_cycle)
-
-        if not payment_link:
-            flash('Payment link not configured for this plan. Please contact support.', 'error')
+        from billing_fulfillment import create_checkout
+        db = SessionLocal()
+        try:
+            pending = db.query(PendingSignup).filter_by(email=email, processed=False).one()
+            checkout_url = create_checkout(
+                plan_tier, billing_cycle, email=email, pending=pending,
+                success_url=url_for('billing.payment_success', _external=True),
+                cancel_url=url_for('billing.payment_cancel', _external=True),
+            )
+            return redirect(checkout_url)
+        except Exception:
+            flash('Unable to open payment checkout. Please try again or contact support.', 'error')
             return redirect(url_for('billing.signup'))
-
-        payment_link_with_email = f"{payment_link}?prefilled_email={quote(email)}"
-        return redirect(payment_link_with_email)
+        finally:
+            db.close()
     
     # Pre-select plan from query param
     selected_plan = request.args.get('plan', 'starter')
     selected_cycle = request.args.get('cycle', 'monthly')
+    if selected_plan not in PLAN_TIERS:
+        selected_plan = 'starter'
+    if selected_cycle not in {'monthly', 'yearly'}:
+        selected_cycle = 'monthly'
     
     return render_template(
         'billing/signup.html',
@@ -599,7 +636,7 @@ def change_plan():
             new_tier = request.form.get('plan_tier')
             new_cycle = request.form.get('billing_cycle', subscription.billing_cycle)
             
-            if new_tier not in PLAN_TIERS:
+            if new_tier not in PLAN_TIERS or new_cycle not in {'monthly', 'yearly'}:
                 flash('Invalid plan selected.')
                 return redirect(url_for('billing.change_plan'))
             
@@ -653,17 +690,13 @@ def change_plan():
 
             # A paid tier must never be granted locally without a successful
             # Stripe checkout backing it.
-            from stripe_config import get_payment_link
-            from urllib.parse import quote
-
-            payment_link = get_payment_link(new_tier, new_cycle)
-            if not payment_link:
-                flash('Payment link not configured for this plan. Please contact support.', 'error')
+            try:
+                checkout_url = _account_checkout(db, subscription, new_tier, new_cycle)
+            except Exception:
+                flash('Unable to open payment checkout. Please try again or contact support.', 'error')
                 return redirect(url_for('billing.change_plan'))
-            if current_user.username:
-                payment_link = f"{payment_link}?prefilled_email={quote(current_user.username)}"
             flash('Complete payment to activate your new plan.', 'info')
-            return redirect(payment_link)
+            return redirect(checkout_url)
         
         return render_template(
             'billing/change_plan.html',
@@ -699,22 +732,16 @@ def add_seats():
             return redirect(url_for('billing.account'))
 
         if request.method == 'POST':
-            from stripe_config import get_payment_link
-            from urllib.parse import quote
-
             billing_cycle = request.form.get('billing_cycle', 'monthly')
-            payment_link = get_payment_link('extra_seat', billing_cycle)
-
-            if not payment_link:
-                flash('Payment link not configured. Please contact support.', 'error')
+            if not subscription.is_active():
+                flash('Activate a plan before purchasing additional seats.', 'error')
                 return redirect(url_for('billing.add_seats'))
-
-            # Prefill email so Stripe knows which customer this is
-            email = current_user.username or ''
-            if email:
-                payment_link = f"{payment_link}?prefilled_email={quote(email)}"
-
-            return redirect(payment_link)
+            try:
+                checkout_url = _account_checkout(db, subscription, 'extra_seat', billing_cycle)
+            except Exception:
+                flash('Unable to open payment checkout. Please try again or contact support.', 'error')
+                return redirect(url_for('billing.add_seats'))
+            return redirect(checkout_url)
 
         summary = get_usage_summary(current_user.tenant_id, db)
 
@@ -782,7 +809,8 @@ def cancel_subscription():
                     return redirect(url_for('billing.cancel_subscription'))
             
             # Update local record
-            subscription.status = 'canceled'
+            if not subscription.stripe_subscription_id:
+                subscription.status = 'canceled'
             subscription.canceled_at = datetime.utcnow()
             
             db.commit()

@@ -1,6 +1,7 @@
 {
   "name": "resume-audit-sandbox-dev",
   "version": "1.0.0",
+  "engines": { "node": "^22.12.0 || ^24.0.0 || >=26.0.0" },
   "description": "",
   "main": "tailwind.config.js",
   "scripts": {
