@@ -1649,8 +1649,11 @@ def billing_change_plan(t: Tenant):
             return jsonify({"ok": True, "plan_tier": new_tier, "billing_cycle": new_cycle})
 
         from billing_routes import _account_checkout
+        from billing_fulfillment import CheckoutConflict
         try:
             payment_link = _account_checkout(db, sub, new_tier, new_cycle)
+        except CheckoutConflict as exc:
+            abort(409, str(exc))
         except Exception:
             abort(503, "Unable to open payment checkout. Please try again or contact support.")
         return jsonify({

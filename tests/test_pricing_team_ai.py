@@ -132,6 +132,21 @@ class PricingTeamTests(unittest.TestCase):
 
 
 class AITransportTests(unittest.TestCase):
+    def test_grading_excludes_self_id_and_application_metadata(self):
+        resume = {"summary": "Engineering evidence " * 150,
+                  "experience": [{"employer": "Earlier employer", "responsibilities": ["Built APIs"], "_private": "nested-secret"}],
+                  "skills": {"Languages": ["Python"]},
+                  "contact": {"email": "private@example.com"},
+                  "_self_id": {"gender": "gender-secret", "disability": "disability-secret"},
+                  "_paste_ranges": "paste-secret", "_question_meta": "question-secret"}
+        with patch.object(module, "chat", return_value='{"score": 4}') as chat:
+            module.score_answers(resume, ["Describe your work"], ["I built and tested the APIs for our project."])
+            prompt = chat.call_args.args[1]
+        for secret in ("gender-secret", "disability-secret", "nested-secret", "paste-secret", "question-secret", "private@example.com", "_self_id"):
+            self.assertNotIn(secret, prompt)
+        for evidence in ("Earlier employer", "Built APIs", "Python"):
+            self.assertIn(evidence, prompt)
+
     def test_questions_include_job_and_grading_keeps_late_experience(self):
         with patch.object(module, "chat", return_value='{"questions": []}') as chat:
             module.generate_questions({"skills": ["Python"]}, "Needs database optimization")

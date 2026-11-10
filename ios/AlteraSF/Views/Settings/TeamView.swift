@@ -112,6 +112,9 @@ struct TeamView: View {
         }
         .task { await vm.load() }
         .refreshable { await vm.load() }
+        .onChange(of: vm.lastInvitedTempPassword) { password in
+            if password != nil && !showInviteSheet { showTempPasswordAlert = true }
+        }
         .sheet(isPresented: $showInviteSheet, onDismiss: {
             showTempPasswordAlert = vm.lastInvitedTempPassword != nil
         }) {
@@ -192,15 +195,19 @@ struct InviteTeamMemberSheet: View {
             }
             .navigationTitle("Add team member")
             .navigationBarTitleDisplayMode(.inline)
+            .interactiveDismissDisabled(isSaving)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.disabled(isSaving)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving {
                         ProgressView().scaleEffect(0.8)
                     } else {
                         Button("Add user") {
+                            guard !isSaving else { return }
+                            isSaving = true
                             Task {
-                                isSaving = true
                                 let message = await onAdd(name, email, role)
                                 isSaving = false
                                 if let message { error = message } else { dismiss() }

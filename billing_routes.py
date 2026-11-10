@@ -33,6 +33,7 @@ from plans_config import (
     get_limit_notification, get_feature_notification, has_feature_access
 )
 from stripe_service import PaymentService, get_test_card_info
+from billing_fulfillment import CheckoutConflict
 from subscription_models import (
     TenantSubscription, TenantUsage, PaymentHistory, PendingSignup,
     ensure_subscription_schema, get_tenant_subscription,
@@ -62,10 +63,13 @@ def require_payment_configuration():
 def _account_checkout(db, subscription, tier, cycle):
     """Bind purchases to the signed-in account's actual Stripe customer."""
     from billing_fulfillment import create_checkout
+    db.query(Tenant).filter_by(id=subscription.tenant_id).with_for_update().first()
+    db.refresh(subscription)
     if not subscription.stripe_customer_id:
         subscription.stripe_customer_id = PaymentService.create_customer(
             current_user.username, name=current_user.full_name)
-        db.commit()
+        db.flush()
+    db.commit()
     return create_checkout(
         tier, cycle, customer_id=subscription.stripe_customer_id, tenant_id=subscription.tenant_id,
         success_url=url_for('billing.account', _external=True),
@@ -168,7 +172,7 @@ def signup():
             # Store signup data for webhook to use (all plans go through Stripe payment links)
             existing_pending = db.query(PendingSignup).filter(
                 PendingSignup.email == email
-            ).first()
+            ).with_for_update().first()
             
             if existing_pending:
                 # Update existing pending signup
@@ -176,7 +180,8 @@ def signup():
                 existing_pending.billing_cycle = billing_cycle
                 existing_pending.company_name = company_name
                 existing_pending.full_name = full_name
-                existing_pending.password_hash = generate_password_hash(password)
+                if not check_password_hash(existing_pending.password_hash, password):
+                    existing_pending.password_hash = generate_password_hash(password)
                 existing_pending.created_at = datetime.utcnow()
                 existing_pending.expires_at = datetime.utcnow() + timedelta(hours=24)
                 existing_pending.processed = False
@@ -275,6 +280,9 @@ def signup():
                 cancel_url=url_for('billing.payment_cancel', _external=True),
             )
             return redirect(checkout_url)
+        except CheckoutConflict as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('billing.signup'))
         except Exception:
             flash('Unable to open payment checkout. Please try again or contact support.', 'error')
             return redirect(url_for('billing.signup'))
@@ -692,6 +700,9 @@ def change_plan():
             # Stripe checkout backing it.
             try:
                 checkout_url = _account_checkout(db, subscription, new_tier, new_cycle)
+            except CheckoutConflict as exc:
+                flash(str(exc), 'info')
+                return redirect(url_for('billing.account'))
             except Exception:
                 flash('Unable to open payment checkout. Please try again or contact support.', 'error')
                 return redirect(url_for('billing.change_plan'))
@@ -738,6 +749,9 @@ def add_seats():
                 return redirect(url_for('billing.add_seats'))
             try:
                 checkout_url = _account_checkout(db, subscription, 'extra_seat', billing_cycle)
+            except CheckoutConflict as exc:
+                flash(str(exc), 'info')
+                return redirect(url_for('billing.account'))
             except Exception:
                 flash('Unable to open payment checkout. Please try again or contact support.', 'error')
                 return redirect(url_for('billing.add_seats'))

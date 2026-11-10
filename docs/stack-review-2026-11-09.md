@@ -31,6 +31,18 @@ The working baseline includes remote main `1481d07`, including the later profile
 - AI configuration now supports `OPENAI_MODEL` (default `gpt-6-luna`) and `OPENAI_REASONING_EFFORT` (default `low`). Reasoning requests omit unsupported sampling parameters, cap completion output at 8,192 tokens, and reject refused, empty, or truncated replies. Explicit timeouts are not extended by hidden SDK retries. An API outage during initial application screening produces a retry message.
 - New applications record the model identifier in resume metadata; existing candidate data is not rescored. Missing AI credentials no longer fabricate candidate data or scores outside explicit `TEST_MODE`. Compatible dependency updates clear the root audit and analytics production-dependency audit findings.
 
+## PR review follow-up
+
+All five posted findings have code corrections and local verification:
+
+- Persist checkout requests before the provider call, serialize creation per account/signup, and reuse the open session and stable idempotency key after retries. Completed-but-unfulfilled sessions block another checkout. Duplicate paid base subscriptions are canceled while preserving the established subscription; the initial payment is flagged `refund_review` for manual review, not automatically refunded. Additive migration `0007_checkout_attempt` stores these requests.
+- Store immutable signup snapshots per checkout, including only the password hash. Identical form resubmissions retain the hash and reuse checkout; subsequent form changes cannot invalidate payment against the earlier snapshot.
+- Limit grading context to resume evidence sections, excluding self-identification and internal metadata before normalization. Legacy experience aliases and full experience text remain available. This does not assert that applicant-written free text contains no demographic information.
+- Propagate subscription, payment-method, and payment-history database failures so webhooks return HTTP 500. A signed cancellation failure followed by a successful retry is tested.
+- Block Cancel/swipe dismissal during native user creation, set the busy state before launching the request, and observe password completion independently of sheet dismissal. Swift source checks pass; native behavior still needs macOS validation.
+
+Regression tests include repeated signup and account-upgrade requests, expired checkouts, an ambiguous provider response, database uniqueness, duplicate cancellation followed by database failure, and original signup credentials surviving later edits. PostgreSQL concurrency and live Stripe behavior remain external validation gates.
+
 ## Open findings, ordered by priority
 
 | Priority | Finding and evidence | Impact and next action |
@@ -60,7 +72,7 @@ Before production activation: verify the model is enabled for the account; ensur
 
 ## Verification record
 
-- 74 Python tests pass, including pricing propagation from the catalog, real hashed-password member creation, tenant/role/CSRF guards, duplicate emails, seat limits through both APIs, last-admin protection, password session lifecycle, AI transport errors, verified checkout/replay/rollback, mobile cancellation, and migrations.
+- 87 Python tests pass, including pricing propagation from the catalog, real hashed-password member creation, tenant/role/CSRF guards, duplicate emails, seat limits through both APIs, last-admin protection, password session lifecycle, AI transport errors, grading metadata exclusion, verified checkout/replay/rollback, immutable signup snapshots, duplicate purchase reconciliation, webhook failure retries, mobile cancellation, and migrations through `0007_checkout_attempt`.
 - Seven Node data/notification tests pass; two analytics store tests pass. Analytics lint, type checking, and production build pass.
 - Root dependency audit: zero findings after compatible updates. Analytics `--omit=dev` audit: zero. Full analytics audit: zero after the tooling upgrade. `pip-audit -r requirements.txt`: no known findings in the resolved dependency set; this does not audit the deployed environment.
 - All 40 browser tests pass after the Safari focus fix, covering public/settings/signup pricing and adding users, original PDF preview, AI resume rendering, recruiter/analytics routes, all mobile-preview states, focus, and mobile score aggregation in desktop Chromium/Firefox/WebKit and mobile Chrome/Safari.

@@ -53,4 +53,5 @@ class MigrationUpgradeTests(unittest.TestCase):
                                      ('migration@example.com', 'unchanged-hash', '[]'))
                     self.assertEqual(db.execute('SELECT count(*) FROM user_settings').fetchone(), (0,))
                     self.assertEqual(db.execute('SELECT count(*) FROM checkout_fulfillment').fetchone(), (0,))
-                    self.assertEqual(db.execute('SELECT version_num FROM alembic_version').fetchone(), ('0006_checkout_fulfillment',))
+                    self.assertEqual(db.execute('SELECT count(*) FROM checkout_attempt').fetchone(), (0,))
+                    self.assertEqual(db.execute('SELECT version_num FROM alembic_version').fetchone(), ('0007_checkout_attempt',))

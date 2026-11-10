@@ -16,7 +16,7 @@ at the Ultra tier with unlimited access.
 from datetime import datetime, timedelta
 from sqlalchemy import (
     Column, String, Integer, Boolean, DateTime, 
-    Float, ForeignKey, Text, Enum as SQLEnum
+    Float, ForeignKey, Text, JSON, Enum as SQLEnum
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.mutable import MutableDict
@@ -199,6 +199,18 @@ class PaymentHistory(Base):
     payment_method_brand = Column(String(20), nullable=True)
 
 
+class CheckoutAttempt(Base):
+    """Durable request identity and immutable signup details for a checkout."""
+    __tablename__ = "checkout_attempt"
+    id = Column(String(32), primary_key=True)
+    scope = Column(String(100), nullable=False, index=True)
+    active_scope = Column(String(100), unique=True, nullable=True)
+    parameters = Column(JSON, nullable=False)
+    signup = Column(JSON, nullable=True)
+    session_id = Column(String(255), unique=True, nullable=True)
+    created_at = Column(DateTime(), default=datetime.utcnow, nullable=False)
+
+
 class CheckoutFulfillment(Base):
     """One receipt per checkout, committed atomically with purchased access."""
     __tablename__ = "checkout_fulfillment"
@@ -237,6 +249,9 @@ def ensure_subscription_schema():
 
     if "checkout_fulfillment" not in existing_tables:
         tables_to_create.append(CheckoutFulfillment.__table__)
+
+    if "checkout_attempt" not in existing_tables:
+        tables_to_create.append(CheckoutAttempt.__table__)
     
     if tables_to_create:
         Base.metadata.create_all(models_engine, tables=tables_to_create)

@@ -508,7 +508,7 @@ def _update_subscription_in_db(
             
     except Exception as e:
         logger.error(f"Error updating subscription in database: {e}", exc_info=True)
-        return False
+        raise
 
 
 def _update_payment_method_in_db(
@@ -547,7 +547,7 @@ def _update_payment_method_in_db(
             
     except Exception as e:
         logger.error(f"Error updating payment method in database: {e}", exc_info=True)
-        return False
+        raise
 
 
 
@@ -584,7 +584,8 @@ def _record_payment_history(
             
             if existing:
                 # Update existing record
-                existing.status = status
+                if existing.status != "refund_review":
+                    existing.status = status
                 existing.amount = amount
                 db.commit()
                 return True
@@ -612,5 +613,5 @@ def _record_payment_history(
             
     except Exception as e:
         logger.error(f"Error recording payment history: {e}", exc_info=True)
-        return False
+        raise
 

@@ -637,6 +637,22 @@ def _normalize_resume_for_view(raw) -> dict:
     """Backward-compatible import target for existing callers and tests."""
     return normalize_resume_for_view(raw)
 
+def grading_resume(rjs: dict) -> dict:
+    """Include resume evidence only, never application metadata or self-ID."""
+    fields = {"summary", "experience", "education", "skills", "projects", "certifications"}
+    excluded = {"gender", "sex", "race", "ethnicity", "hispanic", "veteran", "disability",
+                "self_id", "self_identification", "metadata", "contact", "email", "phone"}
+    def clean(value):
+        if isinstance(value, dict):
+            return {key: clean(item) for key, item in value.items()
+                    if isinstance(key, str) and not key.startswith("_") and key.lower() not in excluded}
+        if isinstance(value, list):
+            return [clean(item) for item in value]
+        return value if isinstance(value, (str, int, float)) else ""
+    rjs = normalize_resume_for_view(clean(rjs))
+    return {key: clean(rjs[key]) for key in fields if key in rjs}
+
+
 def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
     scores=[]
     for q,a in zip(qs,ans):
@@ -644,7 +660,7 @@ def score_answers(rjs: dict, qs: list[str], ans: list[str]) -> list[int]:
         if wc<5:
             scores.append(1); continue
         prompt = (
-            f"Question: {q}\nAnswer: {a}\nRésumé JSON:\n{json.dumps(rjs)}\n\n"
+            f"Question: {q}\nAnswer: {a}\nRésumé JSON:\n{json.dumps(grading_resume(rjs))}\n\n"
             "Score the answer from 1-5. Return JSON with one key named score."
         )
         raw = chat("Grade the answer. Return only valid JSON.", prompt, structured=True)
