@@ -6,16 +6,16 @@ The Flask application serves the recruiter experience, public application flow, 
 
 Keep exactly two long-lived branches:
 
-- `dev` is the sandbox/test branch.
+- `Dev` (uppercase D on the remote) is the sandbox/test branch. The local checkout may be named `dev` on Windows.
 - `main` is the production branch.
 
-Create short-lived feature branches from `dev`, merge them back after review, and delete them after the merge. Promote a tested `dev` commit to `main` through a pull request. Before removing the legacy remote `Dev` branch, change the Render sandbox service to watch lowercase `dev` and confirm a successful sandbox deployment.
+Promote a tested `Dev` commit to `main` through a pull request. Preserve remote `Dev` after merging; the sandbox service watches that branch. Do not create a separate remote lowercase `dev` branch.
 
 Sandbox and production must use separate databases, Stripe modes/webhooks, storage prefixes or buckets, and session secrets. Test data must never share the production database.
 
 ## Local setup
 
-Prerequisites: Python 3.11+, Node.js 18+, npm, and a local SQLite database or PostgreSQL URL.
+Prerequisites: Python 3.11+, Node.js 22.12+ or 24+, npm, and a local SQLite database or PostgreSQL URL.
 
 ```bash
 python -m venv .venv
@@ -53,13 +53,23 @@ The end-to-end suite uses its own `.playwright.sqlite` database. Never point it 
 
 ## Website account settings
 
-The website Settings page saves profile details and per-user preferences through `/api/settings`. Migration `0005_user_settings` adds the preference/address table. In Render, set **Pre-Deploy Command** to `python -m alembic upgrade head`; its dashboard Start Command overrides the repository Procfile, so the Procfile alone does not guarantee migrations run. Verify the deployed database reaches `0005_user_settings` before checking the authenticated dashboard. Email and password changes require the current password. Password changes invalidate other sessions and outstanding reset links.
+The website Settings page saves profile details and per-user preferences through `/api/settings`. Migration `0005_user_settings` adds the preference/address table; `0006_checkout_fulfillment` adds payment receipts and `0007_checkout_attempt` persists checkout requests and signup snapshots. In Render, set **Pre-Deploy Command** to `python -m alembic upgrade head`; its dashboard Start Command overrides the repository Procfile, so the Procfile alone does not guarantee migrations run. Verify the deployed database reaches the migration head before checking the authenticated dashboard and billing. Email and password changes require the current password. Password changes invalidate other sessions and outstanding reset links.
 
 Email choices are saved, but delivery is inactive and clearly labeled until email jobs are implemented. Site alerts use the existing tenant notification API. Optional sound and desktop notifications require browser support; desktop notifications work while the dashboard is open, with browser permission, and do not provide background push delivery. Light/Dark choices persist per account; System is not offered.
 
 For isolated manual testing, run `python scripts/preview_settings.py` and open `http://127.0.0.1:5063`. The script prints synthetic sign-in credentials and creates a temporary local database. Run the regression suite with `python -m unittest discover -s tests -p "test_*.py"`.
 
 Run the website notification race regression with `node --test tests/web-settings-notifications.test.cjs`.
+
+## Pricing, team management, and AI
+
+Settings, public pricing, and signup read `plans_config.py`, including all four tiers, limits, features, and annual totals. Admins can add users from the Team members section of Settings. Creation enforces seats and tenant permissions, and returns a generated password to share securely; it does not send an email invitation. Mobile uses the same creation service.
+
+AI screening requires `OPENAI_API_KEY`. `OPENAI_MODEL` defaults to `gpt-6-luna`; `OPENAI_REASONING_EFFORT` defaults to `low`. This cheaper model handles extraction, questions, and scoring; there is no automatic Astra fallback. If Render already sets `OPENAI_MODEL`, change it explicitly to `gpt-6-luna` because environment overrides take precedence. An explicit model override also allows rollback. Do not set `TEST_MODE=true` in production: it enables synthetic AI results and mock payments when their real services are unavailable. Run `python scripts/evaluate_ai_upgrade.py --model gpt-6-luna` with a development API key for a small, billable evaluation using fictional resumes before production rollout. See [the November stack review](docs/stack-review-2026-11-09.md) for the remaining billing, AI validation, storage, and deployment findings.
+
+Paid signup and account upgrades/seats open Stripe Checkout sessions using the configured product/price lookup keys. Web and mobile purchases attach to the account's saved Stripe customer. Configure `STRIPE_SECRET_KEY` and a signing secret; enable `checkout.session.completed` and `checkout.session.async_payment_succeeded` on the webhook endpoint. Fulfillment retrieves the checkout and subscription from Stripe, validates payment and product, and commits a unique receipt with access changes. Failed processing returns HTTP 500 for retry. `customer.created` never creates a paid account. Legacy already-open Payment Links still use verified checkout email for new signups; new signups bind the exact pending account details. Missing payment configuration disables paid actions outside explicit test mode.
+
+Checkout requests are saved before contacting Stripe, reuse open sessions and stable idempotency keys, and retain an immutable signup snapshot (hashed password only). A second paid base subscription is canceled before it can replace the established plan; its initial payment is recorded as `refund_review`, requiring manual refund review. Ambiguous requests older than 23 hours require payment support reconciliation instead of risking a new charge.
 
 ## Mobile app
 

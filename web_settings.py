@@ -10,9 +10,9 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import HTTPException
 
-from authz import rate_limit
+from authz import rate_limit, role_required, require_tenant_access
 from db import SessionLocal
-from models import User, UserSettings, PasswordResetToken
+from models import User, UserSettings, PasswordResetToken, Tenant
 
 settings_api = Blueprint("settings_api", __name__, url_prefix="/api/settings")
 DEFAULTS = {
@@ -194,5 +194,29 @@ def update_preferences():
     except IntegrityError:
         db.rollback()
         abort(409, "Settings changed in another window. Reload and try again.")
+    finally:
+        db.close()
+
+
+@settings_api.post("/<tenant>/team")
+@authenticated
+@role_required("admin")
+@rate_limit(30, 300, key_prefix="web-team-add")
+def add_team_member(tenant):
+    from team_service import create_member
+    db = SessionLocal()
+    try:
+        target = db.query(Tenant).filter_by(slug=tenant).first()
+        if target is None:
+            abort(404)
+        require_tenant_access(target)
+        result = create_member(db, target.id, request.get_json(silent=True))
+        db.commit()
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        return response, 201
+    except IntegrityError:
+        db.rollback()
+        abort(409, "A user with this email already exists.")
     finally:
         db.close()

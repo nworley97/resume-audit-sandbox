@@ -1304,7 +1304,10 @@ def change_password():
         if not user.check_pw(current_pw):
             abort(401, "current password is incorrect")
         user.set_pw(new_pw)
+        db.query(PasswordResetToken).filter_by(user_id=user.id, used=False).update({"used": True})
         db.commit()
+        session["_remember"] = "clear"
+        login_user(user, remember=False, fresh=True)
         return jsonify({"ok": True})
     finally:
         db.close()
@@ -1341,37 +1344,17 @@ def list_team(t: Tenant):
 @tenant_required
 @role_required("admin")
 def invite_team_member(t: Tenant):
-    data = request.get_json(silent=True) or {}
-    name = _json_text(data, "name", max_length=200, required=True)
-    email = _json_text(data, "email", max_length=320, required=True).lower()
-    role = (_json_text(data, "role", max_length=20) or "manager").lower()
-    if "@" not in email:
-        abort(400, "valid email required")
-    if role not in ("admin", "manager", "viewer"):
-        abort(400, "role must be admin, manager, or viewer")
-
+    from team_service import create_member
     db = SessionLocal()
     try:
-        from subscription_models import check_can_add_seat
-        can_add, used, limit = check_can_add_seat(t.id, db)
-        if not can_add:
-            abort(409, f"seat limit reached ({used}/{limit}). Upgrade your plan to add more members.")
-
-        if db.query(User).filter_by(username=email).first():
-            abort(409, "a user with this email already exists")
-
-        temp_password = secrets.token_urlsafe(9)
-        user = User(username=email, full_name=name, role=role, tenant_id=t.id)
-        user.set_pw(temp_password)
-        db.add(user)
+        result = create_member(db, t.id, request.get_json(silent=True))
         db.commit()
-        db.refresh(user)
-        result = _team_member_dict(user)
-        result["temp_password"] = temp_password
-        return jsonify(result), 201
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        return response, 201
     except IntegrityError:
         db.rollback()
-        abort(409, "a user with this email already exists")
+        abort(409, "A user with this email already exists.")
     finally:
         db.close()
 
@@ -1382,14 +1365,20 @@ def invite_team_member(t: Tenant):
 @role_required("admin")
 def update_team_member(t: Tenant, user_id: int):
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        abort(400, "Invalid team member request.")
     role = (_json_text(data, "role", max_length=20, required=True) or "").lower()
     if role not in ("admin", "manager", "viewer"):
         abort(400, "role must be admin, manager, or viewer")
     db = SessionLocal()
     try:
+        from team_service import protect_last_admin
+        db.query(Tenant).filter_by(id=t.id).with_for_update().first()
         member = db.query(User).filter_by(id=user_id, tenant_id=t.id).first()
         if not member:
             abort(404)
+        if role != "admin":
+            protect_last_admin(db, member)
         member.role = role
         db.commit()
         return jsonify(_team_member_dict(member))
@@ -1404,11 +1393,14 @@ def update_team_member(t: Tenant, user_id: int):
 def remove_team_member(t: Tenant, user_id: int):
     db = SessionLocal()
     try:
+        from team_service import protect_last_admin
+        db.query(Tenant).filter_by(id=t.id).with_for_update().first()
         member = db.query(User).filter_by(id=user_id, tenant_id=t.id).first()
         if not member:
             abort(404)
         if member.id == current_user.id:
             abort(400, "you cannot remove yourself")
+        protect_last_admin(db, member)
         remaining = db.query(func.count(User.id)).filter_by(tenant_id=t.id).scalar() or 0
         if remaining <= 1:
             abort(400, "cannot remove the last team member")
@@ -1656,13 +1648,14 @@ def billing_change_plan(t: Tenant):
             db.commit()
             return jsonify({"ok": True, "plan_tier": new_tier, "billing_cycle": new_cycle})
 
-        from stripe_config import get_payment_link
-        from urllib.parse import quote
-        payment_link = get_payment_link(new_tier, new_cycle)
-        if not payment_link:
-            abort(400, "payment link not configured for this plan")
-        if current_user.username:
-            payment_link = f"{payment_link}?prefilled_email={quote(current_user.username)}"
+        from billing_routes import _account_checkout
+        from billing_fulfillment import CheckoutConflict
+        try:
+            payment_link = _account_checkout(db, sub, new_tier, new_cycle)
+        except CheckoutConflict as exc:
+            abort(409, str(exc))
+        except Exception:
+            abort(503, "Unable to open payment checkout. Please try again or contact support.")
         return jsonify({
             "ok": False,
             "requires_payment": True,
@@ -1678,6 +1671,7 @@ def billing_change_plan(t: Tenant):
 @role_required("admin")
 def billing_cancel(t: Tenant):
     from subscription_models import TenantSubscription, get_tenant_subscription
+    from stripe_service import PaymentService
 
     db = SessionLocal()
     try:
@@ -1689,7 +1683,16 @@ def billing_cancel(t: Tenant):
         if not sub or sub.status == "canceled":
             abort(400, "no active subscription to cancel")
 
-        sub.status = "canceled"
+        if sub.stripe_subscription_id:
+            try:
+                success, error = PaymentService.cancel_subscription(sub.stripe_subscription_id, cancel_at_period_end=True)
+            except RuntimeError:
+                abort(503, "Payments are unavailable. Please contact support.")
+            if not success:
+                abort(502, error or "Unable to cancel subscription")
+            # Stripe's final deletion event removes access when the paid period ends.
+        else:
+            sub.status = "canceled"
         sub.canceled_at = datetime.utcnow()
         db.commit()
         return jsonify({"ok": True})

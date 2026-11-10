@@ -120,7 +120,7 @@
       </div>
       <div class="flex items-center justify-between px-6 py-3.5">
         <span class="text-sm text-slate-500">Payment method</span>
-        <span class="text-sm text-slate-400">No card on file</span>
+        <span class="text-sm text-slate-400">{{ payment_method_label }}</span>
       </div>
       <div class="flex items-center justify-between px-6 py-3.5">
         <span class="text-sm text-slate-500">Billing email</span>
@@ -157,82 +157,62 @@
   </div>
 
   {% if current_user.is_super or current_user.role == 'admin' %}
-  <!-- Plans -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+  <!-- All plan surfaces use the billing catalog. -->
+  <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" id="plans" aria-labelledby="plans-title">
     <div class="px-6 py-4 border-b border-gray-100">
-      <h2 class="text-base font-semibold text-title">Plans</h2>
-      <p class="text-sm text-slate-500 mt-0.5">Choose the plan that fits your hiring needs</p>
+      <h2 id="plans-title" class="text-base font-semibold text-title">Plans</h2>
+      <p class="text-sm text-slate-500 mt-0.5">Monthly prices in USD. Save {{ plan_yearly_discount }}% with annual billing.</p>
     </div>
+    <div class="p-6 grid gap-4" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+      {% for plan in plan_catalog %}
+      <article data-plan-tier="{{ plan.tier }}" class="rounded-xl border border-gray-200 p-5 flex flex-col gap-3">
+        <h3 class="text-sm font-semibold text-title">{{ plan.display_name }}</h3>
+        <p class="text-2xl font-bold text-title">${{ '%g'|format(plan.monthly_price) }}<span class="text-sm font-normal text-slate-400">/mo</span></p>
+        <p class="text-xs text-slate-500">Or ${{ '%.2f'|format(plan.yearly_price) }} billed yearly</p>
+        <ul class="space-y-1.5 text-xs text-slate-500 flex-1">
+          <li>{{ plan.limits.active_jobs }} active job{{ 's' if plan.limits.active_jobs != 1 else '' }}</li>
+          <li>{{ plan.limits.monthly_resumes }} resumes per month</li>
+          <li>{{ plan.limits.seats_included }} seat{{ 's' if plan.limits.seats_included != 1 else '' }}</li>
+          {% for feature in plan.features %}<li>{{ feature.name }}</li>{% endfor %}
+        </ul>
+        {% if not is_grandfathered and plan_tier == plan.tier %}
+        <span class="text-sm font-semibold text-primary">Current plan</span>
+        {% else %}
+        <a href="{{ url_for('billing.account', tenant=tenant.slug) }}" class="text-sm font-medium text-primary hover:underline">Manage billing</a>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section id="team" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" aria-labelledby="team-title">
+    <div class="px-6 py-4 border-b border-gray-100">
+      <h2 id="team-title" class="text-base font-semibold text-title">Team members</h2>
+      <p class="text-sm text-slate-500"><span id="team-count">{{ team_members|length }}</span> members{% if seats_limit is not none %} / {{ seats_limit }} seats{% else %} · Unlimited seats{% endif %}</p>
+    </div>
+    <ul id="team-members" class="divide-y divide-gray-100">
+      {% for member in team_members %}
+      <li class="px-6 py-3 text-sm"><strong>{{ member.full_name or member.username }}</strong> · {{ member.username }} · {{ member.role|title }}</li>
+      {% endfor %}
+    </ul>
     <div class="p-6">
-      <div class="grid gap-4" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-
-        <!-- Free -->
-        <div class="rounded-xl border {{ 'border-primary ring-2 ring-primary/20' if (plan_tier or 'free') == 'free' else 'border-gray-200' }} p-5 flex flex-col gap-3">
-          <div>
-            <p class="text-sm font-semibold text-title">Free</p>
-            <p class="text-2xl font-bold text-title mt-1">$0<span class="text-sm font-normal text-slate-400">/mo</span></p>
-          </div>
-          <ul class="space-y-1.5 text-xs text-slate-500 flex-1">
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>1 active job</li>
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>Basic AI screening</li>
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>Email support</li>
-          </ul>
-          {% if (plan_tier or 'free') == 'free' %}
-          <span class="inline-flex items-center justify-center rounded-lg border border-primary text-primary text-xs font-semibold px-3 py-2">Current plan</span>
-          {% else %}
-          <a href="{{ url_for('billing.account', tenant=tenant.slug) }}"
-             class="inline-flex items-center justify-center rounded-lg border border-gray-300 text-sm font-medium text-title px-3 py-2 hover:bg-gray-50 transition-colors">
-            Downgrade
-          </a>
-          {% endif %}
-        </div>
-
-        <!-- Starter (Recommended) -->
-        <div class="rounded-xl border {{ 'border-primary ring-2 ring-primary/20' if (plan_tier or 'free') == 'starter' else 'border-gray-200' }} p-5 flex flex-col gap-3" style="position:relative">
-          <div style="position:absolute;top:-1px;right:12px;background:#0d9488;color:white;font-size:0.6875rem;font-weight:600;padding:2px 10px;border-radius:0 0 8px 8px;letter-spacing:0.02em">Recommended</div>
-          <div>
-            <p class="text-sm font-semibold text-title">Starter</p>
-            <p class="text-2xl font-bold text-title mt-1">$49<span class="text-sm font-normal text-slate-400">/mo</span></p>
-          </div>
-          <ul class="space-y-1.5 text-xs text-slate-500 flex-1">
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>10 active jobs</li>
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>AI Q&A + analytics</li>
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>Finalist compare</li>
-          </ul>
-          {% if (plan_tier or 'free') == 'starter' %}
-          <span class="inline-flex items-center justify-center rounded-lg border border-primary text-primary text-xs font-semibold px-3 py-2">Current plan</span>
-          {% else %}
-          <a href="{{ url_for('billing.account', tenant=tenant.slug) }}"
-             class="inline-flex items-center justify-center rounded-lg bg-primary text-white text-sm font-semibold px-3 py-2 hover:opacity-90 transition-opacity">
-            Upgrade
-          </a>
-          {% endif %}
-        </div>
-
-        <!-- Pro -->
-        <div class="rounded-xl border {{ 'border-primary ring-2 ring-primary/20' if plan_tier in ('pro','ultra') else 'border-gray-200' }} p-5 flex flex-col gap-3">
-          <div>
-            <p class="text-sm font-semibold text-title">Pro</p>
-            <p class="text-2xl font-bold text-title mt-1">$149<span class="text-sm font-normal text-slate-400">/mo</span></p>
-          </div>
-          <ul class="space-y-1.5 text-xs text-slate-500 flex-1">
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>Unlimited jobs</li>
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>Integrations + API</li>
-            <li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5">✓</span>Priority support</li>
-          </ul>
-          {% if plan_tier in ('pro', 'ultra') %}
-          <span class="inline-flex items-center justify-center rounded-lg border border-primary text-primary text-xs font-semibold px-3 py-2">Current plan</span>
-          {% else %}
-          <a href="{{ url_for('billing.account', tenant=tenant.slug) }}"
-             class="inline-flex items-center justify-center rounded-lg border border-gray-300 text-sm font-medium text-title px-3 py-2 hover:bg-gray-50 transition-colors">
-            Upgrade
-          </a>
-          {% endif %}
-        </div>
-
+      <p class="text-sm text-slate-500 mb-3">Add a teammate and share their generated password securely. No invitation email is sent.</p>
+      <form id="team-form" data-endpoint="{{ url_for('settings_api.add_team_member', tenant=tenant.slug) }}" data-noload>
+        <div class="settings-field"><label for="team-name">Teammate name</label><input id="team-name" name="name" required maxlength="200" autocomplete="off"></div>
+        <div class="settings-field"><label for="team-email">Teammate email</label><input id="team-email" name="email" type="email" required maxlength="320" autocomplete="off"></div>
+        <div class="settings-field"><label for="team-role">Team role</label><select id="team-role" name="role"><option value="manager">Manager</option><option value="viewer">Viewer</option><option value="admin">Admin</option></select></div>
+        <button type="submit" class="settings-save">Add user</button>
+      </form>
+      <p id="team-error" role="alert" hidden></p>
+      <div id="team-created" role="status" hidden>
+        <p>User added. Share this password securely and ask them to change it after signing in.</p>
+        <p><strong id="team-created-email"></strong></p>
+        <code id="team-password"></code>
+        <button type="button" id="team-dismiss" class="settings-cancel">Dismiss password</button>
       </div>
+      <p class="text-sm mt-3"><a href="{{ url_for('billing.account', tenant=tenant.slug) }}" class="text-primary hover:underline">Manage seats and billing</a> · Additional seats: ${{ plan_extra_seat_price }}/month.</p>
     </div>
-  </div>
+  </section>
   {% endif %}
 
   <div class="flex justify-end">
