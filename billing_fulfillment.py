@@ -44,6 +44,68 @@ def signup_fingerprint(pending):
     return hashlib.sha256("\0".join(field or "" for field in fields).encode()).hexdigest()
 
 
+def sync_extra_seats(account, subscription_id):
+    """Rebuild the total from Stripe while the caller holds the account lock.
+
+    Read current state, not the event snapshot: retries and out-of-order events
+    must not add seats twice or resurrect a canceled add-on. Listing all pages
+    also reconciles legacy purchases that only stored an aggregate seat count.
+    No local state changes until every provider page has been validated.
+    """
+    from stripe_config import STRIPE_SECRET_KEY
+    if not STRIPE_SECRET_KEY:
+        raise RuntimeError("Seat verification unavailable")
+    stripe.api_key = STRIPE_SECRET_KEY
+    total = 0
+    target_found = False
+    subscriptions = stripe.Subscription.list(
+        customer=account.stripe_customer_id, status="all", limit=100)
+    for subscription in subscriptions.auto_paging_iter():
+        if object_id(value(subscription, "customer")) != account.stripe_customer_id:
+            raise ValueError("Seat subscription customer mismatch")
+        if object_id(subscription) == subscription_id:
+            target_found = True
+        if value(subscription, "status") not in {"active", "trialing"}:
+            continue
+        items = value(subscription, "items", {})
+        if value(items, "has_more", False):
+            entries = stripe.SubscriptionItem.list(
+                subscription=object_id(subscription), limit=100).auto_paging_iter()
+        else:
+            entries = value(items, "data", [])
+        seat_quantity = 0
+        for item in entries:
+            price = value(item, "price", {})
+            if object_id(value(price, "product")) != STRIPE_PRODUCTS["extra_seat"]:
+                continue
+            if price_plan(price)[0] != "extra_seat":
+                raise ValueError("Unrecognized seat price")
+            quantity = value(item, "quantity")
+            if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity < 0:
+                raise ValueError("Invalid seat subscription quantity")
+            seat_quantity += quantity
+        total += seat_quantity
+    if not target_found:
+        raise RuntimeError("Subscription missing from Stripe customer inventory")
+    account.extra_seats = total
+    return True
+
+
+def reconcile_seat_subscription(customer_id, subscription_id):
+    """Route add-on events separately from the account's base subscription."""
+    if not customer_id or not subscription_id:
+        return False
+    with SessionLocal.session_factory() as db:
+        account = db.query(TenantSubscription).filter_by(
+            stripe_customer_id=customer_id).with_for_update().first()
+        if not account or account.stripe_subscription_id == subscription_id:
+            return False
+        handled = sync_extra_seats(account, subscription_id)
+        if handled:
+            db.commit()
+        return handled
+
+
 class CheckoutConflict(RuntimeError):
     """An existing purchase must finish before another can be opened."""
 
@@ -196,14 +258,12 @@ def fulfill_checkout(session_id):
             # A webhook may beat the HTTP response that saves the session ID.
             attempt.session_id = session_id
         if tier == "extra_seat":
-            if value(provider_sub, "status") not in {"active", "trialing"}:
-                raise ValueError("Seat subscription is not active")
             sub = db.query(TenantSubscription).filter_by(stripe_customer_id=customer_id).with_for_update().first()
-            if not sub or not sub.is_active():
-                raise ValueError("No active account for seat purchase")
+            if not sub:
+                raise ValueError("No account for seat purchase")
             if db.get(CheckoutFulfillment, session_id):
                 return {"status": "already_fulfilled"}
-            sub.extra_seats = (sub.extra_seats or 0) + quantity
+            sync_extra_seats(sub, object_id(provider_sub))
             db.add(PaymentHistory(
                 tenant_id=sub.tenant_id, amount=value(checkout, "amount_total", 0) / 100,
                 currency=value(checkout, "currency", "usd").upper(), status="succeeded",

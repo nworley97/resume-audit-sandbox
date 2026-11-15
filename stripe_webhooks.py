@@ -205,6 +205,10 @@ def handle_subscription_created(event) -> Dict[str, Any]:
     status = _safe_get(subscription, 'status')
     period_start = _safe_get(subscription, 'current_period_start')
     period_end = _safe_get(subscription, 'current_period_end')
+
+    from billing_fulfillment import reconcile_seat_subscription
+    if reconcile_seat_subscription(customer_id, subscription_id):
+        return {"subscription_id": subscription_id, "seats_reconciled": True}
     
     logger.info(f"Subscription created: {subscription_id} for customer {customer_id} (status: {status})")
     
@@ -227,6 +231,10 @@ def handle_subscription_updated(event) -> Dict[str, Any]:
     customer_id = _safe_get(subscription, 'customer')
     subscription_id = _safe_get(subscription, 'id')
     status = _safe_get(subscription, 'status')
+
+    from billing_fulfillment import reconcile_seat_subscription
+    if reconcile_seat_subscription(customer_id, subscription_id):
+        return {"subscription_id": subscription_id, "seats_reconciled": True}
     
     logger.info(f"Subscription updated: {subscription_id} (status: {status})")
     
@@ -274,6 +282,10 @@ def handle_subscription_deleted(event) -> Dict[str, Any]:
     
     customer_id = _safe_get(subscription, 'customer')
     subscription_id = _safe_get(subscription, 'id')
+
+    from billing_fulfillment import reconcile_seat_subscription
+    if reconcile_seat_subscription(customer_id, subscription_id):
+        return {"subscription_id": subscription_id, "seats_reconciled": True}
     
     logger.info(f"Subscription deleted: {subscription_id}")
     
@@ -288,6 +300,13 @@ def handle_subscription_deleted(event) -> Dict[str, Any]:
     return {"subscription_id": subscription_id, "status": "canceled"}
 
 
+def _invoice_subscription_id(invoice):
+    # Newer API versions move the subscription under parent details.
+    from billing_fulfillment import object_id
+    details = _safe_get(_safe_get(invoice, 'parent', {}), 'subscription_details', {})
+    return object_id(_safe_get(invoice, 'subscription') or _safe_get(details, 'subscription'))
+
+
 def handle_invoice_payment_succeeded(event) -> Dict[str, Any]:
     """Handle invoice.payment_succeeded event."""
     invoice = event.data.object
@@ -295,6 +314,9 @@ def handle_invoice_payment_succeeded(event) -> Dict[str, Any]:
     amount_paid = _safe_get(invoice, 'amount_paid', 0)
     amount = amount_paid / 100  # Convert from cents
     invoice_id = _safe_get(invoice, 'id')
+
+    from billing_fulfillment import reconcile_seat_subscription
+    reconcile_seat_subscription(customer_id, _invoice_subscription_id(invoice))
     
     logger.info(f"Payment succeeded: ${amount} for customer {customer_id}")
 
@@ -367,8 +389,9 @@ def handle_invoice_payment_failed(event) -> Dict[str, Any]:
     )
     
     # Update subscription status to past_due
-    subscription_id = _safe_get(invoice, 'subscription')
-    if subscription_id:
+    from billing_fulfillment import reconcile_seat_subscription
+    subscription_id = _invoice_subscription_id(invoice)
+    if subscription_id and not reconcile_seat_subscription(customer_id, subscription_id):
         _update_subscription_in_db(
             stripe_subscription_id=subscription_id,
             status="past_due",
@@ -423,6 +446,8 @@ def handle_unknown_event(event) -> Dict[str, Any]:
 WEBHOOK_HANDLERS = {
     "customer.subscription.created": handle_subscription_created,
     "customer.subscription.updated": handle_subscription_updated,
+    "customer.subscription.paused": handle_subscription_updated,
+    "customer.subscription.resumed": handle_subscription_updated,
     "customer.subscription.deleted": handle_subscription_deleted,
     "invoice.payment_succeeded": handle_invoice_payment_succeeded,
     "invoice.payment_failed": handle_invoice_payment_failed,

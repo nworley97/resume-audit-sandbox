@@ -47,14 +47,23 @@ class BillingFulfillmentTests(unittest.TestCase):
         self.email.start()
         self.provider_guard = patch.object(billing.stripe.Subscription, "retrieve", side_effect=AssertionError("Unmocked Stripe request"))
         self.provider_guard.start()
+        self.list_guard = patch.object(billing.stripe.Subscription, "list", side_effect=AssertionError("Unmocked Stripe list"))
+        self.list_guard.start()
 
     def tearDown(self):
-        self.provider_guard.stop(); self.email.stop(); self.key.stop()
+        self.list_guard.stop(); self.provider_guard.stop(); self.email.stop(); self.key.stop()
         SessionLocal.remove(); Base.metadata.drop_all(engine); engine.dispose()
 
     def fulfill(self, data):
-        with patch.object(billing.stripe.checkout.Session, "retrieve", return_value=data):
+        # Seat inventory is authoritative; individual tests can supply multiple
+        # subscriptions or a different current state through their own mock.
+        current = data["subscription"]
+        with patch.object(billing.stripe.checkout.Session, "retrieve", return_value=data), self.inventory([current]):
             return billing.fulfill_checkout(data["id"])
+
+    def inventory(self, subscriptions):
+        return patch.object(billing.stripe.Subscription, "list", return_value=SimpleNamespace(
+            auto_paging_iter=lambda: iter(subscriptions)))
 
     def add_existing(self):
         db = SessionLocal()
@@ -265,12 +274,141 @@ class BillingFulfillmentTests(unittest.TestCase):
         self.add_existing()
         data = checkout("extra_seat")
         data["line_items"]["data"][0]["quantity"] = 3
+        data["subscription"]["items"]["data"][0]["quantity"] = 3
         self.fulfill(data); self.fulfill(data)
         db = SessionLocal()
         self.assertEqual(db.query(TenantSubscription).one().extra_seats, 3)
         self.assertEqual(db.query(PaymentHistory).count(), 1)
         self.assertEqual(db.query(CheckoutFulfillment).count(), 1)
         db.close()
+
+    def seat_subscription(self, subscription_id="sub_seat", quantity=1, status="active"):
+        sub = checkout("extra_seat")["subscription"]
+        sub.update(id=subscription_id, status=status)
+        sub["items"]["data"][0]["quantity"] = quantity
+        return sub
+
+    def seat_event(self, event_type, snapshot, inventory):
+        with patch.object(stripe_webhooks, "get_webhook_secret", return_value="test-secret"), self.inventory(inventory):
+            return self.signed_event(event_type, snapshot)
+
+    def assert_seats(self, expected):
+        db = SessionLocal(); sub = db.query(TenantSubscription).one()
+        self.assertEqual(sub.extra_seats, expected)
+        self.assertEqual((sub.plan_tier, sub.status, sub.stripe_subscription_id), ("pro", "active", "sub_base"))
+        db.close()
+
+    def test_paid_seat_cancellation_and_replay_remove_capacity_without_changing_base(self):
+        self.add_existing()
+        data = checkout("extra_seat"); self.fulfill(data)
+        self.assert_seats(1)
+        canceled = dict(data["subscription"], status="canceled")
+        for _ in range(2):
+            self.assertEqual(self.seat_event("customer.subscription.deleted", canceled, [canceled]).status_code, 200)
+            self.assert_seats(0)
+
+    def test_legacy_seats_and_other_addons_reconcile_from_current_inventory(self):
+        self.add_existing()
+        db = SessionLocal(); db.query(TenantSubscription).one().extra_seats = 9; db.commit(); db.close()
+        canceled = self.seat_subscription(quantity=3, status="canceled")
+        remaining = self.seat_subscription("sub_other", quantity=2)
+        self.assertEqual(self.seat_event("customer.subscription.deleted", canceled, [canceled, remaining]).status_code, 200)
+        self.assert_seats(2)
+
+    def test_quantity_changes_and_out_of_order_events_use_current_provider_state(self):
+        self.add_existing()
+        stale = self.seat_subscription(quantity=1)
+        for quantity in (4, 2, 0):
+            current = self.seat_subscription(quantity=quantity)
+            self.assertEqual(self.seat_event("customer.subscription.updated", stale, [current]).status_code, 200)
+            self.assert_seats(quantity)
+        canceled = self.seat_subscription(status="canceled")
+        self.assertEqual(self.seat_event("customer.subscription.created", stale, [canceled]).status_code, 200)
+        self.assert_seats(0)
+
+    def test_scheduled_cancellation_keeps_seats_until_subscription_ends(self):
+        self.add_existing()
+        current = self.seat_subscription(quantity=3); current["cancel_at_period_end"] = True
+        self.assertEqual(self.seat_event("customer.subscription.updated", current, [current]).status_code, 200)
+        self.assert_seats(3)
+        current["status"] = "canceled"
+        self.assertEqual(self.seat_event("customer.subscription.deleted", current, [current]).status_code, 200)
+        self.assert_seats(0)
+
+    def test_inactive_seat_statuses_and_resume(self):
+        self.add_existing()
+        for status, expected in (("active", 2), ("past_due", 0), ("unpaid", 0), ("incomplete", 0), ("incomplete_expired", 0), ("paused", 0), ("trialing", 2), ("active", 2)):
+            current = self.seat_subscription(quantity=2, status=status)
+            event_type = "customer.subscription.paused" if status == "paused" else "customer.subscription.resumed"
+            self.assertEqual(self.seat_event(event_type, current, [current]).status_code, 200)
+            self.assert_seats(expected)
+
+    def test_seat_event_before_checkout_does_not_double_grant(self):
+        self.add_existing()
+        data = checkout("extra_seat")
+        self.assertEqual(self.seat_event("customer.subscription.created", data["subscription"], [data["subscription"]]).status_code, 200)
+        self.fulfill(data)
+        self.assert_seats(1)
+        db = SessionLocal(); self.assertEqual(db.query(CheckoutFulfillment).count(), 1); db.close()
+
+    def test_delayed_paid_checkout_after_cancellation_records_receipt_without_seats(self):
+        self.add_existing()
+        data = checkout("extra_seat"); data["subscription"]["status"] = "canceled"
+        self.assertEqual(self.fulfill(data)["status"], "fulfilled")
+        self.assert_seats(0)
+
+    def test_seat_provider_or_database_failure_returns_retry_without_partial_changes(self):
+        self.add_existing(); self.fulfill(checkout("extra_seat"))
+        canceled = self.seat_subscription("sub_test", status="canceled")
+        with patch.object(stripe_webhooks, "get_webhook_secret", return_value="test-secret"), patch.object(billing.stripe.Subscription, "list", side_effect=RuntimeError("provider down")):
+            self.assertEqual(self.signed_event("customer.subscription.deleted", canceled).status_code, 500)
+        self.assert_seats(1)
+        with patch("sqlalchemy.orm.Session.commit", side_effect=RuntimeError("database down")):
+            self.assertEqual(self.seat_event("customer.subscription.deleted", canceled, [canceled]).status_code, 500)
+        self.assert_seats(1)
+        self.assertEqual(self.seat_event("customer.subscription.deleted", canceled, [canceled]).status_code, 200)
+        self.assert_seats(0)
+
+    def test_invalid_seat_inventory_never_overwrites_capacity(self):
+        self.add_existing(); self.fulfill(checkout("extra_seat"))
+        for invalid in ("customer", "quantity", "price", "missing"):
+            current = self.seat_subscription()
+            if invalid == "customer": current["customer"] = "cus_other"
+            if invalid == "quantity": current["items"]["data"][0]["quantity"] = -1
+            if invalid == "price": current["items"]["data"][0]["price"]["lookup_key"] = "unknown"
+            inventory = [] if invalid == "missing" else [current]
+            self.assertEqual(self.seat_event("customer.subscription.updated", self.seat_subscription(), inventory).status_code, 500)
+            self.assert_seats(1)
+
+    def test_paginated_seat_items_and_multiple_subscriptions_are_summed(self):
+        self.add_existing()
+        current = self.seat_subscription(); current["items"]["has_more"] = True
+        items = [self.seat_subscription(quantity=2)["items"]["data"][0], self.seat_subscription(quantity=3)["items"]["data"][0]]
+        with patch.object(billing.stripe.SubscriptionItem, "list", return_value=SimpleNamespace(auto_paging_iter=lambda: iter(items))):
+            self.assertEqual(self.seat_event("customer.subscription.updated", current, [current, self.seat_subscription("sub_other", 4)]).status_code, 200)
+        self.assert_seats(9)
+
+    def test_failure_on_later_inventory_page_keeps_previous_seat_total(self):
+        self.add_existing(); self.fulfill(checkout("extra_seat"))
+        current = self.seat_subscription(quantity=8)
+        def failing_pages():
+            yield current
+            raise RuntimeError("next Stripe page unavailable")
+        with patch.object(stripe_webhooks, "get_webhook_secret", return_value="test-secret"), patch.object(billing.stripe.Subscription, "list", return_value=SimpleNamespace(auto_paging_iter=failing_pages)):
+            self.assertEqual(self.signed_event("customer.subscription.updated", current).status_code, 500)
+        self.assert_seats(1)
+
+    def test_seat_payment_failure_and_recovery_do_not_change_base_plan(self):
+        self.add_existing()
+        invoice = {"id": "in_seat", "customer": "cus_test", "amount_due": 1000,
+                   "parent": {"subscription_details": {"subscription": "sub_seat"}}}
+        current = self.seat_subscription(status="past_due")
+        self.assertEqual(self.seat_event("invoice.payment_failed", invoice, [current]).status_code, 200)
+        self.assert_seats(0)
+        current["status"] = "active"
+        with patch.object(stripe_webhooks, "_send_payment_confirmation_email"):
+            self.assertEqual(self.seat_event("invoice.payment_succeeded", invoice, [current]).status_code, 200)
+        self.assert_seats(1)
 
     def test_failed_receipt_rolls_back_seats_and_payment_history(self):
         self.add_existing()

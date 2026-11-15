@@ -71,6 +71,8 @@ Paid signup and account upgrades/seats open Stripe Checkout sessions using the c
 
 Checkout requests are saved before contacting Stripe, reuse open sessions and stable idempotency keys, and retain an immutable signup snapshot (hashed password only). A second paid base subscription is canceled before it can replace the established plan; its initial payment is recorded as `refund_review`, requiring manual refund review. Ambiguous requests older than 23 hours require payment support reconciliation instead of risking a new charge.
 
+Extra-seat capacity is recalculated from the customer's current active/trialing Stripe seat subscriptions at seat checkout and subscription/invoice events. Enable `customer.subscription.created`, `updated`, `deleted`, `paused`, and `resumed`, plus `invoice.payment_succeeded` and `invoice.payment_failed`. Cancellation at period end retains seats until the subscription actually ends; cancellation, failed-payment status, and quantity changes do not change the base plan or delete team members. Reconciliation reads all subscription/item pages and returns a retryable error on provider/database failure. It also corrects legacy aggregate counts on the next event or seat checkout; previously missed cancellations require replaying the event. No new migration is needed for this correction.
+
 ## Mobile app
 
 Open `ios/AlteraSF.xcodeproj` on a Mac. Debug builds default to the local API; a physical phone needs the Mac's LAN address or the HTTPS sandbox URL. Release builds target production. See [ios/README.md](ios/README.md) for signing, local-network, and TestFlight steps.
