@@ -113,6 +113,8 @@ WEBHOOK_EVENTS = [
     "checkout.session.async_payment_succeeded",
     "customer.subscription.created",
     "customer.subscription.updated",
+    "customer.subscription.paused",
+    "customer.subscription.resumed",
     "customer.subscription.deleted",
     "invoice.payment_succeeded",
     "invoice.payment_failed",

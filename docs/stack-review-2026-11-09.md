@@ -43,6 +43,12 @@ All five posted findings have code corrections and local verification:
 
 Regression tests include repeated signup and account-upgrade requests, expired checkouts, an ambiguous provider response, database uniqueness, duplicate cancellation followed by database failure, and original signup credentials surviving later edits. PostgreSQL concurrency and live Stripe behavior remain external validation gates.
 
+## Final PR review — November 16
+
+Reviewed the complete main-to-Dev change across application routes, authorization, pricing/templates, shared team creation, native settings, AI transport/grading context, checkout/seat reconciliation, migrations, dependencies, and generated assets. The final pass reproduced a paid-plan update failure with Stripe 15.3.0 response objects, which have no dictionary `get()` method. Updated that path to accept SDK objects and dictionaries, validate the configured target price, and read the current period from subscription items when necessary. Regression tests use actual SDK response objects and confirm incomplete payment responses are rejected. The configured webhook event list now includes the implemented pause/resume handlers.
+
+No additional unresolved merge-blocking issue was identified in this code review after those corrections. This is not a claim of live-provider, hosted deployment, or native runtime validation; the operational limits below still apply.
+
 ## Open findings, ordered by priority
 
 | Priority | Finding and evidence | Impact and next action |
@@ -72,7 +78,7 @@ Before production activation: verify the model is enabled for the account; ensur
 
 ## Verification record
 
-- 99 Python tests pass as of November 15, including pricing propagation from the catalog, real hashed-password member creation, tenant/role/CSRF guards, duplicate emails, seat limits through both APIs, last-admin protection, password session lifecycle, AI transport errors, grading metadata exclusion, verified checkout/replay/rollback, immutable signup snapshots, duplicate purchase reconciliation, recurring extra-seat cancellation/quantity/status and pagination, webhook failure retries, mobile cancellation, and migrations through `0007_checkout_attempt`.
+- 101 Python tests pass as of November 16, including pricing propagation from the catalog, real hashed-password member creation, tenant/role/CSRF guards, duplicate emails, seat limits through both APIs, last-admin protection, password session lifecycle, AI transport errors, grading metadata exclusion, verified checkout/replay/rollback, immutable signup snapshots, duplicate purchase reconciliation, recurring extra-seat cancellation/quantity/status and pagination, webhook failure retries, actual Stripe SDK plan-update responses, mobile cancellation, and migrations through `0007_checkout_attempt`.
 - Isolated PostgreSQL 18 verification passes: migration/repeated upgrade, concurrent checkout creation with identical idempotency keys, single fulfillment under concurrency, and paid-seat cancellation racing a stale update. Stripe responses are synthetic; no live charges or customer data were used.
 - Seven Node data/notification tests pass; two analytics store tests pass. Analytics lint, type checking, and production build pass.
 - Root dependency audit: zero findings after compatible updates. Analytics `--omit=dev` audit: zero. Full analytics audit: zero after the tooling upgrade. `pip-audit -r requirements.txt`: no known findings in the resolved dependency set; this does not audit the deployed environment.

@@ -480,3 +480,26 @@ class BillingFulfillmentTests(unittest.TestCase):
             self.assertEqual(url, "https://checkout.stripe.com/test")
             self.assertEqual(create.call_args.kwargs["customer"], "cus_test")
             self.assertNotIn("customer_email", create.call_args.kwargs)
+
+    def test_paid_plan_update_supports_actual_stripe_sdk_objects(self):
+        stripe = billing.stripe
+        price = checkout()["line_items"]["data"][0]["price"]
+        current = {"id": "sub_test", "status": "active", "items": {"data": [{"id": "si_test", "price": price}]}}
+        updated = {**current, "items": {"data": [{"id": "si_test", "price": price, "current_period_end": 1900000000}]}}
+        for convert in (lambda data: data, lambda data: stripe.StripeObject.construct_from(data, "sk_test_synthetic")):
+            with patch.object(stripe_service, "USE_REAL_STRIPE", True), patch.object(stripe_service, "stripe", stripe), patch.object(stripe.Price, "list", return_value=convert({"data": [price]})), patch.object(stripe.Subscription, "retrieve", return_value=convert(current)), patch.object(stripe.Subscription, "modify", return_value=convert(updated)) as modify:
+                success, error, result = stripe_service.PaymentService.update_subscription("sub_test", "pro", "monthly")
+                self.assertTrue(success, error)
+                self.assertEqual(result["current_period_end"], 1900000000)
+                self.assertEqual(modify.call_args.kwargs["payment_behavior"], "error_if_incomplete")
+
+    def test_paid_plan_update_rejects_unpaid_sdk_response(self):
+        stripe = billing.stripe
+        price = checkout()["line_items"]["data"][0]["price"]
+        current = stripe.Subscription.construct_from({"id": "sub_test", "items": {"data": [{"id": "si_test"}]}}, "sk_test_synthetic")
+        unpaid = stripe.Subscription.construct_from({"id": "sub_test", "status": "incomplete"}, "sk_test_synthetic")
+        with patch.object(stripe_service, "USE_REAL_STRIPE", True), patch.object(stripe_service, "stripe", stripe), patch.object(stripe.Price, "list", return_value={"data": [price]}), patch.object(stripe.Subscription, "retrieve", return_value=current), patch.object(stripe.Subscription, "modify", return_value=unpaid):
+            success, error, result = stripe_service.PaymentService.update_subscription("sub_test", "pro", "monthly")
+            self.assertFalse(success)
+            self.assertIn("Payment must be completed", error)
+            self.assertEqual(result, {})
