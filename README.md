@@ -63,6 +63,14 @@ Run the website notification race regression with `node --test tests/web-setting
 
 ## Pricing, team management, and AI
 
+Run `python -m alembic upgrade head` before starting every deployment, including Dev.
+Render's dashboard commands override the Procfile: use that command as the pre-deploy command
+or prepend it to the start command. HTTP requests no longer create billing tables.
+Revisions 0006 and 0007 validate and adopt matching checkout tables left by the retired
+request-time initializer, preserving all rows. An incompatible schema stops deployment
+for review; do not drop checkout tables or blindly stamp the revision. Offline `--sql`
+output creates fresh tables and is not a repair path for pre-existing tables.
+
 Settings, public pricing, and signup read `plans_config.py`, including all four tiers, limits, features, and annual totals. Admins can add users from the Team members section of Settings. Creation enforces seats and tenant permissions, and returns a generated password to share securely; it does not send an email invitation. Mobile uses the same creation service.
 
 AI screening requires `OPENAI_API_KEY`. `OPENAI_MODEL` defaults to `gpt-6-luna`; `OPENAI_REASONING_EFFORT` defaults to `low`. This cheaper model handles extraction, questions, and scoring; there is no automatic Astra fallback. If Render already sets `OPENAI_MODEL`, change it explicitly to `gpt-6-luna` because environment overrides take precedence. An explicit model override also allows rollback. Do not set `TEST_MODE=true` in production: it enables synthetic AI results and mock payments when their real services are unavailable. Run `python scripts/evaluate_ai_upgrade.py --model gpt-6-luna` with a development API key for a small, billable evaluation using fictional resumes before production rollout. See [the November stack review](docs/stack-review-2026-11-09.md) for the remaining billing, AI validation, storage, and deployment findings.

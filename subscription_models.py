@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.mutable import MutableDict
-from db import Base, engine as models_engine
+from db import Base
 import enum
 
 
@@ -219,43 +219,6 @@ class CheckoutFulfillment(Base):
     tenant_id = Column(Integer, ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False)
     kind = Column(String(20), nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
-
-
-# ─── Schema Migration Helper ────────────────────────────────────────────────
-
-def ensure_subscription_schema():
-    """
-    Create subscription tables if they don't exist.
-    This is additive and safe to run multiple times.
-    """
-    from sqlalchemy import inspect
-    
-    insp = inspect(models_engine)
-    existing_tables = insp.get_table_names()
-    
-    tables_to_create = []
-    
-    if "tenant_subscription" not in existing_tables:
-        tables_to_create.append(TenantSubscription.__table__)
-    
-    if "tenant_usage" not in existing_tables:
-        tables_to_create.append(TenantUsage.__table__)
-    
-    if "payment_history" not in existing_tables:
-        tables_to_create.append(PaymentHistory.__table__)
-    
-    if "pending_signup" not in existing_tables:
-        tables_to_create.append(PendingSignup.__table__)
-
-    if "checkout_fulfillment" not in existing_tables:
-        tables_to_create.append(CheckoutFulfillment.__table__)
-
-    if "checkout_attempt" not in existing_tables:
-        tables_to_create.append(CheckoutAttempt.__table__)
-    
-    if tables_to_create:
-        Base.metadata.create_all(models_engine, tables=tables_to_create)
-        print(f"Created subscription tables: {[t.name for t in tables_to_create]}")
 
 
 # ─── Helper Functions ───────────────────────────────────────────────────────
