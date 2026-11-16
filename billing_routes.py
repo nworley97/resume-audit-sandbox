@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
-    flash, session, jsonify, g, abort
+    flash, session, jsonify, abort
 )
 from flask_login import login_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -36,7 +36,7 @@ from stripe_service import PaymentService, get_test_card_info
 from billing_fulfillment import CheckoutConflict
 from subscription_models import (
     TenantSubscription, TenantUsage, PaymentHistory, PendingSignup,
-    ensure_subscription_schema, get_tenant_subscription,
+    get_tenant_subscription,
     get_usage_summary, check_can_post_job, check_can_add_seat,
     increment_resume_usage
 )
@@ -75,16 +75,6 @@ def _account_checkout(db, subscription, tier, cycle):
         success_url=url_for('billing.account', _external=True),
         cancel_url=url_for('billing.account', _external=True),
     )
-
-
-# ─── Initialize Schema ──────────────────────────────────────────────────────
-
-@billing_bp.before_app_request
-def _init_subscription_schema():
-    """Ensure subscription tables exist on first request."""
-    if not getattr(g, '_subscription_schema_checked', False):
-        ensure_subscription_schema()
-        g._subscription_schema_checked = True
 
 
 # ─── Context Processor ──────────────────────────────────────────────────────

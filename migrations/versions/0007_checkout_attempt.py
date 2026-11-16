@@ -1,6 +1,7 @@
 """Persist checkout identity and immutable signup snapshots."""
 from alembic import op
 import sqlalchemy as sa
+from migrations.schema_checks import create_or_validate_table
 
 revision = "0007_checkout_attempt"
 down_revision = "0006_checkout_fulfillment"
@@ -9,7 +10,7 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
+    create_or_validate_table(
         "checkout_attempt",
         sa.Column("id", sa.String(32), primary_key=True),
         sa.Column("scope", sa.String(100), nullable=False),
@@ -18,8 +19,8 @@ def upgrade():
         sa.Column("signup", sa.JSON(), nullable=True),
         sa.Column("session_id", sa.String(255), nullable=True, unique=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
+        indexes=(("ix_checkout_attempt_scope", ("scope",)),),
     )
-    op.create_index("ix_checkout_attempt_scope", "checkout_attempt", ["scope"])
 
 
 def downgrade():

@@ -1,6 +1,7 @@
 """Record checkout fulfillment without changing existing customer data."""
 from alembic import op
 import sqlalchemy as sa
+from migrations.schema_checks import create_or_validate_table
 
 revision = "0006_checkout_fulfillment"
 down_revision = "0005_user_settings"
@@ -9,7 +10,7 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
+    create_or_validate_table(
         "checkout_fulfillment",
         sa.Column("session_id", sa.String(255), primary_key=True),
         sa.Column("tenant_id", sa.Integer(), sa.ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False),

@@ -15,6 +15,19 @@ from authz import _RATE_BUCKETS
 
 
 class WebSettingsTests(unittest.TestCase):
+    def test_requests_do_not_create_billing_tables(self):
+        from sqlalchemy import event
+        statements = []
+        def record(connection, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+        event.listen(engine, 'before_cursor_execute', record)
+        try:
+            self.assertEqual(self.client.get('/billing/pricing').status_code, 200)
+        finally:
+            event.remove(engine, 'before_cursor_execute', record)
+        self.assertFalse(any('sqlite_master' in sql or 'sqlite_schema' in sql or sql.lstrip().upper().startswith('CREATE ')
+                             for sql in statements), 'HTTP requests must not inspect/create billing schema')
+
     def setUp(self):
         self.addCleanup(self.cleanup_database)
         Base.metadata.create_all(engine)
