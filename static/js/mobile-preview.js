@@ -186,7 +186,11 @@
   modalRoot.addEventListener('pointercancel', finishDrag);
   function preserveForm(){const form=$('#job-form');if(form)Object.assign(state.form,Object.fromEntries(new FormData(form)));}
   async function copy(text,message){try{await navigator.clipboard.writeText(text);toast(message);}catch{toast('Copy unavailable in this browser');}}
-  function action(value,el){const [name,...rest]=value.split(':'),arg=rest.join(':');switch(name){
+  function action(value,el){
+    // Safari does not focus clicked buttons. Record the actual trigger before
+    // opening a sheet so cancel/escape returns focus to the right control.
+    el?.focus({preventScroll:true});
+    const [name,...rest]=value.split(':'),arg=rest.join(':');switch(name){
     case 'go':if(arg==='signin')state.authError='';go(arg);break;
     case 'back':back();break;
     case 'dismiss':closeSheet(true);break;

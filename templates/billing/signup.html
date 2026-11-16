@@ -223,176 +223,28 @@
   
   
   <div class="plans-grid">
-    <!-- Free Plan -->
-    <div class="plan-card" data-plan="free">
+    {% for plan in plans %}
+    <div class="plan-card" data-plan="{{ plan.tier }}" data-plan-tier="{{ plan.tier }}">
       <div class="plan-header">
-        <div class="plan-tagline">Get started for</div>
-        <div class="plan-name">Free*</div>
-      </div>
-      <div class="plan-price" style="min-height: 2.5rem;">
-        <!-- Free has no price display -->
-      </div>
-      <ul class="feature-list">
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          1 active job
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Up to 25 résumés
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Job Relevancy Score
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          1 seat
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Job Board
-        </li>
-      </ul>
-      <div class="plan-cta">
-        <button type="button" class="btn-outline select-plan-btn" data-plan="free">Start Free</button>
-      </div>
-    </div>
-    
-    <!-- Starter Plan -->
-    <div class="plan-card" data-plan="starter">
-      <div class="plan-header">
-        <div class="plan-name">Starter</div>
+        {% if plan.tagline %}<div class="plan-tagline">{{ plan.tagline }}</div>{% endif %}
+        <div class="plan-name">{{ plan.display_name }}</div>
       </div>
       <div class="plan-price">
-        <span class="price-amount" data-monthly="49" data-yearly="382.20">
-          {% if selected_cycle == 'yearly' %}<strong>$382.20</strong><span class="price-period">/yr*</span>{% else %}<strong>$49</strong><span class="price-period">/mo*</span>{% endif %}
+        <span class="price-amount" data-monthly="{{ plan.monthly_price }}" data-yearly="{{ plan.yearly_price }}">
+          {% if selected_cycle == 'yearly' %}<strong>${{ '%.2f'|format(plan.yearly_price) }}</strong><span class="price-period">/yr*</span>{% else %}<strong>${{ '%g'|format(plan.monthly_price) }}</strong><span class="price-period">/mo*</span>{% endif %}
         </span>
       </div>
       <ul class="feature-list">
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          3 active jobs
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Up to 100 résumés
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Job Relevancy Score
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          1 seat
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Job Board
-        </li>
+        <li>{{ plan.limits.active_jobs }} active job{{ 's' if plan.limits.active_jobs != 1 else '' }}</li>
+        <li>Up to {{ plan.limits.monthly_resumes }} résumés per month</li>
+        <li>{{ plan.limits.seats_included }} seat{{ 's' if plan.limits.seats_included != 1 else '' }}</li>
+        {% for feature in plan.features %}<li>{{ feature.name }}</li>{% endfor %}
       </ul>
       <div class="plan-cta">
-        <button type="button" class="btn-primary select-plan-btn" data-plan="starter">Select Plan</button>
+        <button type="button" class="btn-primary select-plan-btn" data-plan="{{ plan.tier }}">{{ 'Start Free' if plan.tier == 'free' else 'Select Plan' }}</button>
       </div>
     </div>
-    
-    <!-- Pro Plan -->
-    <div class="plan-card" data-plan="pro">
-      <div class="plan-header">
-        <div class="plan-name">Pro</div>
-      </div>
-      <div class="plan-price">
-        <span class="price-amount" data-monthly="129" data-yearly="1006.20">
-          {% if selected_cycle == 'yearly' %}<strong>$1006.20</strong><span class="price-period">/yr*</span>{% else %}<strong>$129</strong><span class="price-period">/mo*</span>{% endif %}
-        </span>
-      </div>
-      <ul class="feature-list">
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          10 active jobs
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Up to 500 résumés
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Job Relevancy Score
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Claim Validity Score
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Red Flag Detection
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          3 seats
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Job Board
-        </li>
-      </ul>
-      <div class="plan-cta">
-        <button type="button" class="btn-primary select-plan-btn" data-plan="pro">Select Plan</button>
-      </div>
-    </div>
-    
-    <!-- Ultra Plan -->
-    <div class="plan-card" data-plan="ultra">
-      <div class="plan-header">
-        <div class="plan-name">Ultra</div>
-      </div>
-      <div class="plan-price">
-        <span class="price-amount" data-monthly="239" data-yearly="1864.20">
-          {% if selected_cycle == 'yearly' %}<strong>$1864.20</strong><span class="price-period">/yr*</span>{% else %}<strong>$239</strong><span class="price-period">/mo*</span>{% endif %}
-        </span>
-      </div>
-      <ul class="feature-list">
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          20 active jobs
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Up to 1k résumés
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Job Relevancy Score
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Claim Validity Score
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Red Flag Detection
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Full Analytics Engine
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Dedicated support rep
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          3 seats
-        </li>
-        <li>
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Job Board
-        </li>
-      </ul>
-      <div class="plan-cta">
-        <button type="button" class="btn-primary select-plan-btn" data-plan="ultra">Select Plan</button>
-      </div>
-    </div>
+    {% endfor %}
     
     <!-- Enterprise Plan -->
     <div class="plan-card enterprise" data-plan="enterprise">
@@ -462,7 +314,7 @@
         </div>
         <div class="flex justify-between items-center mt-1">
           <span class="text-sm text-slate-600">Price:</span>
-          <span class="font-semibold" id="display-plan-price">$49/mo</span>
+          <span class="font-semibold" id="display-plan-price"></span>
         </div>
       </div>
       
@@ -523,19 +375,9 @@
   const closeModal = document.getElementById('close-modal');
   let selectedPlan = '{{ selected_plan }}';
   
-  const planNames = {
-    'free': 'Free',
-    'starter': 'Starter',
-    'pro': 'Pro',
-    'ultra': 'Ultra'
-  };
-  
-  const planPrices = {
-    'free': { monthly: 0, yearly: 0 },
-    'starter': { monthly: 49, yearly: 382.20 },
-    'pro': { monthly: 129, yearly: 1006.20 },
-    'ultra': { monthly: 239, yearly: 1864.20 }
-  };
+  const plans = {{ plans|tojson }};
+  const planNames = Object.fromEntries(plans.map(plan => [plan.tier, plan.display_name]));
+  const planPrices = Object.fromEntries(plans.map(plan => [plan.tier, {monthly: plan.monthly_price, yearly: plan.yearly_price}]));
   
   function updatePlanDisplay() {
     const displayName = document.getElementById('display-plan-name');

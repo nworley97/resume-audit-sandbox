@@ -16,11 +16,14 @@
 .settings-field { display:flex; flex-direction:column; gap:6px; margin:16px 0; }
 .settings-field[hidden],#profile-dialog [hidden] { display:none; }
 .settings-field label { font-size:14px; font-weight:500; }
-.settings-field input,.settings-field textarea { width:100%; border:1px solid #cbd5e1; padding:10px 12px; border-radius:8px; font:inherit; }
+.settings-field input,.settings-field textarea,.settings-field select { width:100%; border:1px solid #cbd5e1; padding:10px 12px; border-radius:8px; font:inherit; }
 .settings-field input:focus,.settings-field textarea:focus { outline:2px solid #0d9488; outline-offset:1px; }
 .settings-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:24px; }
 .settings-actions button { border-radius:8px; padding:10px 20px; font-weight:600; }
-.settings-save { background:#0d9488; color:white; }
+.settings-save { background:#0d9488; color:white; border-radius:8px; padding:10px 20px; }
+#team-members li,#team-created { overflow-wrap:anywhere; }
+#team-created { margin-top:16px; padding:16px; background:#ecfdf5; color:#065f46; border-radius:8px; }
+#team-error { color:#b91c1c; margin-top:12px; }
 .settings-cancel { border:1px solid #cbd5e1; }
 html[data-theme="dark"] #profile-dialog { background:var(--dash-card); color:var(--dash-text); border-color:var(--dash-border); }
 html[data-theme="dark"] .settings-help { color:var(--dash-muted); }

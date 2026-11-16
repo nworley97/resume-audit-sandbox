@@ -283,8 +283,8 @@ class SecurityRegressionTests(unittest.TestCase):
             self.assertEqual(first.post('/api/mobile/auth/change-password', json={
                 'current_password': 'original-test-password', 'new_password': 'replacement-test-password'
             }).status_code, 200)
-            for client in (first, second):
-                self.assertEqual(client.get('/api/session/me').status_code, 302)
+            self.assertEqual(first.get('/api/session/me').status_code, 200)
+            self.assertEqual(second.get('/api/session/me').status_code, 302)
             self.assertEqual(first.post('/api/mobile/auth/login', json={
                 'email': user.username, 'password': 'replacement-test-password'
             }).status_code, 200)
@@ -317,7 +317,7 @@ class SecurityRegressionTests(unittest.TestCase):
     def test_webhook_requires_valid_signature_and_configured_secret(self):
         import stripe_webhooks as webhooks
         import json, hmac, hashlib, time
-        payload = json.dumps({'id': 'evt_security_test', 'type': 'security.test', 'data': {'object': {}}})
+        payload = json.dumps({'id': 'evt_security_test', 'object': 'event', 'type': 'security.test', 'data': {'object': {}}})
         secret = 'synthetic-webhook-secret'
         timestamp = str(int(time.time()))
         digest = hmac.new(secret.encode(), f'{timestamp}.{payload}'.encode(), hashlib.sha256).hexdigest()

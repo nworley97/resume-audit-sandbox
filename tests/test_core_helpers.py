@@ -3,6 +3,7 @@ import json
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["OPENAI_API_KEY"] = ""
@@ -97,24 +98,58 @@ class BillingProtectionTests(unittest.TestCase):
         self.assertEqual(subscription.effective_plan_tier(), "free")
 
     def test_web_paid_upgrade_requires_checkout(self):
-        response = self.authenticated_client().post(
-            "/billing/change-plan",
-            data={"plan_tier": "pro", "billing_cycle": "monthly"},
-        )
+        with patch('billing_fulfillment.create_checkout', return_value='https://checkout.stripe.com/test') as checkout:
+            response = self.authenticated_client().post(
+                "/billing/change-plan",
+                data={"plan_tier": "pro", "billing_cycle": "monthly"},
+            )
+            self.assertTrue(checkout.call_args.kwargs['customer_id'])
+            self.assertEqual(checkout.call_args.kwargs['tenant_id'], self.tenant_id)
         self.assertEqual(response.status_code, 302)
-        self.assertIn("buy.stripe.com", response.headers["Location"])
+        self.assertIn("checkout.stripe.com", response.headers["Location"])
         self.assert_free_plan_unchanged()
 
     def test_mobile_paid_upgrade_returns_payment_required(self):
-        response = self.authenticated_client().post(
-            "/api/mobile/billing-test/billing/change-plan",
-            json={"plan_tier": "pro", "billing_cycle": "monthly"},
-        )
+        with patch('billing_fulfillment.create_checkout', return_value='https://checkout.stripe.com/test') as checkout:
+            response = self.authenticated_client().post(
+                "/api/mobile/billing-test/billing/change-plan",
+                json={"plan_tier": "pro", "billing_cycle": "monthly"},
+            )
+            self.assertTrue(checkout.call_args.kwargs['customer_id'])
+            self.assertEqual(checkout.call_args.kwargs['tenant_id'], self.tenant_id)
         self.assertEqual(response.status_code, 402)
         payload = response.get_json()
         self.assertTrue(payload["requires_payment"])
-        self.assertIn("buy.stripe.com", payload["payment_url"])
+        self.assertIn("checkout.stripe.com", payload["payment_url"])
         self.assert_free_plan_unchanged()
+
+    def test_mobile_cancellation_calls_provider_and_preserves_paid_period(self):
+        db = SessionLocal()
+        sub = db.query(TenantSubscription).filter_by(tenant_id=self.tenant_id).one()
+        sub.stripe_subscription_id = 'sub_cancel'
+        db.commit(); db.close()
+        try:
+            with patch('stripe_service.PaymentService.cancel_subscription', return_value=(False, 'Unavailable')) as cancel:
+                response = self.authenticated_client().post('/api/mobile/billing-test/billing/cancel')
+                self.assertEqual(response.status_code, 502)
+            db = SessionLocal()
+            self.assertIsNone(db.query(TenantSubscription).filter_by(tenant_id=self.tenant_id).one().canceled_at)
+            db.close()
+            with patch('stripe_service.PaymentService.cancel_subscription', return_value=(True, None)) as cancel:
+                response = self.authenticated_client().post('/api/mobile/billing-test/billing/cancel')
+                self.assertEqual(response.status_code, 200)
+                cancel.assert_called_once_with('sub_cancel', cancel_at_period_end=True)
+            db = SessionLocal()
+            sub = db.query(TenantSubscription).filter_by(tenant_id=self.tenant_id).one()
+            self.assertEqual(sub.status, 'active')
+            self.assertIsNotNone(sub.canceled_at)
+            db.close()
+        finally:
+            db = SessionLocal()
+            sub = db.query(TenantSubscription).filter_by(tenant_id=self.tenant_id).one()
+            sub.stripe_subscription_id = None
+            sub.canceled_at = None
+            db.commit(); db.close()
 
 
 class ResumeCompatibilityTests(unittest.TestCase):
