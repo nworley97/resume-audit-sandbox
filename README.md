@@ -61,6 +61,27 @@ For isolated manual testing, run `python scripts/preview_settings.py` and open `
 
 Run the website notification race regression with `node --test tests/web-settings-notifications.test.cjs`.
 
+## Temporary public-site hiding
+
+Set `SITE_HIDDEN=true` on each Render service and redeploy to hide marketing pages,
+close GET/POST registration and legacy signup checkout, and send visitors from `/`
+to login. Login no longer advertises signup. Every response sends `X-Robots-Tag:
+noindex, nofollow, noarchive, nosnippet`; HTML and redirects are not cached.
+`robots.txt` deliberately allows crawling so search engines can read the noindex
+directive and remove existing listings. Removal is not immediate and this does
+not make known URLs secret or replace authentication.
+
+Existing-user login, password reset, dashboards, team administration, native APIs,
+account billing, direct job/application links, and legal pages remain available.
+Payment completion callbacks and signed Stripe webhooks remain enabled so already
+opened payments can still be fulfilled. The synthetic mobile demo is hidden.
+Set `SITE_HIDDEN=false` (the default) and redeploy to restore public pages/signup.
+No data migration, account deletion, or password change is involved.
+
+Test hidden mode with `SITE_HIDDEN=true npx playwright test site-visibility.spec.js`
+(set the environment variable using your shell's syntax). The normal browser suite
+tests public mode with `SITE_HIDDEN=false`.
+
 ## Pricing, team management, and AI
 
 Run `python -m alembic upgrade head` before starting every deployment, including Dev.
