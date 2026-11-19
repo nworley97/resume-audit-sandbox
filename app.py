@@ -79,6 +79,9 @@ _trusted_hosts = [item.strip() for item in os.getenv("TRUSTED_HOSTS", "").split(
 if _trusted_hosts:
     app.config["TRUSTED_HOSTS"] = _trusted_hosts
 
+from site_visibility import install_site_visibility
+install_site_visibility(app)
+
 from analytics_service import bp as analytics_bp
 app.register_blueprint(analytics_bp)
 
